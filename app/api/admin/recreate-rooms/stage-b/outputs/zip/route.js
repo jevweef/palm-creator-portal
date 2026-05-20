@@ -12,7 +12,7 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
 import archiver from 'archiver'
-import { requireAdmin, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken } from '@/lib/dropbox'
 
 const OUTPUTS = 'Stage B Outputs'
@@ -22,7 +22,7 @@ const rawLink = u => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw
 
 export async function GET(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const id = new URL(request.url).searchParams.get('id')
     if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
       return NextResponse.json({ error: 'Valid id required' }, { status: 400 })

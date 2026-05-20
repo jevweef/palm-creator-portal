@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import Anthropic from '@anthropic-ai/sdk'
@@ -184,7 +184,7 @@ async function createStageBRecord(fields) {
 // reel's pose/outfit/framing.
 export async function POST(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const { creatorId, poseStreamUid, poseTime, refDropboxPaths, reelRecordId, model, subjectDropboxPath } = await request.json()
     const mdl = MODELS[model] || MODELS.wan
     // SUBJECT MODE: a finished TJP photo (identity+pose+outfit already

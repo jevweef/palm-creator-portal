@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
@@ -65,7 +65,7 @@ async function genBaseImage(prompt) {
 // GET — TJP creators + all rooms + their variations
 export async function GET() {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const [creators, rooms, vars] = await Promise.all([
       fetchAirtableRecords('Palm Creators', {
         fields: ['Creator', 'AKA', 'TJP Enabled'],

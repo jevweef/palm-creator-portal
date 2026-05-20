@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 
@@ -35,7 +35,7 @@ function buildOutfitPrompt(outfit) {
 // GET ?id=<predictionId> → poll WaveSpeed for that job's result.
 export async function GET(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const id = new URL(request.url).searchParams.get('id')
     if (id) {
       const d = await pollWaveSpeedTask(id)
@@ -63,7 +63,7 @@ export async function GET(request) {
 // return the prediction id immediately (client polls GET ?id=).
 export async function POST(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const { imageDropboxPath, outfit, model } = await request.json()
     if (!imageDropboxPath || typeof imageDropboxPath !== 'string') {
       return NextResponse.json({ error: 'imageDropboxPath required' }, { status: 400 })

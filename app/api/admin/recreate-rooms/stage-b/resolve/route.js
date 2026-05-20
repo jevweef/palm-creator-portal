@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
@@ -16,7 +16,7 @@ const BATCH = 6
 // (a 301s job that killed the old sync route is captured here).
 export async function POST() {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const rows = await fetchAirtableRecords(OUTPUTS, {
       fields: ['Name', 'Prediction ID', 'Status'],
       filterByFormula: `AND({Status}='Generating', NOT({Prediction ID}=''))`,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OUTPUTS = 'Stage B Outputs'
@@ -13,7 +13,7 @@ const sel = v => (v?.name || v || null)
 // source reel + room so the gallery can show provenance.
 export async function GET(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const creatorId = new URL(request.url).searchParams.get('creatorId')
     const [outputs, reels, rooms] = await Promise.all([
       fetchAirtableRecords(OUTPUTS, {
@@ -73,7 +73,7 @@ export async function GET(request) {
 // tuning signal, never deleted).
 export async function PATCH(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const { id, status, reason } = await request.json()
     if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
       return NextResponse.json({ error: 'Valid id required' }, { status: 400 })

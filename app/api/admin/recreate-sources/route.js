@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
 
 export const maxDuration = 30
@@ -10,7 +10,7 @@ const HARD_CEIL = 500
 // GET — the global library: queued/scraped accounts + every scraped reel
 export async function GET() {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
 
     const [sources, reels] = await Promise.all([
       fetchAirtableRecords('Recreate Sources', {

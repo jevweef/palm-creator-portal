@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId } from '@/lib/dropbox'
 
 // Mints a short-lived Dropbox token + target path so the browser
@@ -7,7 +7,7 @@ import { getDropboxAccessToken, getDropboxRootNamespaceId } from '@/lib/dropbox'
 // straight to Dropbox. Mirrors recreate-rooms/upload-token.
 export async function POST(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const { kind } = await request.json()
     const k = String(kind || 'input').replace(/[^a-zA-Z0-9-_]/g, '') || 'input'
     const accessToken = await getDropboxAccessToken()

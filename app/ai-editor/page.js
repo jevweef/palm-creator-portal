@@ -223,6 +223,9 @@ export default function AiEditorPage() {
           <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 2 }}>
             Download source reels → recreate in TJP → upload the AI version + thumbnail back for review.
           </p>
+          <a href="/ai-editor/recreate" style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'underline' }}>
+            → Stage B & Outfit Swap
+          </a>
         </div>
         <select
           value={creatorId}
