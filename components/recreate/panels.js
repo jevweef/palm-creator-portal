@@ -488,7 +488,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         Composites your creator into their virtual room, with the pose &amp; outfit from an inspo reel — using their on-file AI Super Clone refs. Take the still ZIP to TJP for motion control, then bring the final video back to <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
       </p>
 
-      <div style={card}>
+      <div id="tour-stageb-creator" style={card}>
         <div style={lbl}>1 · Creator</div>
         <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
           style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
@@ -500,7 +500,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div id="tour-stageb-mode" style={{ display: 'flex', gap: 6, marginBottom: 12, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={() => setMode('standard')}
           style={{ flex: 1, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: mode === 'standard' ? 'var(--palm-pink)' : 'transparent', color: mode === 'standard' ? '#1a0a0a' : 'var(--foreground-muted)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
           Standard — start from an inspo reel
@@ -529,7 +529,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ fontSize: 12, color: '#888' }}>{availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click to scrub.</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
+            <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
               {availableReels.map(r => {
                 const isSel = reel?.id === r.id
                 const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
@@ -569,7 +569,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         </div>
       )}
 
-      <div style={card}>
+      <div id="tour-stageb-generate" style={card}>
         <div style={lbl}>{mode === 'subject' ? '3 · Generate (subject mode)' : '3 · Generate'}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>

@@ -4,6 +4,74 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 import { ModalHost, uiConfirm } from '@/components/recreate/panels'
+import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
+
+// Steps for the AI Recreate Pool tour. Targets are CSS selectors —
+// missing elements degrade to a center modal (so a step about Needs
+// Revision still shows even when there are no revisions on screen).
+const POOL_TOUR_STEPS = [
+  {
+    placement: 'center',
+    title: '👋 Welcome to AI Recreate',
+    body: `This is your home base for bulk AI content. The loop is:
+
+1. Pick an inspo reel → Stage B composites your creator into the right room with the reel's pose.
+2. Fan out outfits on the still.
+3. Take a ZIP of (still + reel + outfits) to TJP for motion control.
+4. Come back here and Batch Upload the finished videos.
+
+Let's walk through where each button lives.`,
+  },
+  {
+    target: '#tour-creator-picker',
+    placement: 'bottom',
+    title: 'Pick a creator first',
+    body: `Everything below is per-creator: reels available for them, batch upload, revisions. Switching here re-filters everything.`,
+  },
+  {
+    target: '#tour-batch-upload',
+    placement: 'bottom',
+    title: '📦 Batch Upload',
+    body: `When you come back from TJP with finished motion videos, drop them all here at once.
+
+Filenames must match the slug pattern (like Amelia_R042_S01_O03.mp4) — the slug tells the portal which Stage B still + outfit each video belongs to. The portal auto-extracts a thumbnail from the first frame.`,
+  },
+  {
+    target: '#tour-revisions',
+    placement: 'bottom',
+    title: '⚠️ Needs Revision',
+    body: `If admin requests changes on a video, it shows up here with their feedback + screenshots.
+
+Each card has 3 paths:
+• ↑ Re-upload revised — quick fix (TJP project still open, just swap music, etc.)
+• 🎨 Re-do Stage B — fresh take from scratch
+• 🗑 Discard — pair with Re-do Stage B if the rejected version is dead`,
+  },
+  {
+    target: '#tour-reel-grid',
+    placement: 'top',
+    title: 'The reel pool',
+    body: `Each card is one inspo reel available for this creator (already-produced reels are hidden).
+
+Three actions on each:
+• ↓ Raw — download just the reel and skip Stage B
+• 🎨 Stage B — composite your creator into her room matching this reel's pose (recommended)
+• ↑ Upload AI — for one-off uploads (Batch Upload is better for batches)`,
+  },
+  {
+    placement: 'center',
+    title: '🎯 Suggested first session',
+    body: `1. Pick a creator.
+2. Click 🎨 Stage B on 5–10 inspo reels — that opens the Stage B page where you'll scrub poses + generate stills.
+3. Approve the good stills → 👗 Fan out outfits on each.
+4. ⬇ Download all (1 mega-ZIP) at the top of the Stage B Outputs gallery.
+5. TJP off-site.
+6. 📦 Batch Upload everything back here.
+
+Click "? Guide" any time to replay this. The Stage B page has its own tour too.`,
+  },
+]
+
 
 function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen }) {
   const [showPlayer, setShowPlayer] = useState(false)
@@ -598,11 +666,13 @@ export default function AiEditorPage() {
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={() => setBatchOpen(true)}
+          <TourTriggerButton storageKey="ai-editor-pool-v1" label="? Guide" />
+          <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
           </button>
           <select
+            id="tour-creator-picker"
             value={creatorId}
             onChange={e => setCreatorId(e.target.value)}
             style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}
@@ -614,7 +684,9 @@ export default function AiEditorPage() {
       </div>
 
       {revisions.length > 0 && (
-        <RevisionsSection revisions={revisions} creatorId={creatorId} onResubmitted={() => loadRevisions(creatorId)} />
+        <div id="tour-revisions">
+          <RevisionsSection revisions={revisions} creatorId={creatorId} onResubmitted={() => loadRevisions(creatorId)} />
+        </div>
       )}
 
       {batchOpen && (
@@ -638,13 +710,14 @@ export default function AiEditorPage() {
           No available reels for this creator. An admin queues + scrapes accounts in AI Source.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
+        <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
           {reels.map(r => (
             <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} />
           ))}
         </div>
       )}
       <ModalHost />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v1" />
     </div>
   )
 }
