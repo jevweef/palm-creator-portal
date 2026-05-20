@@ -356,7 +356,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     loadOutputs()
   }
   const deleteOutput = async (o) => {
-    if (!(await uiConfirm('Delete this Stage B output record?', { danger: true, okLabel: 'Delete' }))) return
+    if (!(await uiConfirm('Delete this scene?', { danger: true, okLabel: 'Delete' }))) return
     await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
     loadOutputs()
   }
@@ -376,7 +376,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     const targets = fanOutFor === 'all-approved'
       ? outputs.filter(o => o.status === 'Approved').map(o => o.id)
       : [fanOutFor]
-    if (!targets.length) { await uiAlert('No approved Stage B stills to fan out across.'); return }
+    if (!targets.length) { await uiAlert('No approved scenes to fan out across.'); return }
 
     setBusy(true)
     try {
@@ -448,8 +448,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
       }
       setMsg(subjectMode
-        ? '⏳ Stage B — placing the subject into the room… appears below when done.'
-        : '⏳ Stage B — compositing the creator into the room… appears below when done.')
+        ? '⏳ Creating the scene — placing your photo into the room… result appears below when done.'
+        : '⏳ Creating the scene — putting your creator into the room with this pose… result appears below when done.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, poseStreamUid: reel?.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel?.id, model: genModel, subjectDropboxPath }),
@@ -462,12 +462,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         : String(v)
       if (d && d.ok && d.generating) {
         setStageBOut(null)
-        setMsg(`✅ Submitted — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Rendering on WaveSpeed (~3–6 min). It'll appear in Stage B Outputs below automatically — no need to wait on this screen.`)
+        setMsg(`✅ Submitted — pose framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. The scene takes about 3–6 minutes to generate. It'll show up in Scenes below automatically — you can navigate away.`)
         loadOutputs()
         setTimeout(() => document.getElementById('stageb-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
       } else if (d && d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
-        setMsg(`✅ Done — screenshot read as ${d.screenshotFraming}, matched to "${d.room}" [${d.roomFraming}]. Saved to Stage B Outputs.`)
+        setMsg(`✅ Done — pose framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. Saved to Scenes below.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -483,9 +483,9 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Stage B — Creator into Room</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Create Scene — put your creator in her room</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 14 }}>
-        Composites your creator into their virtual room, with the pose &amp; outfit from an inspo reel — using their on-file AI Super Clone refs. Take the still ZIP to TJP for motion control, then bring the final video back to <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
+        This takes an inspo reel + your creator&apos;s identity refs and produces a still photo of her standing in her room, posed exactly like the reel. That still is the starting point for everything else (outfits, motion control). Then bring the finished video back to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
       </p>
 
       <div id="tour-stageb-creator" style={card}>
@@ -503,11 +503,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       <div id="tour-stageb-mode" style={{ display: 'flex', gap: 6, marginBottom: 12, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={() => setMode('standard')}
           style={{ flex: 1, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: mode === 'standard' ? 'var(--palm-pink)' : 'transparent', color: mode === 'standard' ? '#1a0a0a' : 'var(--foreground-muted)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-          Standard — start from an inspo reel
+          Start from an inspo reel
         </button>
         <button onClick={() => setMode('subject')}
           style={{ flex: 1, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: mode === 'subject' ? '#e8b878' : 'transparent', color: mode === 'subject' ? '#1a0a0a' : 'var(--foreground-muted)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-          Subject — already have a TJP photo
+          I already have a photo of her
         </button>
       </div>
 
@@ -561,7 +561,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         <div style={{ ...card, borderStyle: 'dashed', borderColor: 'rgba(232,168,120,0.35)' }}>
           <div style={{ ...lbl, color: '#e8b878' }}>2 · Subject photo (already correct identity + pose + outfit)</div>
           <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-            Stage B keeps this person exactly as they are and only swaps the background to the creator&apos;s room.
+            The system keeps this person exactly as they are and only swaps the background to the creator&apos;s room.
           </div>
           <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
             style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
@@ -603,7 +603,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
             </div>
           ) : (
             <>
-              <img src={stageBOut.url} alt="Stage B result"
+              <img src={stageBOut.url} alt="Scene result"
                 style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
               <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                 <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
@@ -611,14 +611,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
               </div>
             </>
           )}
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>{stageBOut.compare ? 'Both A & B saved as Pending in Stage B Outputs below (tagged 1pass / 2pass).' : 'Saved as Pending in Stage B Outputs below.'}</div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Saved as Pending in Scenes below — approve it to enable outfits + downloads.</div>
         </div>
       )}
 
       {outputs.length > 0 && (
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <div style={lbl}>Stage B Outputs — {sel?.name} ({outputs.length})</div>
+            <div style={lbl}>Scenes — {sel?.name} ({outputs.length})</div>
             {(() => {
               const approvedCount = outputs.filter(o => o.status === 'Approved').length
               if (!approvedCount) return null

@@ -5,7 +5,7 @@ import { ModalHost, OutfitSwapPanel, StageBPanel } from '@/components/recreate/p
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 
 const TABS = [
-  { key: 'stageb', label: 'Stage B' },
+  { key: 'stageb', label: 'Create Scene' },
   { key: 'outfit', label: 'Outfit Swap' },
 ]
 
@@ -15,62 +15,62 @@ const TABS = [
 const STAGEB_TOUR_STEPS = [
   {
     placement: 'center',
-    title: '🎨 Stage B — the expensive anchor',
-    body: `Stage B composites your creator into her room with an inspo reel's pose. It's the slowest, most expensive step (~3–6 min per still) — so once it looks right, you'll fan out cheaply with outfits.
+    title: '🎨 Create Scene — the big slow step',
+    body: `This step puts your creator into her room, posed exactly like an inspo reel. It's the slowest part of the whole process (about 3–6 minutes per scene) and the most important one — once the scene looks right, everything downstream (outfits, motion control) is fast and cheap on top of it.
 
-The slug you'll see (e.g. Amelia_R042_S01) travels with this work all the way to admin review, so any rejection traces straight back here.`,
+Each scene gets a name like "Amelia_R042_S01" that follows it everywhere. If admin rejects the final video, you can trace it straight back to the scene it came from by name.`,
   },
   {
     target: '#tour-stageb-creator',
     placement: 'bottom',
     title: 'Creator',
-    body: `Pick the creator. The system tells you how many AI Super Clone face/front/back refs are on file (more = better identity match), and auto-picks one of her rooms to match the reel's framing.
+    body: `Pick the creator. The system shows you how many face/front/back reference photos she has on file — more reference photos = a better likeness match. It also auto-picks one of her rooms based on the framing of whatever pose you choose.
 
-⚠️ If she has no rooms yet, you'll see a warning — create one in the Rooms tab first.`,
+⚠️ If she has no rooms set up yet, you'll see a warning — an admin needs to create one in the Rooms tab first.`,
   },
   {
     target: '#tour-stageb-mode',
     placement: 'bottom',
-    title: 'Standard vs Subject mode',
-    body: `Standard — start from an inspo reel (the usual path).
+    title: 'Two ways to make a scene',
+    body: `Start from an inspo reel — the normal path. You'll pick a reel, scrub to the exact pose, and the system places your creator there.
 
-Subject — you already have a finished TJP photo of your creator and just want the background swapped to a different room. Skips the reel grid + identity-ref steps entirely.`,
+I already have a photo of her — for when you already have a finished image of the creator from TJP and just want to drop her into a different room. Skips the reel and reference-photo steps entirely.`,
   },
   {
     target: '#tour-stageb-reels',
     placement: 'top',
     title: 'Pick a reel & scrub the pose',
-    body: `Each tile is one inspo reel for this creator (already-produced reels are hidden). Click one → a scrub modal opens.
+    body: `Each tile is one inspo reel for this creator (anything she's already used is hidden). Click one and a scrubbing window opens.
 
-In the modal: scrub to the exact pose you want, then Capture. The system reads the framing (full-body / cropped / tight) and matches it to the right room angle automatically.`,
+In that window: drag the slider to the exact pose you want, then click Capture. The system reads how tight or wide the framing is, and automatically picks the room angle that matches.`,
   },
   {
     target: '#tour-stageb-generate',
     placement: 'top',
-    title: 'Generate',
-    body: `Click 👤 Generate. WaveSpeed runs the composite (~3–6 min). You can navigate away — generation continues server-side and the result lands in the gallery below automatically.
+    title: 'Generate the scene',
+    body: `Click 👤 Generate. The AI takes about 3–6 minutes. You can navigate away — it keeps running in the background and the result shows up in the gallery below as soon as it's done.
 
-Default model is Wan 2.7 (recommended). Nano-Banana sometimes hits an adult-content filter; GPT-Image-2 is experimental.`,
+Default model is Wan (recommended — best results for this). The other two options exist for experimenting; usually leave Wan selected.`,
   },
   {
     target: '#stageb-outputs',
     placement: 'top',
-    title: 'Outputs gallery — approve & fan out',
-    body: `Generated stills land here. Approve ✓ keepers, reject ✕ misses (reason saved for tuning).
+    title: 'Scenes gallery — approve & bundle outfits',
+    body: `Each finished scene appears here. ✓ to approve the keepers, ✕ to reject the misses (you can leave a reason — it helps us tune the system).
 
-Once a still is Approved, click 👗 Fan out outfits to spawn multiple outfit variants of the same pose. Or use 👗 Fan out across all N approved at the top to bulk-spread outfits across every approved still.
+Once a scene is Approved, click 👗 Fan out outfits to pair it with multiple outfit photos. Or use 👗 Fan out across all approved at the top to bundle the same set of outfits with every approved scene in one click.
 
-When you're ready for TJP: ⬇ Bulk ZIP on each still, or ⬇ Download all (1 mega-ZIP) for the whole day.`,
+When you're ready: ⬇ Bulk ZIP per scene, or ⬇ Download all to grab the whole day's work in one archive.`,
   },
   {
     placement: 'center',
     title: '🚚 To TJP and back',
     body: `Your TJP workflow:
 
-1. Unzip a mega-ZIP locally — each subfolder has a still, the source reel, and the outfit variant images, plus a manifest.txt explaining which slug = which outfit.
-2. In TJP: pair each still with the reel for motion control. Output one mp4 per outfit variant.
-3. Name the output files with the slug (e.g. Amelia_R042_S01_O03.mp4) — that's how Batch Upload knows where each one belongs.
-4. Back on /ai-editor → 📦 Batch Upload — drop them all in.`,
+1. Unzip the bundle. Each subfolder has the scene, the inspo reel, the outfit reference photos, and a manifest.txt explaining what's what.
+2. In TJP: do the outfit transfer + motion control. You'll end up with one finished mp4 per (scene × outfit) combination.
+3. Name the finished videos to match the scene + outfit (e.g. Amelia_R042_S01_O03.mp4) so the system knows where each one belongs.
+4. Come back to AI Recreate Pool → 📦 Batch Upload — drop them all in at once.`,
   },
 ]
 
@@ -116,14 +116,14 @@ export default function AiEditorRecreatePage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
           <a href="/ai-editor" style={{ fontSize: 12, color: 'var(--foreground-muted)', textDecoration: 'none' }}>← AI Recreate Pool</a>
-          {tab === 'stageb' && <TourTriggerButton storageKey="ai-editor-stageb-v1" label="? Guide" />}
+          {tab === 'stageb' && <TourTriggerButton storageKey="ai-editor-stageb-v2" label="? Guide" />}
         </div>
         <TabBar tab={tab} setTab={setTab} />
         {tab === 'stageb'
           ? <StageBPanel initialCreatorId={initialCreatorId} initialReelRecordId={initialReelRecordId} />
           : <OutfitSwapPanel />}
         <ModalHost />
-        {tab === 'stageb' && <GuidedTour steps={STAGEB_TOUR_STEPS} storageKey="ai-editor-stageb-v1" />}
+        {tab === 'stageb' && <GuidedTour steps={STAGEB_TOUR_STEPS} storageKey="ai-editor-stageb-v2" />}
       </div>
     </div>
   )

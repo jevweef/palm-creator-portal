@@ -12,13 +12,14 @@ import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 const POOL_TOUR_STEPS = [
   {
     placement: 'center',
-    title: '👋 Welcome to AI Recreate',
-    body: `This is your home base for bulk AI content. The loop is:
+    title: '👋 Welcome',
+    body: `This page is your home base for making AI content in bulk. Here's the workflow in plain English:
 
-1. Pick an inspo reel → Stage B composites your creator into the right room with the reel's pose.
-2. Fan out outfits on the still.
-3. Take a ZIP of (still + reel + outfits) to TJP for motion control.
-4. Come back here and Batch Upload the finished videos.
+1. Pick an inspo reel you like → click "Create Scene". The system places your creator into her room, posed exactly like the reel.
+2. Pick a few outfits to pair with that scene.
+3. Download a ZIP with the scene, the reel, and the outfit photos.
+4. Do the motion + outfit work in TJP (off-site).
+5. Come back here and drop the finished videos into Batch Upload.
 
 Let's walk through where each button lives.`,
   },
@@ -26,49 +27,49 @@ Let's walk through where each button lives.`,
     target: '#tour-creator-picker',
     placement: 'bottom',
     title: 'Pick a creator first',
-    body: `Everything below is per-creator: reels available for them, batch upload, revisions. Switching here re-filters everything.`,
+    body: `Everything below is filtered to whichever creator is selected here — the reels you can use, your upload queue, anything admin wants you to revise.`,
   },
   {
     target: '#tour-batch-upload',
     placement: 'bottom',
     title: '📦 Batch Upload',
-    body: `When you come back from TJP with finished motion videos, drop them all here at once.
+    body: `When you come back from TJP with a bunch of finished motion videos, drop them all here at once.
 
-Filenames must match the slug pattern (like Amelia_R042_S01_O03.mp4) — the slug tells the portal which Stage B still + outfit each video belongs to. The portal auto-extracts a thumbnail from the first frame.`,
+The filename of each video tells the system which scene + outfit it belongs to (e.g. Amelia_R042_S01_O03.mp4). The system auto-creates a thumbnail from the first frame.`,
   },
   {
     target: '#tour-revisions',
     placement: 'bottom',
     title: '⚠️ Needs Revision',
-    body: `If admin requests changes on a video, it shows up here with their feedback + screenshots.
+    body: `If admin sees something they don't like, the video shows up here with their feedback + screenshots.
 
-Each card has 3 paths:
-• ↑ Re-upload revised — quick fix (TJP project still open, just swap music, etc.)
-• 🎨 Re-do Stage B — fresh take from scratch
-• 🗑 Discard — pair with Re-do Stage B if the rejected version is dead`,
+Three ways to handle it:
+• ↑ Re-upload revised — small tweak (re-edit in TJP, drop the new mp4 here)
+• 🎨 Re-do Scene — start over from a fresh scene
+• 🗑 Discard — pair with "Re-do Scene" if the rejected version is dead`,
   },
   {
     target: '#tour-reel-grid',
     placement: 'top',
     title: 'The reel pool',
-    body: `Each card is one inspo reel available for this creator (already-produced reels are hidden).
+    body: `Each card is one inspo reel available for this creator (anything she's already used is hidden).
 
-Three actions on each:
-• ↓ Raw — download just the reel and skip Stage B
-• 🎨 Stage B — composite your creator into her room matching this reel's pose (recommended)
-• ↑ Upload AI — for one-off uploads (Batch Upload is better for batches)`,
+Three actions on each card:
+• ↓ Raw — download just the reel and skip the scene step
+• 🎨 Create Scene — put your creator into her room with this reel's pose (recommended path)
+• ↑ Upload AI — for one-off finished uploads (Batch Upload is better when you have several)`,
   },
   {
     placement: 'center',
     title: '🎯 Suggested first session',
-    body: `1. Pick a creator.
-2. Click 🎨 Stage B on 5–10 inspo reels — that opens the Stage B page where you'll scrub poses + generate stills.
-3. Approve the good stills → 👗 Fan out outfits on each.
-4. ⬇ Download all (1 mega-ZIP) at the top of the Stage B Outputs gallery.
-5. TJP off-site.
-6. 📦 Batch Upload everything back here.
+    body: `1. Pick a creator from the dropdown.
+2. Click 🎨 Create Scene on 5–10 inspo reels you like. You'll land on the Create Scene page where you scrub each reel to the exact pose, then generate.
+3. Approve the good scenes → click 👗 Fan out outfits on each to pair them with outfit photos.
+4. ⬇ Download all (1 ZIP) — gives you everything TJP needs.
+5. Do the motion + outfit work in TJP.
+6. Come back, 📦 Batch Upload the finished videos.
 
-Click "? Guide" any time to replay this. The Stage B page has its own tour too.`,
+Click "? Guide" any time to replay this. The Create Scene page has its own tour too.`,
   },
 ]
 
@@ -213,8 +214,8 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
           <a
             href={`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`}
             style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: '#e8b878', background: 'rgba(232,184,120,0.1)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, cursor: 'pointer', textDecoration: 'none' }}
-            title="Composite this creator into a room matching this reel's pose"
-          >🎨 Stage B</a>
+            title="Put this creator in her room with this reel's pose"
+          >🎨 Create Scene</a>
           <button
             onClick={() => setShowUpload(v => !v)}
             style={{ flex: '1 1 80px', padding: '6px 0', fontSize: 12, color: '#6AC68A', background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}
@@ -372,12 +373,12 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
         {rev.stageBParent && (
           <a href={`/ai-editor/recreate?tab=stageb&creator=${rev.stageBParent.creatorId || creatorId}&reel=${rev.stageBParent.reelRecordId}`}
             style={{ flex: '1 1 120px', textAlign: 'center', padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#e8b878', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, textDecoration: 'none' }}>
-            🎨 Re-do Stage B
+            🎨 Re-do Scene
           </a>
         )}
       </div>
       <button onClick={async () => {
-        if (!(await uiConfirm(`Discard this rejected task? The Dropbox file stays (archive). Use this when you're starting fresh via Re-do Stage B — otherwise just re-upload.`, { danger: true, okLabel: 'Discard' }))) return
+        if (!(await uiConfirm(`Discard this rejected task? The Dropbox file stays (archive). Use this when you're starting fresh with a new scene — otherwise just re-upload.`, { danger: true, okLabel: 'Discard' }))) return
         try {
           const r = await fetch('/api/ai-editor/discard', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -388,7 +389,7 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
         } catch (e) { setErr(e.message) }
       }}
         style={{ width: '100%', marginTop: 6, padding: '6px 0', fontSize: 11, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>
-        🗑 Discard (starting fresh from Stage B)
+        🗑 Discard (starting a new scene from scratch)
       </button>
 
       {showUpload && (
@@ -516,7 +517,7 @@ function BatchUploadModal({ creatorId, onClose, onDone }) {
       <div onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>📦 Batch upload finished videos</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-          Drop N finished AI motion videos at once. Filenames should match the slug pattern (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01_O03.mp4</span>) so each file lands on its parent Stage B Output. Thumbnails are auto-generated from the first frame.
+          Drop N finished AI motion videos at once. Filenames should match the scene + outfit name (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01_O03.mp4</span>) so each file lands on its parent scene. Thumbnails are auto-generated from the first frame.
         </div>
 
         <div onDrop={onDrop} onDragOver={e => e.preventDefault()}
@@ -662,11 +663,11 @@ export default function AiEditorPage() {
             Download source reels → recreate in TJP → upload the AI version + thumbnail back for review.
           </p>
           <a href="/ai-editor/recreate" style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'underline' }}>
-            → Stage B & Outfit Swap
+            → Create Scene & Outfit Swap
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v1" label="? Guide" />
+          <TourTriggerButton storageKey="ai-editor-pool-v2" label="? Guide" />
           <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
@@ -717,7 +718,7 @@ export default function AiEditorPage() {
         </div>
       )}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v1" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v2" />
     </div>
   )
 }

@@ -318,7 +318,7 @@ function TabBar({ tab, setTab }) {
       {t('library', 'Reel Library')}
       {t('rooms', 'Rooms')}
       {t('avatar', 'Creator Avatar')}
-      {t('stageb', 'Stage B')}
+      {t('stageb', 'Create Scene')}
       {t('outfit', 'Outfit Swap')}
     </div>
   )
@@ -599,7 +599,7 @@ function CreatorAvatarPanel() {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Creator Avatar — AI Super Clone</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
-        Set up the creator&apos;s reference photos here once. These supply identity for Stage B and the recreate pipeline.
+        Set up the creator&apos;s reference photos here once. These supply identity for the Create Scene step and the rest of the recreate pipeline.
       </p>
       <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
         style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
