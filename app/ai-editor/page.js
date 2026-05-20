@@ -668,14 +668,14 @@ export default function AiEditorPage() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate Pool</h1>
           <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 2 }}>
-            Download source reels → recreate in TJP → upload the AI version + thumbnail back for review.
+            Pick an inspo reel → 🎨 Create Scene (TJP + portal) → outfit transfer + motion in TJP → 📦 Batch Upload here for review.
           </p>
           <a href="/ai-editor/recreate" style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'underline' }}>
             → Create Scene
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v4" label="? Guide" />
+          <TourTriggerButton storageKey="ai-editor-pool-v5" label="? Guide" />
           <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
@@ -726,7 +726,7 @@ export default function AiEditorPage() {
         </div>
       )}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v4" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v5" />
     </div>
   )
 }

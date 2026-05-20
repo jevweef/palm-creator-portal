@@ -186,10 +186,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     : reels
 
   const generate = async () => {
-    if (!creatorId) { setMsg('Pick a creator first.'); return }
-    if (!reel?.id) { setMsg('Pick the inspo reel this scene goes with (step 2).'); return }
-    if (!subjectFile) { setMsg('Upload the TJP image-to-image photo (step 5).'); return }
-    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading project files…')
+    if (!creatorId) { setMsg('⚠️ Pick a creator first (step 1).'); return }
+    if (!reel?.id) { setMsg('⚠️ Pick the inspo reel this scene goes with (step 2).'); return }
+    if (!subjectFile) { setMsg('⚠️ Upload the TJP image-to-image photo (step 5).'); return }
+    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading your files…')
     try {
       // Upload the TJP photo (required input to generation) plus the
       // optional organizational artifacts. The route attaches all three
@@ -197,7 +197,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       const subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
       const rawScreenshotPath = rawScreenshotFile ? await stageBUpload(rawScreenshotFile, 'raw_screenshot') : null
       const upscaledScreenshotPath = upscaledScreenshotFile ? await stageBUpload(upscaledScreenshotFile, 'upscaled_screenshot') : null
-      setMsg('⏳ Creating the scene — swapping the background to her room… result appears below when done.')
+      setMsg('⏳ Creating the scene — the AI is swapping her background to her saved room. This takes 3–6 minutes; you can navigate away and the result will appear in Scenes below.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId, reelRecordId: reel.id, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath }),
@@ -210,12 +210,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         : String(v)
       if (d && d.ok && d.generating) {
         setStageBOut(null)
-        setMsg(`✅ Submitted — framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. The scene takes about 3–6 minutes. It'll show up in Scenes below automatically — you can navigate away.`)
+        setMsg(`✅ Scene submitted. The portal read your photo as ${d.screenshotFraming} framing and picked her "${d.room}" [${d.roomFraming}] room. Rendering — check the Scenes section below in a few minutes.`)
         loadOutputs()
         setTimeout(() => document.getElementById('stageb-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
       } else if (d && d.ok) {
         setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
-        setMsg(`✅ Done — framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. Saved to Scenes below.`)
+        setMsg(`✅ Scene done. Read as ${d.screenshotFraming} framing, placed in her "${d.room}" [${d.roomFraming}] room. Saved to Scenes below.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -233,7 +233,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Create Scene — put your creator in her room</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 14 }}>
-        Upload the finished TJP image-to-image photo (your creator in the inspo reel&apos;s pose &amp; outfit), pick which reel it came from, and the portal swaps the background to her saved room. That scene is then the starting point for outfits + motion control back in TJP — bring the finished video back to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
+        Pick the inspo reel + upload the TJP image-to-image photo of your creator in that reel&apos;s pose &amp; outfit. The portal swaps the background to her saved room. From there, take the scene back to TJP for outfit transfer + motion control, then bring the finished video to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> for review.
       </p>
 
       <div id="tour-stageb-creator" style={card}>
@@ -244,7 +244,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
           {creators.map(c => <option key={c.id} value={c.id}>{c.name} — {c.face}F·{c.front}Fr·{c.back}B</option>)}
         </select>
         <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>
-          {sel ? `${sel.face} face + ${sel.front} front + ${sel.back} back ${sel.approved ? 'approved AI Super Clone refs' : 'raw AI Ref Inputs (approve in Creator Avatar for best results)'}. Room auto-picked: ${myRooms.length === 0 ? `⚠️ no rooms yet — create one in the Rooms tab first` : `${myRooms.length} on file (${myRooms.map(r => r.framing || '?').join(', ')})`}.` : 'Any creator with AI Super Clone refs on file.'}
+          {sel ? (
+            myRooms.length === 0
+              ? `⚠️ ${sel.name} has no saved rooms yet — an admin needs to create one in the Rooms tab before you can generate scenes for her.`
+              : `${sel.name} has ${myRooms.length} room${myRooms.length === 1 ? '' : 's'} on file (${myRooms.map(r => r.framing || '?').join(', ')}). The portal will auto-pick the one whose framing matches your uploaded photo.`
+          ) : 'Pick a creator to see her saved rooms.'}
         </div>
       </div>
 
@@ -302,7 +306,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       <div id="tour-stageb-subject" style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
         <div style={{ ...lbl, color: '#e8b878' }}>5 · TJP image-to-image output (required)</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          The photo from TJP where your creator is already in the reel&apos;s pose &amp; outfit (still in the reel&apos;s environment). This is the photo the portal will keep as-is and swap behind her with her saved room.
+          The TJP photo of your creator in the reel&apos;s pose &amp; outfit (still in the reel&apos;s original environment). The portal keeps her exactly as-is and just swaps the background to her saved room.
         </div>
         <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
           style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
@@ -317,7 +321,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       <div id="tour-stageb-generate" style={card}>
         <div style={lbl}>6 · Generate the scene</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>
-          The portal will swap your TJP photo&apos;s background for {sel?.name || 'the creator'}&apos;s saved room and relight her to match. Takes ~3–6 min — you can navigate away.
+          Swaps {sel?.name || 'the creator'}&apos;s background for her saved room and relights her to match. Takes ~3–6 minutes — you can navigate away, the result lands in Scenes below when it&apos;s done.
         </div>
         <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
           {busy ? 'Working…' : '🪄 Generate scene'}
@@ -334,7 +338,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
             <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
               style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Saved as Pending in Scenes below — approve it to enable outfits + downloads.</div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Saved as Pending in Scenes below. Approve it (✓) to enable the TJP download button.</div>
         </div>
       )}
 
@@ -356,7 +360,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
             {outputs.map(o => {
               const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
-              const placeholder = o.status === 'Generating' ? '⏳ rendering on WaveSpeed…' : o.status === 'Failed' ? '✕ failed' : '…'
+              const placeholder = o.status === 'Generating' ? '⏳ rendering…' : o.status === 'Failed' ? '✕ failed' : '…'
               return (
                 <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
                   {o.image
@@ -367,7 +371,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
                       <span style={{ color: '#ddd', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, monospace' }}>{o.slug || `${sel?.name} · Reel ${o.index ?? '?'}`}</span>
                       <span style={{ color: sc, fontWeight: 700 }}>{o.status}</span>
                     </div>
-                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · shot {o.screenshotFraming || '?'}</div>
+                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · framing {o.screenshotFraming || '?'}</div>
                     {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ source reel @{o.reel.handle || o.reel.reelId}</a>}
 
                     {/* Bundle Outfits coming in next commit (outfit library). */}
