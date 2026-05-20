@@ -99,177 +99,6 @@ export async function stageBUpload(blob, kind) {
   return tok.path
 }
 
-export function OutfitSwapPanel() {
-  const [creators, setCreators] = useState([])
-  const [creatorId, setCreatorId] = useState('')
-  const [outfits, setOutfits] = useState([])
-  const [pickedId, setPickedId] = useState('')
-  const [freeText, setFreeText] = useState('')
-  const [model, setModel] = useState('wan')
-  const [file, setFile] = useState(null)
-  const [srcPreview, setSrcPreview] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [outputs, setOutputs] = useState([])
-
-  useEffect(() => {
-    fetch('/api/admin/recreate-rooms/outfit-swap').then(r => r.json())
-      .then(d => setOutfits(d.outfits || [])).catch(() => {})
-    fetch('/api/admin/recreate-rooms/stage-b/creators').then(r => r.json()).then(d => {
-      setCreators(d.creators || [])
-      if (d.creators?.[0]) setCreatorId(d.creators[0].id)
-    }).catch(() => {})
-  }, [])
-
-  const loadOutputs = useCallback(async () => {
-    if (!creatorId) { setOutputs([]); return }
-    try { await fetch('/api/admin/recreate-rooms/outfit-swap/resolve', { method: 'POST' }) } catch {}
-    try {
-      const d = await fetch(`/api/admin/recreate-rooms/outfit-swap?creatorId=${creatorId}`).then(r => r.json())
-      setOutputs(d.outputs || [])
-    } catch {}
-  }, [creatorId])
-
-  useEffect(() => { loadOutputs() }, [loadOutputs])
-
-  const anyGenerating = outputs.some(o => o.status === 'Generating')
-  useEffect(() => {
-    if (!anyGenerating) return
-    const t = setInterval(() => { loadOutputs() }, 25000)
-    return () => clearInterval(t)
-  }, [anyGenerating, loadOutputs])
-
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 16 }
-  const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
-
-  const onFile = (f) => { setFile(f || null); setSrcPreview(f ? URL.createObjectURL(f) : '') }
-  const sel = creators.find(c => c.id === creatorId)
-
-  const setOutputStatus = async (o, status) => {
-    let reason
-    if (status === 'Rejected') {
-      reason = (await uiPrompt('Why is this rejected? (kept as a tuning signal)', { placeholder: 'reason…' })) || ''
-    }
-    await fetch('/api/admin/recreate-rooms/outfit-swap', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: o.id, status, reason }),
-    }).catch(() => {})
-    loadOutputs()
-  }
-  const deleteOutput = async (o) => {
-    if (!(await uiConfirm('Delete this outfit swap record?', { danger: true, okLabel: 'Delete' }))) return
-    await fetch(`/api/admin/recreate-rooms/outfit-swap?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
-    loadOutputs()
-  }
-
-  const generate = async () => {
-    const outfit = (freeText.trim()) || (outfits.find(o => o.id === pickedId)?.prompt || '')
-    if (!file) { setMsg('Upload the upscaled screen-grab first.'); return }
-    if (!outfit) { setMsg('Pick an outfit or type your own.'); return }
-    setBusy(true); setMsg('⏳ Uploading image…')
-    try {
-      const path = await stageBUpload(file, 'outfit')
-      setMsg('⏳ Submitting…')
-      const sub = await fetch('/api/admin/recreate-rooms/outfit-swap', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageDropboxPath: path, outfit, model, creatorId: creatorId || undefined }),
-      }).then(r => r.json())
-      if (!sub.ok) { setMsg(`❌ ${sub.error || 'submit failed'}`); setBusy(false); return }
-      setMsg('✅ Submitted — rendering on WaveSpeed (~1–3 min). The result appears below automatically; no need to wait on this screen.')
-      loadOutputs()
-      setTimeout(() => document.getElementById('outfit-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
-    } catch (e) { setMsg(`❌ ${e?.message || String(e)}`) }
-    setBusy(false)
-  }
-
-  return (
-    <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Outfit Swap</h1>
-      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 16 }}>
-        Changes ONLY the clothing on a photo — pose, framing and background stay. Use it when an inspo reel has the right pose but the wrong outfit. Upload an upscaled screen-grab, pick (or type) an outfit, generate, then take the result to TJP for the creator likeness swap.
-      </p>
-
-      <div style={card}>
-        <div style={lbl}>1 · Creator (so the output ends up in the right gallery)</div>
-        <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
-          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, minWidth: 240 }}>
-          <option value="">— pick creator —</option>
-          {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </div>
-
-      <div style={card}>
-        <div style={lbl}>2 · Upscaled screen-grab</div>
-        <input type="file" accept="image/*" onChange={e => onFile(e.target.files?.[0] || null)}
-          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-        {srcPreview && <img src={srcPreview} alt="" style={{ display: 'block', marginTop: 10, width: 'min(220px,45vw)', borderRadius: 8 }} />}
-      </div>
-
-      <div style={card}>
-        <div style={lbl}>3 · Outfit (pick from the closet, or type your own — keep it short)</div>
-        <select value={pickedId} onChange={e => { setPickedId(e.target.value); setFreeText('') }}
-          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, minWidth: 240 }}>
-          <option value="">— choose an outfit —</option>
-          {outfits.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', margin: '10px 0 4px' }}>or type a custom outfit (short — long prompts move the pose):</div>
-        <textarea value={freeText} onChange={e => { setFreeText(e.target.value); if (e.target.value) setPickedId('') }} rows={2}
-          placeholder="e.g. a fitted black tank top and denim cut-off shorts"
-          style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
-      </div>
-
-      <div style={card}>
-        <div style={lbl}>4 · Generate</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
-          <select value={model} onChange={e => setModel(e.target.value)}
-            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
-            <option value="wan">Wan 2.7 image-edit-pro (recommended)</option>
-            <option value="nano">Nano-Banana 2 (⚠ may hit content filter)</option>
-            <option value="gpt">GPT-Image-2 (experimental)</option>
-          </select>
-          <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-            {busy ? 'Working…' : '👗 Swap outfit'}
-          </button>
-        </div>
-        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
-      </div>
-
-      {outputs.length > 0 && (
-        <div style={card} id="outfit-outputs">
-          <div style={lbl}>Outfit swap outputs — {sel?.name || 'creator'} ({outputs.length})</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
-            {outputs.map(o => {
-              const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
-              const placeholder = o.status === 'Generating' ? '⏳ rendering on WaveSpeed…' : o.status === 'Failed' ? '✕ failed' : '…'
-              return (
-                <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                  {o.image
-                    ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
-                  <div style={{ padding: 8, fontSize: 11 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#ddd', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.outfit || 'Outfit'}</span>
-                      <span style={{ color: sc, fontWeight: 700 }}>{o.status}</span>
-                    </div>
-                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.model || 'wan'}</div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      {o.status !== 'Approved' && <button onClick={() => setOutputStatus(o, 'Approved')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✓</button>}
-                      {o.status !== 'Rejected' && <button onClick={() => setOutputStatus(o, 'Rejected')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✕</button>}
-                      <a href={o.dropbox || o.image || '#'} target="_blank" rel="noreferrer" style={{ padding: '4px 8px', fontSize: 11, background: 'rgba(120,160,232,0.16)', color: '#8fb4f0', borderRadius: 5, textDecoration: 'none' }}>↗</a>
-                      <button onClick={() => deleteOutput(o)} style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, cursor: 'pointer' }}>🗑</button>
-                    </div>
-                    {o.rejectReason && <div style={{ marginTop: 4, color: '#E87878', fontStyle: 'italic' }}>{o.rejectReason}</div>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const [data, setData] = useState({ creators: [], rooms: [], variations: [] })
@@ -281,10 +110,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const [subjectFile, setSubjectFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const [fanOutFor, setFanOutFor] = useState(null) // Stage B Output id when modal is open
-  const [closet, setCloset] = useState([])
-  const [pickedOutfits, setPickedOutfits] = useState(new Set())
-  const [customOutfits, setCustomOutfits] = useState('')
 
   const [creators, setCreators] = useState([])
 
@@ -301,7 +126,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       setData({ creators: d.creators || [], rooms: d.rooms || [], variations: d.variations || [] })
     }).catch(() => {})
     fetch('/api/admin/recreate-sources').then(r => r.json()).then(d => setReels(d.reels || [])).catch(() => {})
-    fetch('/api/admin/recreate-rooms/outfit-swap').then(r => r.json()).then(d => setCloset(d.outfits || [])).catch(() => {})
   }, [initialCreatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deep-link from the pool: when the URL names a specific reel and it
@@ -348,46 +172,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     loadOutputs()
   }
 
-  // Fan out N outfit variants. `fanOutFor` is either a single Stage B
-  // Output id (one-still fan-out) or the sentinel 'all-approved' which
-  // fans out across every approved still for the current creator —
-  // 8 stills × 5 outfits = 40 jobs in one click.
-  const submitFanOut = async () => {
-    const closetPicks = closet.filter(o => pickedOutfits.has(o.id)).map(o => o.prompt)
-    const customLines = customOutfits.split('\n').map(s => s.trim()).filter(Boolean)
-    const outfits = [...closetPicks, ...customLines]
-    if (!outfits.length) { await uiAlert('Pick at least one outfit (or type a custom one).'); return }
-    if (!fanOutFor) return
-
-    // Resolve target Stage B Outputs.
-    const targets = fanOutFor === 'all-approved'
-      ? outputs.filter(o => o.status === 'Approved').map(o => o.id)
-      : [fanOutFor]
-    if (!targets.length) { await uiAlert('No approved scenes to fan out across.'); return }
-
-    setBusy(true)
-    try {
-      // Sequential POSTs so each one gets a clean Variant # (the slug
-      // helper counts existing siblings — running them in parallel
-      // would race and double-assign).
-      let queued = 0
-      for (const stageBId of targets) {
-        for (const outfit of outfits) {
-          await fetch('/api/admin/recreate-rooms/outfit-swap', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ stageBOutputId: stageBId, outfit, model: 'wan' }),
-          }).catch(() => {})
-          queued++
-        }
-      }
-      setMsg(`✅ Queued ${queued} outfit variant${queued === 1 ? '' : 's'} across ${targets.length} still${targets.length === 1 ? '' : 's'} — they'll appear as they finish (~1–3 min each).`)
-      setFanOutFor(null)
-      setPickedOutfits(new Set())
-      setCustomOutfits('')
-      loadOutputs()
-    } catch (e) { await uiAlert(`Fan-out failed: ${e?.message || String(e)}`) }
-    setBusy(false)
-  }
 
 
   const sel = creators.find(c => c.id === creatorId)
@@ -525,16 +309,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
               const approvedCount = outputs.filter(o => o.status === 'Approved').length
               if (!approvedCount) return null
               return (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button onClick={() => { setFanOutFor('all-approved'); setPickedOutfits(new Set()); setCustomOutfits('') }}
-                    style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,184,120,0.16)', color: '#e8b878', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, cursor: 'pointer' }}>
-                    👗 Fan out across all {approvedCount} approved
-                  </button>
-                  <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
-                    style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
-                    ⬇ Download all (1 mega-ZIP)
-                  </a>
-                </div>
+                <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
+                  style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
+                  ⬇ Download all approved (1 mega-ZIP)
+                </a>
               )
             })()}
           </div>
@@ -555,36 +333,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
                     <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · shot {o.screenshotFraming || '?'}</div>
                     {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ source reel @{o.reel.handle || o.reel.reelId}</a>}
 
-                    {/* Outfit variant strip — shows what's fanned out so far */}
-                    {o.variants && o.variants.length > 0 && (
-                      <div style={{ marginTop: 6, padding: 6, background: 'rgba(0,0,0,0.25)', borderRadius: 5 }}>
-                        <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginBottom: 4 }}>{o.variants.length} outfit variant{o.variants.length === 1 ? '' : 's'}</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(34px, 1fr))', gap: 3 }}>
-                          {o.variants.map(v => {
-                            const vc = v.status === 'Approved' ? '#6AC68A' : v.status === 'Rejected' ? '#E87878' : v.status === 'Failed' ? '#E87878' : v.status === 'Generating' ? '#8fb4f0' : '#e8b878'
-                            return (
-                              <a key={v.id} href={v.dropbox || v.image || '#'} target="_blank" rel="noreferrer" title={`${v.slug || ('O' + v.variantNum)} — ${v.outfit} — ${v.status}`}
-                                style={{ display: 'block', position: 'relative', aspectRatio: '9/16', borderRadius: 3, border: `1px solid ${vc}66`, background: '#000', overflow: 'hidden', textDecoration: 'none' }}>
-                                {v.image
-                                  ? <img src={v.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: vc }}>{v.status === 'Generating' ? '⏳' : v.status === 'Failed' ? '✕' : '…'}</div>}
-                              </a>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Fan-out & ZIP — only meaningful once the still itself has rendered */}
-                    {(o.status === 'Pending' || o.status === 'Approved') && (
-                      <button onClick={() => { setFanOutFor(o.id); setPickedOutfits(new Set()); setCustomOutfits('') }}
-                        style={{ display: 'block', width: '100%', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,184,120,0.16)', color: '#e8b878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
-                        👗 Fan out outfits
-                      </button>
-                    )}
+                    {/* Bundle Outfits coming in next commit (outfit library). */}
                     {o.status === 'Approved' && (
                       <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${o.id}`}
-                        style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ Bulk ZIP for TJP{o.variants?.length ? ` (still + reel + ${o.variants.filter(v => v.status !== 'Rejected' && v.status !== 'Failed' && v.status !== 'Generating').length} outfits)` : ' (still + reel)'}</a>
+                        style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ ZIP for TJP (still + reel)</a>
                     )}
                     {o.status === 'Approved' && o.reel?.id && (
                       <a href={`/ai-editor?creator=${creatorId}&upload=${o.reel.id}`}
@@ -605,56 +357,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
           </div>
         </div>
       )}
-
-      {fanOutFor && (() => {
-        const isAll = fanOutFor === 'all-approved'
-        const approvedStills = isAll ? outputs.filter(o => o.status === 'Approved') : []
-        const targetLabel = isAll
-          ? `all ${approvedStills.length} approved stills`
-          : (outputs.find(o => o.id === fanOutFor)?.slug || 'this still')
-        const totalPicks = pickedOutfits.size + customOutfits.split('\n').map(s => s.trim()).filter(Boolean).length
-        const jobCount = isAll ? approvedStills.length * totalPicks : totalPicks
-        return (
-        <div onClick={() => setFanOutFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: 'min(520px, 94vw)', maxHeight: '90vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Fan out outfits {isAll ? '(bulk)' : ''}</div>
-            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-              For <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>{targetLabel}</span>{isAll && approvedStills.length > 0 && (
-                <> ({approvedStills.map(o => o.slug).filter(Boolean).join(', ')})</>
-              )}. Each outfit × each still = one Outfit Swap job (~1–3 min each on WaveSpeed). They&apos;ll show up as they finish.
-            </div>
-
-            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>From the Outfit Closet ({pickedOutfits.size} selected)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 6, maxHeight: 240, overflowY: 'auto', padding: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 6 }}>
-              {closet.length === 0 && <div style={{ fontSize: 11, color: '#666', padding: 8 }}>No outfit presets yet — add some in the Outfit Closet (admin Rooms tab).</div>}
-              {closet.map(o => {
-                const picked = pickedOutfits.has(o.id)
-                return (
-                  <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: picked ? 'rgba(232,184,120,0.16)' : 'rgba(255,255,255,0.03)', border: `1px solid ${picked ? '#e8b878' : 'rgba(255,255,255,0.08)'}`, borderRadius: 5, fontSize: 12, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={picked} onChange={() => setPickedOutfits(s => { const n = new Set(s); n.has(o.id) ? n.delete(o.id) : n.add(o.id); return n })} />
-                    <span style={{ color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</span>
-                  </label>
-                )
-              })}
-            </div>
-
-            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 14, marginBottom: 6 }}>Or type custom outfits — one per line</div>
-            <textarea value={customOutfits} onChange={e => setCustomOutfits(e.target.value)} rows={3}
-              placeholder={"a fitted black tank top and denim cut-off shorts\nan emerald-green silk slip dress"}
-              style={{ width: '100%', padding: '8px 10px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-              <button onClick={() => setFanOutFor(null)}
-                style={{ padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={submitFanOut} disabled={busy}
-                style={{ padding: '9px 18px', fontSize: 13, fontWeight: 700, background: busy ? 'rgba(232,184,120,0.4)' : '#e8b878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-                {busy ? 'Submitting…' : `Generate ${jobCount} variant${jobCount === 1 ? '' : 's'}`}
-              </button>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
 
     </div>
   )

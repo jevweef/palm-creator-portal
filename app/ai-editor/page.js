@@ -670,7 +670,7 @@ export default function AiEditorPage() {
             Download source reels → recreate in TJP → upload the AI version + thumbnail back for review.
           </p>
           <a href="/ai-editor/recreate" style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'underline' }}>
-            → Create Scene & Outfit Swap
+            → Create Scene
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
