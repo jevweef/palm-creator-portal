@@ -276,19 +276,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const [reels, setReels] = useState([])
   const [creatorId, setCreatorId] = useState('')
   const [reel, setReel] = useState(null)
-  const [poseTime, setPoseTime] = useState(0)
-  const [captured, setCaptured] = useState(false)
-  const [poseModalOpen, setPoseModalOpen] = useState(false)
-  const [poseDuration, setPoseDuration] = useState(0)
   const [stageBOut, setStageBOut] = useState(null)
   const [outputs, setOutputs] = useState([])
-  const [genModel, setGenModel] = useState('wan')
-  const [extraFiles, setExtraFiles] = useState([])
   const [subjectFile, setSubjectFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
-  const [showExtras, setShowExtras] = useState(false)
-  const [mode, setMode] = useState('standard') // 'standard' | 'subject'
   const [fanOutFor, setFanOutFor] = useState(null) // Stage B Output id when modal is open
   const [closet, setCloset] = useState([])
   const [pickedOutfits, setPickedOutfits] = useState(new Set())
@@ -313,17 +305,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   }, [initialCreatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deep-link from the pool: when the URL names a specific reel and it
-  // shows up in the loaded list, preselect it and open the pose modal
-  // immediately. One click from the pool to the scrubber.
+  // shows up in the loaded list, preselect it so the editor can move
+  // straight to step 3 (upload TJP photo).
   useEffect(() => {
     if (!initialReelRecordId || !reels.length) return
     const m = reels.find(r => r.id === initialReelRecordId)
-    if (m && !reel) {
-      setReel(m)
-      setPoseTime(0)
-      setCaptured(false)
-      if (m.streamUid) setPoseModalOpen(true)
-    }
+    if (m && !reel) setReel(m)
   }, [initialReelRecordId, reels, reel])
 
   const loadOutputs = useCallback(async () => {
@@ -402,23 +389,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     setBusy(false)
   }
 
-  useEffect(() => {
-    setPoseDuration(0)
-    if (!reel?.streamUid) return
-    let cancelled = false
-    fetch(`/api/admin/cf-stream/info?uid=${encodeURIComponent(reel.streamUid)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d?.duration) setPoseDuration(d.duration) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [reel])
-
-  useEffect(() => {
-    if (!poseModalOpen) return
-    const onKey = (e) => { if (e.key === 'Escape') setPoseModalOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [poseModalOpen])
 
   const sel = creators.find(c => c.id === creatorId)
   const myRooms = data.rooms.filter(r => r.creatorId === creatorId)
@@ -431,28 +401,15 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
 
   const generate = async () => {
     if (!creatorId) { setMsg('Pick a creator first.'); return }
-    const subjectMode = mode === 'subject'
-    if (subjectMode) {
-      if (!subjectFile) { setMsg('Upload the finished subject photo first.'); return }
-    } else {
-      if (!reel?.streamUid) { setMsg('Pick a reel (with Stream video) and capture a frame first.'); return }
-      if (!captured) { setMsg('Scrub to the pose and click "Capture this frame".'); return }
-    }
-    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading…')
+    if (!reel?.id) { setMsg('Pick the inspo reel this scene goes with (step 2).'); return }
+    if (!subjectFile) { setMsg('Upload the TJP image-to-image photo first (step 3).'); return }
+    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading your TJP photo…')
     try {
-      const refPaths = []
-      for (const f of extraFiles) refPaths.push(await stageBUpload(f, 'ref'))
-      let subjectDropboxPath
-      if (subjectMode) {
-        setMsg('⏳ Uploading subject photo…')
-        subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
-      }
-      setMsg(subjectMode
-        ? '⏳ Creating the scene — placing your photo into the room… result appears below when done.'
-        : '⏳ Creating the scene — putting your creator into the room with this pose… result appears below when done.')
+      const subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
+      setMsg('⏳ Creating the scene — swapping the background to her room… result appears below when done.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, poseStreamUid: reel?.streamUid, poseTime, refDropboxPaths: refPaths, reelRecordId: reel?.id, model: genModel, subjectDropboxPath }),
+        body: JSON.stringify({ creatorId, reelRecordId: reel.id, subjectDropboxPath }),
       })
       const raw = await res.text()
       let d
@@ -462,12 +419,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         : String(v)
       if (d && d.ok && d.generating) {
         setStageBOut(null)
-        setMsg(`✅ Submitted — pose framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. The scene takes about 3–6 minutes to generate. It'll show up in Scenes below automatically — you can navigate away.`)
+        setMsg(`✅ Submitted — framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. The scene takes about 3–6 minutes. It'll show up in Scenes below automatically — you can navigate away.`)
         loadOutputs()
         setTimeout(() => document.getElementById('stageb-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
       } else if (d && d.ok) {
-        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming, compare: d.compare || null })
-        setMsg(`✅ Done — pose framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. Saved to Scenes below.`)
+        setStageBOut({ url: d.out, dropbox: d.dropbox, room: d.room, roomFraming: d.roomFraming, screenshotFraming: d.screenshotFraming })
+        setMsg(`✅ Done — framing read as ${d.screenshotFraming}, matched to her room "${d.room}" [${d.roomFraming}]. Saved to Scenes below.`)
         loadOutputs()
       } else if (d) {
         setMsg(`❌ ${asStr(d.error) || `HTTP ${res.status}`}`)
@@ -485,7 +442,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Create Scene — put your creator in her room</h1>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 14 }}>
-        This takes an inspo reel + your creator&apos;s identity refs and produces a still photo of her standing in her room, posed exactly like the reel. That still is the starting point for everything else (outfits, motion control). Then bring the finished video back to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
+        Upload the finished TJP image-to-image photo (your creator in the inspo reel&apos;s pose &amp; outfit), pick which reel it came from, and the portal swaps the background to her saved room. That scene is then the starting point for outfits + motion control back in TJP — bring the finished video back to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> to send for review.
       </p>
 
       <div id="tour-stageb-creator" style={card}>
@@ -500,117 +457,62 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         </div>
       </div>
 
-      <div id="tour-stageb-mode" style={{ display: 'flex', gap: 6, marginBottom: 12, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
-        <button onClick={() => setMode('standard')}
-          style={{ flex: 1, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: mode === 'standard' ? 'var(--palm-pink)' : 'transparent', color: mode === 'standard' ? '#1a0a0a' : 'var(--foreground-muted)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-          Start from an inspo reel
-        </button>
-        <button onClick={() => setMode('subject')}
-          style={{ flex: 1, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: mode === 'subject' ? '#e8b878' : 'transparent', color: mode === 'subject' ? '#1a0a0a' : 'var(--foreground-muted)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-          I already have a photo of her
-        </button>
+      <div style={card}>
+        <div style={lbl}>2 · Pick the inspo reel this scene goes with</div>
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
+          {reel?.id
+            ? <>Selected: <span style={{ color: '#e8b878' }}>@{reel.handle || reel.reelId}</span>. Click another to change.</>
+            : <>{availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click one to mark it as this scene's source.</>}
+        </div>
+        <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+          {availableReels.map(r => {
+            const isSel = reel?.id === r.id
+            const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
+            const onPick = () => setReel(r)
+            return r.streamUid
+              ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
+              : r.thumbnail
+                ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
+                : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
+          })}
+        </div>
       </div>
 
-      {mode === 'standard' ? (
-        <>
-          <div style={card}>
-            <div style={lbl}>2 · Pose &amp; outfit — pick a reel, scrub to the pose, capture</div>
-            {captured && reel?.streamUid && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: 10, background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 8 }}>
-                <img src={buildStreamPosterUrl(reel.streamUid, { time: `${Math.max(0.1, poseTime)}s`, width: 160, fit: 'crop' })} alt=""
-                  style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A' }}>✓ Pose captured @ {poseTime.toFixed(1)}s</div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>Scroll down to Generate, or click any reel below to re-pick.</div>
-                </div>
-                <button onClick={() => setPoseModalOpen(true)} style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Re-scrub</button>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, color: '#888' }}>{availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click to scrub.</div>
-            </div>
-            <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 480, overflowY: 'auto' }}>
-              {availableReels.map(r => {
-                const isSel = reel?.id === r.id
-                const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
-                const onPick = () => { setReel(r); setPoseTime(0); setCaptured(false); if (r.streamUid) setPoseModalOpen(true) }
-                return r.streamUid
-                  ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
-                  : r.thumbnail
-                    ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
-                    : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
-              })}
-            </div>
-          </div>
-
-          <div style={card}>
-            <button onClick={() => setShowExtras(s => !s)}
-              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
-              {showExtras ? '− Hide' : '+ Add'} extra identity reference images for this run (optional)
-            </button>
-            {showExtras && (
-              <div style={{ marginTop: 10 }}>
-                <input type="file" accept="image/*" multiple onChange={e => setExtraFiles([...e.target.files])}
-                  style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-                {extraFiles.length > 0 && <span style={{ fontSize: 12, color: '#6AC68A', marginLeft: 8 }}>{extraFiles.length} added</span>}
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div style={{ ...card, borderStyle: 'dashed', borderColor: 'rgba(232,168,120,0.35)' }}>
-          <div style={{ ...lbl, color: '#e8b878' }}>2 · Subject photo (already correct identity + pose + outfit)</div>
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-            The system keeps this person exactly as they are and only swaps the background to the creator&apos;s room.
-          </div>
-          <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
-            style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-          {subjectFile && <span style={{ fontSize: 12, color: '#e8b878', marginLeft: 8 }}>{subjectFile.name}</span>}
+      <div id="tour-stageb-subject" style={card}>
+        <div style={lbl}>3 · Upload the TJP image-to-image output</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
+          The photo from TJP where your creator is already in the reel&apos;s pose &amp; outfit (currently still in the reel&apos;s environment). The portal will keep that person exactly as-is and swap her background to her saved room.
         </div>
-      )}
+        <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
+          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+        {subjectFile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <img src={URL.createObjectURL(subjectFile)} alt="" style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
+            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {subjectFile.name}</span>
+          </div>
+        )}
+      </div>
 
       <div id="tour-stageb-generate" style={card}>
-        <div style={lbl}>{mode === 'subject' ? '3 · Generate (subject mode)' : '3 · Generate'}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
-          <select value={genModel} onChange={e => setGenModel(e.target.value)}
-            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
-            <option value="wan">Wan 2.7 image-edit-pro (recommended)</option>
-            <option value="nano">Nano-Banana 2 (⚠ may hit content filter)</option>
-            <option value="gpt">GPT-Image-2 (experimental)</option>
-          </select>
-          <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-            {busy ? 'Working…' : '👤 Generate — insert creator'}
-          </button>
+        <div style={lbl}>4 · Generate the scene</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>
+          The portal will swap your TJP photo&apos;s background for {sel?.name || 'the creator'}&apos;s saved room and relight her to match. Takes ~3–6 min — you can navigate away.
         </div>
+        <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
+          {busy ? 'Working…' : '🪄 Generate scene'}
+        </button>
         {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
       </div>
 
       {stageBOut && (
         <div style={{ ...card, marginTop: 16 }}>
-          <div style={lbl}>Result — {sel?.name} in {stageBOut.room} [{stageBOut.roomFraming}] · shot read as {stageBOut.screenshotFraming}</div>
-          {stageBOut.compare ? (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {[stageBOut.compare.a, stageBOut.compare.b].map((c, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? '#e8b878' : '#6AC68A' }}>{String.fromCharCode(65 + i)} · {c.label}</div>
-                  <img src={c.url} alt={c.label}
-                    style={{ width: 'min(340px, 44vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-                  <a href={c.dropbox || c.url} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 12, color: '#8fb4f0', textDecoration: 'none' }}>↗ Open full size</a>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <img src={stageBOut.url} alt="Scene result"
-                style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
-              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
-                  style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
-              </div>
-            </>
-          )}
+          <div style={lbl}>Result — {sel?.name} in {stageBOut.room} [{stageBOut.roomFraming}] · framing read as {stageBOut.screenshotFraming}</div>
+          <img src={stageBOut.url} alt="Scene result"
+            style={{ width: 'min(360px, 90vw)', aspectRatio: '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <a href={stageBOut.dropbox || stageBOut.url} target="_blank" rel="noreferrer"
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(120,160,232,0.18)', color: '#8fb4f0', border: 'none', borderRadius: 6, textDecoration: 'none' }}>↗ Open full size</a>
+          </div>
           <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10 }}>Saved as Pending in Scenes below — approve it to enable outfits + downloads.</div>
         </div>
       )}
@@ -754,24 +656,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
         )
       })()}
 
-      {poseModalOpen && reel?.streamUid && (
-        <div onClick={() => setPoseModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, width: 'min(440px, 92vw)' }}>
-            <div style={{ fontSize: 13, color: '#bbb', alignSelf: 'flex-start' }}>Scrub to the exact pose &amp; outfit — this is the frame fed to the model.</div>
-            <img src={buildStreamPosterUrl(reel.streamUid, { time: `${Math.max(0.1, poseTime)}s`, width: 720, fit: 'crop' })} alt=""
-              style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
-            <input type="range" min={0} max={poseDuration ? poseDuration.toFixed(2) : 30} step={0.05} value={Math.min(poseTime, poseDuration || 30)}
-              onChange={e => { setPoseTime(Number(e.target.value)); setCaptured(false) }}
-              style={{ width: '100%' }} />
-            <div style={{ fontSize: 13, color: '#ddd', fontWeight: 600 }}>Frame @ {poseTime.toFixed(1)}s{poseDuration ? ` / ${poseDuration.toFixed(1)}s` : ''}</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setCaptured(true); setPoseModalOpen(false); setMsg(`Pose captured @ ${poseTime.toFixed(1)}s`) }}
-                style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: 'pointer' }}>📸 Capture this frame</button>
-              <button onClick={() => setPoseModalOpen(false)} style={{ padding: '10px 16px', fontSize: 13, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, cursor: 'pointer' }}>Close ✕</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
