@@ -121,7 +121,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
           <span>@{reel.handle}</span>
           <span>{reel.views ? `${reel.views.toLocaleString()} views` : ''}</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               if (!reel.video) return
@@ -133,11 +133,18 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
               const dl = String(reel.video).replace(/([?&])raw=1/, '$1dl=1')
               window.open(dl, '_blank', 'noopener')
             }}
-            style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
-          >↓ Download</button>
+            style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
+            title="Download the raw inspo reel — take it straight to TJP"
+          >↓ Raw</button>
+          <a
+            href={`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`}
+            style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: '#e8b878', background: 'rgba(232,184,120,0.1)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, cursor: 'pointer', textDecoration: 'none' }}
+            title="Composite this creator into a room matching this reel's pose"
+          >🎨 Stage B</a>
           <button
             onClick={() => setShowUpload(v => !v)}
-            style={{ flex: 1, padding: '6px 0', fontSize: 12, color: '#6AC68A', background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}
+            style={{ flex: '1 1 80px', padding: '6px 0', fontSize: 12, color: '#6AC68A', background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}
+            title="Upload the finished AI motion video"
           >↑ Upload AI</button>
         </div>
         {showUpload && (
