@@ -322,23 +322,83 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
   const [selected, setSelected] = useState(new Set())
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState('')
+  const [cachedAt, setCachedAt] = useState(null) // when this preview was last fetched
+  const [refreshing, setRefreshing] = useState(false)
 
+  // Persist scrape results + marked selection to localStorage so the
+  // editor doesn't lose either when the modal closes. RapidAPI calls
+  // cost money — re-opening the same handle shouldn't trigger a
+  // re-scrape unless the editor explicitly clicks Refresh. Cache
+  // entries are per-handle and live for 7 days.
+  const CACHE_KEY = `photos-preview-${account.handle}`
+  const SEL_KEY = `photos-preview-selection-${account.handle}`
+  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+  const loadFromServer = useCallback(async () => {
+    setRefreshing(true); setError('')
+    try {
+      const r = await fetch(`/api/admin/photos/preview?handle=${encodeURIComponent(account.handle)}&limit=80`)
+      const d = await r.json()
+      if (d.error) { setError(d.error); setImages([]); setPostsSeen(0); setDebug(null); return }
+      const imgs = d.images || []
+      const seen = d.postsSeen || 0
+      setImages(imgs); setPostsSeen(seen); setDebug(d._debug || null)
+      const now = Date.now()
+      setCachedAt(now)
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: now, images: imgs, postsSeen: seen }))
+      } catch {}
+    } catch (e) { setError(e.message) } finally { setRefreshing(false); setLoading(false) }
+  }, [account.handle, CACHE_KEY])
+
+  // On mount: try cache first; fetch only if missing or stale.
   useEffect(() => {
-    let cancelled = false
     setLoading(true); setError('')
-    fetch(`/api/admin/photos/preview?handle=${encodeURIComponent(account.handle)}&limit=80`)
-      .then(r => r.json())
-      .then(d => {
-        if (cancelled) return
-        if (d.error) { setError(d.error); setImages([]); setPostsSeen(0); setDebug(null); return }
-        setImages(d.images || [])
-        setPostsSeen(d.postsSeen || 0)
-        setDebug(d._debug || null)
-      })
-      .catch(e => { if (!cancelled) setError(e.message) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [account.handle])
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null
+      if (raw) {
+        const cached = JSON.parse(raw)
+        if (cached && Array.isArray(cached.images) && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
+          setImages(cached.images)
+          setPostsSeen(cached.postsSeen || 0)
+          setCachedAt(cached.fetchedAt)
+          setLoading(false)
+          return
+        }
+      }
+    } catch {}
+    loadFromServer()
+  }, [CACHE_KEY, loadFromServer])
+
+  // Restore prior selection for this handle on mount.
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(SEL_KEY) : null
+      if (raw) {
+        const arr = JSON.parse(raw)
+        if (Array.isArray(arr)) setSelected(new Set(arr))
+      }
+    } catch {}
+  }, [SEL_KEY])
+
+  // Persist the selection set whenever it changes.
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      if (selected.size === 0) localStorage.removeItem(SEL_KEY)
+      else localStorage.setItem(SEL_KEY, JSON.stringify([...selected]))
+    } catch {}
+  }, [selected, SEL_KEY])
+
+  // Sync image-state changes (e.g. alreadyImported flips after import)
+  // back to the cache. Keeps the original `fetchedAt` so a stale-cache
+  // check still works correctly — we're only writing the flag updates.
+  useEffect(() => {
+    if (!cachedAt || images.length === 0 || typeof window === 'undefined') return
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: cachedAt, images, postsSeen }))
+    } catch {}
+  }, [images, cachedAt, postsSeen, CACHE_KEY])
 
   const keyOf = (img) => `${img.code}|${img.carouselIndex}`
   const toggle = (img) => {
@@ -426,11 +486,18 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>👁 Browse @{displayHandle}</div>
             <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
               {loading ? 'Loading thumbnails…' : (error ? <span style={{ color: '#E87878' }}>{error}</span> : (
-                <>{images.length} images (carousels exploded) · <span style={{ color: '#7DD3A4' }}>{newCount} new</span>{dupCount ? ` · ${dupCount} already imported` : ''} · {selected.size} marked</>
+                <>{images.length} images (carousels exploded) · <span style={{ color: '#7DD3A4' }}>{newCount} new</span>{dupCount ? ` · ${dupCount} already imported` : ''} · {selected.size} marked{cachedAt ? <> · <span style={{ color: '#888' }}>cached {formatRel(new Date(cachedAt).toISOString())}</span></> : null}</>
               ))}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={loadFromServer} disabled={refreshing}
+              title="Pull a fresh scrape from RapidAPI (costs a few cents). Otherwise the cached results are reused for up to 7 days."
+              style={{ background: 'rgba(255,255,255,0.06)', color: refreshing ? 'var(--foreground-muted)' : 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: refreshing ? 'default' : 'pointer' }}>
+              {refreshing ? '⏳ Refreshing…' : '↻ Refresh'}
+            </button>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          </div>
         </div>
         {!loading && !error && images.length > 0 && (
           <div style={{ padding: '10px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
