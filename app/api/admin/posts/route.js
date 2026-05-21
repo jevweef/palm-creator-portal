@@ -69,6 +69,9 @@ export async function GET() {
         scheduledDate: f['Scheduled Date'] || null,
         telegramSentAt: f['Telegram Sent At'] || null,
         adminNotes: f['Admin Notes'] || '',
+        // Surface the linked Task ID so Post Prep can call the revision
+        // endpoint directly when admin wants to recall an approval.
+        taskId: (f.Task || [])[0] || null,
         creator: {
           id: creatorId,
           name: creator.AKA || creator.Creator || '',

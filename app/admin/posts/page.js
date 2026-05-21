@@ -662,6 +662,13 @@ function PostCard({ post, onRefresh, onSend }) {
   const [showPlatforms, setShowPlatforms] = useState(false)
   const [showHashtags, setShowHashtags] = useState(false)
   const [showUploadOption, setShowUploadOption] = useState(false)
+  // "Send back for revision" — admin already approved this Post but realized
+  // it needs another pass. Recalls the approval on the Task, archives
+  // sibling Posts, and re-engages the editor's revision flow.
+  const [showRevisionModal, setShowRevisionModal] = useState(false)
+  const [revisionFeedback, setRevisionFeedback] = useState('')
+  const [revising, setRevising] = useState(false)
+  const [revisionError, setRevisionError] = useState('')
 
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
@@ -741,6 +748,46 @@ function PostCard({ post, onRefresh, onSend }) {
     } catch (err) {
       console.error(err)
       setSendingToGrid(false)
+    }
+  }
+
+  // Recall this approval: flip the Task back to Needs Revision, archive
+  // every sibling Post that hasn't gone out yet, and notify the editor.
+  // Server-side does the heavy lifting in /api/admin/editor's existing
+  // requestRevision action — we just hand it the taskId + feedback.
+  const handleSendBackForRevision = async () => {
+    if (!post.taskId) {
+      setRevisionError('No linked task on this post — cannot send back.')
+      return
+    }
+    if (!revisionFeedback.trim()) {
+      setRevisionError('Add a note so the editor knows what to change.')
+      return
+    }
+    setRevising(true)
+    setRevisionError('')
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: post.taskId,
+          action: 'requestRevision',
+          adminFeedback: revisionFeedback,
+        }),
+      })
+      if (!res.ok) {
+        const errBody = await res.text()
+        throw new Error(errBody.slice(0, 200) || 'Send back failed')
+      }
+      // Post should disappear from prep on next refresh (archived by server)
+      setShowRevisionModal(false)
+      setRevisionFeedback('')
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      setRevisionError(err.message)
+    } finally {
+      setRevising(false)
     }
   }
 
@@ -1052,8 +1099,57 @@ function PostCard({ post, onRefresh, onSend }) {
               View edit ↗
             </a>
           )}
+          {/* Quiet recall-approval link. Only meaningful while the post is
+              still in admin's queue (Prepping/Staged) — once it's gone to
+              Telegram or further, recalling would just create a phantom
+              revision task with no Post to archive. */}
+          {post.taskId && (post.status === 'Prepping' || post.status === 'Staged') && (
+            <button onClick={() => { setShowRevisionModal(true); setRevisionError('') }}
+              style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '10px', cursor: 'pointer', padding: '2px 0', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+              Send back for revision
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Recall-approval modal — feedback text only (screenshots can come
+          later if useful). Click backdrop or Cancel to dismiss. */}
+      {showRevisionModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          onClick={e => { if (e.target === e.currentTarget && !revising) { setShowRevisionModal(false); setRevisionError('') } }}>
+          <div style={{ background: 'var(--card-bg-solid)', borderRadius: '16px', padding: '24px', width: '440px', maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.4)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>Send back for revision</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px' }}>
+              {post.creator?.name} · {post.name}
+            </div>
+            <div style={{ fontSize: '11px', color: '#E87878', background: 'rgba(232, 120, 120, 0.06)', border: '1px solid rgba(232, 120, 120, 0.2)', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', lineHeight: 1.5 }}>
+              This recalls the approval. The editor sees it back in Revisions, this card disappears from Post Prep, and any sibling posts in the grid are archived.
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Feedback for the editor</div>
+            <textarea
+              value={revisionFeedback}
+              onChange={e => setRevisionFeedback(e.target.value)}
+              placeholder="Describe what needs to change..."
+              autoFocus
+              rows={5}
+              style={{ width: '100%', padding: '10px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }} />
+            {revisionError && (
+              <div style={{ fontSize: '11px', color: '#E87878', marginTop: '8px' }}>{revisionError}</div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowRevisionModal(false); setRevisionError('') }} disabled={revising}
+                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: revising ? 'default' : 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleSendBackForRevision} disabled={revising}
+                style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, background: revising ? 'rgba(232, 120, 120, 0.04)' : 'rgba(232, 120, 120, 0.10)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)', borderRadius: '6px', cursor: revising ? 'default' : 'pointer' }}>
+                {revising ? 'Sending…' : 'Send Revision Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

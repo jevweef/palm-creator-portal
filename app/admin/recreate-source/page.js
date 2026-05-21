@@ -5,6 +5,7 @@ import AISuperClonePanel from '../creators/AISuperClonePanel'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 import { ModalHost, uiConfirm, uiPrompt, uiAlert, StageBPanel } from '@/components/recreate/panels'
+import PhotosPanel from '@/components/recreate/PhotosPanel'
 
 const STATUS_COLORS = { Queued: '#888', Scraping: '#E8C36A', Ready: '#6AC68A', Error: '#E87878' }
 
@@ -82,7 +83,11 @@ export default function RecreateLibraryPage() {
   const router = useRouter()
   const pathname = usePathname()
   const tabParam = sp.get('tab')
-  const tab = tabParam === 'rooms' ? 'rooms' : tabParam === 'stageb' ? 'stageb' : tabParam === 'avatar' ? 'avatar' : 'library'
+  const tab = tabParam === 'rooms' ? 'rooms'
+    : tabParam === 'stageb' ? 'stageb'
+    : tabParam === 'avatar' ? 'avatar'
+    : tabParam === 'photos' ? 'photos'
+    : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'library') params.delete('tab'); else params.set('tab', k)
@@ -200,6 +205,15 @@ export default function RecreateLibraryPage() {
       </div>
     )
   }
+  if (tab === 'photos') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <PhotosPanel />
+        <ModalHost />
+      </div>
+    )
+  }
   if (tab === 'stageb') {
     return (
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -305,10 +319,11 @@ function TabBar({ tab, setTab }) {
     }}>{label}</button>
   )
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+    <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
       {t('library', 'Reel Library')}
       {t('rooms', 'Rooms')}
       {t('avatar', 'Creator Avatar')}
+      {t('photos', 'Photos')}
       {t('stageb', 'Create Scene')}
     </div>
   )
