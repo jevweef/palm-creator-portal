@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
-import { ModalHost, uiConfirm } from '@/components/recreate/panels'
+import { ModalHost, uiConfirm, StageBPanel } from '@/components/recreate/panels'
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
@@ -13,16 +13,21 @@ const POOL_TOUR_STEPS = [
   {
     placement: 'center',
     title: '👋 Welcome — here\'s the workflow',
-    body: `The full loop:
+    body: `The page has two tabs:
 
-1. Pick the creator you're working on today.
-2. Pick inspo reels you want to recreate. Downloading one (↓ Raw, or multi-select Download as ZIP) automatically starts a "project" for that creator + reel pair. You'll see project cards appear above the reel grid.
-3. Do the TJP image-to-image work to get a photo of your creator in each reel's pose & outfit.
-4. Click Continue on each project card → upload the TJP photo → portal swaps her background to her saved room.
+📚 Workspace — pick reels, manage in-flight projects, batch upload finished videos, handle revisions.
+🎨 Create Scene — the one-step portal generation that happens partway through a project (swap creator's background to her saved room).
+
+The full loop:
+
+1. Pick the creator.
+2. Pick inspo reels — downloading one (↓ Raw, or multi-select Download as ZIP) starts a project for that creator + reel pair. You'll see project cards in Workspace.
+3. Do TJP image-to-image to get a photo of your creator in each reel's pose & outfit.
+4. Click Continue on a project card → switches to Create Scene tab with the project loaded → upload the TJP photo → generate.
 5. Approve the scene → ⬇ ZIP for TJP → outfit transfer + motion control in TJP.
-6. Come back, 📦 Batch Upload the finished videos.
+6. Come back, 📦 Batch Upload the finished videos in Workspace.
 
-I'll highlight each piece in the order you'll use them — hit Next to step through.`,
+I'll highlight each piece — hit Next to step through.`,
   },
   {
     target: '#tour-creator-picker',
@@ -324,7 +329,9 @@ function ProjectCard({ p, creatorId, onChange }) {
             : p.status === 'Rejected'     ? { label: 'View / retry', color: '#E87878' }
             : p.status === 'Failed'       ? { label: '↻ Retry', color: '#E87878' }
             : null
-  const continueHref = `/ai-editor/recreate?creator=${creatorId}&reel=${reel?.id || ''}&project=${p.id}`
+  // Tab-based deep link — staying on /ai-editor with ?tab=create
+  // keeps the workflow on one page (no new-page-feel).
+  const continueHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}&project=${p.id}`
 
   const discard = async () => {
     if (!(await uiConfirm(`Discard this project? The reel goes back to the pool so you can re-start it (or someone else can use it). Any artifacts you've already uploaded are deleted.`, { danger: true, okLabel: 'Discard' }))) return
@@ -721,8 +728,23 @@ function BatchUploadModal({ creatorId, onClose, onDone }) {
 
 export default function AiEditorPage() {
   const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const urlCreator = sp.get('creator') || ''
   const urlUpload = sp.get('upload') || ''
+  const urlReel = sp.get('reel') || undefined
+  const urlProject = sp.get('project') || undefined
+  const tab = sp.get('tab') === 'create' ? 'create' : 'workspace'
+  const setTab = (k, extra = {}) => {
+    const params = new URLSearchParams(sp.toString())
+    if (k === 'workspace') params.delete('tab')
+    else params.set('tab', k)
+    for (const [key, val] of Object.entries(extra)) {
+      if (val == null) params.delete(key)
+      else params.set(key, val)
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
   const [creators, setCreators] = useState([])
   const [creatorId, setCreatorId] = useState('')
   const [reels, setReels] = useState([])
@@ -839,24 +861,21 @@ export default function AiEditorPage() {
     setSelected(prev => { const n = new Set(prev); n.delete(reelRecordId); return n })
   }
 
+  // Number of in-flight projects = the "Create Scene" tab badge.
+  const projectsForBadge = projects.filter(p => p.status !== 'Approved' && p.status !== 'Rejected').length
+
   return (
     <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 32px)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate Pool</h1>
-          <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 2 }}>
-            Pick an inspo reel → 🎨 Create Scene (TJP + portal) → outfit transfer + motion in TJP → 📦 Batch Upload here for review.
-          </p>
-          <a href="/ai-editor/recreate" style={{ display: 'inline-block', marginTop: 8, fontSize: 12, color: 'var(--palm-pink)', textDecoration: 'underline' }}>
-            → Create Scene
-          </a>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v6" label="? Guide" />
-          <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
-            style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-            📦 Batch Upload
-          </button>
+          <TourTriggerButton storageKey="ai-editor-pool-v7" label="? Guide" />
+          {tab === 'workspace' && (
+            <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
+              style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              📦 Batch Upload
+            </button>
+          )}
           <select
             id="tour-creator-picker"
             value={creatorId}
@@ -868,6 +887,32 @@ export default function AiEditorPage() {
           </select>
         </div>
       </div>
+
+      {/* Tab bar — both workflow stages on one page so Continue doesn't
+          feel like navigating to a different surface. */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20, flexWrap: 'wrap' }}>
+        <button onClick={() => setTab('workspace')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'workspace' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'workspace' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          📚 Workspace{revisions.length > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: '#E87878', color: '#1a0a0a', borderRadius: 8 }}>{revisions.length}</span> : projectsForBadge > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: 'rgba(232,184,120,0.5)', color: '#1a0a0a', borderRadius: 8 }}>{projectsForBadge}</span> : null}
+        </button>
+        <button onClick={() => setTab('create')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          🎨 Create Scene
+        </button>
+      </div>
+
+      {tab === 'create' && (
+        <>
+          <StageBPanel initialCreatorId={creatorId} initialReelRecordId={urlReel} initialProjectId={urlProject} />
+          <ModalHost />
+        </>
+      )}
+      {tab === 'workspace' && (
+      <>
+      {/* Workspace tab — pool reels + revisions + my projects + batch upload */}
+      <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: -6, marginBottom: 14 }}>
+        Pick an inspo reel → downloading it starts a project → finish in 🎨 Create Scene tab → outfit transfer + motion in TJP → 📦 Batch Upload here for review.
+      </p>
 
       {revisions.length > 0 && (
         <div id="tour-revisions">
@@ -919,8 +964,10 @@ export default function AiEditorPage() {
           </>
         )
       })()}
+      </>
+      )}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v6" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v7" />
     </div>
   )
 }
