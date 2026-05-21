@@ -300,33 +300,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
+      {/* Merged Project panel — Steps 1 + 2 combined into one dense
+          card. The reel is the page's main piece of media on the left;
+          creator selector + inspo metadata + room info + actions stack
+          on the right. No more "reel card 60% empty" issue. */}
       <div id="tour-stageb-creator" style={card}>
-        {stepHead(1, 'Creator')}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 20, alignItems: 'center' }}>
-          <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
-            style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, fontSize: 14, fontWeight: 500, width: '100%' }}>
-            {creators.length === 0 && <option>No creators with AI refs</option>}
-            {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
-            {sel ? (
-              myRooms.length === 0
-                ? <>⚠️ <b>{sel.name}</b> has no saved rooms yet — an admin needs to create one in the Rooms tab before you can generate scenes for her.</>
-                : <>🏠 <b>{sel.name}</b> has <b>{myRooms.length} room{myRooms.length === 1 ? '' : 's'}</b> on file ({myRooms.map(r => r.framing || '?').join(', ')}). The portal auto-picks the one whose framing matches your uploaded photo.</>
-            ) : 'Pick a creator to see her saved rooms.'}
-          </div>
-        </div>
-      </div>
-
-      <div style={card}>
-        {stepHead(2, 'Inspo reel this scene goes with')}
         {reel?.id && !showReelGrid ? (
-          // Selected reel = the page's main piece of media. Vertical
-          // 9:16 video on the left, click to play inline (Stream embed
-          // when available, raw Dropbox video otherwise). Handle +
-          // actions to the right, Change reel as a subtle corner action.
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) 1fr', gap: 20, alignItems: 'stretch' }}>
-            <div style={{ position: 'relative', aspectRatio: '9/16', borderRadius: 10, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
+            <div id="tour-stageb-reels" style={{ position: 'relative', aspectRatio: '9/16', borderRadius: 12, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
               {reelPlaying && reel.streamUid ? (
                 <iframe
                   src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
@@ -342,7 +323,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   {(reel.streamUid || reel.video) && (
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 22, paddingLeft: 4 }}>▶</div>
+                      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 24, paddingLeft: 4 }}>▶</div>
                     </div>
                   )}
                 </div>
@@ -350,10 +331,29 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 13 }}>No preview</div>
               )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0, gap: 12 }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+              {/* Creator */}
               <div>
-                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Inspo source</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#e8b878', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{reel.handle || reel.reelId}</div>
+                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Creator</div>
+                <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+                  style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, fontSize: 14, fontWeight: 500, minWidth: 200 }}>
+                  {creators.length === 0 && <option>No creators with AI refs</option>}
+                  {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
+                  {sel ? (
+                    myRooms.length === 0
+                      ? <>⚠️ No saved rooms yet — admin needs to create one in the Rooms tab first.</>
+                      : <>🏠 <b>{myRooms.length} room{myRooms.length === 1 ? '' : 's'}</b> on file ({myRooms.map(r => r.framing || '?').join(', ')}). Portal auto-picks by framing.</>
+                  ) : 'Pick a creator to see her saved rooms.'}
+                </div>
+              </div>
+
+              {/* Inspo source */}
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Inspo source</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#e8b878', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{reel.handle || reel.reelId}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {reel.url && (
                     <a href={reel.url} target="_blank" rel="noreferrer"
@@ -363,26 +363,37 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener"
                       style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 6, textDecoration: 'none' }}>↓ Re-download mp4</a>
                   )}
+                  <button onClick={() => setShowReelGrid(true)}
+                    style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
+                    Change reel
+                  </button>
                 </div>
               </div>
-              <button onClick={() => setShowReelGrid(true)}
-                style={{ alignSelf: 'flex-start', padding: '8px 14px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
-                Change reel
-              </button>
             </div>
           </div>
         ) : (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: 12, color: '#888' }}>
-                {availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click one to mark it as this scene&apos;s source.
+            {/* No reel selected (or Change reel clicked) — show creator
+                selector + the grid. Once a reel is picked we flip to
+                the merged panel above. */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Creator</div>
+                <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+                  style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 500 }}>
+                  {creators.length === 0 && <option>No creators with AI refs</option>}
+                  {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               </div>
               {reel?.id && (
                 <button onClick={() => setShowReelGrid(false)}
-                  style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
+                  style={{ padding: '6px 12px', fontSize: 11, background: 'none', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
                   Done picking
                 </button>
               )}
+            </div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+              {availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click one to mark it as this scene&apos;s source.
             </div>
             <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
               {availableReels.map(r => {
@@ -530,26 +541,27 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </label>
       </div>
 
-      <div id="tour-stageb-generate" style={{ ...card, padding: 20 }}>
-        {stepHead(4, 'Generate the scene', `Swaps ${sel?.name || 'the creator'}'s background for her saved room and relights her to match. Takes ~3–6 minutes — you can navigate away, the result lands in Scenes below when it's done.`)}
+      <div id="tour-stageb-generate" style={{ ...card, padding: 20, textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
+          Swaps {sel?.name || 'the creator'}&apos;s background for her saved room and relights her to match. ~3–6 minutes.
+        </div>
         <button onClick={generate} disabled={busy || !subjectFile}
           style={{
-            display: 'block',
-            width: '100%',
-            padding: '14px 24px',
-            fontSize: 15,
+            display: 'inline-block',
+            padding: '14px 36px',
+            fontSize: 16,
             fontWeight: 700,
             background: busy ? 'rgba(232,168,120,0.3)' : !subjectFile ? 'rgba(232,168,120,0.2)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
             color: !subjectFile && !busy ? 'rgba(26,10,10,0.5)' : '#1a0a0a',
             border: 'none',
             borderRadius: 10,
             cursor: (busy || !subjectFile) ? 'default' : 'pointer',
-            boxShadow: subjectFile && !busy ? '0 4px 16px rgba(232,168,120,0.25)' : 'none',
+            boxShadow: subjectFile && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
             transition: 'all 0.15s ease',
           }}>
-          {busy ? '⏳ Working…' : subjectFile ? '🪄 Generate scene' : '🪄 Generate scene — upload the TJP photo first'}
+          {busy ? '⏳ Working…' : subjectFile ? '🪄 Generate scene' : 'Upload the TJP photo first'}
         </button>
-        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 6, borderLeft: '3px solid rgba(232,168,120,0.4)' }}>{msg}</div>}
+        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 6, borderLeft: '3px solid rgba(232,168,120,0.4)', textAlign: 'left' }}>{msg}</div>}
       </div>
 
       {stageBOut && (
