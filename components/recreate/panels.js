@@ -296,13 +296,39 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     setSlot({ name: file.name, url: localUrl, path: '', uploading: true })
     try {
       const path = await stageBUpload(file, kind)
-      if (project?.id) {
+      // Make sure we have a Stage B Output record to attach this upload
+      // to. If the editor entered Create Scene without going through the
+      // Workspace download step, no Started placeholder exists yet — and
+      // without one, the /attach call has nothing to write to and the
+      // upload disappears on refresh. Create a Started record on-demand
+      // here, mirror it into URL state so a refresh re-finds it.
+      let pid = project?.id
+      if (!pid && creatorId && reel?.id) {
+        try {
+          const r = await fetch('/api/admin/recreate-rooms/stage-b/start', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creatorId, reelRecordIds: [reel.id] }),
+          })
+          const d = await r.json()
+          const rec = d.created?.[0] || d.skipped?.[0]
+          pid = rec?.recordId || rec?.existingRecordId || null
+          if (pid) {
+            setProject({ id: pid })
+            if (typeof window !== 'undefined') {
+              const u = new URL(window.location.href)
+              u.searchParams.set('project', pid)
+              window.history.replaceState(null, '', u.toString())
+            }
+          }
+        } catch (e) { console.warn('[panel] auto-start project failed:', e?.message) }
+      }
+      if (pid) {
         // Eager-attach to the Airtable record so refreshing won't lose
         // this upload. The path field on the record persists.
         try {
           await fetch('/api/admin/recreate-rooms/stage-b/attach', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectId: project.id, kind, dropboxPath: path }),
+            body: JSON.stringify({ projectId: pid, kind, dropboxPath: path }),
           })
         } catch (e) { console.warn('[panel] eager attach failed:', e?.message) }
       }
