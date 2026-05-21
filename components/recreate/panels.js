@@ -10,6 +10,22 @@
 import { useEffect, useState, useCallback } from 'react'
 import { buildStreamPosterUrl, buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
+// Mobile breakpoint detection — inline styles can't use media queries
+// so any layout that needs to collapse on phone screens reads this hook.
+// Tracks the viewport width via matchMedia and re-renders on change.
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const apply = () => setIsMobile(mq.matches)
+    apply()
+    mq.addEventListener?.('change', apply) || mq.addListener?.(apply)
+    return () => mq.removeEventListener?.('change', apply) || mq.removeListener?.(apply)
+  }, [breakpoint])
+  return isMobile
+}
+
 // ─── Styled modal system (singleton; replaces native confirm/prompt/alert) ──
 let _modalListeners = []
 let _modalState = null
@@ -105,6 +121,7 @@ export async function stageBUpload(blob, kind) {
 
 
 export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProjectId } = {}) {
+  const isMobile = useIsMobile() // collapse 4-quarter top row + 2-col detail modal into a stack on phones
   const [data, setData] = useState({ creators: [], rooms: [], variations: [] })
   const [reels, setReels] = useState([])
   const [creatorId, setCreatorId] = useState('')
@@ -339,7 +356,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     setBusy(false)
   }
 
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 14 }
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: isMobile ? 12 : 18, marginBottom: 14 }
   const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
   // Numbered step header — circle + title. Replaces the small uppercase
   // "N · TITLE" labels. Optional `subtitle` shows the short description
@@ -378,7 +395,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           just upload a file. */}
       <div id="tour-stageb-creator" style={card}>
         {reel?.id && !showReelGrid ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))', gap: 16, alignItems: 'stretch' }}>
             {/* Reel column: preview on top, handle + action buttons
                 below. Acts as the "scene source" anchor. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
@@ -833,9 +850,9 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           <div onClick={() => setSelectedOutput(null)}
             style={{ position: 'fixed', inset: 0, zIndex: 2800, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div onClick={e => e.stopPropagation()}
-              style={{ width: 'min(960px, 95vw)', maxHeight: '92vh', display: 'grid', gridTemplateColumns: 'minmax(280px, 420px) 1fr', gap: 20, background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.55)', overflow: 'hidden' }}>
+              style={{ width: 'min(960px, 95vw)', maxHeight: '92vh', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(280px, 420px) 1fr', gap: 20, background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.55)', overflow: 'auto' }}>
               {o.image
-                ? <img src={o.image} alt="" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 10, background: '#000', display: 'block', alignSelf: 'start' }} />
+                ? <img src={o.image} alt="" style={{ width: '100%', maxHeight: isMobile ? '50vh' : 'none', aspectRatio: isMobile ? 'auto' : '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block', alignSelf: 'start' }} />
                 : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: sc, background: '#000', borderRadius: 10 }}>{o.status}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
