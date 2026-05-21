@@ -406,16 +406,18 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
 
             {/* TJP off-site steps — what to do between picking the reel
                 and dropping the result in step 3. Lettered so they
-                don't collide with the portal's step 3 / step 4. */}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ fontSize: 20 }}>🎬</div>
+                don't collide with the portal's step 3 / step 4. Sized
+                up so the content actually fills the column height set
+                by the portrait reel preview. */}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 18, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                <div style={{ fontSize: 28 }}>🎬</div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 1 }}>Off-portal — result → step 3.</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
+                  <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 2 }}>Off-portal — result → step 3.</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, justifyContent: 'space-between' }}>
                 {[
                   { n: 'a', label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
                   { n: 'b', label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
@@ -423,11 +425,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                   { n: 'd', label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with upscaled frame + your creator. 4 variations.</> },
                   { n: 'e', label: 'Pick best → drop in step 3', text: <>Choose the best of the 4 variations, download it, drop it in <b>step 3</b> →.</> },
                 ].map(s => (
-                  <div key={s.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+                  <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#8fb4f0', marginBottom: 1 }}>{s.label}</div>
-                      <div style={{ fontSize: 12, color: 'var(--foreground)', lineHeight: 1.4 }}>{s.text}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#8fb4f0', marginBottom: 3 }}>{s.label}</div>
+                      <div style={{ fontSize: 14, color: 'var(--foreground)', lineHeight: 1.5 }}>{s.text}</div>
                     </div>
                   </div>
                 ))}
