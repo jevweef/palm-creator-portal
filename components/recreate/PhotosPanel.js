@@ -265,6 +265,35 @@ function LibrarySection() {
     } catch (e) { setPhotos(snap); alert(`Dismiss failed: ${e.message}`) }
   }
 
+  // Re-fetch HD bytes for an already-imported photo. The feed scrape
+  // shipped ~480px candidates (~50KB JPEGs); get_media_data returns
+  // 1080w (~150-200KB). Overwrites Dropbox + CF Images in place.
+  const upgradeHd = async (p) => {
+    setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, _upgradingHd: true } : x))
+    try {
+      const r = await fetch('/api/admin/photos/upgrade-hd', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: p.id }),
+      })
+      const d = await r.json()
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+      // CF Images URL stays stable when the id is the same; bump a
+      // cache-buster so the <img> reloads. Setting state with the new
+      // cdnUrl + a query param forces the browser to refetch.
+      const bust = `?v=${Date.now()}`
+      setPhotos(prev => prev.map(x => x.id === p.id ? {
+        ...x,
+        _upgradingHd: false,
+        cdnUrl: d.cdnUrl || x.cdnUrl,
+        image: (d.cdnUrl || x.cdnUrl || x.image) + bust,
+        _hdUpgraded: true, // surface a tiny ✓ pill so the editor knows it worked
+      } : x))
+    } catch (e) {
+      setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, _upgradingHd: false } : x))
+      alert(`HD upgrade failed: ${e.message}`)
+    }
+  }
+
   // Generate a product-flatlay version via Nano Banana. The route takes
   // ~15-40s end-to-end, so we flip the row to Generating immediately
   // for instant feedback, then update with the final URL on resolution.
@@ -409,7 +438,7 @@ function LibrarySection() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} />
                   ))}
                 </div>
               </div>
@@ -469,7 +498,7 @@ function LibrarySection() {
               <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} />
                   ))}
                 </div>
               </div>
@@ -485,7 +514,7 @@ function LibrarySection() {
 // the per-image actions stay identical. pickOutfit + generateFlatlay
 // are optional — passed only from the post modal so the inline expanded
 // view stays uncluttered (use the Outfit Picker tab + flatlay icons there).
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay }) {
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upgradeHd }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   // Flatlay button is only meaningful on outfit-flagged rows (the whole
   // feature is about analyzing the clothes the subject is wearing).
@@ -541,6 +570,13 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay }) {
                   : 'Generate a product-flatlay version (clothes on white, sunglasses excluded)'}
               style={iconBtn(fl === 'Failed' ? '#E87878' : '#e8a878')}>
               {fl === 'Done' ? '📦↻' : fl === 'Failed' ? '↻ 📦' : '📦'}
+            </button>
+          )}
+          {upgradeHd && (
+            <button onClick={() => upgradeHd(p)} disabled={p._upgradingHd}
+              title="Re-fetch the high-res version from Instagram (1080w instead of the ~480w feed thumbnail) and replace the Dropbox + CDN copy."
+              style={iconBtn(p._hdUpgraded ? '#6AC68A' : '#8FB4F0')}>
+              {p._upgradingHd ? '⏳' : p._hdUpgraded ? '✓ HD' : '↑ HD'}
             </button>
           )}
           <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, batchCreateRecords, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { fetchPostHdUrls } from '@/lib/instagramHd'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -87,12 +88,31 @@ export async function POST(request) {
       }
       throw new Error('uploadToDropbox: retries exhausted')
     }
+    // Per-post HD URL cache. The feed endpoint only ships ~480px-wide
+    // candidates; get_media_data.php?type=post returns up to 1080w which
+    // is 2-4× the bytes. One call per unique post code yields URLs for
+    // every carousel position, so we batch resolve up front and let
+    // processOne look up by (code, carouselIndex).
+    const distinctCodes = [...new Set(images.map(i => String(i.code || '').trim()).filter(Boolean))]
+    const hdByCode = new Map()
+    await Promise.all(distinctCodes.map(async (code) => {
+      try {
+        const map = await fetchPostHdUrls(code)
+        if (map) hdByCode.set(code, map)
+      } catch (e) { console.warn(`[photos/import] HD lookup ${code} failed:`, e.message) }
+    }))
+
     const processOne = async (img) => {
       const code = String(img.code || '').trim()
       const idx = Number(img.carouselIndex) || 1
       if (!code) { failures.push({ code: '?', carouselIndex: idx, reason: 'missing code' }); return null }
       if (existingKeys.has(`${code}|${idx}`)) { dupes++; return null }
-      const srcUrl = img.fullResUrl || img.thumbnail
+      // Prefer the freshly-fetched HD URL from get_media_data; fall back
+      // to the cached feed URL if the post-detail call missed (rate
+      // limited, deleted post, etc.). Either way the file ends up in
+      // Dropbox + CF Images.
+      const hdUrl = hdByCode.get(code)?.get(idx)
+      const srcUrl = hdUrl || img.fullResUrl || img.thumbnail
       if (!srcUrl) { failures.push({ code, carouselIndex: idx, reason: 'no source URL in cache' }); return null }
       try {
         const ir = await fetch(srcUrl)
