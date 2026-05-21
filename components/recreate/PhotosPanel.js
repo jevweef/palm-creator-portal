@@ -356,23 +356,57 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
     else setSelected(new Set(selectable.map(keyOf)))
   }
 
+  // Server caps each request at 50 images so the Dropbox upload loop
+  // stays under Vercel's 120s function timeout. We batch on the client
+  // so the user can mark hundreds in one Browse pass without worrying
+  // about the limit — chunks fire sequentially, progress streams to
+  // the footer, each chunk's images flip to "imported" the moment it
+  // returns so the grid greys them out incrementally.
+  const CHUNK_SIZE = 50
   const doImport = async () => {
     if (selected.size === 0) return
     setImporting(true); setImportMsg('')
+    const picked = images.filter(i => selected.has(keyOf(i)))
+    const chunks = []
+    for (let i = 0; i < picked.length; i += CHUNK_SIZE) chunks.push(picked.slice(i, i + CHUNK_SIZE))
+    let totalCreated = 0, totalDupes = 0, totalFailed = 0
+    let importedSoFar = new Set()
     try {
-      const picked = images.filter(i => selected.has(keyOf(i)))
-      const r = await fetch('/api/admin/photos/import', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle: account.handle, images: picked }),
+      for (let c = 0; c < chunks.length; c++) {
+        const chunk = chunks[c]
+        setImportMsg(`⏳ Importing batch ${c + 1}/${chunks.length} (${chunk.length} images)…`)
+        const r = await fetch('/api/admin/photos/import', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: account.handle, images: chunk }),
+        })
+        const d = await r.json()
+        if (d.error) throw new Error(`Batch ${c + 1}/${chunks.length}: ${d.error}`)
+        totalCreated += (d.created || 0)
+        totalDupes += (d.duplicates || 0)
+        totalFailed += (d.failed || 0)
+        // Mark this chunk's images as imported immediately so the UI
+        // reflects partial progress even if a later chunk fails.
+        for (const img of chunk) importedSoFar.add(keyOf(img))
+        setImages(prev => prev.map(i => importedSoFar.has(keyOf(i)) ? { ...i, alreadyImported: true } : i))
+      }
+      setImportMsg(`✓ Imported ${totalCreated} image${totalCreated === 1 ? '' : 's'}${totalDupes ? ` (${totalDupes} dup)` : ''}${totalFailed ? ` (${totalFailed} failed)` : ''}.`)
+      onImported?.(totalCreated)
+      // Clear selection of anything that successfully imported
+      setSelected(prev => {
+        const next = new Set(prev)
+        for (const k of importedSoFar) next.delete(k)
+        return next
       })
-      const d = await r.json()
-      if (d.error) throw new Error(d.error)
-      setImportMsg(`Imported ${d.created} image${d.created === 1 ? '' : 's'}${d.duplicates ? ` (${d.duplicates} dup)` : ''}${d.failed ? ` (${d.failed} failed)` : ''}.`)
-      onImported?.(d.created || 0)
-      // Mark imported so subsequent clicks don't re-add
-      setImages(prev => prev.map(i => selected.has(keyOf(i)) ? { ...i, alreadyImported: true } : i))
-      setSelected(new Set())
-    } catch (e) { setImportMsg(`❌ ${e.message}`) } finally { setImporting(false) }
+    } catch (e) {
+      setImportMsg(`❌ ${e.message}. Imported ${totalCreated} before failure — selection preserved; click Import again to retry the rest.`)
+      // Drop already-imported keys from the selection so a retry only
+      // hits what's left.
+      setSelected(prev => {
+        const next = new Set(prev)
+        for (const k of importedSoFar) next.delete(k)
+        return next
+      })
+    } finally { setImporting(false) }
   }
 
   const newCount = images.filter(i => !i.alreadyImported).length
@@ -452,10 +486,18 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
           )}
         </div>
         <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', flex: 1 }}>{importMsg || 'Mark the images you want, then Import. Each downloads at full-res to Dropbox + Airtable.'}</div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', flex: 1 }}>
+            {importMsg || (
+              <>Mark any number — large selections auto-batch into chunks of 50. Each image downloads at full-res to Dropbox + Airtable.</>
+            )}
+          </div>
           <button onClick={doImport} disabled={selected.size === 0 || importing}
             style={{ padding: '10px 18px', fontSize: 13, fontWeight: 700, background: selected.size === 0 || importing ? 'rgba(232,168,120,0.18)' : 'var(--palm-pink, #e8a878)', color: selected.size === 0 || importing ? 'rgba(255,255,255,0.4)' : '#1a0a0a', border: 'none', borderRadius: 6, cursor: selected.size === 0 || importing ? 'not-allowed' : 'pointer' }}>
-            {importing ? '⏳ Importing…' : `Import ${selected.size}`}
+            {importing ? '⏳ Importing…' : (
+              selected.size > 50
+                ? `Import ${selected.size} (${Math.ceil(selected.size / 50)} batches)`
+                : `Import ${selected.size}`
+            )}
           </button>
         </div>
       </div>
