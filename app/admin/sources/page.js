@@ -697,6 +697,169 @@ const labelStyle = { display: 'block', fontSize: '11px', color: 'var(--foregroun
 const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }
 const btnStyle = { padding: '8px 16px', border: 'none', borderRadius: '6px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }
 
+// Cheap-scrape preview modal. RapidAPI fetch returns ~30 reels with
+// thumbnails + metadata; admin clicks to mark, then Import N writes
+// only the marked ones into Source Reels (skipping the full Apify scrape).
+// Reels already in Source Reels for this handle are flagged dimmed so
+// the admin can see which are new.
+function PreviewReelsModal({ source, onClose, onImported }) {
+  const [loading, setLoading] = useState(true)
+  const [reels, setReels] = useState([])
+  const [error, setError] = useState('')
+  const [selected, setSelected] = useState(new Set())
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    fetch(`/api/admin/inspo/preview-reels?handle=${encodeURIComponent(source.handle)}&limit=30`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        if (d.error) { setError(d.error); setReels([]); return }
+        setReels(d.reels || [])
+      })
+      .catch(e => { if (!cancelled) setError(e.message || 'fetch failed') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [source.handle])
+
+  const toggle = (code) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code); else next.add(code)
+      return next
+    })
+  }
+
+  const selectableReels = reels.filter(r => !r.alreadyImported)
+  const allSelected = selectableReels.length > 0 && selectableReels.every(r => selected.has(r.code))
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set())
+    else setSelected(new Set(selectableReels.map(r => r.code)))
+  }
+
+  const doImport = async () => {
+    if (selected.size === 0) return
+    setImporting(true)
+    setImportMsg('')
+    try {
+      const picked = reels.filter(r => selected.has(r.code))
+      const res = await fetch('/api/admin/inspo/import-selected', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: source.handle, reels: picked }),
+      })
+      const d = await res.json()
+      if (d.error) throw new Error(d.error)
+      setImportMsg(`Imported ${d.created} new reel${d.created === 1 ? '' : 's'}${d.duplicates ? ` (${d.duplicates} already imported)` : ''}.`)
+      onImported?.(d.created || 0)
+      // Mark imported reels as alreadyImported so subsequent imports
+      // don't re-add them. Cheaper than re-fetching the preview.
+      setReels(prev => prev.map(r => selected.has(r.code) ? { ...r, alreadyImported: true } : r))
+      setSelected(new Set())
+    } catch (e) {
+      setImportMsg(`❌ ${e?.message || String(e)}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const newCount = reels.filter(r => !r.alreadyImported).length
+  const dupCount = reels.filter(r => r.alreadyImported).length
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>👁 Browse @{source.handle}</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              {loading ? 'Loading thumbnails…' : (
+                error ? <span style={{ color: '#E87878' }}>{error}</span> : (
+                  <>{reels.length} reels · <span style={{ color: '#7DD3A4' }}>{newCount} new</span>{dupCount ? ` · ${dupCount} already imported` : ''} · {selected.size} marked</>
+                )
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', padding: '6px 12px', fontSize: '14px', cursor: 'pointer' }}>✕</button>
+        </div>
+
+        {/* Toolbar */}
+        {!loading && !error && reels.length > 0 && (
+          <div style={{ padding: '10px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
+            <button onClick={toggleAll} style={{ ...btnStyle, padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.06)' }}>
+              {allSelected ? 'Clear selection' : `Select all ${newCount} new`}
+            </button>
+            <div style={{ color: 'var(--foreground-muted)', flex: 1 }}>Click thumbnails to mark / unmark. Already-imported reels are dimmed.</div>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+          {loading && <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>⏳ Fetching from RapidAPI…</div>}
+          {!loading && !error && reels.length === 0 && <div style={{ color: 'var(--foreground-muted)', fontSize: '13px' }}>No reels returned.</div>}
+          {!loading && reels.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px' }}>
+              {reels.map(r => {
+                const isSel = selected.has(r.code)
+                const isDupe = r.alreadyImported
+                return (
+                  <div key={r.code}
+                    onClick={() => !isDupe && toggle(r.code)}
+                    style={{
+                      position: 'relative',
+                      border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px', overflow: 'hidden',
+                      cursor: isDupe ? 'default' : 'pointer',
+                      opacity: isDupe ? 0.35 : 1,
+                      transition: 'all 0.15s ease',
+                    }}>
+                    {r.thumbnail
+                      ? <img src={r.thumbnail} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', background: '#000' }} />
+                      : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#666', fontSize: '11px' }}>no thumb</div>}
+                    {isSel && (
+                      <div style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'var(--palm-pink)', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>✓</div>
+                    )}
+                    {isDupe && (
+                      <div style={{ position: 'absolute', top: 6, left: 6, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,0,0,0.7)', color: '#7DD3A4', fontSize: '10px', fontWeight: 700 }}>IMPORTED</div>
+                    )}
+                    <div style={{ padding: '6px 8px', fontSize: '11px', background: 'rgba(0,0,0,0.4)', color: 'var(--foreground-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{r.plays ? formatCount(r.plays) + ' views' : (r.likes ? formatCount(r.likes) + ' likes' : '—')}</span>
+                      <a href={r.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗</a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer with Import button */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', flex: 1 }}>{importMsg || 'Mark the reels you want, then click Import. They land in Source Reels with full metadata — no Apify run needed.'}</div>
+          <button
+            onClick={doImport}
+            disabled={selected.size === 0 || importing}
+            style={{ ...btnStyle, background: selected.size === 0 || importing ? 'rgba(232,168,120,0.18)' : 'var(--palm-pink)', color: selected.size === 0 || importing ? 'rgba(255,255,255,0.4)' : '#1a0a0a', padding: '10px 20px', fontSize: '13px', fontWeight: 700, cursor: selected.size === 0 || importing ? 'not-allowed' : 'pointer' }}
+          >
+            {importing ? '⏳ Importing…' : `Import ${selected.size} reel${selected.size === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatCount(n) {
+  if (!n || n < 1000) return String(n || 0)
+  if (n < 1e6) return (n / 1000).toFixed(n < 10000 ? 1 : 0) + 'K'
+  return (n / 1e6).toFixed(1) + 'M'
+}
+
 export default function AdminSources() {
   const [sources, setSources] = useState([])
   const [loading, setLoading] = useState(true)
@@ -705,6 +868,7 @@ export default function AdminSources() {
   const [reelsSource, setReelsSource] = useState(null) // source for reels modal
   const [enableSource, setEnableSource] = useState(null) // source for enable confirmation modal
   const [rescrapeSource, setRescrapeSource] = useState(null) // { source, newLimit }
+  const [previewSource, setPreviewSource] = useState(null) // RapidAPI preview-and-mark modal
   const [batch, setBatch] = useState([]) // queued sources for batch scrape
   const [batchScraping, setBatchScraping] = useState(false)
   const [allCreators, setAllCreators] = useState([])
@@ -1028,7 +1192,7 @@ export default function AdminSources() {
         {/* Table header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
+          gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 160px',
           padding: '10px 16px',
           borderBottom: '1px solid transparent',
           fontSize: '11px',
@@ -1057,7 +1221,7 @@ export default function AdminSources() {
             key={source.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 90px',
+              gridTemplateColumns: '40px 1fr 100px 70px 60px 80px 100px 70px 60px 80px 160px',
               padding: '10px 16px',
               borderBottom: '1px solid transparent',
               alignItems: 'center',
@@ -1187,26 +1351,42 @@ export default function AdminSources() {
             {/* Date Added */}
             <div style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{source.dateAdded ? formatTime(source.dateAdded + 'T12:00:00') : '—'}</div>
 
-            {/* Scrape button — hidden for Banned/Dead accounts */}
-            <div>
+            {/* Per-row actions: Preview (cheap RapidAPI thumbnails + mark-to-import)
+                and Scrape (full Apify run). Hidden for Banned/Dead accounts. */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               {source.accountStatus === 'Banned' || source.accountStatus === 'Dead' ? (
                 <span style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)' }}>
                   {source.accountStatus === 'Banned' ? 'Banned' : 'Dead'}
                 </span>
               ) : (
-                <button
-                  onClick={() => scrapeOne(source)}
-                  disabled={scraping[source.id] || !source.enabled}
-                  style={{
-                    padding: '4px 10px', fontSize: '11px', fontWeight: 600,
-                    background: scraping[source.id] ? 'transparent' : 'rgba(232, 160, 160, 0.06)',
-                    color: scraping[source.id] ? 'rgba(240, 236, 232, 0.85)' : 'var(--palm-pink)',
-                    border: '1px solid transparent', borderRadius: '4px',
-                    cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {scraping[source.id] ? '...' : (source.lastScrapedAt ? 'Rescrape' : 'Scrape')}
-                </button>
+                <>
+                  <button
+                    onClick={() => setPreviewSource(source)}
+                    title="Cheap RapidAPI preview — browse thumbnails and mark ones to import"
+                    style={{
+                      padding: '4px 8px', fontSize: '11px', fontWeight: 600,
+                      background: 'rgba(120, 180, 232, 0.08)',
+                      color: '#8FB4F0',
+                      border: '1px solid transparent', borderRadius: '4px', cursor: 'pointer',
+                    }}
+                  >
+                    👁 Browse
+                  </button>
+                  <button
+                    onClick={() => scrapeOne(source)}
+                    disabled={scraping[source.id] || !source.enabled}
+                    title="Full Apify scrape — pulls every recent reel regardless"
+                    style={{
+                      padding: '4px 8px', fontSize: '11px', fontWeight: 600,
+                      background: scraping[source.id] ? 'transparent' : 'rgba(232, 160, 160, 0.06)',
+                      color: scraping[source.id] ? 'rgba(240, 236, 232, 0.85)' : 'var(--palm-pink)',
+                      border: '1px solid transparent', borderRadius: '4px',
+                      cursor: scraping[source.id] || !source.enabled ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {scraping[source.id] ? '...' : (source.lastScrapedAt ? 'Rescrape' : 'Scrape')}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1292,6 +1472,19 @@ export default function AdminSources() {
           onConfirm={(newLimit) => {
             setSources(prev => prev.map(s => s.id === rescrapeSource.source.id ? { ...s, apifyLimit: newLimit, pipelineStatus: 'Processing' } : s))
             setRescrapeSource(null)
+          }}
+        />
+      )}
+      {previewSource && (
+        <PreviewReelsModal
+          source={previewSource}
+          onClose={() => setPreviewSource(null)}
+          onImported={(count) => {
+            // Bump the row's Source Reels Added count locally so the
+            // table reflects the import without a full refetch.
+            setSources(prev => prev.map(s => s.id === previewSource.id
+              ? { ...s, sourceReelsAdded: (s.sourceReelsAdded || 0) + count }
+              : s))
           }}
         />
       )}
