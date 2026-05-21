@@ -22,17 +22,24 @@ export async function GET() {
       // black thumbnails when the page sits open. Dropbox shared links
       // don't expire. Airtable URL becomes the fallback if no Dropbox
       // link exists yet (older records before the import wired in DBX).
+      // Serve image bytes through our /api/admin/photos/image proxy so
+      // <img> tags get the correct Content-Type. Dropbox shared links
+      // return application/json for the underlying bytes (browser won't
+      // render), and Airtable signed URLs expire after a few hours.
+      // The proxy resolves Dropbox Path → bytes with proper image MIME
+      // and is cacheable in the browser for 24h.
       const dropboxLink = f['Dropbox Link'] || ''
-      const dropboxRaw = dropboxLink ? String(dropboxLink).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
+      const dropboxPath = f['Dropbox Path'] || ''
+      const proxyUrl = dropboxPath ? `/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}` : ''
       return {
         id: r.id,
         handle: f['Source Handle'] || '',
         postUrl: f['Source Post URL'] || '',
         carouselIndex: f['Carousel Index'] || 1,
         carouselTotal: f['Carousel Total'] || 1,
-        image: dropboxRaw || attThumb,
-        imageFull: dropboxRaw || attFull,
-        imageFallback: attThumb, // client can try this if Dropbox link 404s
+        image: proxyUrl || attThumb,
+        imageFull: proxyUrl || attFull,
+        imageFallback: attThumb, // client retries on this if proxy fails
         dropbox: dropboxLink,
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',
