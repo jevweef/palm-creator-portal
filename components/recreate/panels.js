@@ -401,34 +401,139 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               )}
             </div>
 
-            {/* TJP off-site steps — dominant block. Bigger header, more
-                breathing room. This is THE thing the editor needs to
-                follow between picking the reel and uploading. */}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 22, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                <div style={{ fontSize: 28 }}>🎬</div>
+            {/* TJP off-site steps — what to do between picking the reel
+                and dropping the result in step 3. */}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ fontSize: 20 }}>🎬</div>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
-                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>Off-portal — bring the result back to step 3 below.</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 1 }}>Off-portal — result → step 3.</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
                 {[
                   { n: 1, label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
                   { n: 2, label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
                   { n: 3, label: 'Apex Upscale', text: <>TJP → <b>Apex Upscale</b> on the captured frame.</> },
-                  { n: 4, label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with the upscaled frame + your creator. 4 variations.</> },
-                  { n: 5, label: 'Upload best', text: <>Pick the best of the 4, download it, drop it in <b>step 3</b> below.</> },
+                  { n: 4, label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with upscaled frame + your creator. 4 variations.</> },
+                  { n: 5, label: 'Upload best', text: <>Pick the best of the 4, download, drop it in <b>step 3</b> →.</> },
                 ].map(s => (
-                  <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{s.n}</div>
+                  <div key={s.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#8fb4f0', marginBottom: 2 }}>{s.label}</div>
-                      <div style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.5 }}>{s.text}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#8fb4f0', marginBottom: 1 }}>{s.label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--foreground)', lineHeight: 1.4 }}>{s.text}</div>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Step 3: TJP photo drop zone — compact column inside the
+                top row. No more full-width hero; just a file target. */}
+            <div id="tour-stageb-subject" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(232,168,120,0.05)', border: '1px solid rgba(232,168,120,0.3)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e8b878', color: '#1a0a0a', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>3</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>TJP output</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 1 }}>Drop photo · auto-saves.</div>
+                </div>
+              </div>
+              <label
+                onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = 'rgba(232,168,120,0.14)' }}
+                onDragLeave={e => { e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)' }}
+                onDrop={e => {
+                  e.preventDefault()
+                  e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)'
+                  const f = [...(e.dataTransfer?.files || [])].find(x => x.type.startsWith('image/'))
+                  if (f) pickFile(f, 'subject', setSubjectSlot)
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 1,
+                  minHeight: 180,
+                  border: `2px dashed rgba(232,168,120,${subjectSlot.url ? '0.3' : '0.45'})`,
+                  borderRadius: 8,
+                  padding: 12,
+                  background: subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                }}>
+                <input type="file" accept="image/*" onChange={e => pickFile(e.target.files?.[0] || null, 'subject', setSubjectSlot)} style={{ display: 'none' }} />
+                {subjectSlot.url ? (
+                  <>
+                    <img src={subjectSlot.url} alt=""
+                      style={{ width: '100%', maxWidth: 130, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                      {subjectSlot.uploading ? (
+                        <>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#8fb4f0', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>⏳</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#8fb4f0' }}>Uploading…</div>
+                        </>
+                      ) : subjectSlot.path ? (
+                        <>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#6AC68A', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>✓</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#6AC68A' }}>Saved</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#e8b878', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>!</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#e8b878' }}>Not saved</div>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 6 }}>Click to replace</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 32, marginBottom: 6 }}>📤</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Drop TJP photo</div>
+                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>or click to browse</div>
+                  </>
+                )}
+              </label>
+            </div>
+
+            {/* Step 4: Generate — AI swap. Last column. */}
+            <div id="tour-stageb-generate" style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(232,168,120,0.05)', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e8a878', color: '#1a0a0a', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>4</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Generate scene</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 1 }}>AI swap · ~3–6 min.</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 12, lineHeight: 1.45 }}>
+                Swaps {sel?.name || 'her'} background for her saved room and relights her to match.
+              </div>
+              {(() => {
+                const hasSubject = !!(subjectSlot.path || subjectSlot.url)
+                const ready = hasSubject && !subjectSlot.uploading
+                return (
+                  <button onClick={generate} disabled={busy || !ready}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '12px 16px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      background: busy ? 'rgba(232,168,120,0.3)' : !ready ? 'rgba(232,168,120,0.18)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
+                      color: !ready && !busy ? 'rgba(255,255,255,0.4)' : '#1a0a0a',
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: (busy || !ready) ? 'default' : 'pointer',
+                      boxShadow: ready && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
+                      transition: 'all 0.15s ease',
+                    }}>
+                    {busy ? '⏳ Working…' : subjectSlot.uploading ? '⏳ Uploading…' : ready ? '🪄 Generate' : 'Upload first →'}
+                  </button>
+                )
+              })()}
+              {msg && <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 10, padding: 8, background: 'rgba(0,0,0,0.25)', borderRadius: 5, borderLeft: '3px solid rgba(232,168,120,0.4)' }}>{msg}</div>}
             </div>
           </div>
         ) : (
@@ -509,105 +614,6 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           </div>
         )}
       </div>
-
-      {/* Step 3 (upload) + Step 4 (Generate, AI action) sit side-by-side
-          so the editor sees "drop file" on the left and "kick off the
-          AI" on the right. Drop zone is no longer full-width — it's
-          just an image-drop target, not a hero. */}
-      {reel?.id && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 14 }}>
-          {/* Step 3: upload */}
-          <div id="tour-stageb-subject" style={{ ...card, marginBottom: 0, border: '1px solid rgba(232,168,120,0.4)' }}>
-            {stepHead(3, 'TJP image-to-image output', 'Drop the TJP photo here. Auto-saves to this project.', '#e8b878')}
-
-            <label
-              onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = 'rgba(232,168,120,0.14)' }}
-              onDragLeave={e => { e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)' }}
-              onDrop={e => {
-                e.preventDefault()
-                e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)'
-                const f = [...(e.dataTransfer?.files || [])].find(x => x.type.startsWith('image/'))
-                if (f) pickFile(f, 'subject', setSubjectSlot)
-              }}
-              style={{
-                display: 'block',
-                border: `2px dashed rgba(232,168,120,${subjectSlot.url ? '0.3' : '0.45'})`,
-                borderRadius: 10,
-                padding: subjectSlot.url ? 14 : 0,
-                background: subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease',
-              }}>
-              <input type="file" accept="image/*" onChange={e => pickFile(e.target.files?.[0] || null, 'subject', setSubjectSlot)} style={{ display: 'none' }} />
-              {subjectSlot.url ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 150px) 1fr', gap: 14, alignItems: 'flex-start' }}>
-                  <img src={subjectSlot.url} alt=""
-                    style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, background: '#000', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {subjectSlot.uploading ? (
-                        <>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#8fb4f0', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>⏳</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#8fb4f0' }}>Uploading…</div>
-                        </>
-                      ) : subjectSlot.path ? (
-                        <>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#6AC68A', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>✓</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A' }}>Saved</div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#e8b878', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>!</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#e8b878' }}>Not saved</div>
-                        </>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subjectSlot.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--foreground-muted)' }}>Click or drag a new file to replace.</div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 220, padding: 24, textAlign: 'center' }}>
-                  <div style={{ fontSize: 38, marginBottom: 10 }}>📤</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Drop the TJP photo here</div>
-                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to browse</div>
-                </div>
-              )}
-            </label>
-          </div>
-
-          {/* Step 4: Generate — the AI action. Lives next to the drop
-              zone so editor can see "I uploaded → now I push this". */}
-          <div id="tour-stageb-generate" style={{ ...card, marginBottom: 0 }}>
-            {stepHead(4, 'Generate scene (AI swap)', `Swaps ${sel?.name || 'her'} background for her saved room and relights her to match. ~3–6 minutes on WaveSpeed.`, '#e8a878')}
-            {(() => {
-              const hasSubject = !!(subjectSlot.path || subjectSlot.url)
-              const ready = hasSubject && !subjectSlot.uploading
-              return (
-                <button onClick={generate} disabled={busy || !ready}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '14px 24px',
-                    marginTop: 6,
-                    fontSize: 15,
-                    fontWeight: 700,
-                    background: busy ? 'rgba(232,168,120,0.3)' : !ready ? 'rgba(232,168,120,0.18)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
-                    color: !ready && !busy ? 'rgba(255,255,255,0.4)' : '#1a0a0a',
-                    border: 'none',
-                    borderRadius: 10,
-                    cursor: (busy || !ready) ? 'default' : 'pointer',
-                    boxShadow: ready && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
-                    transition: 'all 0.15s ease',
-                  }}>
-                  {busy ? '⏳ Working…' : subjectSlot.uploading ? '⏳ Waiting for upload…' : ready ? '🪄 Generate scene' : 'Upload the TJP photo first →'}
-                </button>
-              )
-            })()}
-            {msg && <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 12, padding: 10, background: 'rgba(0,0,0,0.25)', borderRadius: 6, borderLeft: '3px solid rgba(232,168,120,0.4)' }}>{msg}</div>}
-          </div>
-        </div>
-      )}
 
       {stageBOut && (
         <div style={{ ...card, marginTop: 16 }}>
