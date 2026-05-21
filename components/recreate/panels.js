@@ -125,6 +125,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [showOptionalUploads, setShowOptionalUploads] = useState(false) // Raw + upscaled, archival only
   const [reelPlaying, setReelPlaying] = useState(false) // Click-to-play the selected reel inline
   const [model, setModel] = useState('wan') // 'wan' | 'nano' | 'gpt' — Wan tends to zoom out, alternatives may respect framing better
+  const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
 
   const [creators, setCreators] = useState([])
 
@@ -700,10 +701,15 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               // from a prior run — otherwise the card shows the old
               // (possibly bad) result with "Generating" stamped on it.
               const showImage = !!o.image && o.status !== 'Generating' && o.status !== 'Started'
+              // The Dropbox shared link forces a direct download when we
+              // swap dl=0 → dl=1; raw=1 streams inline. Use dl=1 for the
+              // download button, raw=1 for the inline image source.
+              const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
               return (
                 <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
                   {showImage
-                    ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
+                    ? <img src={o.image} alt="" loading="lazy" onClick={() => setSelectedOutput(o)}
+                        style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
                     : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
                   <div style={{ padding: 8, fontSize: 11 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -713,7 +719,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · framing {o.screenshotFraming || '?'}</div>
                     {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ source reel @{o.reel.handle || o.reel.reelId}</a>}
 
-                    {/* Bundle Outfits coming in next commit (outfit library). */}
+                    {/* Direct download — available for any card that has
+                        an image (Pending / Approved / Rejected). The TJP
+                        editor wants the still even before approval. */}
+                    {dlUrl && showImage && (
+                      <a href={dlUrl} download
+                        style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ Download still</a>
+                    )}
                     {o.status === 'Approved' && (
                       <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${o.id}`}
                         style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ ZIP for TJP (still + reel)</a>
@@ -736,6 +748,71 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
             })}
           </div>
         </div>
+        )
+      })()}
+
+      {/* Click-to-expand detail modal for a Scene card. Big preview +
+          metadata + actions in one place. Click outside or ✕ to close. */}
+      {selectedOutput && (() => {
+        const o = selectedOutput
+        const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
+        const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
+        return (
+          <div onClick={() => setSelectedOutput(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 2800, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ width: 'min(960px, 95vw)', maxHeight: '92vh', display: 'grid', gridTemplateColumns: 'minmax(280px, 420px) 1fr', gap: 20, background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.55)', overflow: 'hidden' }}>
+              {o.image
+                ? <img src={o.image} alt="" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 10, background: '#000', display: 'block', alignSelf: 'start' }} />
+                : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: sc, background: '#000', borderRadius: 10 }}>{o.status}</div>}
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'ui-monospace, Menlo, monospace' }}>{o.slug || `${sel?.name} · Reel ${o.index ?? '?'}`}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status}</div>
+                  </div>
+                  <button onClick={() => setSelectedOutput(null)}
+                    style={{ padding: '4px 10px', fontSize: 16, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>✕</button>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 12, lineHeight: 1.6 }}>
+                  <div><b style={{ color: 'var(--foreground)' }}>Room:</b> {o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''}</div>
+                  <div><b style={{ color: 'var(--foreground)' }}>Subject framing:</b> {o.screenshotFraming || '?'}</div>
+                  {o.reel && (
+                    <div><b style={{ color: 'var(--foreground)' }}>Source reel:</b> <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>@{o.reel.handle || o.reel.reelId}</a></div>
+                  )}
+                  {o.rejectReason && (
+                    <div style={{ marginTop: 8, padding: 8, background: 'rgba(232,120,120,0.1)', borderRadius: 6, color: '#E87878', fontStyle: 'italic' }}>Rejection: {o.rejectReason}</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+                  {dlUrl && o.image && (
+                    <a href={dlUrl} download
+                      style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)', color: '#1a0a0a', borderRadius: 8, textDecoration: 'none' }}>⬇ Download still</a>
+                  )}
+                  {o.status === 'Approved' && (
+                    <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${o.id}`}
+                      style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 8, textDecoration: 'none' }}>⬇ ZIP for TJP (still + reel)</a>
+                  )}
+                  {o.dropbox && (
+                    <a href={o.dropbox} target="_blank" rel="noreferrer"
+                      style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'rgba(120,160,232,0.12)', color: '#8fb4f0', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 8, textDecoration: 'none' }}>↗ Open in Dropbox</a>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  {o.status !== 'Approved' && (
+                    <button onClick={async () => { await setOutputStatus(o, 'Approved'); setSelectedOutput(null) }}
+                      style={{ flex: 1, padding: '8px 12px', fontSize: 13, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 6, cursor: 'pointer' }}>✓ Approve</button>
+                  )}
+                  {o.status !== 'Rejected' && (
+                    <button onClick={async () => { await setOutputStatus(o, 'Rejected'); setSelectedOutput(null) }}
+                      style={{ flex: 1, padding: '8px 12px', fontSize: 13, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: '1px solid rgba(232,120,120,0.3)', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
+                  )}
+                  <button onClick={async () => { await deleteOutput(o); setSelectedOutput(null) }}
+                    style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑 Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
         )
       })()}
 
