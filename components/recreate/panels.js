@@ -820,12 +820,22 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 {rejected > 0 && <span><b style={{ color: '#E87878' }}>{rejected}</b> Rejected</span>}
               </div>
             </div>
-            {approved > 0 && (
+            {/* Reel-scoped flat stills ZIP — the common case, since the
+                editor is usually in a single project (one reel). No
+                video, no approval gate, no per-slug folders. Falls back
+                to the cross-reel approved-only mega-ZIP when there's
+                no reel context (e.g., admin viewing all of Amelia). */}
+            {scenes.length > 0 && reel?.id ? (
+              <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-stills?creatorId=${creatorId}&reelId=${reel.id}`}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
+                ⬇ Download {scenes.length} stills as ZIP
+              </a>
+            ) : approved > 0 ? (
               <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
                 style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
                 ⬇ Download all approved (1 mega-ZIP)
               </a>
-            )}
+            ) : null}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
             {scenes.map(o => {
