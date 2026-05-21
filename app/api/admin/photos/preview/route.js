@@ -88,17 +88,26 @@ export async function GET(request) {
         const cached = JSON.parse(accountRow.fields['Scrape Cache'])
         const fetchedAt = cached?.fetchedAt ? Date.parse(cached.fetchedAt) : 0
         if (fetchedAt && (Date.now() - fetchedAt) < CACHE_VALID_FOR_MS && Array.isArray(cached.images)) {
-          const refreshed = cached.images.map(img => ({
-            ...img,
-            alreadyImported: existingKeys.has(`${img.code}|${img.carouselIndex || 1}`),
-          }))
+          // Dedupe on read in case the cache was written by older code
+          // that double-counted RapidAPI's overlapping pagination. Future
+          // writes are already deduped (seenCodes set), but old caches
+          // need this layer so the user sees clean data without paying
+          // for a fresh scrape.
+          const seen = new Set()
+          const deduped = []
+          for (const img of cached.images) {
+            const k = `${img.code}|${img.carouselIndex || 1}`
+            if (seen.has(k)) continue
+            seen.add(k)
+            deduped.push({ ...img, alreadyImported: existingKeys.has(k) })
+          }
           return NextResponse.json({
             ok: true,
             handle,
             postsSeen: cached.postsSeen || 0,
-            total: refreshed.length,
-            alreadyImportedCount: refreshed.filter(i => i.alreadyImported).length,
-            images: refreshed,
+            total: deduped.length,
+            alreadyImportedCount: deduped.filter(i => i.alreadyImported).length,
+            images: deduped,
             cachedAt: cached.fetchedAt,
             fromCache: true,
           })
@@ -107,6 +116,12 @@ export async function GET(request) {
     }
 
     const images = [] // exploded list — one entry per image
+    // RapidAPI's pagination_token sometimes returns overlapping posts
+    // across consecutive pages (saw a single 7-image carousel exploded
+    // into 14 entries because the page above repeated it). Track which
+    // post codes we've already exploded so duplicates from later pages
+    // get skipped.
+    const seenCodes = new Set()
     let postsSeen = 0
     let paginationToken = null
     const maxPages = 10
@@ -154,6 +169,11 @@ export async function GET(request) {
         const media = node?.node?.media || node?.node || node?.media || node || {}
         const code = media.code || media.shortcode
         if (!code) continue
+        // Skip posts we've already exploded — RapidAPI pagination can
+        // overlap and shipping every image twice tripled scrape size for
+        // one handle in testing.
+        if (seenCodes.has(code)) continue
+        seenCodes.add(code)
         const postUrl = `https://www.instagram.com/p/${code}/`
         const takenAt = media.taken_at || media.taken_at_timestamp
         const postedAt = takenAt
