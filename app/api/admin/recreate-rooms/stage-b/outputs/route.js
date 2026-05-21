@@ -18,7 +18,7 @@ export async function GET(request) {
     const [outputs, reels, rooms, outfitVariants] = await Promise.all([
       fetchAirtableRecords(OUTPUTS, {
         fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
-          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason',
+          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Time of Day', 'Status', 'Reject Reason',
           'Reel #', 'Still #', 'Slug',
           'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
           'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
@@ -83,6 +83,7 @@ export async function GET(request) {
           poseTime: f['Pose Time'] ?? null,
           screenshotFraming: sel(f['Screenshot Framing']),
           roomFraming: sel(f['Room Framing']),
+          timeOfDay: sel(f['Time of Day']),
           status: sel(f.Status) || 'Pending',
           rejectReason: f['Reject Reason'] || '',
           room: roomId ? roomById[roomId] || '' : '',

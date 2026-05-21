@@ -318,10 +318,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         setStageBOut(null)
         // Multi-variation summary if the server fanned out
         if (Array.isArray(d.variations) && d.variations.length > 1) {
-          const rooms = d.variations.map(v => `${v.room} [${v.roomFraming}]`).join(', ')
-          setMsg(`✅ ${d.variations.length} scenes submitted in parallel — rooms: ${rooms}. Read as ${d.screenshotFraming} framing. Check Scenes below in a few minutes.`)
+          const rooms = d.variations.map(v => `${v.room}${v.timeOfDay && v.timeOfDay !== 'Unknown' ? ` (${v.timeOfDay})` : ''}`).join(', ')
+          setMsg(`✅ ${d.variations.length} scenes submitted in parallel — ${rooms}. Read as ${d.screenshotFraming} framing. Check Scenes below in a few minutes.`)
         } else {
-          setMsg(`✅ Scene submitted. The portal read your photo as ${d.screenshotFraming} framing and picked her "${d.room}" [${d.roomFraming}] room. Rendering — check the Scenes section below in a few minutes.`)
+          const tod = d.timeOfDay && d.timeOfDay !== 'Unknown' ? ` (${d.timeOfDay})` : ''
+          setMsg(`✅ Scene submitted. The portal read your photo as ${d.screenshotFraming} framing and picked her "${d.room}"${tod} [${d.roomFraming}] room. Rendering — check the Scenes section below in a few minutes.`)
         }
         loadOutputs()
         setTimeout(() => document.getElementById('stageb-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
@@ -773,7 +774,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                       <span style={{ color: '#ddd', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, monospace' }}>{o.slug || `${sel?.name} · Reel ${o.index ?? '?'}`}</span>
                       <span style={{ color: sc, fontWeight: 700 }}>{o.status}</span>
                     </div>
-                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''} · framing {o.screenshotFraming || '?'}</div>
+                    <div style={{ color: 'var(--foreground-muted)', margin: '2px 0' }}>{o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''}{o.timeOfDay ? ` · ${o.timeOfDay}` : ''}</div>
                     {o.reel && <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ source reel @{o.reel.handle || o.reel.reelId}</a>}
 
                     {/* Direct download — available for any card that has

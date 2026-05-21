@@ -204,7 +204,7 @@ export async function POST(request) {
       return NextResponse.json({ error: `${aka} has no rooms yet. Create & approve a room for this creator in the Rooms tab first.` }, { status: 400 })
     }
     const myRoomIds = new Set(myRooms.map(r => r.id))
-    const allVars = await fetchAirtableRecords(VARS, { fields: ['Variation', 'Room', 'Status', 'Image', 'Dropbox Link'] })
+    const allVars = await fetchAirtableRecords(VARS, { fields: ['Variation', 'Room', 'Status', 'Image', 'Dropbox Link', 'Time of Day'] })
     const approved = allVars.filter(v =>
       (v.fields?.Status?.name || v.fields?.Status) === 'Approved'
       && (v.fields?.Room || []).some(rid => myRoomIds.has(rid)))
@@ -234,16 +234,53 @@ export async function POST(request) {
         if (best) pool = approved.filter(v => framingOf(v) === best)
       }
     }
-    // Fan-out: pick N distinct room variations from the pool (no
-    // repeats unless N exceeds pool size). User sets count via the
-    // panel's Variations selector — defaults to 1, capped at 4 to keep
-    // a sane parallel-task ceiling.
+    // Fan-out: pick N distinct room variations from the pool. When
+    // count > 1, deliberately diversify by Angle (Room) + Time of Day
+    // instead of pure random — the editor wants varied scenes, not
+    // four near-duplicates of the same room at the same time of day.
     const requestedCount = Math.max(1, Math.min(4, Number(body.count) || 1))
-    const shuffled = [...pool].sort(() => Math.random() - 0.5)
-    const sampledVars = []
-    for (let i = 0; i < requestedCount; i++) {
-      sampledVars.push(shuffled[i % shuffled.length])
+    const todOf = (v) => v.fields?.['Time of Day']?.name || v.fields?.['Time of Day'] || 'Unknown'
+    const roomOf = (v) => (v.fields?.Room || [])[0] || 'unknown'
+
+    // Diversity-aware sampling: each pass through the pool picks one
+    // variation per (Room, Time of Day) bucket so successive picks
+    // cover as many distinct combinations as possible before any
+    // repeat. Within a bucket we randomize so reruns don't always
+    // produce the exact same set.
+    const pickDiverse = (pool, n) => {
+      const buckets = new Map() // "roomId|tod" -> [variations]
+      for (const v of pool) {
+        const k = `${roomOf(v)}|${todOf(v)}`
+        if (!buckets.has(k)) buckets.set(k, [])
+        buckets.get(k).push(v)
+      }
+      const bucketList = [...buckets.values()]
+      for (const list of bucketList) list.sort(() => Math.random() - 0.5)
+      // Shuffle bucket order each pass so the "first" bucket isn't
+      // always the same room/tod combination.
+      const out = []
+      let pass = 0
+      while (out.length < n) {
+        const order = bucketList.map((list, i) => ({ list, i })).filter(({ list }) => list.length > pass)
+        if (order.length === 0) {
+          // Pool exhausted at this depth — loop back to the start
+          // with replacement (only happens when n > pool.length).
+          if (pool.length === 0) break
+          out.push(pool[out.length % pool.length])
+          continue
+        }
+        order.sort(() => Math.random() - 0.5)
+        for (const { list } of order) {
+          if (out.length >= n) break
+          out.push(list[pass])
+        }
+        pass++
+      }
+      return out.slice(0, n)
     }
+    const sampledVars = requestedCount === 1
+      ? [pool[Math.floor(Math.random() * pool.length)]]
+      : pickDiverse(pool, requestedCount)
     const sampled = sampledVars.map(v => {
       const vf = v.fields || {}
       const url = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
@@ -251,7 +288,8 @@ export async function POST(request) {
       const rid = (vf.Room || [])[0] || null
       const roomName = myRooms.find(r => r.id === rid)?.fields?.['Room Name'] || 'Room'
       const framing = framingOf(v) || 'unclassified'
-      return { url, roomId: rid, roomName, framing }
+      const timeOfDay = todOf(v)
+      return { url, roomId: rid, roomName, framing, timeOfDay }
     })
     for (const s of sampled) {
       if (!s.url) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
@@ -333,6 +371,7 @@ export async function POST(request) {
         'Prediction ID': predictionId,
         ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
         ...(s.framing !== 'unclassified' ? { 'Room Framing': s.framing } : {}),
+        ...(s.timeOfDay && s.timeOfDay !== 'Unknown' ? { 'Time of Day': s.timeOfDay } : {}),
         'Prompt Used': prompt,
         'Reel #': baseReelNum || 1,
         'Still #': stillNum,
@@ -363,7 +402,7 @@ export async function POST(request) {
         console.error(`[stage-b POST] record write failed for ${slug}: ${e.message}`)
         continue
       }
-      variations.push({ recordId, predictionId, slug, room: s.roomName, roomFraming: s.framing })
+      variations.push({ recordId, predictionId, slug, room: s.roomName, roomFraming: s.framing, timeOfDay: s.timeOfDay })
     }
 
     if (variations.length === 0) {
