@@ -320,18 +320,21 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Create Scene — put your creator in her room</h1>
-      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 14 }}>
-        Pick the inspo reel + upload the TJP image-to-image photo of your creator in that reel&apos;s pose &amp; outfit. The portal swaps the background to her saved room. From there, take the scene back to TJP for outfit transfer + motion control, then bring the finished video to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> for review.
+      {/* Compact header: title + project chip on one row, blurb tucked
+          under as a single line. Saves ~80px of vertical space. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 4 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Create Scene — put your creator in her room</h1>
+        {project && (
+          <div style={{ padding: '5px 10px', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 6, fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
+            📌 <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878', fontWeight: 700 }}>{project.slug}</span>
+            {project.reel && <> · <a href={project.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>@{project.reel.handle || project.reel.reelId}</a></>}
+            {project.status && project.status !== 'Started' && <> · {project.status}</>}
+          </div>
+        )}
+      </div>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 12, margin: '0 0 12px 0', lineHeight: 1.4 }}>
+        Drop the TJP image-to-image photo · portal swaps the background to her saved room · take the scene back to TJP for outfit transfer + motion, then upload finished video to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a>.
       </p>
-
-      {project && (
-        <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 8, fontSize: 13, color: 'var(--foreground)' }}>
-          📌 Continuing project <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878', fontWeight: 700 }}>{project.slug}</span>
-          {project.reel && <> · reel <a href={project.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>@{project.reel.handle || project.reel.reelId}</a></>}
-          {project.status && project.status !== 'Started' && <> · status: <span style={{ fontWeight: 700 }}>{project.status}</span></>}
-        </div>
-      )}
 
       {/* Merged Project panel — 4 cols when a reel is picked:
           [reel] [TJP off-site steps] [drop zone] [Generate].
