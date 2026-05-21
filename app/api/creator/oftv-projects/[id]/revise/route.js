@@ -74,7 +74,7 @@ export async function POST(request, { params }) {
 
   const creatorOpsId = (record.fields?.['Creator'] || [])[0]
   const aka = await lookupCreatorAka(creatorOpsId)
-  notifyOftv({
+  await notifyOftv({
     event: 'creator_revision_requested',
     creator: aka,
     projectName: record.fields?.['Project Name'],
@@ -82,7 +82,7 @@ export async function POST(request, { params }) {
     assignedEditor: record.fields?.['Assigned Editor'],
     notes: feedback,
     revisionCount: prevCount + 1,
-  }).catch(() => {})
+  }).catch((e) => console.warn('[oftv/revise] notifyOftv failed:', e?.message))
 
   return NextResponse.json({ ok: true, status: STATUSES.CREATOR_REVISION })
 }

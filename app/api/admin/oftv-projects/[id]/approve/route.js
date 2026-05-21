@@ -64,13 +64,14 @@ export async function POST(_request, { params }) {
 
   const creatorOpsId = (record.fields?.['Creator'] || [])[0]
   const aka = await lookupCreatorAka(creatorOpsId)
-  // Telegram is fire-and-forget (admin awareness, can fail silently).
-  notifyOftv({
+  // Telegram — await so the serverless context stays alive until the
+  // Telegram POST completes (Vercel freezes pending fetches after return).
+  await notifyOftv({
     event: 'admin_approved',
     creator: aka,
     projectName: record.fields?.['Project Name'],
     projectId: id,
-  }).catch(() => {})
+  }).catch((e) => console.warn('[oftv/approve] notifyOftv failed:', e?.message))
 
   // iMessage to the creator we DO await — admin needs to know whether
   // the creator actually got pinged. The result comes back to the
