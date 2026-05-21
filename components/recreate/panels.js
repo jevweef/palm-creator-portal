@@ -687,23 +687,30 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       )}
 
       {outputs.length > 0 && (() => {
-        const started = outputs.filter(o => o.status === 'Started').length
-        const generating = outputs.filter(o => o.status === 'Generating').length
-        const pending = outputs.filter(o => o.status === 'Pending').length
-        const approved = outputs.filter(o => o.status === 'Approved').length
+        // Hide Started placeholders from the Scenes gallery — those are
+        // reels-waiting-to-be-generated, not real scenes. They live in
+        // the Workspace tab's My Projects section, which is where the
+        // editor picks them up and runs Generate. Showing them here
+        // creates "empty card" noise that confuses the gallery.
+        const scenes = outputs.filter(o => o.status !== 'Started')
+        if (scenes.length === 0) return null
+        const generating = scenes.filter(o => o.status === 'Generating').length
+        const pending = scenes.filter(o => o.status === 'Pending').length
+        const approved = scenes.filter(o => o.status === 'Approved').length
+        const rejected = scenes.filter(o => o.status === 'Rejected').length
         return (
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>All scenes for {sel?.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({outputs.length})</span></div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>All scenes for {sel?.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({scenes.length})</span></div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
-                One card per project (creator + reel). Click <b>Workspace → New Scene</b> on a reel to start one — it lives here as <span style={{ color: '#e8b878' }}>Started</span> until you upload a TJP photo and hit Generate, then becomes <span style={{ color: '#8fb4f0' }}>Generating</span> → <span style={{ color: '#e8b878' }}>Pending</span> → <span style={{ color: '#6AC68A' }}>Approved</span>.
+                Every Generate click creates a new card. Status flows <span style={{ color: '#8fb4f0' }}>Generating</span> → <span style={{ color: '#e8b878' }}>Pending</span> → <span style={{ color: '#6AC68A' }}>Approved</span> or <span style={{ color: '#E87878' }}>Rejected</span>. Started reels you haven&apos;t generated on yet are over in <b>Workspace → My Projects</b>.
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'var(--foreground-muted)' }}>
-                {started > 0 && <span><b style={{ color: '#e8b878' }}>{started}</b> Started</span>}
                 {generating > 0 && <span><b style={{ color: '#8fb4f0' }}>{generating}</b> Generating</span>}
                 {pending > 0 && <span><b style={{ color: '#e8b878' }}>{pending}</b> Pending review</span>}
                 {approved > 0 && <span><b style={{ color: '#6AC68A' }}>{approved}</b> Approved</span>}
+                {rejected > 0 && <span><b style={{ color: '#E87878' }}>{rejected}</b> Rejected</span>}
               </div>
             </div>
             {approved > 0 && (
@@ -714,7 +721,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
             )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
-            {outputs.map(o => {
+            {scenes.map(o => {
               const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
               const placeholder = o.status === 'Generating' ? '⏳ rendering…' : o.status === 'Failed' ? '✕ failed' : '…'
               // While the project is re-Generating, hide any stale image
