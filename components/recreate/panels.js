@@ -100,7 +100,7 @@ export async function stageBUpload(blob, kind) {
 }
 
 
-export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
+export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProjectId } = {}) {
   const [data, setData] = useState({ creators: [], rooms: [], variations: [] })
   const [reels, setReels] = useState([])
   const [creatorId, setCreatorId] = useState('')
@@ -112,6 +112,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
   const [upscaledScreenshotFile, setUpscaledScreenshotFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [project, setProject] = useState(null) // Existing Started project when continuing
 
   const [creators, setCreators] = useState([])
 
@@ -138,6 +139,29 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
     const m = reels.find(r => r.id === initialReelRecordId)
     if (m && !reel) setReel(m)
   }, [initialReelRecordId, reels, reel])
+
+  // Continuing a Started project: load the record (so we know its slug)
+  // and pre-pick the reel from its Source Reel field, regardless of
+  // whether the pool-loaded reels list contains it (the reel might be
+  // hidden from the pool because it's already a project).
+  useEffect(() => {
+    if (!initialProjectId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${initialCreatorId || ''}`)
+        if (!r.ok) return
+        const d = await r.json()
+        if (cancelled) return
+        const match = (d.outputs || []).find(o => o.id === initialProjectId)
+        if (match) {
+          setProject(match)
+          if (match.reel && !reel) setReel(match.reel)
+        }
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [initialProjectId, initialCreatorId, reel])
 
   const loadOutputs = useCallback(async () => {
     if (!creatorId) { setOutputs([]); return }
@@ -200,7 +224,16 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       setMsg('⏳ Creating the scene — the AI is swapping her background to her saved room. This takes 3–6 minutes; you can navigate away and the result will appear in Scenes below.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, reelRecordId: reel.id, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath }),
+        body: JSON.stringify({
+          creatorId,
+          reelRecordId: reel.id,
+          subjectDropboxPath,
+          rawScreenshotPath,
+          upscaledScreenshotPath,
+          // If we came from a Started project card, reuse its record
+          // so the slug + Reel # assigned at download time persist.
+          ...(project?.id ? { projectId: project.id } : {}),
+        }),
       })
       const raw = await res.text()
       let d
@@ -235,6 +268,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId } = {}) {
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 14 }}>
         Pick the inspo reel + upload the TJP image-to-image photo of your creator in that reel&apos;s pose &amp; outfit. The portal swaps the background to her saved room. From there, take the scene back to TJP for outfit transfer + motion control, then bring the finished video to the <a href="/ai-editor" style={{ color: 'var(--palm-pink)' }}>AI Recreate Pool</a> for review.
       </p>
+
+      {project && (
+        <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 8, fontSize: 13, color: 'var(--foreground)' }}>
+          📌 Continuing project <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878', fontWeight: 700 }}>{project.slug}</span>
+          {project.reel && <> · reel <a href={project.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>@{project.reel.handle || project.reel.reelId}</a></>}
+          {project.status && project.status !== 'Started' && <> · status: <span style={{ fontWeight: 700 }}>{project.status}</span></>}
+        </div>
+      )}
 
       <div id="tour-stageb-creator" style={card}>
         <div style={lbl}>1 · Creator</div>

@@ -115,6 +115,7 @@ export default function AiEditorRecreatePage() {
   const tab = 'stageb' // only one tab now — single source of truth
   const initialCreatorId = sp.get('creator') || undefined
   const initialReelRecordId = sp.get('reel') || undefined
+  const initialProjectId = sp.get('project') || undefined
   const setTab = () => {} // no-op: single tab, kept so TabBar API stays the same
 
   return (
@@ -125,7 +126,7 @@ export default function AiEditorRecreatePage() {
           <TourTriggerButton storageKey="ai-editor-stageb-v4" label="? Guide" />
         </div>
         <TabBar tab={tab} setTab={setTab} />
-        <StageBPanel initialCreatorId={initialCreatorId} initialReelRecordId={initialReelRecordId} />
+        <StageBPanel initialCreatorId={initialCreatorId} initialReelRecordId={initialReelRecordId} initialProjectId={initialProjectId} />
         <ModalHost />
         <GuidedTour steps={STAGEB_TOUR_STEPS} storageKey="ai-editor-stageb-v4" />
       </div>

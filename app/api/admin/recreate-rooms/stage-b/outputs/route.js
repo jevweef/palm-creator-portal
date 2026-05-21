@@ -21,7 +21,7 @@ export async function GET(request) {
           'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason',
           'Reel #', 'Still #', 'Slug'],
       }),
-      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle'] }),
+      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'] }),
       fetchAirtableRecords(ROOMS, { fields: ['Room Name'] }),
       fetchAirtableRecords('Outfit Swap Outputs', {
         fields: ['Stage B Parent', 'Variant #', 'Outfit', 'Image', 'Dropbox Link', 'Slug', 'Status'],
@@ -84,7 +84,15 @@ export async function GET(request) {
           status: sel(f.Status) || 'Pending',
           rejectReason: f['Reject Reason'] || '',
           room: roomId ? roomById[roomId] || '' : '',
-          reel: reel ? { id: reelId, reelId: reel['Reel ID'] || '', url: reel['Reel URL'] || '', handle: reel['Source Handle'] || '' } : null,
+          reel: reel ? {
+            id: reelId,
+            reelId: reel['Reel ID'] || '',
+            url: reel['Reel URL'] || '',
+            handle: reel['Source Handle'] || '',
+            streamUid: reel['Stream UID'] || null,
+            thumbnail: Array.isArray(reel.Thumbnail) && reel.Thumbnail[0] ? (reel.Thumbnail[0].thumbnails?.large?.url || reel.Thumbnail[0].url) : null,
+            video: (reel['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
+          } : null,
           variants: variantsByParent[o.id] || [],
           createdTime: o.createdTime,
         }

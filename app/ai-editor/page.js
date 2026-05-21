@@ -13,76 +13,88 @@ const POOL_TOUR_STEPS = [
   {
     placement: 'center',
     title: '👋 Welcome — here\'s the workflow',
-    body: `The whole process in 4 steps:
+    body: `The full loop:
 
 1. Pick the creator you're working on today.
-2. For each inspo reel you want to recreate, screenshot it in TJP and run image-to-image with the creator. Then click 🎨 Create Scene here and upload that TJP photo — the portal swaps the background to her saved room.
-3. Take the finished scene back to TJP for outfit transfer + motion control.
-4. Come back here and 📦 Batch Upload the finished videos.
+2. Pick inspo reels you want to recreate. Downloading one (↓ Raw, or multi-select Download as ZIP) automatically starts a "project" for that creator + reel pair. You'll see project cards appear above the reel grid.
+3. Do the TJP image-to-image work to get a photo of your creator in each reel's pose & outfit.
+4. Click Continue on each project card → upload the TJP photo → portal swaps her background to her saved room.
+5. Approve the scene → ⬇ ZIP for TJP → outfit transfer + motion control in TJP.
+6. Come back, 📦 Batch Upload the finished videos.
 
-I'll highlight each piece in the order you'll actually use them — just hit Next to step through.`,
+I'll highlight each piece in the order you'll use them — hit Next to step through.`,
   },
   {
     target: '#tour-creator-picker',
     placement: 'bottom',
     title: 'Step 1 — Pick the creator',
-    body: `Start here. Everything below filters to whoever is selected — the available reels, your finished uploads queue, anything admin wants you to revise.
-
-Try switching it now if you want to feel how it works.`,
+    body: `Everything below filters to whoever is selected — your in-flight projects, the available reels, your revisions queue. Try switching it to see how the page re-flows.`,
   },
   {
     target: '#tour-reel-grid',
     placement: 'top',
-    title: 'Step 2 — Click 🎨 Create Scene on a reel',
-    body: `These are inspo reels available for the selected creator (anything she's already used is hidden).
+    title: 'Step 2 — Pick + download reels (= start projects)',
+    body: `Each card is one inspo reel available for this creator.
 
-Click 🎨 Create Scene on whichever reel you want to recreate. That'll take you to a second page where you'll upload the TJP image-to-image photo and the portal generates the scene with your creator in her saved room — a second tour picks up there to walk you through it.
+Three actions on each card:
+• ↓ Raw — downloads the reel AND starts a project for it. The project appears in My Projects above.
+• 🎨 Create Scene — same effect, but jumps you straight to the Create Scene page (skip if you haven't done TJP work yet).
+• ↑ Upload AI — for one-off finished uploads (Batch Upload below is better when you have several).
 
-The other two buttons:
-• ↓ Raw — download just the reel (handy when you're starting the TJP work for this reel)
-• ↑ Upload AI — for one-off finished uploads (Batch Upload below is better when you have several)`,
+You can also multi-select reels (checkbox on each card) and Download N as ZIP — that starts N projects at once.`,
+  },
+  {
+    target: '#tour-projects',
+    placement: 'top',
+    title: 'Step 3 — My Projects (in-flight work)',
+    body: `Each project card is one (creator, reel) pair you've committed to.
+
+The status badge tells you what's next:
+• Started — you downloaded the reel; do the TJP image-to-image work, then click Continue to upload the photo
+• Generating — portal is rendering your scene (3–6 min, just wait)
+• Pending — scene is done, click ✓ to approve
+• Approved — ready! Click ⬇ ZIP for TJP and do the outfit/motion work
+• Failed — scene didn't render; click to retry
+
+Discard a Started project (🗑) if you change your mind — the reel goes back to the pool below.`,
   },
   {
     target: '#tour-batch-upload',
     placement: 'bottom',
-    title: 'Step 3 — After TJP, come back and upload',
-    body: `Once you've done the outfit transfer + motion control in TJP and you have your finished mp4s, click 📦 Batch Upload and drop them all in at once.
+    title: 'Step 4 — Batch Upload (after TJP)',
+    body: `When you come back from TJP with finished motion videos, click 📦 Batch Upload and drop them all in at once.
 
-The filename of each video (e.g. Amelia_R042_S01.mp4) tells the system which scene it belongs to. Thumbnails are auto-generated from the first frame.
-
-You'll come back to this button later — don't click it yet.`,
+The filename of each video (e.g. Amelia_R042_S01.mp4) tells the portal which project it belongs to — that's the slug each project card shows. Thumbnails auto-extract from the first frame.`,
   },
   {
     target: '#tour-revisions',
     placement: 'bottom',
-    title: 'Step 4 — Handle any rejections',
-    body: `If admin sees something they don't like, the video shows up at the top of this page with their feedback + screenshots.
+    title: 'Step 5 — Handle any rejections',
+    body: `If admin doesn't like something, the video appears at the top of this page with their feedback + screenshots.
 
 Three ways to handle it:
-• ↑ Re-upload revised — small tweak (re-edit in TJP, drop the new mp4)
+• ↑ Re-upload revised — small tweak (re-edit in TJP, drop a new mp4)
 • 🎨 Re-do Scene — start over from a fresh scene
-• 🗑 Discard — for when you're starting completely over
+• 🗑 Discard — when the rejected version is dead
 
-This section only appears when there's something to revise.`,
+(Section only appears when there's something to revise.)`,
   },
   {
     placement: 'center',
     title: '🎯 Ready to start',
-    body: `Recap of what you'll actually do:
+    body: `Quick mental model:
 
-1. Pick a creator from the dropdown ↑.
-2. Scroll the reels below, click 🎨 Create Scene on one you want to recreate.
-3. Do the initial TJP image-to-image work to get a photo of your creator in the reel's pose & outfit.
-4. Upload that photo on the Create Scene page — the portal swaps her background to her saved room.
-5. Download the scene + reel as a ZIP, take to TJP for outfit transfer + motion control.
-6. Come back here, 📦 Batch Upload the finished videos.
+• Download = "I'm working on this." → Project card appears.
+• Continue → upload TJP photo → Portal generates the scene.
+• Approve → ZIP → TJP outfit + motion.
+• Batch Upload → admin review → grid.
 
 Hit "? Guide" any time to replay this tour.`,
   },
 ]
 
 
-function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen }) {
+function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, onProjectStarted }) {
   const [showPlayer, setShowPlayer] = useState(false)
   const [showUpload, setShowUpload] = useState(!!autoOpen)
   const [uploading, setUploading] = useState(false)
@@ -208,6 +220,14 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
           <button
             onClick={() => {
               if (!reel.video) return
+              // Downloading the raw reel = committing to working on it.
+              // Fire-and-forget a /start so a project card appears on
+              // the pool page immediately; even if Dropbox download
+              // fails the project record is already on file.
+              fetch('/api/admin/recreate-rooms/stage-b/start', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ creatorId, reelRecordIds: [reel.id] }),
+              }).then(() => onProjectStarted?.()).catch(() => {})
               // Hand the browser Dropbox's direct-download URL (dl=1).
               // Do NOT fetch()+blob — that's a cross-origin request to
               // dropbox.com with no CORS headers, so it throws and the
@@ -217,7 +237,7 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
               window.open(dl, '_blank', 'noopener')
             }}
             style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
-            title="Download the raw inspo reel — take it straight to TJP"
+            title="Download the raw inspo reel + start a project for it"
           >↓ Raw</button>
           <a
             href={`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`}
@@ -243,6 +263,126 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen })
               style={{ width: '100%', marginTop: 10, padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#1a0a0a', background: 'var(--palm-pink)', border: 'none', borderRadius: 5, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.6 : 1 }}
             >{uploading ? 'Uploading…' : 'Submit to Review'}</button>
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── My Projects (in-flight scenes for the current creator) ────────────────
+// Each card is one (creator, reel) project — created the moment the editor
+// clicks Raw / Download (status='Started'), then advances through
+// Generating → Pending → Approved as the editor uploads + the portal renders.
+function MyProjectsSection({ projects, creatorId, onChange }) {
+  if (!projects?.length) return null
+  // Sort: needs-action first, then in-flight, then done. Within each
+  // bucket, oldest first so the editor works through them in order.
+  const order = { Failed: 0, Pending: 1, Started: 2, Generating: 3, Approved: 4, Rejected: 5 }
+  const sorted = [...projects].sort((a, b) => {
+    const oa = order[a.status] ?? 99
+    const ob = order[b.status] ?? 99
+    if (oa !== ob) return oa - ob
+    return (a.createdTime || '').localeCompare(b.createdTime || '')
+  })
+  const counts = sorted.reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>My Projects</div>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+          {sorted.length} in flight ·
+          {counts.Started ? ` ${counts.Started} need TJP work` : ''}
+          {counts.Generating ? ` · ${counts.Generating} rendering` : ''}
+          {counts.Pending ? ` · ${counts.Pending} awaiting your ✓` : ''}
+          {counts.Approved ? ` · ${counts.Approved} ready for TJP outfit/motion` : ''}
+          {counts.Failed ? ` · ${counts.Failed} failed` : ''}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+        {sorted.map(p => <ProjectCard key={p.id} p={p} creatorId={creatorId} onChange={onChange} />)}
+      </div>
+    </div>
+  )
+}
+
+function ProjectCard({ p, creatorId, onChange }) {
+  // Color per status — matches the gallery card on the Create Scene page.
+  const sc = p.status === 'Approved' ? '#6AC68A'
+    : p.status === 'Rejected' || p.status === 'Failed' ? '#E87878'
+    : p.status === 'Generating' ? '#8fb4f0'
+    : p.status === 'Started' ? '#aaa'
+    : '#e8b878' // Pending
+  const reel = p.reel || null
+  const thumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
+    || reel?.thumbnail
+    || null
+  // Each status maps to the next action the editor takes.
+  const cta = p.status === 'Started'      ? { label: '🎨 Continue → upload TJP photo', color: '#e8b878' }
+            : p.status === 'Generating'   ? { label: '⏳ Rendering…', color: '#8fb4f0', disabled: true }
+            : p.status === 'Pending'      ? { label: '👁 Review the scene', color: '#e8b878' }
+            : p.status === 'Approved'     ? { label: '⬇ ZIP for TJP', color: '#6AC68A' }
+            : p.status === 'Rejected'     ? { label: 'View / retry', color: '#E87878' }
+            : p.status === 'Failed'       ? { label: '↻ Retry', color: '#E87878' }
+            : null
+  const continueHref = `/ai-editor/recreate?creator=${creatorId}&reel=${reel?.id || ''}&project=${p.id}`
+
+  const discard = async () => {
+    if (!(await uiConfirm(`Discard this project? The reel goes back to the pool so you can re-start it (or someone else can use it). Any artifacts you've already uploaded are deleted.`, { danger: true, okLabel: 'Discard' }))) return
+    try {
+      await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${p.id}`, { method: 'DELETE' })
+      onChange?.()
+    } catch {}
+  }
+
+  return (
+    <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+      <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
+        {/* Prefer the generated scene image when we have one (Pending/
+            Approved/Rejected). Otherwise show the reel thumbnail so the
+            editor knows which reel this project is for. */}
+        {p.image
+          ? <img src={p.image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : thumb
+            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />
+            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>
+                {p.status === 'Generating' ? '⏳ rendering…' : p.status === 'Failed' ? '✕ failed' : 'no preview'}
+              </div>}
+        <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#0a0a0a', background: sc, borderRadius: 3 }}>
+          {p.status}
+        </div>
+      </div>
+      <div style={{ padding: 10, fontSize: 11 }}>
+        <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#ddd', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {p.slug || p.name || 'project'}
+        </div>
+        {reel && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <a href={reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              ↗ @{reel.handle || reel.reelId}
+            </a>
+            {reel.video && (
+              <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener"
+                title="Re-download the raw reel"
+                style={{ fontSize: 10, color: 'var(--foreground-muted)', textDecoration: 'none' }}>↓ reel</a>
+            )}
+          </div>
+        )}
+        {cta && (
+          cta.disabled
+            ? <div style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5 }}>{cta.label}</div>
+            : p.status === 'Approved'
+              ? <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${p.id}`}
+                  style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5, textDecoration: 'none' }}>{cta.label}</a>
+              : <a href={continueHref}
+                  style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5, textDecoration: 'none' }}>{cta.label}</a>
+        )}
+        {/* Discard only for the early stages — once it's Approved or
+            beyond, deleting the record would orphan downstream Assets. */}
+        {(p.status === 'Started' || p.status === 'Failed' || p.status === 'Rejected') && (
+          <button onClick={discard}
+            style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
+            🗑 Discard
+          </button>
         )}
       </div>
     </div>
@@ -590,6 +730,7 @@ export default function AiEditorPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [revisions, setRevisions] = useState([])
+  const [projects, setProjects] = useState([])
   const [batchOpen, setBatchOpen] = useState(false)
 
   const loadCreators = useCallback(async () => {
@@ -623,8 +764,34 @@ export default function AiEditorPage() {
     } catch {}
   }, [])
 
+  // In-flight projects (Stage B Outputs in any non-terminal state) for
+  // the current creator. Each is a project card on the page; also used
+  // to hide reels from the pool grid below (a reel that's already a
+  // project doesn't need to appear as "fresh inspo to pick").
+  const loadProjects = useCallback(async (cid) => {
+    if (!cid) { setProjects([]); return }
+    try {
+      // The resolver finishes any Generating jobs that have completed
+      // on WaveSpeed. Fire-and-forget; if it's slow, we'll still see
+      // the updated state on the next reload.
+      fetch('/api/admin/recreate-rooms/stage-b/resolve', { method: 'POST' }).catch(() => {})
+      const r = await fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${cid}`)
+      const d = await r.json()
+      if (r.ok) setProjects(d.outputs || [])
+    } catch {}
+  }, [])
+
   useEffect(() => { loadCreators() }, [loadCreators])
-  useEffect(() => { if (creatorId) { loadReels(creatorId); loadRevisions(creatorId) } }, [creatorId, loadReels, loadRevisions])
+  useEffect(() => { if (creatorId) { loadReels(creatorId); loadRevisions(creatorId); loadProjects(creatorId) } }, [creatorId, loadReels, loadRevisions, loadProjects])
+
+  // Background auto-poll for in-flight projects (Generating). Once
+  // they're Pending/Approved/Failed/Rejected the loop stops.
+  useEffect(() => {
+    const anyGenerating = projects.some(p => p.status === 'Generating')
+    if (!anyGenerating) return
+    const t = setInterval(() => { loadProjects(creatorId) }, 25000)
+    return () => clearInterval(t)
+  }, [projects, creatorId, loadProjects])
 
   // When arriving with ?upload=<reelId>, scroll to that reel once loaded.
   useEffect(() => {
@@ -646,7 +813,17 @@ export default function AiEditorPage() {
     if (selected.size === 0) return
     setBusy(true)
     try {
-      const r = await fetch('/api/ai-editor/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reelIds: [...selected] }) })
+      // Starting projects + zipping reels run in parallel — neither
+      // depends on the other and the editor wants the ZIP fast.
+      // /start is idempotent (skips reels that already have a project)
+      // so re-clicking Download won't double-up.
+      const reelIds = [...selected]
+      fetch('/api/admin/recreate-rooms/stage-b/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, reelRecordIds: reelIds }),
+      }).then(() => loadProjects(creatorId)).catch(() => {})
+
+      const r = await fetch('/api/ai-editor/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reelIds }) })
       if (r.ok) {
         const blob = await r.blob()
         const a = document.createElement('a')
@@ -675,7 +852,7 @@ export default function AiEditorPage() {
           </a>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v5" label="? Guide" />
+          <TourTriggerButton storageKey="ai-editor-pool-v6" label="? Guide" />
           <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
             style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             📦 Batch Upload
@@ -698,35 +875,52 @@ export default function AiEditorPage() {
         </div>
       )}
 
+      <div id="tour-projects">
+        <MyProjectsSection projects={projects} creatorId={creatorId} onChange={() => loadProjects(creatorId)} />
+      </div>
+
       {batchOpen && (
-        <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId) }} />
+        <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId); loadProjects(creatorId) }} />
       )}
 
       {selected.size > 0 && (
         <div style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(232,160,160,0.1)', border: '1px solid rgba(232,160,160,0.3)', borderRadius: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--foreground)' }}>{selected.size} selected</span>
           <button onClick={downloadSelected} disabled={busy} style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700, color: '#1a0a0a', background: 'var(--palm-pink)', border: 'none', borderRadius: 5, cursor: 'pointer' }}>
-            {busy ? 'Zipping…' : `Download ${selected.size} as ZIP`}
+            {busy ? 'Starting projects + zipping…' : `Download ${selected.size} as ZIP & start project${selected.size === 1 ? '' : 's'}`}
           </button>
           <button onClick={() => setSelected(new Set())} style={{ padding: '6px 10px', fontSize: 12, color: 'var(--foreground-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>Loading…</div>
-      ) : reels.length === 0 ? (
-        <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>
-          No available reels for this creator. An admin queues + scrapes accounts in AI Source.
-        </div>
-      ) : (
-        <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
-          {reels.map(r => (
-            <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} />
-          ))}
-        </div>
-      )}
+      {/* Hide reels that already have a project in flight — those live
+          in My Projects above instead of cluttering the "fresh inspo" grid. */}
+      {(() => {
+        const projectReelIds = new Set(projects.map(p => p.reel?.id).filter(Boolean))
+        const freshReels = reels.filter(r => !projectReelIds.has(r.id))
+        if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>Loading…</div>
+        if (freshReels.length === 0) return (
+          <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>
+            {projects.length > 0
+              ? 'No more fresh inspo for this creator — every available reel is already a project above.'
+              : 'No available reels for this creator. An admin queues + scrapes accounts in AI Source.'}
+          </div>
+        )
+        return (
+          <>
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+              Fresh inspo · {freshReels.length}
+            </div>
+            <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
+              {freshReels.map(r => (
+                <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} onProjectStarted={() => loadProjects(creatorId)} />
+              ))}
+            </div>
+          </>
+        )
+      })()}
       <ModalHost />
-      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v5" />
+      <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v6" />
     </div>
   )
 }

@@ -142,7 +142,7 @@ async function createStageBRecord(fields) {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { creatorId, reelRecordId, model, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath } = await request.json()
+    const { creatorId, reelRecordId, model, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath, projectId } = await request.json()
     const mdl = MODELS[model] || MODELS.wan
 
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
@@ -243,17 +243,35 @@ export async function POST(request) {
       return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
     }
 
-    // Canonical naming: a sequential (Reel #, Still #) per creator → a
-    // single slug that travels with the work through outfit fan-out,
-    // TJP, upload, and review.
+    // If the editor came from a Started project card, we reuse that
+    // existing record (so the slug/Reel#/Still# already assigned at
+    // download time stick) instead of minting a new one. Otherwise the
+    // record is created fresh with a freshly computed slug.
     let reelNum = null, stillNum = null, slug = null
-    try {
-      const seq = await nextStageBSequence({ creatorId, reelRecordId: reelShort })
-      reelNum = seq.reelNum
-      stillNum = seq.stillNum
-      slug = stageBSlug({ aka, reelNum, stillNum })
-    } catch (e) {
-      console.warn('[stage-b POST] slug compute failed:', e.message)
+    let recordId = null
+    let existingProject = null
+    if (projectId && /^rec[A-Za-z0-9]{14}$/.test(projectId)) {
+      try {
+        const pRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${projectId}`,
+          { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
+        if (pRes.ok) {
+          existingProject = await pRes.json()
+          slug = existingProject?.fields?.Slug || null
+          reelNum = existingProject?.fields?.['Reel #'] || null
+          stillNum = existingProject?.fields?.['Still #'] || null
+          recordId = existingProject.id
+        }
+      } catch (e) { console.warn('[stage-b POST] could not load projectId:', e.message) }
+    }
+    if (!slug) {
+      try {
+        const seq = await nextStageBSequence({ creatorId, reelRecordId: reelShort })
+        reelNum = seq.reelNum
+        stillNum = seq.stillNum
+        slug = stageBSlug({ aka, reelNum, stillNum })
+      } catch (e) {
+        console.warn('[stage-b POST] slug compute failed:', e.message)
+      }
     }
 
     // Attach organizational uploads + the TJP source photo to the
@@ -265,7 +283,7 @@ export async function POST(request) {
     if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug || 'upscaled'}_upscaled.jpg` }]
     attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug || 'tjp'}_tjp_output.jpg` }]
 
-    const created = await createStageBRecord({
+    const recordFields = {
       Name: slug || `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
       Creator: [creatorId],
       ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
@@ -279,12 +297,26 @@ export async function POST(request) {
       ...(slug ? { Slug: slug } : {}),
       ...attachments,
       Status: 'Generating',
-    })
+    }
+
+    if (recordId) {
+      // Reuse path: PATCH the existing Started record.
+      const upRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${recordId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: recordFields, typecast: true }),
+      })
+      if (!upRes.ok) throw new Error(`Stage B record update ${upRes.status}: ${await upRes.text()}`)
+    } else {
+      // Create path: brand-new record with status='Generating'.
+      const created = await createStageBRecord(recordFields)
+      recordId = created?.records?.[0]?.id || null
+    }
 
     return NextResponse.json({
       ok: true,
       generating: true,
-      recordId: created?.records?.[0]?.id || null,
+      recordId,
       predictionId,
       slug,
       room: chosenRoomName, roomFraming: chosenFraming,
