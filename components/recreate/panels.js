@@ -333,18 +333,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
-      {/* Merged Project panel — 2 cols when a reel is picked:
-          LEFT  = reel preview + tiny action bar (Instagram / re-download /
-                  change reel) and inspo handle as label.
-          RIGHT = "Now do this in TJP" — the dominant block, since this
-                  is what the editor actually does between picking the
-                  reel and uploading the result.
-          Creator dropdown only shows if no project is locked (free
-          creator-pick mode). When continuing a project, the creator
-          is fixed — no point in re-asking. */}
+      {/* Merged Project panel — 4 cols when a reel is picked:
+          [reel] [TJP off-site steps] [drop zone] [Generate].
+          Whole flow fits in one row; no need for huge sections to
+          just upload a file. */}
       <div id="tour-stageb-creator" style={card}>
         {reel?.id && !showReelGrid ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 260px) 1fr', gap: 24, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 1.4fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
             {/* Reel column: preview on top, handle + action buttons
                 below. Acts as the "scene source" anchor. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
