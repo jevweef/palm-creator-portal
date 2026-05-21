@@ -12,10 +12,26 @@
 // click to mark, then imports the marked ones to Dropbox + Airtable.
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { uiConfirm } from './panels'
 
 export default function PhotosPanel() {
-  const [tab, setTab] = useState('accounts') // 'accounts' | 'library' | 'outfit-picker'
+  // Sub-tab lives in the URL as ?sub= so refreshes (and Vercel preview
+  // links shared with the team) keep the editor on the same view.
+  // The parent /admin/recreate-source page already owns ?tab=photos —
+  // we add a second param without disturbing it.
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const subParam = sp.get('sub')
+  const validSubs = new Set(['accounts', 'library', 'outfit-picker'])
+  const tab = validSubs.has(subParam) ? subParam : 'accounts'
+  const setTab = (next) => {
+    const params = new URLSearchParams(sp.toString())
+    if (next === 'accounts') params.delete('sub')
+    else params.set('sub', next)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
