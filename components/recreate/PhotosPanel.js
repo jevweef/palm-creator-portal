@@ -232,6 +232,39 @@ function LibrarySection() {
     } catch {}
   }
 
+  // Flag one image in a post as THE outfit choice; siblings get
+  // Outfit Reviewed=true so the post drops out of the Outfit Picker
+  // queue. Optimistic — if the request fails, reload to put things
+  // back. Same endpoint the Outfit Picker tab uses.
+  const pickOutfit = async (p) => {
+    const snap = photos
+    setPhotos(prev => prev.map(x => x.postUrl === p.postUrl
+      ? { ...x, outfitReviewed: true, isOutfit: x.id === p.id }
+      : x))
+    try {
+      const r = await fetch('/api/admin/photos/library/outfit-review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postUrl: p.postUrl, pickedId: p.id }),
+      })
+      const d = await r.json()
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+    } catch (e) { setPhotos(snap); alert(`Pick failed: ${e.message}`) }
+  }
+  const dismissOutfit = async (postUrl) => {
+    const snap = photos
+    setPhotos(prev => prev.map(x => x.postUrl === postUrl
+      ? { ...x, outfitReviewed: true, isOutfit: false }
+      : x))
+    try {
+      const r = await fetch('/api/admin/photos/library/outfit-review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postUrl, dismiss: true }),
+      })
+      const d = await r.json()
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+    } catch (e) { setPhotos(snap); alert(`Dismiss failed: ${e.message}`) }
+  }
+
   const filtered = photos.filter(p => {
     if (statusFilter !== 'all' && p.status !== statusFilter) return false
     if (!filter) return true
@@ -373,7 +406,7 @@ function LibrarySection() {
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={e => e.stopPropagation()}
               style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--foreground-muted)' }}>
                   <span style={{ fontSize: 15 }}>{isCarousel ? '📚' : '🖼️'}</span>
                   <span>{isCarousel ? <><b style={{ color: 'var(--foreground)' }}>{group.items.length}</b> / {total} images</> : 'single image'}</span>
@@ -381,14 +414,36 @@ function LibrarySection() {
                   <a href={`https://instagram.com/${cover.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{cover.handle}</a>
                   <span>·</span>
                   <a href={openPostUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
+                  {group.items.some(p => p.outfitReviewed) && (
+                    <>
+                      <span>·</span>
+                      <span style={{ color: group.items.some(p => p.isOutfit) ? '#6AC68A' : 'var(--foreground-muted)' }}>
+                        {group.items.some(p => p.isOutfit) ? '👗 outfit picked' : '✕ no outfit'}
+                      </span>
+                    </>
+                  )}
                 </div>
-                <button onClick={() => setOpenPostUrl(null)}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <a href={`/api/admin/photos/download-zip?postUrl=${encodeURIComponent(openPostUrl)}`}
+                    title="Download all images in this post as a .zip"
+                    style={{ background: 'rgba(120,180,232,0.14)', color: '#8FB4F0', border: '1px solid rgba(120,180,232,0.3)', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
+                    ⬇ Download .zip
+                  </a>
+                  {!group.items.some(p => p.outfitReviewed) && (
+                    <button onClick={() => dismissOutfit(openPostUrl)}
+                      title="Mark this post as having no usable outfit (drops it from the Outfit Picker queue without flagging an outfit)"
+                      style={{ background: 'rgba(232,120,120,0.12)', color: '#E87878', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      ✕ No outfit
+                    </button>
+                  )}
+                  <button onClick={() => setOpenPostUrl(null)}
+                    style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+                </div>
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} />
                   ))}
                 </div>
               </div>
@@ -401,16 +456,21 @@ function LibrarySection() {
 }
 
 // Shared card used by both the expanded view and the grid-view modal so
-// the per-image actions stay identical.
-function PhotoCard({ p, setStatus, removePhoto }) {
+// the per-image actions stay identical. pickOutfit is optional —
+// passed only from the post modal so the inline expanded view stays
+// uncluttered (use the Outfit Picker tab there).
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   return (
-    <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+    <div style={{ position: 'relative', border: `1px solid ${p.isOutfit ? '#6AC68A' : `${sc}40`}`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
       {p.image
         ? <img src={p.image} alt="" loading="lazy"
             onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
             style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
         : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+      {p.isOutfit && (
+        <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>👗 OUTFIT</div>
+      )}
       <div style={{ padding: 8, fontSize: 11 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <a href={`https://instagram.com/${p.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{p.handle}</a>
@@ -422,6 +482,10 @@ function PhotoCard({ p, setStatus, removePhoto }) {
         <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
           {p.status !== 'Approved' && <button onClick={() => setStatus(p, 'Approved')} style={iconBtn('#6AC68A')}>✓</button>}
           {p.status !== 'Rejected' && <button onClick={() => setStatus(p, 'Rejected')} style={iconBtn('#E87878')}>✕</button>}
+          {pickOutfit && !p.isOutfit && (
+            <button onClick={() => pickOutfit(p)} title="Pick as the outfit for this post (flags sibling images as reviewed)"
+              style={iconBtn('#e8a878')}>👗</button>
+          )}
           <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
         </div>
