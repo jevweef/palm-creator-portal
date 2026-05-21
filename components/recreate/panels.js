@@ -113,6 +113,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [project, setProject] = useState(null) // Existing Started project when continuing
+  const [showReelGrid, setShowReelGrid] = useState(false) // Hidden when a reel is already selected
+  const [showOptionalUploads, setShowOptionalUploads] = useState(false) // Raw + upscaled, archival only
 
   const [creators, setCreators] = useState([])
 
