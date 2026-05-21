@@ -142,6 +142,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     if (m && !reel) setReel(m)
   }, [initialReelRecordId, reels, reel])
 
+  // Reel grid is expanded by default ONLY when no reel is selected.
+  // Once a reel exists (whether from URL, project, or click) we collapse
+  // the grid into the compact selected-reel preview.
+  useEffect(() => {
+    if (reel?.id) setShowReelGrid(false)
+  }, [reel?.id])
+
   // Continuing a Started project: load the record (so we know its slug)
   // and pre-pick the reel from its Source Reel field, regardless of
   // whether the pool-loaded reels list contains it (the reel might be
@@ -214,7 +221,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const generate = async () => {
     if (!creatorId) { setMsg('⚠️ Pick a creator first (step 1).'); return }
     if (!reel?.id) { setMsg('⚠️ Pick the inspo reel this scene goes with (step 2).'); return }
-    if (!subjectFile) { setMsg('⚠️ Upload the TJP image-to-image photo (step 5).'); return }
+    if (!subjectFile) { setMsg('⚠️ Upload the TJP image-to-image photo (step 3).'); return }
     setBusy(true); setStageBOut(null); setMsg('⏳ Uploading your files…')
     try {
       // Upload the TJP photo (required input to generation) plus the
@@ -296,58 +303,110 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       </div>
 
       <div style={card}>
-        <div style={lbl}>2 · Pick the inspo reel this scene goes with</div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-          {reel?.id
-            ? <>Selected: <span style={{ color: '#e8b878' }}>@{reel.handle || reel.reelId}</span>. Click another to change.</>
-            : <>{availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click one to mark it as this scene's source.</>}
-        </div>
-        <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
-          {availableReels.map(r => {
-            const isSel = reel?.id === r.id
-            const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
-            const onPick = () => setReel(r)
-            return r.streamUid
-              ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
-              : r.thumbnail
-                ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
-                : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
-          })}
-        </div>
-      </div>
-
-      <div style={card}>
-        <div style={lbl}>3 · Raw screenshot (optional, for organization)</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          The screenshot you grabbed from the inspo reel in TJP, before any other editing. Kept on the project record so you can find it later.
-        </div>
-        <input type="file" accept="image/*" onChange={e => setRawScreenshotFile(e.target.files?.[0] || null)}
-          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-        {rawScreenshotFile && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-            <img src={URL.createObjectURL(rawScreenshotFile)} alt="" style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
-            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {rawScreenshotFile.name}</span>
+        <div style={lbl}>2 · Inspo reel this scene goes with</div>
+        {reel?.id && !showReelGrid ? (
+          // Compact view when a reel is already selected (the common case
+          // for continuing a project). The full grid is one click away.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' })) || reel.thumbnail ? (
+              <img src={(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' })) || reel.thumbnail}
+                alt="" style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, border: '2px solid var(--palm-pink)' }} />
+            ) : null}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#e8b878' }}>@{reel.handle || reel.reelId}</div>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
+                {reel.url && <a href={reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ open on Instagram</a>}
+                {reel.url && reel.video && ' · '}
+                {reel.video && <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↓ re-download mp4</a>}
+              </div>
+            </div>
+            <button onClick={() => setShowReelGrid(true)}
+              style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 6, cursor: 'pointer' }}>
+              Change reel
+            </button>
           </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: '#888' }}>
+                {availableReels.length} reels available for {sel?.name || 'this creator'} (already-produced ones are hidden). Click one to mark it as this scene&apos;s source.
+              </div>
+              {reel?.id && (
+                <button onClick={() => setShowReelGrid(false)}
+                  style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
+                  Done picking
+                </button>
+              )}
+            </div>
+            <div id="tour-stageb-reels" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+              {availableReels.map(r => {
+                const isSel = reel?.id === r.id
+                const bd = { borderRadius: 6, cursor: 'pointer', width: '100%', aspectRatio: '9/16', objectFit: 'cover', border: isSel ? '3px solid var(--palm-pink)' : '1px solid rgba(255,255,255,0.1)' }
+                const onPick = () => { setReel(r); setShowReelGrid(false) }
+                return r.streamUid
+                  ? <img key={r.id} src={buildStreamPosterUrl(r.streamUid, { width: 240, fit: 'crop' })} alt="" loading="lazy" onClick={onPick} style={bd} />
+                  : r.thumbnail
+                    ? <img key={r.id} src={r.thumbnail} alt="" loading="lazy" onClick={onPick} style={bd} />
+                    : <video key={r.id} src={`${String(r.video || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')}#t=0.1`} muted preload="metadata" playsInline onClick={onPick} style={bd} />
+              })}
+            </div>
+          </>
         )}
       </div>
 
-      <div style={card}>
-        <div style={lbl}>4 · Upscaled screenshot (optional, for organization)</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          The TJP-upscaled version of that screenshot. Also just for organization — useful if you want to re-use it later for a different scene.
+      {/* Inline guidance: what to do off-portal between steps 2 and 5.
+          Most of the "Create Scene" work actually happens in TJP — this
+          tells the editor exactly what to do before coming back here. */}
+      {reel?.id && (
+        <div style={{ ...card, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)' }}>
+          <div style={{ ...lbl, color: '#8fb4f0' }}>Now do this in TJP (off-site)</div>
+          <ol style={{ margin: 0, paddingLeft: 18, color: 'var(--foreground)', fontSize: 13, lineHeight: 1.7 }}>
+            <li>Download the reel above (↓ re-download mp4) and bring it into TJP.</li>
+            <li>Take a screenshot of the pose you want to recreate.</li>
+            <li>Upscale that screenshot in TJP.</li>
+            <li>Run TJP&apos;s Apex Transfer → image-to-image with the upscaled screenshot + your creator. TJP gives you 4 variations.</li>
+            <li>Pick the best of the 4, download it, then come back here and upload it in step 5 below.</li>
+          </ol>
         </div>
-        <input type="file" accept="image/*" onChange={e => setUpscaledScreenshotFile(e.target.files?.[0] || null)}
-          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-        {upscaledScreenshotFile && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-            <img src={URL.createObjectURL(upscaledScreenshotFile)} alt="" style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
-            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {upscaledScreenshotFile.name}</span>
+      )}
+
+      {/* Optional uploads — the editor probably doesn't fill these in
+          most of the time. Collapsed by default to keep the page short. */}
+      <div style={card}>
+        <button onClick={() => setShowOptionalUploads(s => !s)}
+          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+          {showOptionalUploads ? '− Hide' : '+ Optionally archive'} the TJP raw + upscaled screenshots {(rawScreenshotFile || upscaledScreenshotFile) && '·'} {rawScreenshotFile && <span style={{ color: '#6AC68A' }}>raw ✓</span>}{rawScreenshotFile && upscaledScreenshotFile && ' · '}{upscaledScreenshotFile && <span style={{ color: '#6AC68A' }}>upscaled ✓</span>}
+        </button>
+        {showOptionalUploads && (
+          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Raw screenshot</div>
+              <input type="file" accept="image/*" onChange={e => setRawScreenshotFile(e.target.files?.[0] || null)}
+                style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+              {rawScreenshotFile && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <img src={URL.createObjectURL(rawScreenshotFile)} alt="" style={{ width: 42, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
+                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{rawScreenshotFile.name}</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Upscaled screenshot</div>
+              <input type="file" accept="image/*" onChange={e => setUpscaledScreenshotFile(e.target.files?.[0] || null)}
+                style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
+              {upscaledScreenshotFile && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                  <img src={URL.createObjectURL(upscaledScreenshotFile)} alt="" style={{ width: 42, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
+                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{upscaledScreenshotFile.name}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       <div id="tour-stageb-subject" style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
-        <div style={{ ...lbl, color: '#e8b878' }}>5 · TJP image-to-image output (required)</div>
+        <div style={{ ...lbl, color: '#e8b878' }}>3 · TJP image-to-image output (required)</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
           The TJP photo of your creator in the reel&apos;s pose &amp; outfit (still in the reel&apos;s original environment). The portal keeps her exactly as-is and just swaps the background to her saved room.
         </div>
@@ -362,7 +421,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       </div>
 
       <div id="tour-stageb-generate" style={card}>
-        <div style={lbl}>6 · Generate the scene</div>
+        <div style={lbl}>4 · Generate the scene</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>
           Swaps {sel?.name || 'the creator'}&apos;s background for her saved room and relights her to match. Takes ~3–6 minutes — you can navigate away, the result lands in Scenes below when it&apos;s done.
         </div>
