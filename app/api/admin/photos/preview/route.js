@@ -57,13 +57,28 @@ export async function GET(request) {
     }
 
     // Look up the Photo Account row so we can read/write its cache.
-    const accountRows = await fetchAirtableRecords('Photo Accounts', {
-      fields: ['Handle', 'Scrape Cache', 'Last Scraped At', 'Last Photos Scraped'],
-      filterByFormula: `LOWER({Handle}) = "${handle.replace(/"/g, '\\"')}"`,
-      maxRecords: 1,
-    })
-    const accountRow = accountRows[0]
+    // Client sends accountId directly when known (faster + dodges any
+    // filterByFormula edge cases). Fall back to a full scan if not.
+    const accountIdParam = u.searchParams.get('accountId')
+    let accountRow = null
+    if (accountIdParam && /^rec[A-Za-z0-9]{14}$/.test(accountIdParam)) {
+      try {
+        const r = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Photo Accounts')}/${accountIdParam}`,
+          { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
+        if (r.ok) accountRow = await r.json()
+      } catch (e) { console.warn('[photos/preview] direct fetch failed:', e.message) }
+    }
+    if (!accountRow) {
+      // Fallback: scan all rows and match on Handle (case-insensitive).
+      // Filtering client-side instead of via filterByFormula avoids any
+      // quoting / URL-encoding gotchas with LOWER().
+      const all = await fetchAirtableRecords('Photo Accounts', {
+        fields: ['Handle', 'Scrape Cache', 'Last Scraped At', 'Last Photos Scraped'],
+      })
+      accountRow = all.find(r => String(r.fields?.Handle || '').toLowerCase().trim() === handle) || null
+    }
     const accountId = accountRow?.id || null
+    if (!accountId) console.warn(`[photos/preview] no Photo Accounts row found for handle "${handle}" — cache write will be skipped`)
 
     // Cache hit? Parse the JSON blob, validate freshness, recompute
     // alreadyImported (since the Photos table changes independently
@@ -211,6 +226,7 @@ export async function GET(request) {
     // multilineText field well under the 100KB cell cap (200 imgs
     // x ~400 bytes = ~80KB after pretty-print).
     const fetchedAt = new Date().toISOString()
+    let cacheWriteError = null
     if (accountId) {
       try {
         const blob = {
@@ -220,11 +236,22 @@ export async function GET(request) {
           images: trimmed.map(({ alreadyImported, caption, ...rest }) => ({ ...rest, caption: (caption || '').slice(0, 200) })),
         }
         const serialized = JSON.stringify(blob)
-        // Hard cap at 95KB — Airtable's multilineText soft limit is
-        // 100KB. If we exceed it, drop captions and re-serialize.
+        // Soft cap at 95KB — Airtable's multilineText cell ceiling is
+        // 100KB. Drop captions first, then trim image list if still over.
         let payload = serialized
         if (serialized.length > 95_000) {
           const lean = { ...blob, images: blob.images.map(i => ({ ...i, caption: '' })) }
+          payload = JSON.stringify(lean)
+        }
+        if (payload.length > 95_000) {
+          // Even with captions stripped, trim images down until it fits.
+          const lean = { ...blob }
+          let imgs = lean.images.map(i => ({ ...i, caption: '' }))
+          while (imgs.length > 0 && JSON.stringify({ ...lean, images: imgs }).length > 95_000) {
+            imgs = imgs.slice(0, Math.floor(imgs.length * 0.9))
+          }
+          lean.images = imgs
+          lean.imageCount = imgs.length
           payload = JSON.stringify(lean)
         }
         await patchAirtableRecord('Photo Accounts', accountId, {
@@ -233,8 +260,11 @@ export async function GET(request) {
           'Last Photos Scraped': trimmed.length,
         }, { typecast: true })
       } catch (e) {
-        console.warn('[photos/preview] cache write failed:', e.message)
+        cacheWriteError = e.message || String(e)
+        console.warn('[photos/preview] cache write failed:', cacheWriteError)
       }
+    } else {
+      cacheWriteError = 'no Photo Accounts row found for this handle'
     }
 
     return NextResponse.json({
@@ -246,6 +276,7 @@ export async function GET(request) {
       images: trimmed,
       cachedAt: fetchedAt,
       fromCache: false,
+      cacheWriteError, // null if save succeeded; surfaces silently-failed writes
       // Diagnostic surface — only meaningful when postsSeen === 0
       // and the editor needs to see why. Lists the response shape so
       // we can spot a renamed key (e.g. "feed_items" vs "posts").

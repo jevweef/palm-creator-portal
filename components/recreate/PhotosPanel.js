@@ -337,6 +337,7 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
     setRefreshing(true); setError('')
     try {
       const params = new URLSearchParams({ handle: account.handle, limit: '80' })
+      if (account.id) params.set('accountId', account.id)
       if (forceRefresh) params.set('refresh', '1')
       const r = await fetch(`/api/admin/photos/preview?${params.toString()}`)
       const text = await r.text()
@@ -350,8 +351,11 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
       setDebug(d._debug || null)
       setCachedAt(d.cachedAt || null)
       setFromCache(!!d.fromCache)
+      // Surface cache-write failures so we know when the persisted
+      // cache silently didn't save — otherwise next open re-pays RapidAPI.
+      if (d.cacheWriteError) setError(`Scrape returned ${d.images?.length || 0} images but cache write failed: ${d.cacheWriteError}. The result is still usable, but the next open will re-scrape (cost).`)
     } catch (e) { setError(e.message) } finally { setRefreshing(false); setLoading(false) }
-  }, [account.handle])
+  }, [account.handle, account.id])
 
   // Initial fetch — server decides whether to hit RapidAPI or its own cache.
   useEffect(() => {
