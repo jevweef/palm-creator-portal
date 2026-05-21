@@ -274,7 +274,24 @@ function LibrarySection() {
             </button>
           ))}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>{filtered.length} / {photos.length}</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[
+            { k: 'grid', label: '▦ Grid', title: 'One card per post — click to open all carousel images' },
+            { k: 'expanded', label: '☷ Expanded', title: 'Every carousel image visible inline' },
+          ].map(v => (
+            <button key={v.k} onClick={() => setViewMode(v.k)} title={v.title}
+              style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5,
+                background: viewMode === v.k ? 'rgba(120,180,232,0.16)' : 'rgba(255,255,255,0.04)',
+                color: viewMode === v.k ? '#8FB4F0' : 'var(--foreground-muted)',
+                border: `1px solid ${viewMode === v.k ? 'rgba(120,180,232,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                cursor: 'pointer' }}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+          {viewMode === 'grid' ? `${groups.length} posts` : `${filtered.length} / ${photos.length}`}
+        </div>
       </div>
 
       {loading ? (
@@ -282,6 +299,36 @@ function LibrarySection() {
       ) : filtered.length === 0 ? (
         <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
           {photos.length === 0 ? 'No photos in library yet. Switch to Accounts and Browse some IG handles.' : 'No photos match the filter.'}
+        </div>
+      ) : viewMode === 'grid' ? (
+        // One card per post (cover image only). Click opens a modal
+        // with every carousel image + the same per-image actions the
+        // expanded view exposes inline.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+          {groups.map(group => {
+            const cover = group.items[0]
+            if (!cover) return null
+            const total = cover.carouselTotal || group.items.length
+            const isCarousel = group.items.length > 1 || total > 1
+            const sc = cover.status === 'Approved' ? '#6AC68A' : cover.status === 'Rejected' ? '#E87878' : '#e8b878'
+            return (
+              <div key={group.postUrl} onClick={() => setOpenPostUrl(group.postUrl)}
+                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: 'pointer' }}>
+                {cover.image
+                  ? <img src={cover.image} alt="" loading="lazy"
+                      onError={(e) => { if (cover.imageFallback && e.currentTarget.src !== cover.imageFallback) e.currentTarget.src = cover.imageFallback }}
+                      style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                  : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                {isCarousel && (
+                  <div style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.72)', color: '#fff', fontSize: 10, fontWeight: 700 }}>📚 {group.items.length}/{total}</div>
+                )}
+                <div style={{ padding: '7px 9px', fontSize: 11, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#8FB4F0' }}>@{cover.handle}</span>
+                  <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{cover.status}</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -302,39 +349,83 @@ function LibrarySection() {
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-                  {group.items.map(p => {
-                    const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
-                    return (
-                      <div key={p.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                        {p.image
-                          ? <img src={p.image} alt="" loading="lazy"
-                              onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-                              style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                          : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
-                        <div style={{ padding: 8, fontSize: 11 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <a href={`https://instagram.com/${p.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{p.handle}</a>
-                            <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{p.status}</span>
-                          </div>
-                          {p.carouselTotal > 1 && (
-                            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 2 }}>🎞 {p.carouselIndex}/{p.carouselTotal}</div>
-                          )}
-                          <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-                            {p.status !== 'Approved' && <button onClick={() => setStatus(p, 'Approved')} style={iconBtn('#6AC68A')}>✓</button>}
-                            {p.status !== 'Rejected' && <button onClick={() => setStatus(p, 'Rejected')} style={iconBtn('#E87878')}>✕</button>}
-                            <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
-                            <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {group.items.map(p => (
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} />
+                  ))}
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      {/* Post modal — only used in grid view. Opens when a card is
+          clicked, shows every image from the post with the same
+          per-image actions as the expanded view. */}
+      {openPostUrl && (() => {
+        const group = groups.find(g => g.postUrl === openPostUrl)
+        if (!group) return null
+        const cover = group.items[0] || {}
+        const total = cover.carouselTotal || group.items.length
+        const isCarousel = group.items.length > 1 || total > 1
+        return (
+          <div onClick={() => setOpenPostUrl(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--foreground-muted)' }}>
+                  <span style={{ fontSize: 15 }}>{isCarousel ? '📚' : '🖼️'}</span>
+                  <span>{isCarousel ? <><b style={{ color: 'var(--foreground)' }}>{group.items.length}</b> / {total} images</> : 'single image'}</span>
+                  <span>·</span>
+                  <a href={`https://instagram.com/${cover.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{cover.handle}</a>
+                  <span>·</span>
+                  <a href={openPostUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
+                </div>
+                <button onClick={() => setOpenPostUrl(null)}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                  {group.items.map(p => (
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// Shared card used by both the expanded view and the grid-view modal so
+// the per-image actions stay identical.
+function PhotoCard({ p, setStatus, removePhoto }) {
+  const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
+  return (
+    <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+      {p.image
+        ? <img src={p.image} alt="" loading="lazy"
+            onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+            style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+        : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+      <div style={{ padding: 8, fontSize: 11 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <a href={`https://instagram.com/${p.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{p.handle}</a>
+          <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{p.status}</span>
+        </div>
+        {p.carouselTotal > 1 && (
+          <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 2 }}>🎞 {p.carouselIndex}/{p.carouselTotal}</div>
+        )}
+        <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+          {p.status !== 'Approved' && <button onClick={() => setStatus(p, 'Approved')} style={iconBtn('#6AC68A')}>✓</button>}
+          {p.status !== 'Rejected' && <button onClick={() => setStatus(p, 'Rejected')} style={iconBtn('#E87878')}>✕</button>}
+          <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
+          <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+        </div>
+      </div>
     </div>
   )
 }
