@@ -259,10 +259,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
     }
 
-    // If the editor came from a Started project card, we reuse that
-    // existing record (so the slug/Reel#/Still# already assigned at
-    // download time stick) instead of minting a new one. Otherwise the
-    // record is created fresh with a freshly computed slug.
+    // Record routing:
+    //   • Started placeholder (first Generate on a project) → PATCH it,
+    //     filling in the first Still under that reel.
+    //   • Already-generated project (Pending/Generating/Approved/Rejected/
+    //     Failed) → DON'T overwrite. Create a NEW sibling record under
+    //     the same source reel — nextStageBSequence auto-increments the
+    //     Still # so each Generate becomes its own card (S01, S02, S03…).
+    //     Editors can compare attempts across models / seeds / runs.
     let reelNum = null, stillNum = null, slug = null
     let recordId = null
     let existingProject = null
@@ -272,10 +276,14 @@ export async function POST(request) {
           { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
         if (pRes.ok) {
           existingProject = await pRes.json()
-          slug = existingProject?.fields?.Slug || null
-          reelNum = existingProject?.fields?.['Reel #'] || null
-          stillNum = existingProject?.fields?.['Still #'] || null
-          recordId = existingProject.id
+          const existingStatus = existingProject?.fields?.Status?.name || existingProject?.fields?.Status
+          // Only reuse the record if it's still a fresh Started placeholder.
+          if (existingStatus === 'Started') {
+            slug = existingProject?.fields?.Slug || null
+            reelNum = existingProject?.fields?.['Reel #'] || null
+            stillNum = existingProject?.fields?.['Still #'] || null
+            recordId = existingProject.id
+          }
         }
       } catch (e) { console.warn('[stage-b POST] could not load projectId:', e.message) }
     }
@@ -311,6 +319,11 @@ export async function POST(request) {
       ...(reelNum != null ? { 'Reel #': reelNum } : {}),
       ...(stillNum != null ? { 'Still #': stillNum } : {}),
       ...(slug ? { Slug: slug } : {}),
+      // Path fields so the sibling can re-resolve source images later
+      // without depending on the (expiring) Airtable attachment URLs.
+      ...(subjectDropboxPath ? { 'TJP Output Path': subjectDropboxPath } : {}),
+      ...(rawScreenshotPath ? { 'Raw Screenshot Path': rawScreenshotPath } : {}),
+      ...(upscaledScreenshotPath ? { 'Upscaled Screenshot Path': upscaledScreenshotPath } : {}),
       ...attachments,
       Status: 'Generating',
     }
