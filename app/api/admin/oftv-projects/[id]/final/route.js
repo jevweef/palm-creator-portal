@@ -176,27 +176,27 @@ export async function GET(request, { params }) {
         const aka = await lookupCreatorAka(creatorOpsId)
         // Different events for the two routes — admin awareness only when
         // bypassing the gate, full admin alert when admin still needs to look.
-        notifyOftv({
+        await notifyOftv({
           event: fromCreatorRevision ? 'revised_cut_to_creator' : 'final_submitted',
           creator: aka,
           projectName: record.fields?.['Project Name'],
           projectId: record.id,
           assignedEditor: record.fields?.['Assigned Editor'],
           revisionCount: prevCount,
-        }).catch(() => {})
+        }).catch((e) => console.warn('[oftv/final] notifyOftv failed:', e?.message))
 
         // When skipping the admin gate (creator revision → straight to
         // creator), also iMessage the creator so they know a new version
         // is waiting. Admin-gated path doesn't text — admin still has to
         // approve before creator should hear anything.
         if (fromCreatorRevision) {
-          notifyCreatorByMessage({
+          await notifyCreatorByMessage({
             event: 'revised_cut_to_creator',
             creatorOpsId: (record.fields?.['Creator'] || [])[0],
             projectId: record.id,
             projectName: record.fields?.['Project Name'],
             isFirstDraft: false,
-          }).catch(() => {})
+          }).catch((e) => console.warn('[oftv/final] notifyCreator failed:', e?.message))
         }
       } catch (err) {
         console.warn('[oftv/final] auto-flip failed:', err.message)

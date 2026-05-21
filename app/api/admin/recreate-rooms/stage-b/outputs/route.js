@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OUTPUTS = 'Stage B Outputs'
@@ -13,16 +13,41 @@ const sel = v => (v?.name || v || null)
 // source reel + room so the gallery can show provenance.
 export async function GET(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const creatorId = new URL(request.url).searchParams.get('creatorId')
-    const [outputs, reels, rooms] = await Promise.all([
+    const [outputs, reels, rooms, outfitVariants] = await Promise.all([
       fetchAirtableRecords(OUTPUTS, {
-        fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link',
-          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason'],
+        fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
+          'Pose Time', 'Screenshot Framing', 'Room Framing', 'Time of Day', 'Status', 'Reject Reason',
+          'Reel #', 'Still #', 'Slug',
+          'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
+          'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
       }),
-      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle'] }),
+      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'] }),
       fetchAirtableRecords(ROOMS, { fields: ['Room Name'] }),
+      fetchAirtableRecords('Outfit Swap Outputs', {
+        fields: ['Stage B Parent', 'Variant #', 'Outfit', 'Image', 'Dropbox Link', 'Slug', 'Status'],
+      }),
     ])
+    // Group outfit variants under their parent so each Stage B card
+    // knows how many fan-outs exist + their statuses.
+    const variantsByParent = {}
+    for (const v of outfitVariants) {
+      const pid = (v.fields?.['Stage B Parent'] || [])[0]
+      if (!pid) continue
+      ;(variantsByParent[pid] ||= []).push({
+        id: v.id,
+        variantNum: v.fields?.['Variant #'] || null,
+        slug: v.fields?.Slug || '',
+        outfit: v.fields?.Outfit || '',
+        image: v.fields?.Image?.[0]?.thumbnails?.large?.url || v.fields?.Image?.[0]?.url || null,
+        dropbox: v.fields?.['Dropbox Link'] ? String(v.fields['Dropbox Link']).replace('dl=0', 'dl=1') : null,
+        status: v.fields?.Status?.name || v.fields?.Status || 'Pending',
+      })
+    }
+    for (const arr of Object.values(variantsByParent)) {
+      arr.sort((a, b) => (a.variantNum || 0) - (b.variantNum || 0))
+    }
     const reelById = Object.fromEntries(reels.map(r => [r.id, r.fields || {}]))
     const roomById = Object.fromEntries(rooms.map(r => [r.id, r.fields?.['Room Name'] || '']))
     // 1-based index per creator, oldest = 1 (stable label that matches
@@ -49,15 +74,38 @@ export async function GET(request) {
           id: o.id,
           index: idxById[o.id] || null,
           name: f.Name || '',
+          slug: f.Slug || '',
+          reelNum: f['Reel #'] || null,
+          stillNum: f['Still #'] || null,
+          dropboxPath: f['Dropbox Path'] || '',
           image: att(f.Image),
           dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
           poseTime: f['Pose Time'] ?? null,
           screenshotFraming: sel(f['Screenshot Framing']),
           roomFraming: sel(f['Room Framing']),
+          timeOfDay: sel(f['Time of Day']),
           status: sel(f.Status) || 'Pending',
           rejectReason: f['Reject Reason'] || '',
           room: roomId ? roomById[roomId] || '' : '',
-          reel: reel ? { id: reelId, reelId: reel['Reel ID'] || '', url: reel['Reel URL'] || '', handle: reel['Source Handle'] || '' } : null,
+          reel: reel ? {
+            id: reelId,
+            reelId: reel['Reel ID'] || '',
+            url: reel['Reel URL'] || '',
+            handle: reel['Source Handle'] || '',
+            streamUid: reel['Stream UID'] || null,
+            thumbnail: Array.isArray(reel.Thumbnail) && reel.Thumbnail[0] ? (reel.Thumbnail[0].thumbnails?.large?.url || reel.Thumbnail[0].url) : null,
+            video: (reel['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
+          } : null,
+          variants: variantsByParent[o.id] || [],
+          // Eager-uploaded artifacts. Each has an Airtable thumbnail
+          // URL (for preview) and a Dropbox path (for re-use at
+          // Generate time). The panel restores its file slots from
+          // these on mount, so refreshing mid-flow doesn't lose work.
+          uploads: {
+            rawScreenshot: f['Raw Screenshot Path'] ? { path: f['Raw Screenshot Path'], url: f['Raw Screenshot']?.[0]?.thumbnails?.large?.url || f['Raw Screenshot']?.[0]?.url || null, filename: f['Raw Screenshot']?.[0]?.filename || '' } : null,
+            upscaledScreenshot: f['Upscaled Screenshot Path'] ? { path: f['Upscaled Screenshot Path'], url: f['Upscaled Screenshot']?.[0]?.thumbnails?.large?.url || f['Upscaled Screenshot']?.[0]?.url || null, filename: f['Upscaled Screenshot']?.[0]?.filename || '' } : null,
+            tjpOutput: f['TJP Output Path'] ? { path: f['TJP Output Path'], url: f['TJP Output']?.[0]?.thumbnails?.large?.url || f['TJP Output']?.[0]?.url || null, filename: f['TJP Output']?.[0]?.filename || '' } : null,
+          },
           createdTime: o.createdTime,
         }
       })
@@ -73,7 +121,7 @@ export async function GET(request) {
 // tuning signal, never deleted).
 export async function PATCH(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const { id, status, reason } = await request.json()
     if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
       return NextResponse.json({ error: 'Valid id required' }, { status: 400 })

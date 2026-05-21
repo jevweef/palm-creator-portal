@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 
 // Lists every creator that has AI Super Clone reference photos on
 // file (NOT TJP-gated — Stage B is creator-driven and any creator
@@ -7,7 +7,7 @@ import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 // the UI can show readiness.
 export async function GET() {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const recs = await fetchAirtableRecords('Palm Creators', {
       fields: ['AKA', 'Creator', 'AI Ref Inputs', 'AI Ref Front', 'AI Ref Back', 'AI Ref Face'],
     })

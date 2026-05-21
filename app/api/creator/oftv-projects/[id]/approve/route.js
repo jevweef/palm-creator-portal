@@ -64,7 +64,7 @@ export async function POST(_request, { params }) {
 
   const creatorOpsId = (record.fields?.['Creator'] || [])[0]
   const aka = await lookupCreatorAka(creatorOpsId)
-  notifyOftv({
+  await notifyOftv({
     event: 'creator_approved',
     creator: aka,
     projectName: record.fields?.['Project Name'],

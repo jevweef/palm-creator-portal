@@ -83,7 +83,7 @@ export async function POST(_request, { params }) {
   if (flippedStatus) {
     const creatorOpsId = (record.fields?.['Creator'] || [])[0]
     const aka = await lookupCreatorAka(creatorOpsId)
-    notifyOftv({
+    await notifyOftv({
       event: 'editor_started',
       creator: aka,
       projectName: record.fields?.['Project Name'],

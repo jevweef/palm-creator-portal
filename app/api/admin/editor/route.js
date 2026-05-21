@@ -95,20 +95,27 @@ const ADMIN_ACTIONS = ['approve', 'requestRevision']
 const EDITOR_CHAT_ID = parseInt(process.env.EDITOR_CHAT_ID || '-1003779148361')
 const EDITOR_THREAD_ID = parseInt(process.env.EDITOR_THREAD_ID || '2')
 
-async function sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback, screenshotUrls }) {
+async function sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback, screenshotUrls, isAiRecreate = false }) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) { console.warn('[Revision Telegram] TELEGRAM_BOT_TOKEN not set'); return }
 
   const assetName = (taskName || '').replace(/^Edit:\s*/i, '')
   const title = inspoTitle || assetName || 'Unknown task'
-  const portalLink = creatorId ? `https://app.palm-mgmt.com/editor/${creatorId}` : null
+  // AI Recreate revisions live in the AI editor's /ai-editor portal view,
+  // not the human editor group. We still send the Telegram for now (in
+  // case AI editors lurk in there) but tag clearly so human editors can
+  // skip past it.
+  const portalLink = isAiRecreate
+    ? `https://app.palm-mgmt.com/ai-editor`
+    : (creatorId ? `https://app.palm-mgmt.com/editor/${creatorId}` : null)
 
   const caption = [
-    `⚠️ Revision Needed`,
+    isAiRecreate ? `⚠️ AI Recreate · Revision Needed` : `⚠️ Revision Needed`,
     ``,
     title,
     `Creator: ${creatorName || 'Unknown'}`,
     `File: ${assetName}`,
+    ...(isAiRecreate ? [``, `(For AI editors — human editors can ignore.)`] : []),
     ``,
     `Feedback:`,
     feedback,
@@ -425,6 +432,20 @@ export async function PATCH(request) {
       const creatorId = (task.fields?.Creator || [])[0] || null
       const inspoId = (task.fields?.Inspiration || [])[0] || null
       const taskName = task.fields?.Name || ''
+      // Detect AI Recreate tasks via the linked Asset's Source Type so
+      // we can tag the Telegram clearly — the human editor group sees
+      // these too and shouldn't try to action them. The AI editor
+      // surfaces revisions on /ai-editor, not Telegram.
+      let isAiRecreate = false
+      if (assetId) {
+        try {
+          const assets = await fetchAirtableRecords('Assets', {
+            filterByFormula: `RECORD_ID()='${assetId}'`,
+            fields: ['Source Type'],
+          })
+          isAiRecreate = (assets[0]?.fields?.['Source Type'] || '') === 'AI Generated'
+        } catch (e) { console.warn('[Revision] source type lookup failed:', e.message) }
+      }
       const telegramWork = (async () => {
         let creatorName = '', inspoTitle = ''
         try {
@@ -437,7 +458,7 @@ export async function PATCH(request) {
         } catch (e) {
           console.warn('[Revision Telegram] Failed to fetch creator/inspo names:', e.message)
         }
-        await sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls })
+        await sendRevisionTelegram({ creatorName, creatorId, inspoTitle, taskName, feedback: adminFeedback, screenshotUrls: adminScreenshotUrls, isAiRecreate })
       })().catch(err => {
         console.warn('[Revision Telegram] background work failed:', err.message)
       })

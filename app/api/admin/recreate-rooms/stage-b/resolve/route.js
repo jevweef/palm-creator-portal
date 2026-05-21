@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
@@ -16,9 +16,9 @@ const BATCH = 6
 // (a 301s job that killed the old sync route is captured here).
 export async function POST() {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const rows = await fetchAirtableRecords(OUTPUTS, {
-      fields: ['Name', 'Prediction ID', 'Status'],
+      fields: ['Name', 'Prediction ID', 'Status', 'Slug'],
       filterByFormula: `AND({Status}='Generating', NOT({Prediction ID}=''))`,
     })
     if (rows.length === 0) return NextResponse.json({ ok: true, checked: 0, completed: 0, failed: 0, pending: 0 })
@@ -45,7 +45,15 @@ export async function POST() {
             const ir = await fetch(outUrl)
             if (ir.ok) {
               const buf = Buffer.from(await ir.arrayBuffer())
-              dbxPath = `/Palm Ops/Stage B Outputs/${r.id}-${Date.now()}.jpg`
+              // Use the canonical slug for the Dropbox filename so the
+              // editor's local files match the slug end-to-end. Pre-slug
+              // records (no Slug field set) fall back to the record-id
+              // name they used to get.
+              const slug = r.fields?.Slug || ''
+              const akaFolder = (slug.split('_')[0] || 'misc')
+              dbxPath = slug
+                ? `/Palm Ops/Stage B Outputs/${akaFolder}/${slug}.jpg`
+                : `/Palm Ops/Stage B Outputs/${r.id}-${Date.now()}.jpg`
               await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
               try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
             }
