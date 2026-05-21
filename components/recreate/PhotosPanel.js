@@ -24,7 +24,7 @@ export default function PhotosPanel() {
   const router = useRouter()
   const pathname = usePathname()
   const subParam = sp.get('sub')
-  const validSubs = new Set(['accounts', 'library', 'outfit-picker'])
+  const validSubs = new Set(['accounts', 'library', 'outfits', 'outfit-picker'])
   const tab = validSubs.has(subParam) ? subParam : 'accounts'
   const setTab = (next) => {
     const params = new URLSearchParams(sp.toString())
@@ -43,7 +43,8 @@ export default function PhotosPanel() {
           {[
             { k: 'accounts', label: 'Accounts' },
             { k: 'library', label: 'Library' },
-            { k: 'outfit-picker', label: '👗 Outfit Picker' },
+            { k: 'outfits', label: '👗 Outfit Library' },
+            { k: 'outfit-picker', label: 'Outfit Picker' },
           ].map(t => (
             <button key={t.k} onClick={() => setTab(t.k)}
               style={{
@@ -60,6 +61,7 @@ export default function PhotosPanel() {
       </div>
       {tab === 'accounts' ? <AccountsSection />
         : tab === 'library' ? <LibrarySection />
+        : tab === 'outfits' ? <LibrarySection outfitsOnly />
         : <OutfitPickerSection />}
     </div>
   )
@@ -185,7 +187,7 @@ function AccountsSection() {
 
 // ─── Library ────────────────────────────────────────────────────────────────
 
-function LibrarySection() {
+function LibrarySection({ outfitsOnly = false }) {
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -196,7 +198,12 @@ function LibrarySection() {
   // View mode persisted in URL (?view=grid|expanded). Grid = one card
   // per post (carousels collapse to their cover). Expanded = every
   // carousel image as its own card (original behavior).
-  const viewMode = sp.get('view') === 'grid' ? 'grid' : 'expanded'
+  // Outfit Library is grid-only — every card is already a hand-picked
+  // single outfit image, so the carousel-grouped expanded view is
+  // noise. Other views default to expanded but respect ?view=.
+  const viewMode = outfitsOnly
+    ? 'grid'
+    : (sp.get('view') === 'grid' ? 'grid' : 'expanded')
   const setViewMode = (next) => {
     const params = new URLSearchParams(sp.toString())
     if (next === 'expanded') params.delete('view'); else params.set('view', next)
@@ -355,6 +362,7 @@ function LibrarySection() {
   }
 
   const filtered = photos.filter(p => {
+    if (outfitsOnly && !p.isOutfit) return false
     if (statusFilter !== 'all' && p.status !== statusFilter) return false
     if (!filter) return true
     const q = filter.toLowerCase()
@@ -396,21 +404,23 @@ function LibrarySection() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {[
-            { k: 'grid', label: '▦ Grid', title: 'One card per post — click to open all carousel images' },
-            { k: 'expanded', label: '☷ Expanded', title: 'Every carousel image visible inline' },
-          ].map(v => (
-            <button key={v.k} onClick={() => setViewMode(v.k)} title={v.title}
-              style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5,
-                background: viewMode === v.k ? 'rgba(120,180,232,0.16)' : 'rgba(255,255,255,0.04)',
-                color: viewMode === v.k ? '#8FB4F0' : 'var(--foreground-muted)',
-                border: `1px solid ${viewMode === v.k ? 'rgba(120,180,232,0.4)' : 'rgba(255,255,255,0.12)'}`,
-                cursor: 'pointer' }}>
-              {v.label}
-            </button>
-          ))}
-        </div>
+        {!outfitsOnly && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[
+              { k: 'grid', label: '▦ Grid', title: 'One card per post — click to open all carousel images' },
+              { k: 'expanded', label: '☷ Expanded', title: 'Every carousel image visible inline' },
+            ].map(v => (
+              <button key={v.k} onClick={() => setViewMode(v.k)} title={v.title}
+                style={{ padding: '7px 12px', fontSize: 11, fontWeight: 600, borderRadius: 5,
+                  background: viewMode === v.k ? 'rgba(120,180,232,0.16)' : 'rgba(255,255,255,0.04)',
+                  color: viewMode === v.k ? '#8FB4F0' : 'var(--foreground-muted)',
+                  border: `1px solid ${viewMode === v.k ? 'rgba(120,180,232,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                  cursor: 'pointer' }}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
           {viewMode === 'grid' ? `${groups.length} posts` : `${filtered.length} / ${photos.length}`}
         </div>
