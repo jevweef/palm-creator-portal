@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox } from '@/lib/dropbox'
@@ -13,6 +14,58 @@ export const maxDuration = 90
 
 const PHOTOS = 'Photos'
 
+// Claude vision pass — describe the garment(s) the subject is wearing
+// in forensic detail BEFORE feeding the request to WaveSpeed. Vague
+// prompts ("the clothes the person is wearing") produce generic
+// outputs that miss the design language of small-detail garments like
+// bikinis. A specific description ("triangle micro top, thin spaghetti
+// halter ties, light pink ribbed knit fabric, side-tie low-rise
+// bottom") gives the diffusion model concrete targets to hit.
+//
+// Returns a paragraph the WaveSpeed prompt embeds verbatim. Empty
+// string on failure — the flatlay still runs, just with the generic
+// fallback prompt.
+async function describeGarment(imageUrl) {
+  if (!process.env.ANTHROPIC_API_KEY || !imageUrl) return ''
+  try {
+    const ir = await fetch(imageUrl)
+    if (!ir.ok) return ''
+    const b64 = Buffer.from(await ir.arrayBuffer()).toString('base64')
+    const ct = ir.headers.get('content-type') || ''
+    const mediaType = (ct.match(/^(image\/[a-z]+)/i)?.[1] || 'image/jpeg').toLowerCase().replace('image/jpg', 'image/jpeg')
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 800,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text:
+            'Describe EXACTLY the garment(s) the person is wearing in this photo, for a flatlay product photographer who will reconstruct them on a white background.\n\n'
+            + 'For EACH visible garment, list:\n'
+            + '• Garment type (e.g. triangle bikini top, low-rise side-tie bikini bottom, slip dress, one-shoulder mini dress, ribbed crop top, bandeau, halter, etc.)\n'
+            + '• Exact color (be specific: "pale dusty pink", "warm chocolate brown", "lavender ribbed", not just "pink" or "brown")\n'
+            + '• Fabric type and texture (ribbed knit / smooth jersey / sheer mesh / silky satin / waffle / textured weave / etc.) — describe what the surface looks and feels like\n'
+            + '• Cut, silhouette, and coverage (high-rise, low-rise, micro, full coverage, cheeky, asymmetric, mini, midi, cropped, etc.)\n'
+            + '• Neckline / strap detail (thin spaghetti string ties, thick straps, halter neck, cowl, square-cut, sweetheart, one-shoulder, racerback, etc.)\n'
+            + '• Closures or trim (front tie, side tie at hips, back tie, hooks, zipper, ruching, cutout placement, etc.)\n'
+            + '• Any prints, patterns, embellishments, or stitching detail\n\n'
+            + 'IGNORE accessories (sunglasses, jewelry, watches, bags, shoes), hair, makeup, the person themselves, and the environment. ONLY describe garments that would be in the flatlay.\n\n'
+            + 'If part of a garment is hidden by pose or body, infer the most likely typical cut — assume symmetric construction unless the design is clearly asymmetric.\n\n'
+            + 'Be concise but specific. Return one paragraph per garment, no preamble.'
+          },
+        ],
+      }],
+    })
+    const text = resp.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+    return text || ''
+  } catch (e) {
+    console.warn('[photos/flatlay] describeGarment failed:', e.message)
+    return ''
+  }
+}
+
 // Selectable WaveSpeed models for flatlay generation. Each takes an
 // images[] + prompt; param schemas mirror their Stage B counterparts.
 // Default is nano-banana (cheap, fast, good at clothing detail);
@@ -26,47 +79,53 @@ const MODELS = {
     body: (images, prompt) => ({ images, prompt, aspect_ratio: '1:1', resolution: '2k', quality: 'high' }) },
 }
 
-// Product-flatlay prompt. Tuned to:
-//   • Reconstruct the garment in its natural symmetric shape (strap
-//     lengths matched, hem aligned, no pose-induced distortion)
-//   • Preserve fabric quality / sheen / weight — the original was
-//     coming out looking matte and cheap; reference the actual
-//     material texture from the source photo
-//   • Show each piece laid as if hanging on a hanger then placed flat
-//     on a surface — no hanger visible, no mannequin, no model
-//   • Strictly no store tags, brand labels, price tags
-const FLATLAY_PROMPT = (
-  'Transform this photo into a clean product-flatlay photography image. '
-  + 'Background: pure white seamless studio surface, soft even shadowless lighting, '
-  + 'overhead or slightly angled top-down perspective. '
-  + 'Subject: ONLY the clothing items the person is wearing in the original photo, '
-  + 'arranged neatly as a coordinated flat-lay — each piece laid out separately so '
-  + 'a viewer could identify every garment (top, bottom, dress, outerwear, shoes, '
-  + 'jewelry where applicable).\n\n'
-  + 'CRITICAL — reconstruct each garment in its natural, symmetric, off-body shape, '
-  + 'as if it were hanging on a hanger then laid flat on the surface (no hanger, no '
-  + 'mannequin, no body visible). Pose-induced asymmetry in the source (one strap '
-  + 'pulled down, fabric bunched against the body, hem twisted by sitting/leaning) '
-  + 'should be IGNORED — assume the garment is symmetric and well-constructed: '
-  + 'matching strap lengths, even shoulder seams, level hem, undistorted silhouette. '
-  + 'Infer the typical cut from the visible portion if part of the garment is '
-  + 'hidden behind the body. Do not invent unusual asymmetric design unless the '
-  + 'garment is clearly intentionally asymmetric (e.g. a one-shoulder dress).\n\n'
-  + 'Preserve the EXACT same fabric, material, weight, sheen, drape, color, prints, '
-  + 'patterns, and stitching detail as the original — match the texture and quality '
-  + 'of the source garment (silk should look like silk, ribbed knit should look '
-  + 'ribbed, sheer should stay sheer). Do NOT cheapen or flatten the material. '
-  + 'Photoreal, sharp focus, high detail.\n\n'
-  + 'STRICTLY exclude everything that is NOT a garment the subject is wearing: '
-  + 'the person/model, body parts, original background, sunglasses, phones, '
-  + 'drinks, bags, jewelry not visibly on the subject, environmental textiles '
-  + '(towels, blankets, sheets, pillows, robes laid on a surface, beach throws, '
-  + 'rugs, sarongs draped on furniture), furniture, plants. Also exclude store '
-  + 'or brand tags, price tags, hang tags, swing tags, size labels, hangers, '
-  + 'mannequins, rulers, or any commercial-listing decorations. Only items '
-  + 'actually worn by the person belong in the flatlay — if it is on a chair, '
-  + 'a bed, the floor, or behind the subject, omit it.'
-)
+// Builds the WaveSpeed prompt with an embedded forensic garment
+// description from Claude. The description anchors the model to the
+// specific cut/fabric/color of the source, defeating the generic-
+// output drift we see with vague "the clothes the person is wearing"
+// language. Accessories (jewelry, shoes, watches) are intentionally
+// dropped — flatlay is about the outfit itself, not the full styling.
+function buildFlatlayPrompt(garmentDescription) {
+  const hasDescription = !!garmentDescription
+  return (
+    'TASK: Create a clean product-flatlay photograph showing the EXACT garment(s) described below, '
+    + 'reconstructed in their natural symmetric off-body shape on a pure white seamless studio surface.\n\n'
+    + (hasDescription
+        ? `GARMENT(S) TO REPLICATE — copy these EXACTLY, this is the design you must produce:\n${garmentDescription}\n\n`
+        : 'GARMENT(S) TO REPLICATE: study the photo carefully and reproduce the exact garment(s) the subject is wearing — match cut, fabric, color, and construction precisely.\n\n')
+    + 'REPLICATION RULES (highest priority):\n'
+    + '1. The CUT and SILHOUETTE of each garment must match exactly — if it is a triangle bikini top, '
+    + 'draw a triangle bikini top, not a bralette or sports top. If it is a side-tie bikini bottom, '
+    + 'draw side-tie ties at the hips, not a pull-on brief. Do NOT substitute a "generic version" of '
+    + 'the same category — copy the specific design language visible in the source.\n'
+    + '2. FABRIC must match — ribbed knit stays ribbed, smooth jersey stays smooth, sheer stays sheer, '
+    + 'satin stays glossy. Do not flatten textured fabric into matte solid.\n'
+    + '3. COLOR must match the exact shade — not a "close enough" version. Pale dusty pink ≠ hot pink. '
+    + 'Lavender ≠ purple. Match the literal hue.\n'
+    + '4. Strap detail, tie placement, neckline shape, hem cut, ruching, cutouts, prints — every '
+    + 'design detail in the description must appear in the flatlay.\n\n'
+    + 'PRESENTATION:\n'
+    + '• Lay each garment flat on the white surface as if it were just lifted off a hanger and placed '
+    + 'down. Strap lengths matched, hem level, fabric undistorted, no body shape, no hanger, no '
+    + 'mannequin. Top-down overhead view.\n'
+    + '• Pose-induced asymmetry in the source (strap pulled off shoulder, fabric bunched against the '
+    + 'body, hem twisted by sitting) should be IGNORED — assume the garment is constructed '
+    + 'symmetrically unless the design is intentionally asymmetric (e.g. one-shoulder dress).\n'
+    + '• Soft even shadowless studio lighting. Photoreal, sharp focus, high detail. The texture of '
+    + 'the fabric should be visible at close inspection.\n\n'
+    + 'STRICTLY EXCLUDE (do not draw any of these):\n'
+    + '• The person, body parts, hair, skin\n'
+    + '• Original background, environment, sky, walls, plants, furniture\n'
+    + '• Accessories: sunglasses, jewelry, watches, bags, shoes, hats — the flatlay shows the worn '
+    + 'garment(s) only\n'
+    + '• Environmental textiles laid in the original scene: towels, blankets, sheets, pillows, '
+    + 'robes draped on a chair, beach throws, rugs, sarongs on furniture — if it was not WORN by '
+    + 'the person, do not include it\n'
+    + '• Store/brand/price/hang/swing tags, size labels, hangers, mannequins, rulers, commercial '
+    + 'listing decorations.\n\n'
+    + 'Output: just the garment(s) on a white surface, nothing else.'
+  )
+}
 
 // POST { photoId, model? } — generate a flatlay for one Photos row.
 // `model` is 'nano' (default), 'wan', or 'gpt'. Writes
@@ -140,9 +199,23 @@ export async function POST(request) {
     }
     console.log(`[photos/flatlay] ${photoId} model=${modelKey} source=${sourceVariant}`)
 
+    // Claude vision pre-pass — describe the specific garment(s) so the
+    // diffusion model gets explicit "draw X in Y fabric with Z details"
+    // text instead of having to forensically extract design language
+    // from pixels. Empty description = generic fallback prompt (still
+    // works, just not as accurate). Logged so we can audit what Claude
+    // saw when a flatlay misses.
+    const garmentDescription = await describeGarment(sourceImageUrl)
+    if (garmentDescription) {
+      console.log(`[photos/flatlay] ${photoId} garment: ${garmentDescription.slice(0, 200)}${garmentDescription.length > 200 ? '…' : ''}`)
+    } else {
+      console.warn(`[photos/flatlay] ${photoId} Claude analysis returned empty — falling back to generic prompt`)
+    }
+    const prompt = buildFlatlayPrompt(garmentDescription)
+
     let task
     try {
-      task = await submitWaveSpeedTask(mdl.path, mdl.body([sourceImageUrl], FLATLAY_PROMPT))
+      task = await submitWaveSpeedTask(mdl.path, mdl.body([sourceImageUrl], prompt))
     } catch (e) {
       await patchAirtableRecord(PHOTOS, photoId, { 'Flatlay Status': 'Failed' }, { typecast: true })
       throw new Error(`WaveSpeed ${modelKey} submit failed: ${e.message}`)
@@ -219,6 +292,10 @@ export async function POST(request) {
       flatlayCdnUrl,
       flatlayDropboxPath: dbxPath,
       predictionId,
+      // Echo what Claude saw — surfaces in the UI so editor can spot
+      // mis-reads ("Claude said 'green dress' when it's clearly blue").
+      garmentDescription: garmentDescription || null,
+      sourceVariant,
     })
   } catch (err) {
     if (err instanceof Response) return err
