@@ -126,6 +126,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [reelPlaying, setReelPlaying] = useState(false) // Click-to-play the selected reel inline
   const [model, setModel] = useState('wan') // 'wan' | 'nano' | 'gpt' — Wan tends to zoom out, alternatives may respect framing better
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
+  const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
 
   const [creators, setCreators] = useState([])
 
@@ -218,11 +219,30 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     }).catch(() => {})
     loadOutputs()
   }
+  // Delete = quick "reject + delete" with no reason prompt. The two-
+  // click confirm pattern (armedDeleteId) replaces the full-screen
+  // uiConfirm modal so the confirm UI peels off the button itself,
+  // not a far-away dialog. The reject PATCH right before the DELETE
+  // leaves a "this was rejected" record in Airtable's revision history
+  // before the record itself is removed — preserves the signal for the
+  // editor who explicitly asked to combine the two actions.
   const deleteOutput = async (o) => {
-    if (!(await uiConfirm('Delete this scene?', { danger: true, okLabel: 'Delete' }))) return
+    await fetch('/api/admin/recreate-rooms/stage-b/outputs', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: o.id, status: 'Rejected', reason: '' }),
+    }).catch(() => {})
     await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
+    setArmedDeleteId(null)
     loadOutputs()
   }
+  // Auto-disarm the delete button after a short window if the user
+  // doesn't follow through. Without this the button stays "armed"
+  // forever and a stray click later could nuke something.
+  useEffect(() => {
+    if (!armedDeleteId) return
+    const t = setTimeout(() => setArmedDeleteId(null), 2500)
+    return () => clearTimeout(t)
+  }, [armedDeleteId])
 
 
 
@@ -739,7 +759,21 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                       {o.status !== 'Approved' && <button onClick={() => setOutputStatus(o, 'Approved')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✓</button>}
                       {o.status !== 'Rejected' && <button onClick={() => setOutputStatus(o, 'Rejected')} style={{ padding: '4px 8px', fontSize: 11, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: 'none', borderRadius: 5, cursor: 'pointer' }}>✕</button>}
                       <a href={o.dropbox || o.image || '#'} target="_blank" rel="noreferrer" style={{ padding: '4px 8px', fontSize: 11, background: 'rgba(120,160,232,0.16)', color: '#8fb4f0', borderRadius: 5, textDecoration: 'none' }}>↗</a>
-                      <button onClick={() => deleteOutput(o)} style={{ padding: '4px 8px', fontSize: 11, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, cursor: 'pointer' }}>🗑</button>
+                      <button
+                        onClick={() => armedDeleteId === o.id ? deleteOutput(o) : setArmedDeleteId(o.id)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: 11,
+                          fontWeight: armedDeleteId === o.id ? 700 : 400,
+                          background: armedDeleteId === o.id ? 'rgba(232,120,120,0.22)' : 'none',
+                          color: armedDeleteId === o.id ? '#E87878' : '#888',
+                          border: `1px solid ${armedDeleteId === o.id ? 'rgba(232,120,120,0.45)' : 'rgba(255,255,255,0.15)'}`,
+                          borderRadius: 5,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}>
+                        {armedDeleteId === o.id ? 'Sure?' : '🗑'}
+                      </button>
                     </div>
                     {o.rejectReason && <div style={{ marginTop: 4, color: '#E87878', fontStyle: 'italic' }}>{o.rejectReason}</div>}
                   </div>
@@ -807,8 +841,24 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     <button onClick={async () => { await setOutputStatus(o, 'Rejected'); setSelectedOutput(null) }}
                       style={{ flex: 1, padding: '8px 12px', fontSize: 13, fontWeight: 700, background: 'rgba(232,120,120,0.16)', color: '#E87878', border: '1px solid rgba(232,120,120,0.3)', borderRadius: 6, cursor: 'pointer' }}>✕ Reject</button>
                   )}
-                  <button onClick={async () => { await deleteOutput(o); setSelectedOutput(null) }}
-                    style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>🗑 Delete</button>
+                  <button
+                    onClick={async () => {
+                      if (armedDeleteId === o.id) { await deleteOutput(o); setSelectedOutput(null) }
+                      else { setArmedDeleteId(o.id) }
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      fontWeight: armedDeleteId === o.id ? 700 : 600,
+                      background: armedDeleteId === o.id ? 'rgba(232,120,120,0.22)' : 'none',
+                      color: armedDeleteId === o.id ? '#E87878' : '#888',
+                      border: `1px solid ${armedDeleteId === o.id ? 'rgba(232,120,120,0.45)' : 'rgba(255,255,255,0.15)'}`,
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}>
+                    {armedDeleteId === o.id ? 'Click again to confirm' : '🗑 Delete'}
+                  </button>
                 </div>
               </div>
             </div>
