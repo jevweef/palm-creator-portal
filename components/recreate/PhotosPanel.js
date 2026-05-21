@@ -265,6 +265,32 @@ function LibrarySection() {
     } catch (e) { setPhotos(snap); alert(`Dismiss failed: ${e.message}`) }
   }
 
+  // Generate a product-flatlay version via Nano Banana. The route takes
+  // ~15-40s end-to-end, so we flip the row to Generating immediately
+  // for instant feedback, then update with the final URL on resolution.
+  // If the server detects status drift (someone else triggered it), the
+  // patch is idempotent so we just write whatever the response says.
+  const generateFlatlay = async (p) => {
+    setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Generating' } : x))
+    try {
+      const r = await fetch('/api/admin/photos/flatlay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: p.id }),
+      })
+      const d = await r.json()
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+      setPhotos(prev => prev.map(x => x.id === p.id ? {
+        ...x,
+        flatlayStatus: 'Done',
+        flatlayCdnUrl: d.flatlayCdnUrl || '',
+        flatlayDropboxPath: d.flatlayDropboxPath || '',
+      } : x))
+    } catch (e) {
+      setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
+      alert(`Flatlay generation failed: ${e.message}`)
+    }
+  }
+
   const filtered = photos.filter(p => {
     if (statusFilter !== 'all' && p.status !== statusFilter) return false
     if (!filter) return true
@@ -383,7 +409,7 @@ function LibrarySection() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} />
                   ))}
                 </div>
               </div>
@@ -443,7 +469,7 @@ function LibrarySection() {
               <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} />
                   ))}
                 </div>
               </div>
@@ -456,20 +482,40 @@ function LibrarySection() {
 }
 
 // Shared card used by both the expanded view and the grid-view modal so
-// the per-image actions stay identical. pickOutfit is optional —
-// passed only from the post modal so the inline expanded view stays
-// uncluttered (use the Outfit Picker tab there).
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit }) {
+// the per-image actions stay identical. pickOutfit + generateFlatlay
+// are optional — passed only from the post modal so the inline expanded
+// view stays uncluttered (use the Outfit Picker tab + flatlay icons there).
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
+  // Flatlay button is only meaningful on outfit-flagged rows (the whole
+  // feature is about analyzing the clothes the subject is wearing).
+  // Status flow: None → Generating → Done | Failed.
+  const fl = p.flatlayStatus || 'None'
+  const [showFlatlay, setShowFlatlay] = useState(false)
   return (
     <div style={{ position: 'relative', border: `1px solid ${p.isOutfit ? '#6AC68A' : `${sc}40`}`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
       {p.image
-        ? <img src={p.image} alt="" loading="lazy"
+        ? <img src={(showFlatlay && p.flatlayCdnUrl) ? p.flatlayCdnUrl : p.image} alt="" loading="lazy"
             onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-            style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+            style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
         : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
       {p.isOutfit && (
         <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>👗 OUTFIT</div>
+      )}
+      {fl === 'Done' && p.flatlayCdnUrl && (
+        // Tiny pill that toggles the displayed image between original
+        // and flatlay. Sits opposite the OUTFIT badge so they don't
+        // collide.
+        <button onClick={() => setShowFlatlay(v => !v)}
+          title={showFlatlay ? 'Switch to original photo' : 'Switch to AI flatlay version'}
+          style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: showFlatlay ? '#e8a878' : '#fff', fontSize: 10, fontWeight: 700, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer' }}>
+          {showFlatlay ? '📷 original' : '📦 flatlay'}
+        </button>
+      )}
+      {fl === 'Generating' && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', color: '#e8a878', fontSize: 12, fontWeight: 700, pointerEvents: 'none' }}>
+          ⏳ generating flatlay…
+        </div>
       )}
       <div style={{ padding: 8, fontSize: 11 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -485,6 +531,17 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit }) {
           {pickOutfit && !p.isOutfit && (
             <button onClick={() => pickOutfit(p)} title="Pick as the outfit for this post (flags sibling images as reviewed)"
               style={iconBtn('#e8a878')}>👗</button>
+          )}
+          {generateFlatlay && p.isOutfit && fl !== 'Generating' && (
+            <button onClick={() => generateFlatlay(p)}
+              title={fl === 'Done'
+                ? 'Re-run AI flatlay (replaces the current one)'
+                : fl === 'Failed'
+                  ? 'Retry AI flatlay generation'
+                  : 'Generate a product-flatlay version (clothes on white, sunglasses excluded)'}
+              style={iconBtn(fl === 'Failed' ? '#E87878' : '#e8a878')}>
+              {fl === 'Done' ? '📦↻' : fl === 'Failed' ? '↻ 📦' : '📦'}
+            </button>
           )}
           <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
