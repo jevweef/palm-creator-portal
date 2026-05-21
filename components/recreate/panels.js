@@ -145,6 +145,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [count, setCount] = useState(1) // 1 | 2 | 4 — fan-out N variations into DIFFERENT rooms in parallel
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
   const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
+  // Outfits attached to the current reel. Drives the upcoming fan-out
+  // step (every selected outfit × every approved Stage B scene). Stored
+  // server-side on the Recreate Reels row, hydrated to photo metadata
+  // here so the strip can render thumbnails without a second join.
+  const [reelOutfits, setReelOutfits] = useState([])
+  const [outfitPickerOpen, setOutfitPickerOpen] = useState(false)
 
   const [creators, setCreators] = useState([])
 
@@ -179,6 +185,52 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     if (reel?.id) setShowReelGrid(false)
     setReelPlaying(false) // stop playback when reel changes
   }, [reel?.id])
+
+  // Pull the Selected Outfits attached to the active reel. Re-runs when
+  // the reel changes; clears the list on no-reel so leftover thumbnails
+  // don't bleed across reel switches.
+  useEffect(() => {
+    if (!reel?.id) { setReelOutfits([]); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/admin/recreate-rooms/stage-b/reel-outfits?reelId=${reel.id}`)
+        const d = await r.json()
+        if (!cancelled && d?.ok) setReelOutfits(d.outfits || [])
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [reel?.id])
+
+  // Two write paths on the same field: bulk PUT (picker modal closes
+  // with the full set) and inline POST (× on a strip thumbnail). Both
+  // return the freshly-hydrated outfit list so we can drop client-side
+  // merge logic.
+  const setReelOutfitIds = async (outfitIds) => {
+    if (!reel?.id) return
+    try {
+      const r = await fetch('/api/admin/recreate-rooms/stage-b/reel-outfits', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reelId: reel.id, outfitIds }),
+      })
+      const d = await r.json()
+      if (d?.ok) setReelOutfits(d.outfits || [])
+    } catch {}
+  }
+  const removeReelOutfit = async (id) => {
+    if (!reel?.id) return
+    const snap = reelOutfits
+    setReelOutfits(prev => prev.filter(o => o.id !== id)) // optimistic
+    try {
+      const r = await fetch('/api/admin/recreate-rooms/stage-b/reel-outfits', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reelId: reel.id, removeId: id }),
+      })
+      const d = await r.json()
+      if (d?.ok) setReelOutfits(d.outfits || [])
+      else setReelOutfits(snap)
+    } catch { setReelOutfits(snap) }
+  }
 
   // Continuing a Started project: load the record (so we know its slug)
   // and pre-pick the reel from its Source Reel field, regardless of
@@ -802,6 +854,53 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
+      {/* Outfits panel — only relevant once a reel is selected. The
+          actual outfit fan-out generation lands as a separate step;
+          this section is the "connection" piece (pick + persist). */}
+      {reel?.id && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                👗 Outfits for this reel <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({reelOutfits.length})</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
+                Pick outfits from the library. Every selected outfit will fan out across every approved scene under this reel (N outfits × M scenes).
+              </div>
+            </div>
+            <button onClick={() => setOutfitPickerOpen(true)}
+              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+              + Pick outfits
+            </button>
+          </div>
+          {reelOutfits.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 8, textAlign: 'center' }}>
+              No outfits attached yet. Click <b>+ Pick outfits</b> to choose from the outfit library (📷 Photos → 👗 Outfit Picker is where you build that pool).
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+              {reelOutfits.map(o => (
+                <div key={o.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(106,198,138,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                  {o.image
+                    ? <img src={o.image} alt="" loading="lazy"
+                        onError={(e) => { if (o.imageFallback && e.currentTarget.src !== o.imageFallback) e.currentTarget.src = o.imageFallback }}
+                        style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                  <button onClick={() => removeReelOutfit(o.id)}
+                    title="Remove from this reel"
+                    style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', color: '#E87878', border: '1px solid rgba(232,120,120,0.3)', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    ✕
+                  </button>
+                  <div style={{ padding: 6, fontSize: 10, color: '#8FB4F0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    @{o.handle}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {outputs.length > 0 && (() => {
         // Hide Started placeholders from the Scenes gallery — those are
         // reels-waiting-to-be-generated, not real scenes. They live in
@@ -1055,6 +1154,127 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         )
       })()}
 
+      {outfitPickerOpen && reel?.id && (
+        <OutfitPickerModal
+          currentIds={reelOutfits.map(o => o.id)}
+          onClose={() => setOutfitPickerOpen(false)}
+          onSave={async (ids) => { await setReelOutfitIds(ids); setOutfitPickerOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Outfit picker — pulls the curated outfit pool (Photos with Is Outfit
+// = true) and lets the editor multi-select. Selection state stays
+// modal-local until Save fires; closing without saving discards.
+function OutfitPickerModal({ currentIds, onClose, onSave }) {
+  const [pool, setPool] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState(new Set(currentIds || []))
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/admin/photos/library?outfitsOnly=1')
+        const d = await r.json()
+        if (!cancelled && d?.ok) setPool(d.photos || [])
+      } catch {} finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const toggle = (id) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  const filtered = pool.filter(p => {
+    if (!filter) return true
+    const q = filter.toLowerCase()
+    return (p.handle || '').toLowerCase().includes(q) || (p.caption || '').toLowerCase().includes(q)
+  })
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      // Preserve a sensible ordering: anything already attached keeps
+      // its prior slot (editor's prior pick-order), new picks append.
+      const order = [...currentIds.filter(id => selected.has(id)), ...[...selected].filter(id => !currentIds.includes(id))]
+      await onSave(order)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>👗 Pick outfits for this reel</div>
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
+              {loading ? 'Loading outfit pool…' : <>{pool.length} outfit{pool.length === 1 ? '' : 's'} available · <b style={{ color: '#6AC68A' }}>{selected.size}</b> selected</>}
+            </div>
+          </div>
+          <input type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by handle…"
+            style={{ flex: 1, minWidth: 180, padding: '8px 12px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13 }} />
+          <button onClick={onClose}
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+          {loading ? (
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>⏳ Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+              {pool.length === 0
+                ? 'No outfits in the pool yet. Go to Photos → Outfit Picker to flag images as outfits first.'
+                : 'No outfits match the filter.'}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+              {filtered.map(p => {
+                const isSel = selected.has(p.id)
+                return (
+                  <div key={p.id} onClick={() => toggle(p.id)}
+                    style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+                      border: isSel ? '3px solid #6AC68A' : '1px solid rgba(255,255,255,0.1)' }}>
+                    {p.image
+                      ? <img src={p.image} alt="" loading="lazy"
+                          onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                          style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#000' }} />
+                      : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                    {isSel && (
+                      <div style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: '#6AC68A', color: '#0a1a10', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>✓</div>
+                    )}
+                    <div style={{ padding: '6px 8px', fontSize: 11, background: 'rgba(0,0,0,0.55)', color: '#8FB4F0', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+                      @{p.handle}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+            Click to mark/unmark. Save replaces the reel&apos;s outfit list.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose}
+              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={save} disabled={saving}
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, background: saving ? 'rgba(106,198,138,0.18)' : '#6AC68A', color: saving ? 'rgba(255,255,255,0.4)' : '#0a1a10', border: 'none', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? '⏳ Saving…' : `Save ${selected.size} outfit${selected.size === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

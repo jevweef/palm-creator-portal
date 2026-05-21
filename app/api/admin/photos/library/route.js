@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 const TABLE = 'Photos'
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 
-// GET — list every Photo, normalized for the Library grid.
-export async function GET() {
+// GET ?outfitsOnly=1 — list every Photo (default) or only outfit-flagged
+// ones (used by the workflow's outfit picker so editors see just the
+// curated pool, not every imported image).
+export async function GET(request) {
   try {
-    await requireAdmin()
+    // AI editors need read access too — the outfit picker in the Stage B
+    // workflow runs under their session. Mutations stay admin-only via
+    // the PATCH/DELETE handlers below.
+    await requireAdminOrAiEditor()
+    const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
       fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL'],
+      ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
       const f = r.fields || {}
