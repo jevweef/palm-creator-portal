@@ -473,7 +473,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 {subjectSlot.url ? (
                   <>
                     <img src={subjectSlot.url} alt=""
-                      style={{ width: '100%', maxWidth: 130, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }} />
+                      style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, background: '#000', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
                       {subjectSlot.uploading ? (
                         <>
