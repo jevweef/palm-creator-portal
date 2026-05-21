@@ -278,6 +278,7 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
   const [loading, setLoading] = useState(true)
   const [images, setImages] = useState([])
   const [postsSeen, setPostsSeen] = useState(0)
+  const [debug, setDebug] = useState(null)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [importing, setImporting] = useState(false)
@@ -290,9 +291,10 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
       .then(r => r.json())
       .then(d => {
         if (cancelled) return
-        if (d.error) { setError(d.error); setImages([]); setPostsSeen(0); return }
+        if (d.error) { setError(d.error); setImages([]); setPostsSeen(0); setDebug(null); return }
         setImages(d.images || [])
         setPostsSeen(d.postsSeen || 0)
+        setDebug(d._debug || null)
       })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -371,7 +373,10 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
             <div style={{ color: 'var(--foreground-muted)', fontSize: 13, lineHeight: 1.5 }}>
               {postsSeen > 0
                 ? <>RapidAPI returned {postsSeen} post{postsSeen === 1 ? '' : 's'} but none were photos — this account may only post reels.</>
-                : <>RapidAPI returned no posts. The handle may be wrong, the account may be private, or this list of accounts is empty. Try opening <a href={`https://instagram.com/${account.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0' }}>@{account.handle}</a> on Instagram to confirm.</>}
+                : <>RapidAPI returned no posts. The handle may be wrong, the account may be private, or this list of accounts is empty. Try opening <a href={`https://instagram.com/${displayHandle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0' }}>@{displayHandle}</a> on Instagram to confirm.</>}
+              {debug && (
+                <pre style={{ marginTop: 12, padding: 10, background: 'rgba(0,0,0,0.4)', borderRadius: 6, fontSize: 11, color: 'var(--foreground-muted)', overflow: 'auto', maxHeight: 240 }}>{JSON.stringify(debug, null, 2)}</pre>
+              )}
             </div>
           )}
           {!loading && images.length > 0 && (

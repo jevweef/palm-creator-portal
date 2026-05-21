@@ -51,6 +51,7 @@ export async function GET(request) {
     let postsSeen = 0
     let paginationToken = null
     const maxPages = 4
+    let firstResponseShape = null // for debug surface when nothing comes back
     for (let page = 0; page < maxPages; page++) {
       let body = `username_or_url=${encodeURIComponent(handle)}&amount=50`
       if (paginationToken) body += `&pagination_token=${paginationToken}`
@@ -67,7 +68,23 @@ export async function GET(request) {
       const data = await res.json()
       if (data.error) return NextResponse.json({ error: `RapidAPI: ${data.error}` }, { status: 502 })
 
-      const posts = data.posts || data.items || data.data || []
+      // Capture the top-level shape of the first response so we can
+      // diagnose unknown keys when nothing parses. Strips obvious arrays.
+      if (page === 0) {
+        firstResponseShape = {
+          keys: Object.keys(data || {}),
+          countsByKey: Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [k, Array.isArray(v) ? `array[${v.length}]` : typeof v])),
+          sampleFirstItem: (() => {
+            for (const k of Object.keys(data || {})) {
+              const v = data[k]
+              if (Array.isArray(v) && v[0]) return { key: k, itemKeys: Object.keys(v[0]).slice(0, 30) }
+            }
+            return null
+          })(),
+        }
+      }
+
+      const posts = data.posts || data.items || data.data || data.feed_items || data.user?.edge_owner_to_timeline_media?.edges || []
       for (const node of posts) {
         const media = node?.node?.media || node?.media || node || {}
         const code = media.code || media.shortcode
@@ -143,6 +160,10 @@ export async function GET(request) {
       total: trimmed.length,
       alreadyImportedCount: trimmed.filter(i => i.alreadyImported).length,
       images: trimmed,
+      // Diagnostic surface — only meaningful when postsSeen === 0
+      // and the editor needs to see why. Lists the response shape so
+      // we can spot a renamed key (e.g. "feed_items" vs "posts").
+      _debug: (postsSeen === 0 && trimmed.length === 0) ? firstResponseShape : undefined,
     })
   } catch (err) {
     if (err instanceof Response) return err
