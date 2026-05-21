@@ -186,10 +186,24 @@ function AccountsSection() {
 // ─── Library ────────────────────────────────────────────────────────────────
 
 function LibrarySection() {
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  // View mode persisted in URL (?view=grid|expanded). Grid = one card
+  // per post (carousels collapse to their cover). Expanded = every
+  // carousel image as its own card (original behavior).
+  const viewMode = sp.get('view') === 'grid' ? 'grid' : 'expanded'
+  const setViewMode = (next) => {
+    const params = new URLSearchParams(sp.toString())
+    if (next === 'expanded') params.delete('view'); else params.set('view', next)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+  // Post the modal is showing (or null when closed).
+  const [openPostUrl, setOpenPostUrl] = useState(null)
 
   const load = useCallback(async () => {
     try {
