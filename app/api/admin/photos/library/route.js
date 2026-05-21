@@ -1,0 +1,79 @@
+import { NextResponse } from 'next/server'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+
+export const dynamic = 'force-dynamic'
+const TABLE = 'Photos'
+const AIRTABLE_PAT = process.env.AIRTABLE_PAT
+
+// GET — list every Photo, normalized for the Library grid.
+export async function GET() {
+  try {
+    await requireAdmin()
+    const rows = await fetchAirtableRecords(TABLE, {
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator'],
+    })
+    const photos = rows.map(r => {
+      const f = r.fields || {}
+      const att = f.Image
+      const imgUrl = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
+      return {
+        id: r.id,
+        handle: f['Source Handle'] || '',
+        postUrl: f['Source Post URL'] || '',
+        carouselIndex: f['Carousel Index'] || 1,
+        carouselTotal: f['Carousel Total'] || 1,
+        image: imgUrl,
+        dropbox: f['Dropbox Link'] || '',
+        postedAt: f['Posted At'] || null,
+        caption: f.Caption || '',
+        status: f.Status?.name || f.Status || 'Pending',
+        outfitType: f['Outfit Type']?.name || f['Outfit Type'] || null,
+        creatorIds: f.Creator || [],
+        createdTime: r.createdTime,
+      }
+    }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
+    return NextResponse.json({ ok: true, photos })
+  } catch (err) {
+    if (err instanceof Response) return err
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// PATCH { id, fields }  —  Approve/Reject, tag Outfit Type, link Creator, etc.
+export async function PATCH(request) {
+  try {
+    await requireAdmin()
+    const { id, fields } = await request.json()
+    if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
+      return NextResponse.json({ error: 'Valid id required' }, { status: 400 })
+    }
+    if (!fields || typeof fields !== 'object') {
+      return NextResponse.json({ error: 'fields object required' }, { status: 400 })
+    }
+    await patchAirtableRecord(TABLE, id, fields, { typecast: true })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    if (err instanceof Response) return err
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// DELETE ?id=rec... — removes the Airtable record (Dropbox file stays
+// in place; harmless and recoverable.)
+export async function DELETE(request) {
+  try {
+    await requireAdmin()
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
+      return NextResponse.json({ error: 'Valid id required' }, { status: 400 })
+    }
+    const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(TABLE)}/${id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${AIRTABLE_PAT}` },
+    })
+    if (!res.ok) return NextResponse.json({ error: `airtable ${res.status}` }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    if (err instanceof Response) return err
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
