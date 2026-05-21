@@ -976,6 +976,23 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     <a href={dlUrl} download
                       style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)', color: '#1a0a0a', borderRadius: 8, textDecoration: 'none' }}>⬇ Download still</a>
                   )}
+                  {o.image && (
+                    <button onClick={async () => {
+                      try {
+                        const r = await fetch('/api/admin/recreate-rooms/stage-b/outputs/flip', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: o.id }),
+                        })
+                        if (!r.ok) throw new Error(`${r.status}`)
+                        await loadOutputs()
+                        // Reload the selected output from the refreshed list so the
+                        // modal preview swaps to the flipped image without re-clicking.
+                        const fresh = (await fetch(`/api/admin/recreate-rooms/stage-b/outputs?creatorId=${creatorId}`).then(r => r.json())).outputs?.find(x => x.id === o.id)
+                        if (fresh) setSelectedOutput(fresh)
+                      } catch (e) { setMsg(`❌ Flip failed: ${e?.message || String(e)}`) }
+                    }}
+                      style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>↔ Flip horizontally</button>
+                  )}
                   {o.status === 'Approved' && (
                     <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${o.id}`}
                       style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 8, textDecoration: 'none' }}>⬇ ZIP for TJP (still + reel)</a>
