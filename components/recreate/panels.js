@@ -193,7 +193,18 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         if (!r.ok) return
         const d = await r.json()
         if (cancelled) return
-        const match = (d.outputs || []).find(o => o.id === initialProjectId)
+        const outputs = d.outputs || []
+        // Primary lookup: exact record id from the URL. Falls back to
+        // ANY sibling under the same reel that still has TJP Output
+        // Path set — this rescues the panel when the editor deleted
+        // the original project but other generations under the same
+        // reel still hold the uploaded TJP source. Without this the
+        // slot reads empty and Generate complains about no upload
+        // even though the work is still in Airtable + Dropbox.
+        let match = outputs.find(o => o.id === initialProjectId)
+        if (!match && initialReelRecordId) {
+          match = outputs.find(o => o.reel?.id === initialReelRecordId && o.uploads?.tjpOutput)
+        }
         if (match) {
           setProject(match)
           if (match.reel && !reel) setReel(match.reel)
@@ -206,7 +217,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       } catch {}
     })()
     return () => { cancelled = true }
-  }, [initialProjectId, initialCreatorId, reel])
+  }, [initialProjectId, initialCreatorId, initialReelRecordId, reel])
 
   const loadOutputs = useCallback(async () => {
     if (!creatorId) { setOutputs([]); return }
