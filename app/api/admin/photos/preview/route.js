@@ -86,7 +86,13 @@ export async function GET(request) {
 
       const posts = data.posts || data.items || data.data || data.feed_items || data.user?.edge_owner_to_timeline_media?.edges || []
       for (const node of posts) {
-        const media = node?.node?.media || node?.media || node || {}
+        // Instagram GraphQL-style envelope: each item is {node: {...post...}}.
+        // The post fields (code, media_type, image_versions2, carousel_media)
+        // live directly on .node — NOT inside a .media sub-object. Older
+        // scrapers used .node.media so we still check that first as a
+        // fallback before unwrapping to .node, then .media, then the
+        // raw item.
+        const media = node?.node?.media || node?.node || node?.media || node || {}
         const code = media.code || media.shortcode
         if (!code) continue
         const postUrl = `https://www.instagram.com/p/${code}/`
