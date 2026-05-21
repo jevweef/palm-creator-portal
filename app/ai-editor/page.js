@@ -274,96 +274,135 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
   )
 }
 
-// ─── My Projects (in-flight scenes for the current creator) ────────────────
-// Each card is one (creator, reel) project — created the moment the editor
-// clicks Raw / Download (status='Started'), then advances through
-// Generating → Pending → Approved as the editor uploads + the portal renders.
+// ─── My Projects (in-flight reels for the current creator) ────────────────
+// One card per reel, not per scene — every Generate click in the workflow
+// creates a new scene record for the same (creator, reel) project, so
+// showing scene-cards here was noisy (the same reel surfaced as 5+ tiles).
+// The reel card summarizes scene counts by status; clicking opens the
+// workflow where the full scene gallery lives at the bottom.
 function MyProjectsSection({ projects, creatorId, onChange }) {
   if (!projects?.length) return null
-  // Sort: needs-action first, then in-flight, then done. Within each
-  // bucket, oldest first so the editor works through them in order.
-  const order = { Failed: 0, Pending: 1, Started: 2, Generating: 3, Approved: 4, Rejected: 5 }
-  const sorted = [...projects].sort((a, b) => {
-    const oa = order[a.status] ?? 99
-    const ob = order[b.status] ?? 99
-    if (oa !== ob) return oa - ob
-    return (a.createdTime || '').localeCompare(b.createdTime || '')
-  })
-  const counts = sorted.reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
+
+  // Group projects by reel record ID. A few really old rows may not have
+  // a reel reference — keep those bucketed under their own project ID so
+  // they don't all collide into one anonymous group.
+  const groups = (() => {
+    const byReel = new Map()
+    for (const p of projects) {
+      const key = p.reel?.id || `__noReel_${p.id}`
+      if (!byReel.has(key)) byReel.set(key, { reelKey: key, reel: p.reel || null, scenes: [] })
+      byReel.get(key).scenes.push(p)
+    }
+    // Per-group status priority — most-urgent action wins so the editor
+    // sees at a glance what each reel needs next.
+    const order = { Failed: 0, Pending: 1, Started: 2, Generating: 3, Approved: 4, Rejected: 5 }
+    for (const g of byReel.values()) {
+      g.counts = g.scenes.reduce((m, s) => { m[s.status] = (m[s.status] || 0) + 1; return m }, {})
+      g.topStatus = g.scenes.reduce((best, s) => {
+        const a = order[s.status] ?? 99, b = order[best?.status] ?? 99
+        return a < b ? s : best
+      }, g.scenes[0]).status
+      g.newest = g.scenes.reduce((t, s) => (s.createdTime || '') > t ? (s.createdTime || '') : t, '')
+    }
+    // Sort the *reels* by their top status (same priority as before) so
+    // "needs TJP work" rises to the front.
+    return [...byReel.values()].sort((a, b) => {
+      const oa = order[a.topStatus] ?? 99
+      const ob = order[b.topStatus] ?? 99
+      if (oa !== ob) return oa - ob
+      return (a.newest || '').localeCompare(b.newest || '')
+    })
+  })()
+
+  // Aggregated counts across every scene under every reel, just for
+  // the header summary (matches what the section showed before).
+  const totalCounts = projects.reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
+
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>My Projects</div>
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
-          {sorted.length} in flight ·
-          {counts.Started ? ` ${counts.Started} need TJP work` : ''}
-          {counts.Generating ? ` · ${counts.Generating} rendering` : ''}
-          {counts.Pending ? ` · ${counts.Pending} awaiting your ✓` : ''}
-          {counts.Approved ? ` · ${counts.Approved} ready for TJP outfit/motion` : ''}
-          {counts.Failed ? ` · ${counts.Failed} failed` : ''}
+          {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} scene{projects.length === 1 ? '' : 's'}
+          {totalCounts.Started ? ` · ${totalCounts.Started} need TJP work` : ''}
+          {totalCounts.Generating ? ` · ${totalCounts.Generating} rendering` : ''}
+          {totalCounts.Pending ? ` · ${totalCounts.Pending} awaiting your ✓` : ''}
+          {totalCounts.Approved ? ` · ${totalCounts.Approved} ready for TJP outfit/motion` : ''}
+          {totalCounts.Failed ? ` · ${totalCounts.Failed} failed` : ''}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        {sorted.map(p => <ProjectCard key={p.id} p={p} creatorId={creatorId} onChange={onChange} />)}
+        {groups.map(g => <ReelProjectCard key={g.reelKey} group={g} creatorId={creatorId} onChange={onChange} />)}
       </div>
     </div>
   )
 }
 
-function ProjectCard({ p, creatorId, onChange }) {
-  // Color per status — matches the gallery card on the Create Scene page.
-  const sc = p.status === 'Approved' ? '#6AC68A'
-    : p.status === 'Rejected' || p.status === 'Failed' ? '#E87878'
-    : p.status === 'Generating' ? '#8fb4f0'
-    : p.status === 'Started' ? '#aaa'
+// One card per reel. Shows the reel thumbnail (not a scene thumbnail —
+// the workflow already has a scene gallery), the count + status mix
+// of scenes inside, and a single CTA that opens the workflow loaded
+// to this reel so the editor can see/work on every scene at once.
+function ReelProjectCard({ group, creatorId, onChange }) {
+  const { reel, scenes, counts, topStatus } = group
+  const statusColor = (s) =>
+    s === 'Approved' ? '#6AC68A'
+    : s === 'Rejected' || s === 'Failed' ? '#E87878'
+    : s === 'Generating' ? '#8fb4f0'
+    : s === 'Started' ? '#aaa'
     : '#e8b878' // Pending
-  const reel = p.reel || null
+  const sc = statusColor(topStatus)
   const thumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
     || reel?.thumbnail
     || null
-  // Each status maps to the next action the editor takes.
-  const cta = p.status === 'Started'      ? { label: '🎨 Continue → upload TJP photo', color: '#e8b878' }
-            : p.status === 'Generating'   ? { label: '⏳ Rendering…', color: '#8fb4f0', disabled: true }
-            : p.status === 'Pending'      ? { label: '👁 Review the scene', color: '#e8b878' }
-            : p.status === 'Approved'     ? { label: '⬇ ZIP for TJP', color: '#6AC68A' }
-            : p.status === 'Rejected'     ? { label: 'View / retry', color: '#E87878' }
-            : p.status === 'Failed'       ? { label: '↻ Retry', color: '#E87878' }
-            : null
-  // Tab-based deep link — staying on /ai-editor with ?tab=create
-  // keeps the workflow on one page (no new-page-feel).
-  const continueHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}&project=${p.id}`
+  // No ?project= — the workflow loads every scene for this reel into
+  // the gallery, which is what the editor actually wants to see when
+  // resuming work on a reel that already has scenes generated.
+  const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
+  const cta = topStatus === 'Started'    ? '🎨 Continue → upload TJP photo'
+            : topStatus === 'Generating' ? '⏳ Rendering…'
+            : topStatus === 'Pending'    ? '👁 Review scenes'
+            : topStatus === 'Approved'   ? '🎬 Open workflow'
+            : topStatus === 'Rejected'   ? '↻ Retry / view'
+            : topStatus === 'Failed'     ? '↻ Retry'
+            : 'Open workflow'
 
-  const discard = async () => {
-    if (!(await uiConfirm(`Discard this project? The reel goes back to the pool so you can re-start it (or someone else can use it). Any artifacts you've already uploaded are deleted.`, { danger: true, okLabel: 'Discard' }))) return
+  // Discard at the reel level wipes every scene record under it. The
+  // raw reel goes back to the pool. Approved scenes are protected —
+  // confirm extra-loud if any exist so the editor doesn't blow away
+  // hard-won renders by reflex.
+  const discardReel = async () => {
+    const hasApproved = (counts.Approved || 0) > 0
+    const msg = hasApproved
+      ? `This reel has ${counts.Approved} approved scene${counts.Approved === 1 ? '' : 's'}. Discarding wipes ALL ${scenes.length} scenes for this reel — even the approved ones. Continue?`
+      : `Discard every scene under this reel (${scenes.length} total)? The reel goes back to the pool so you (or someone else) can re-start it.`
+    if (!(await uiConfirm(msg, { danger: true, okLabel: 'Discard reel' }))) return
     try {
-      await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${p.id}`, { method: 'DELETE' })
+      await Promise.all(scenes.map(s =>
+        fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${s.id}`, { method: 'DELETE' })
+      ))
       onChange?.()
     } catch {}
   }
 
   return (
     <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-      <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
-        {/* Prefer the generated scene image when we have one (Pending/
-            Approved/Rejected). Otherwise show the reel thumbnail so the
-            editor knows which reel this project is for. */}
-        {p.image
-          ? <img src={p.image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : thumb
-            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />
-            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>
-                {p.status === 'Generating' ? '⏳ rendering…' : p.status === 'Failed' ? '✕ failed' : 'no preview'}
-              </div>}
-        <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#0a0a0a', background: sc, borderRadius: 3 }}>
-          {p.status}
+      <a href={openHref} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+        <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
+          {thumb
+            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc }}>no reel thumb</div>}
+          {/* Scene-count badge — the headline number on a reel card. */}
+          <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
+            {scenes.length} scene{scenes.length === 1 ? '' : 's'}
+          </div>
+          <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#0a0a0a', background: sc, borderRadius: 3 }}>
+            {topStatus}
+          </div>
         </div>
-      </div>
+      </a>
       <div style={{ padding: 10, fontSize: 11 }}>
-        <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#ddd', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {p.slug || p.name || 'project'}
-        </div>
         {reel && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <a href={reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               ↗ @{reel.handle || reel.reelId}
             </a>
@@ -374,27 +413,28 @@ function ProjectCard({ p, creatorId, onChange }) {
             )}
           </div>
         )}
-        {cta && (
-          cta.disabled
-            ? <div style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5 }}>{cta.label}</div>
-            : p.status === 'Approved'
-              ? <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip?id=${p.id}`}
-                  style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5, textDecoration: 'none' }}>{cta.label}</a>
-              : <a href={continueHref}
-                  style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${cta.color}28`, color: cta.color, borderRadius: 5, textDecoration: 'none' }}>{cta.label}</a>
-        )}
-        {/* Discard only for the early stages — once it's Approved or
-            beyond, deleting the record would orphan downstream Assets. */}
-        {(p.status === 'Started' || p.status === 'Failed' || p.status === 'Rejected') && (
-          <button onClick={discard}
-            style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
-            🗑 Discard
-          </button>
-        )}
+        {/* Per-status mini-counts so the editor sees the full breakdown
+            without opening the workflow (e.g. "2 ✓ · 1 ⏳ · 1 ✕"). */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, fontSize: 10 }}>
+          {Object.entries(counts).map(([s, n]) => (
+            <span key={s} style={{ padding: '2px 6px', borderRadius: 3, background: `${statusColor(s)}22`, color: statusColor(s), fontWeight: 700 }}>
+              {n} {s.toLowerCase()}
+            </span>
+          ))}
+        </div>
+        <a href={openHref}
+          style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, textDecoration: 'none' }}>
+          {cta}
+        </a>
+        <button onClick={discardReel}
+          style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
+          🗑 Discard reel
+        </button>
       </div>
     </div>
   )
 }
+
 
 // ─── Needs Revision section (closes the rejection loop for AI editors) ───
 function RevisionsSection({ revisions, creatorId, onResubmitted }) {

@@ -185,7 +185,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   // whether the pool-loaded reels list contains it (the reel might be
   // hidden from the pool because it's already a project).
   useEffect(() => {
-    if (!initialProjectId) return
+    // Need at least one of project or reel to know what to restore.
+    if (!initialProjectId && !initialReelRecordId) return
     let cancelled = false
     ;(async () => {
       try {
@@ -197,11 +198,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         // Primary lookup: exact record id from the URL. Falls back to
         // ANY sibling under the same reel that still has TJP Output
         // Path set — this rescues the panel when the editor deleted
-        // the original project but other generations under the same
-        // reel still hold the uploaded TJP source. Without this the
-        // slot reads empty and Generate complains about no upload
-        // even though the work is still in Airtable + Dropbox.
-        let match = outputs.find(o => o.id === initialProjectId)
+        // the original project, AND covers the new "open reel from My
+        // Projects" deep link which lands with no specific project ID
+        // (we want to re-hydrate the TJP slot from any existing scene
+        // under the same reel so Generate doesn't ask the editor to
+        // re-upload work that's already saved).
+        let match = initialProjectId ? outputs.find(o => o.id === initialProjectId) : null
         if (!match && initialReelRecordId) {
           match = outputs.find(o => o.reel?.id === initialReelRecordId && o.uploads?.tjpOutput)
         }
