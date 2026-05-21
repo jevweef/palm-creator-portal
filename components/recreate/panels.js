@@ -1241,17 +1241,27 @@ function OutfitPickerModal({ currentIds, onClose, onSave }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
               {filtered.map(p => {
                 const isSel = selected.has(p.id)
+                // Prefer the AI flatlay over the contextual photo for
+                // picker thumbnails — the picker exists to communicate
+                // "which outfit", and the clean product shot reads more
+                // clearly than someone wearing it on a couch.
+                const flatlayReady = !!p.flatlayCdnUrl && (p.flatlayStatus === 'Done')
+                const displayImage = flatlayReady ? p.flatlayCdnUrl : p.image
+                const fallback = flatlayReady ? (p.image || p.imageFallback) : p.imageFallback
                 return (
                   <div key={p.id} onClick={() => toggle(p.id)}
                     style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
                       border: isSel ? '3px solid #6AC68A' : '1px solid rgba(255,255,255,0.1)' }}>
-                    {p.image
-                      ? <img src={p.image} alt="" loading="lazy"
-                          onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-                          style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: '#000' }} />
+                    {displayImage
+                      ? <img src={displayImage} alt="" loading="lazy"
+                          onError={(e) => { if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback }}
+                          style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: flatlayReady ? '#fff' : '#000' }} />
                       : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
                     {isSel && (
                       <div style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: '#6AC68A', color: '#0a1a10', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>✓</div>
+                    )}
+                    {flatlayReady && (
+                      <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 5px', borderRadius: 3, background: 'rgba(232,168,120,0.85)', color: '#1a0a0a', fontSize: 9, fontWeight: 800 }}>📦 FLATLAY</div>
                     )}
                     <div style={{ padding: '6px 8px', fontSize: 11, background: 'rgba(0,0,0,0.55)', color: '#8FB4F0', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
                       @{p.handle}

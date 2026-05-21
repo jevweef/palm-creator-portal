@@ -34,7 +34,7 @@ async function hydrateOutfits(ids) {
   // the realistic outfit-count per reel.
   const expr = ids.map(id => `RECORD_ID() = '${id}'`).join(', ')
   const rows = await fetchAirtableRecords(PHOTOS, {
-    fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'CDN URL', 'Dropbox Path', 'Image', 'Is Outfit'],
+    fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'CDN URL', 'Dropbox Path', 'Image', 'Is Outfit', 'Flatlay CDN URL', 'Flatlay Status'],
     filterByFormula: `OR(${expr})`,
   })
   const byId = Object.fromEntries(rows.map(r => [r.id, r]))
@@ -48,14 +48,24 @@ async function hydrateOutfits(ids) {
     const proxyUrl = dropboxPath ? `/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}` : ''
     const att = f.Image
     const attThumb = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
+    // Prefer the flatlay as the visible image when one exists — the
+    // workflow strip + picker are about communicating "this is the
+    // outfit" to the editor, and the product-shot is more legible than
+    // the contextual photo. Original stays available via originalImage
+    // for any caller that wants both.
+    const flatlay = f['Flatlay CDN URL'] || ''
+    const flatlayReady = (f['Flatlay Status']?.name || f['Flatlay Status']) === 'Done' && flatlay
     return {
       id: r.id,
       handle: f['Source Handle'] || '',
       postUrl: f['Source Post URL'] || '',
       carouselIndex: f['Carousel Index'] || 1,
       carouselTotal: f['Carousel Total'] || 1,
-      image: cdnUrl || proxyUrl || attThumb,
-      imageFallback: cdnUrl ? (proxyUrl || attThumb) : attThumb,
+      image: flatlayReady ? flatlay : (cdnUrl || proxyUrl || attThumb),
+      imageFallback: cdnUrl || proxyUrl || attThumb,
+      originalImage: cdnUrl || proxyUrl || attThumb,
+      flatlayImage: flatlay || '',
+      hasFlatlay: !!flatlayReady,
       isOutfit: !!f['Is Outfit'],
     }
   }).filter(Boolean)

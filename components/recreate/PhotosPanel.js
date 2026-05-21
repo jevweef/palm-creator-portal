@@ -335,17 +335,17 @@ function LibrarySection({ outfitsOnly = false }) {
     setBulkHd(s => ({ ...s, running: false }))
   }
 
-  // Generate a product-flatlay version via Nano Banana. The route takes
-  // ~15-40s end-to-end, so we flip the row to Generating immediately
-  // for instant feedback, then update with the final URL on resolution.
-  // If the server detects status drift (someone else triggered it), the
-  // patch is idempotent so we just write whatever the response says.
-  const generateFlatlay = async (p) => {
+  // Generate a product-flatlay version. `model` picks between WaveSpeed's
+  // Nano Banana (default), Wan 2.7, and GPT-Image-2 — each gives a
+  // different style/quality tradeoff and the editor wants to compare.
+  // Server stores per-model bytes on Dropbox + CF (path/id include the
+  // model key) but only the latest run wins the `Flatlay CDN URL` field.
+  const generateFlatlay = async (p, model = 'nano') => {
     setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Generating' } : x))
     try {
       const r = await fetch('/api/admin/photos/flatlay', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoId: p.id }),
+        body: JSON.stringify({ photoId: p.id, model }),
       })
       const d = await r.json()
       if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
@@ -357,7 +357,7 @@ function LibrarySection({ outfitsOnly = false }) {
       } : x))
     } catch (e) {
       setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
-      alert(`Flatlay generation failed: ${e.message}`)
+      alert(`Flatlay (${model}) failed: ${e.message}`)
     }
   }
 
@@ -622,15 +622,20 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               style={iconBtn('#e8a878')}>👗</button>
           )}
           {generateFlatlay && p.isOutfit && fl !== 'Generating' && (
-            <button onClick={() => generateFlatlay(p)}
-              title={fl === 'Done'
-                ? 'Re-run AI flatlay (replaces the current one)'
-                : fl === 'Failed'
-                  ? 'Retry AI flatlay generation'
-                  : 'Generate a product-flatlay version (clothes on white, sunglasses excluded)'}
-              style={iconBtn(fl === 'Failed' ? '#E87878' : '#e8a878')}>
-              {fl === 'Done' ? '📦↻' : fl === 'Failed' ? '↻ 📦' : '📦'}
-            </button>
+            // Three side-by-side icons let the editor try each model
+            // and pick the best result — N (Nano-Banana, default fast/cheap),
+            // W (Wan 2.7), G (GPT-Image-2). The latest run wins.
+            <>
+              <button onClick={() => generateFlatlay(p, 'nano')}
+                title="Generate flatlay with Nano-Banana 2 (default — fast, cheap)"
+                style={iconBtn('#e8a878')}>📦N</button>
+              <button onClick={() => generateFlatlay(p, 'wan')}
+                title="Generate flatlay with Wan 2.7 image-edit-pro"
+                style={iconBtn('#e8a878')}>📦W</button>
+              <button onClick={() => generateFlatlay(p, 'gpt')}
+                title="Generate flatlay with GPT-Image-2 (slowest, often most accurate)"
+                style={iconBtn('#e8a878')}>📦G</button>
+            </>
           )}
           {upgradeHd && (
             <button onClick={() => upgradeHd(p)} disabled={p._upgradingHd}

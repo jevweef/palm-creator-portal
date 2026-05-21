@@ -11,28 +11,60 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 90
 
 const PHOTOS = 'Photos'
-const EDIT_MODEL = 'google/nano-banana-2/edit'
 
-// Product-flatlay prompt. Tuned for e-commerce style: clothes only,
-// laid out separately on a clean white seamless background, no person,
-// no sunglasses. Phrased as a transformation directive so the editor
-// model knows to discard the original scene.
+// Selectable WaveSpeed models for flatlay generation. Each takes an
+// images[] + prompt; param schemas mirror their Stage B counterparts.
+// Default is nano-banana (cheap, fast, good at clothing detail);
+// editor can switch to wan or gpt for comparison.
+const MODELS = {
+  nano: { label: 'Nano-Banana 2', path: 'google/nano-banana-2/edit',
+    body: (images, prompt) => ({ images, prompt, aspect_ratio: '1:1', resolution: '2k', output_format: 'jpeg' }) },
+  wan: { label: 'Wan 2.7 image-edit-pro', path: 'alibaba/wan-2.7/image-edit-pro',
+    body: (images, prompt) => ({ images, prompt, size: '1080*1080' }) },
+  gpt: { label: 'GPT-Image-2', path: 'openai/gpt-image-2/edit',
+    body: (images, prompt) => ({ images, prompt, aspect_ratio: '1:1', resolution: '2k', quality: 'high' }) },
+}
+
+// Product-flatlay prompt. Tuned to:
+//   • Reconstruct the garment in its natural symmetric shape (strap
+//     lengths matched, hem aligned, no pose-induced distortion)
+//   • Preserve fabric quality / sheen / weight — the original was
+//     coming out looking matte and cheap; reference the actual
+//     material texture from the source photo
+//   • Show each piece laid as if hanging on a hanger then placed flat
+//     on a surface — no hanger visible, no mannequin, no model
+//   • Strictly no store tags, brand labels, price tags
 const FLATLAY_PROMPT = (
-  'Transform this photo into a clean product-flatlay photography image, '
-  + 'styled like an e-commerce listing on Net-A-Porter, Revolve, or Zara. '
-  + 'Background: pure white seamless studio background, soft even shadowless lighting. '
+  'Transform this photo into a clean product-flatlay photography image. '
+  + 'Background: pure white seamless studio surface, soft even shadowless lighting, '
+  + 'overhead or slightly angled top-down perspective. '
   + 'Subject: ONLY the clothing items the person is wearing in the original photo, '
-  + 'arranged neatly as a coordinated flat-lay — each piece laid out separately and '
-  + 'visible (top, bottom, dress, outerwear, shoes, jewelry, etc.) so a shopper could '
-  + 'identify every piece. Maintain the exact same colors, textures, materials, '
-  + 'prints, patterns, and details of every garment. Photoreal, sharp focus, '
-  + 'overhead or slightly angled product-shot perspective. '
-  + 'Do NOT include: the person/model, body parts, the original background, '
-  + 'sunglasses, phones, water bottles, drinks, bags, cars, walls, plants, or any '
-  + 'environmental context — clothing items only on white.'
+  + 'arranged neatly as a coordinated flat-lay — each piece laid out separately so '
+  + 'a viewer could identify every garment (top, bottom, dress, outerwear, shoes, '
+  + 'jewelry where applicable).\n\n'
+  + 'CRITICAL — reconstruct each garment in its natural, symmetric, off-body shape, '
+  + 'as if it were hanging on a hanger then laid flat on the surface (no hanger, no '
+  + 'mannequin, no body visible). Pose-induced asymmetry in the source (one strap '
+  + 'pulled down, fabric bunched against the body, hem twisted by sitting/leaning) '
+  + 'should be IGNORED — assume the garment is symmetric and well-constructed: '
+  + 'matching strap lengths, even shoulder seams, level hem, undistorted silhouette. '
+  + 'Infer the typical cut from the visible portion if part of the garment is '
+  + 'hidden behind the body. Do not invent unusual asymmetric design unless the '
+  + 'garment is clearly intentionally asymmetric (e.g. a one-shoulder dress).\n\n'
+  + 'Preserve the EXACT same fabric, material, weight, sheen, drape, color, prints, '
+  + 'patterns, and stitching detail as the original — match the texture and quality '
+  + 'of the source garment (silk should look like silk, ribbed knit should look '
+  + 'ribbed, sheer should stay sheer). Do NOT cheapen or flatten the material. '
+  + 'Photoreal, sharp focus, high detail.\n\n'
+  + 'STRICTLY exclude: the person/model, any body parts, the original background, '
+  + 'sunglasses, phones, drinks, bags, environmental context. Also exclude store '
+  + 'or brand tags, price tags, hang tags, swing tags, size labels, hangers, '
+  + 'rulers, or any commercial-listing decorations. Just the clean clothes on a '
+  + 'white surface, nothing else.'
 )
 
-// POST { photoId } — generate a flatlay for one Photos row. Writes
+// POST { photoId, model? } — generate a flatlay for one Photos row.
+// `model` is 'nano' (default), 'wan', or 'gpt'. Writes
 // `Flatlay Status = Generating` immediately, polls WaveSpeed, then on
 // completion downloads the output, uploads to Dropbox + Cloudflare
 // Images, and patches the record with CDN + path + Status=Done.
@@ -48,6 +80,8 @@ export async function POST(request) {
     if (!photoId || !/^rec[A-Za-z0-9]{14}$/.test(photoId)) {
       return NextResponse.json({ error: 'Valid photoId required' }, { status: 400 })
     }
+    const modelKey = MODELS[body.model] ? body.model : 'nano'
+    const mdl = MODELS[modelKey]
 
     // Load the photo. Prefer CDN URL as the source for WaveSpeed (it's
     // a public Cloudflare URL — no auth, fastest to fetch). Fall back
@@ -84,16 +118,10 @@ export async function POST(request) {
 
     let task
     try {
-      task = await submitWaveSpeedTask(EDIT_MODEL, {
-        images: [sourceImageUrl],
-        prompt: FLATLAY_PROMPT,
-        aspect_ratio: '1:1',     // product shots read best square; flatlays aren't 9:16
-        resolution: '2k',
-        output_format: 'jpeg',
-      })
+      task = await submitWaveSpeedTask(mdl.path, mdl.body([sourceImageUrl], FLATLAY_PROMPT))
     } catch (e) {
       await patchAirtableRecord(PHOTOS, photoId, { 'Flatlay Status': 'Failed' }, { typecast: true })
-      throw new Error(`WaveSpeed submit failed: ${e.message}`)
+      throw new Error(`WaveSpeed ${modelKey} submit failed: ${e.message}`)
     }
     const predictionId = task?.id || ''
     if (predictionId) {
@@ -131,7 +159,7 @@ export async function POST(request) {
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
-    const dbxPath = `/Palm Ops/Photos/Flatlays/${handle}/${code}_${String(idx).padStart(2, '0')}_flatlay.jpg`
+    const dbxPath = `/Palm Ops/Photos/Flatlays/${handle}/${code}_${String(idx).padStart(2, '0')}_flatlay_${modelKey}.jpg`
     try {
       await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
     } catch (e) {
@@ -140,9 +168,12 @@ export async function POST(request) {
       console.warn(`[photos/flatlay] Dropbox upload failed for ${dbxPath}:`, e.message)
     }
 
+    // Include the model key in the CF id so wan/nano/gpt outputs for
+    // the same photo coexist instead of clobbering each other — the
+    // editor wants to compare them side by side.
     let flatlayCdnUrl = null
     if (isCloudflareImagesConfigured()) {
-      const cfId = `flatlay-${handle}-${code}-${String(idx).padStart(2, '0')}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+      const cfId = `flatlay-${modelKey}-${handle}-${code}-${String(idx).padStart(2, '0')}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
       try {
         const r = await uploadImageBytes(buf, cfId)
         flatlayCdnUrl = buildDeliveryUrl(r.id, 'public')
