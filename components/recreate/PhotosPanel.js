@@ -277,7 +277,9 @@ function LibrarySection() {
                     return (
                       <div key={p.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
                         {p.image
-                          ? <img src={p.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                          ? <img src={p.image} alt="" loading="lazy"
+                              onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                              style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
                           : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
                         <div style={{ padding: 8, fontSize: 11 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -751,7 +753,9 @@ function OutfitPickerSection() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ maxWidth: 'min(900px, 95vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-            <img src={enlarged.imageFull || enlarged.image} alt="" style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
+            <img src={enlarged.imageFull || enlarged.image} alt=""
+              onError={(e) => { if (enlarged.imageFallback && e.currentTarget.src !== enlarged.imageFallback) e.currentTarget.src = enlarged.imageFallback }}
+              style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#bbb' }}>
               <a href={`https://instagram.com/${enlarged.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{enlarged.handle}</a>
               {enlarged.carouselTotal > 1 && <span>· image {enlarged.carouselIndex} / {enlarged.carouselTotal}</span>}
