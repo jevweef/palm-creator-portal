@@ -848,6 +848,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 12, lineHeight: 1.6 }}>
                   <div><b style={{ color: 'var(--foreground)' }}>Room:</b> {o.room || '—'}{o.roomFraming ? ` [${o.roomFraming}]` : ''}</div>
+                  {o.timeOfDay && <div><b style={{ color: 'var(--foreground)' }}>Time of day:</b> {o.timeOfDay}</div>}
                   <div><b style={{ color: 'var(--foreground)' }}>Subject framing:</b> {o.screenshotFraming || '?'}</div>
                   {o.reel && (
                     <div><b style={{ color: 'var(--foreground)' }}>Source reel:</b> <a href={o.reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>@{o.reel.handle || o.reel.reelId}</a></div>
