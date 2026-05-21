@@ -44,21 +44,24 @@ export async function POST(request) {
     const ns = await getDropboxRootNamespaceId(tok)
     const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
 
-    // Pull + upload each image. Sequential because Dropbox content
-    // endpoint is rate-limited; for 50 images this is ~30-60s total.
-    const records = []
+    // Parallelize image downloads + Dropbox uploads at a concurrency
+    // ceiling that keeps us under Vercel's 120s function timeout while
+    // staying inside Dropbox's per-second rate limits. Sequential at
+    // 50 images = ~150s (timeouts). Concurrency 6 brings the same 50
+    // down to ~25-40s.
     let dupes = 0
     let failed = 0
-    for (const img of images) {
+    const CONCURRENCY = 6
+    const processOne = async (img) => {
       const code = String(img.code || '').trim()
       const idx = Number(img.carouselIndex) || 1
-      if (!code) { failed++; continue }
-      if (existingKeys.has(`${code}|${idx}`)) { dupes++; continue }
+      if (!code) { failed++; return null }
+      if (existingKeys.has(`${code}|${idx}`)) { dupes++; return null }
       const srcUrl = img.fullResUrl || img.thumbnail
-      if (!srcUrl) { failed++; continue }
+      if (!srcUrl) { failed++; return null }
       try {
         const ir = await fetch(srcUrl)
-        if (!ir.ok) { console.warn(`[photos/import] fetch ${code}_${idx}: ${ir.status}`); failed++; continue }
+        if (!ir.ok) { console.warn(`[photos/import] fetch ${code}_${idx}: ${ir.status}`); failed++; return null }
         const buf = Buffer.from(await ir.arrayBuffer())
         const dbxPath = `/Palm Ops/Photos/${handle}/${code}_${String(idx).padStart(2, '0')}.jpg`
         await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
@@ -78,11 +81,18 @@ export async function POST(request) {
         if (dbxPath) fields['Dropbox Path'] = dbxPath
         if (dbxLink) fields['Dropbox Link'] = dbxLink
         if (rawLink) fields.Image = [{ url: rawLink, filename: `${code}_${String(idx).padStart(2, '0')}.jpg` }]
-        records.push({ fields })
+        return { fields }
       } catch (e) {
         console.warn(`[photos/import] ${code}_${idx} failed:`, e.message)
         failed++
+        return null
       }
+    }
+    const records = []
+    for (let i = 0; i < images.length; i += CONCURRENCY) {
+      const chunk = images.slice(i, i + CONCURRENCY)
+      const batchResults = await Promise.all(chunk.map(processOne))
+      for (const r of batchResults) if (r) records.push(r)
     }
 
     let created = []

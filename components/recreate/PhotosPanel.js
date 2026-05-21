@@ -439,7 +439,14 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ handle: account.handle, images: chunk }),
         })
-        const d = await r.json()
+        // Read as text first so a Vercel timeout / 5xx HTML page
+        // surfaces as a real error instead of a cryptic JSON parse
+        // failure ("Unexpected token 'A', 'An error o'...").
+        const text = await r.text()
+        let d = null
+        try { d = JSON.parse(text) } catch {
+          throw new Error(`Batch ${c + 1}/${chunks.length}: HTTP ${r.status} returned non-JSON (likely a server timeout). ${text.slice(0, 160)}`)
+        }
         if (d.error) throw new Error(`Batch ${c + 1}/${chunks.length}: ${d.error}`)
         totalCreated += (d.created || 0)
         totalDupes += (d.duplicates || 0)
