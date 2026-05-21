@@ -206,6 +206,24 @@ function LibrarySection() {
     return (p.handle || '').toLowerCase().includes(q) || (p.caption || '').toLowerCase().includes(q)
   })
 
+  // Group by Source Post URL so carousel siblings sit together — when
+  // you want to recreate a whole carousel (vs cherry-picking outfit
+  // shots) you can see every image from the same post at a glance.
+  // Singles render as 1-image groups and look the same as standalone
+  // cards. Groups sort newest-first by their first member's createdTime.
+  const groups = (() => {
+    const byPost = new Map()
+    for (const p of filtered) {
+      const key = p.postUrl || p.id
+      if (!byPost.has(key)) byPost.set(key, [])
+      byPost.get(key).push(p)
+    }
+    for (const list of byPost.values()) list.sort((a, b) => (a.carouselIndex || 1) - (b.carouselIndex || 1))
+    return [...byPost.entries()]
+      .map(([postUrl, items]) => ({ postUrl, items, newest: items[0]?.createdTime || '' }))
+      .sort((a, b) => (b.newest || '').localeCompare(a.newest || ''))
+  })()
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
@@ -233,28 +251,49 @@ function LibrarySection() {
           {photos.length === 0 ? 'No photos in library yet. Switch to Accounts and Browse some IG handles.' : 'No photos match the filter.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-          {filtered.map(p => {
-            const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {groups.map(group => {
+            const isCarousel = group.items.length > 1 || (group.items[0]?.carouselTotal || 1) > 1
+            const total = group.items[0]?.carouselTotal || group.items.length
+            const handle = group.items[0]?.handle || ''
             return (
-              <div key={p.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                {p.image
-                  ? <img src={p.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
-                  : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
-                <div style={{ padding: 8, fontSize: 11 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <a href={`https://instagram.com/${p.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{p.handle}</a>
-                    <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{p.status}</span>
+              <div key={group.postUrl} style={isCarousel ? { padding: 10, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 } : {}}>
+                {isCarousel && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 12, color: 'var(--foreground-muted)' }}>
+                    <span style={{ fontSize: 14 }}>📚</span>
+                    <span><b style={{ color: 'var(--foreground)' }}>{group.items.length}</b> / {total} images</span>
+                    <span>·</span>
+                    <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{handle}</a>
+                    <span>·</span>
+                    <a href={group.postUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
                   </div>
-                  {p.carouselTotal > 1 && (
-                    <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 2 }}>🎞 {p.carouselIndex}/{p.carouselTotal}</div>
-                  )}
-                  <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-                    {p.status !== 'Approved' && <button onClick={() => setStatus(p, 'Approved')} style={iconBtn('#6AC68A')}>✓</button>}
-                    {p.status !== 'Rejected' && <button onClick={() => setStatus(p, 'Rejected')} style={iconBtn('#E87878')}>✕</button>}
-                    <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
-                    <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
-                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                  {group.items.map(p => {
+                    const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
+                    return (
+                      <div key={p.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+                        {p.image
+                          ? <img src={p.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                          : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                        <div style={{ padding: 8, fontSize: 11 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <a href={`https://instagram.com/${p.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{p.handle}</a>
+                            <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{p.status}</span>
+                          </div>
+                          {p.carouselTotal > 1 && (
+                            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 2 }}>🎞 {p.carouselIndex}/{p.carouselTotal}</div>
+                          )}
+                          <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                            {p.status !== 'Approved' && <button onClick={() => setStatus(p, 'Approved')} style={iconBtn('#6AC68A')}>✓</button>}
+                            {p.status !== 'Rejected' && <button onClick={() => setStatus(p, 'Rejected')} style={iconBtn('#E87878')}>✕</button>}
+                            <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
+                            <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -287,7 +326,7 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true); setError('')
-    fetch(`/api/admin/photos/preview?handle=${encodeURIComponent(account.handle)}&limit=30`)
+    fetch(`/api/admin/photos/preview?handle=${encodeURIComponent(account.handle)}&limit=80`)
       .then(r => r.json())
       .then(d => {
         if (cancelled) return

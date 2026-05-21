@@ -30,7 +30,10 @@ export async function GET(request) {
                    .split(/[\/?#]/)[0]
                    .replace(/^@/, '')
                    .toLowerCase()
-    const limit = Math.min(60, Math.max(5, parseInt(u.searchParams.get('limit') || '30', 10)))
+    // `limit` is the rough target number of POSTS to scan (each page
+    // returns ~12-24 posts, so this controls pagination depth, not the
+    // exact image count — a single carousel post can yield 10+ images).
+    const limit = Math.min(200, Math.max(5, parseInt(u.searchParams.get('limit') || '60', 10)))
     if (!handle) return NextResponse.json({ error: 'handle required' }, { status: 400 })
 
     // Already-imported lookup. Photos table holds one record per image
@@ -50,7 +53,7 @@ export async function GET(request) {
     const images = [] // exploded list — one entry per image
     let postsSeen = 0
     let paginationToken = null
-    const maxPages = 4
+    const maxPages = 10
     let firstResponseShape = null // for debug surface when nothing comes back
     for (let page = 0; page < maxPages; page++) {
       let body = `username_or_url=${encodeURIComponent(handle)}&amount=50`
@@ -151,13 +154,14 @@ export async function GET(request) {
         // endpoint is for photos only. Reels live in a separate flow.
       }
       paginationToken = data.pagination_token
-      if (!paginationToken || posts.length === 0 || images.length >= limit * 2) break
+      // Stop when we hit pagination end OR we've collected enough images.
+      // limit*4 image cap = enough headroom for big carousels under the
+      // requested post-depth without runaway memory.
+      if (!paginationToken || posts.length === 0 || images.length >= limit * 4) break
     }
 
-    // Cap returned image count. Carousels can balloon fast — 30 posts
-    // could be 100+ images — so we trim after explosion so the grid
-    // stays a reasonable size.
-    const trimmed = images.slice(0, limit * 3)
+    // Final trim — generous so carousels don't get cut off mid-post.
+    const trimmed = images.slice(0, limit * 5)
 
     return NextResponse.json({
       ok: true,
