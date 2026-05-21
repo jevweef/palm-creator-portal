@@ -120,6 +120,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [showReelGrid, setShowReelGrid] = useState(false) // Hidden when a reel is already selected
   const [showOptionalUploads, setShowOptionalUploads] = useState(false) // Raw + upscaled, archival only
   const [reelPlaying, setReelPlaying] = useState(false) // Click-to-play the selected reel inline
+  const [model, setModel] = useState('wan') // 'wan' | 'nano' | 'gpt' — Wan tends to zoom out, alternatives may respect framing better
 
   const [creators, setCreators] = useState([])
 
@@ -274,6 +275,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           subjectDropboxPath: subjectSlot.path || undefined, // route falls back to record's path
           rawScreenshotPath: rawSlot.path || undefined,
           upscaledScreenshotPath: upscaledSlot.path || undefined,
+          model,
           // If we came from a Started project card, reuse its record
           // so the slug + Reel # assigned at download time persist.
           ...(project?.id ? { projectId: project.id } : {}),
@@ -513,8 +515,33 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                   <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 1 }}>AI swap · ~3–6 min.</div>
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 12, lineHeight: 1.45 }}>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 10, lineHeight: 1.45 }}>
                 Swaps {sel?.name || 'her'} background for her saved room and relights her to match.
+              </div>
+              {/* Model picker — Wan tends to zoom the subject out, Nano /
+                  GPT-Image-2 are worth trying when framing matters. */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Model</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[
+                    { v: 'wan', label: 'Wan 2.7' },
+                    { v: 'nano', label: 'Nano' },
+                    { v: 'gpt', label: 'GPT' },
+                  ].map(m => (
+                    <button key={m.v} onClick={() => setModel(m.v)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 6px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: model === m.v ? 'rgba(232,168,120,0.25)' : 'rgba(255,255,255,0.04)',
+                        color: model === m.v ? '#e8b878' : 'var(--foreground-muted)',
+                        border: `1px solid ${model === m.v ? 'rgba(232,168,120,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                      }}>{m.label}</button>
+                  ))}
+                </div>
               </div>
               {(() => {
                 const hasSubject = !!(subjectSlot.path || subjectSlot.url)
