@@ -25,10 +25,12 @@ import { NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
-import { getDropboxAccessToken } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
 
 const OUTPUTS = 'Stage B Outputs'
 const OUTFIT_SWAP_OUTPUTS = 'Outfit Swap Outputs'
+const REELS = 'Recreate Reels'
+const PHOTOS = 'Photos'
 const PALM_CREATORS = 'Palm Creators'
 const rawLink = u => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : null
 
@@ -55,7 +57,7 @@ export async function GET(request) {
     })
     const aka = (cRecs[0]?.fields?.AKA || 'Creator').replace(/[^A-Za-z0-9_-]+/g, '')
 
-    const [allStills, allVariants] = await Promise.all([
+    const [allStills, allVariants, allReels] = await Promise.all([
       fetchAirtableRecords(OUTPUTS, {
         fields: ['Creator', 'Source Reel', 'Image', 'Dropbox Link', 'Slug', 'Status', 'Reel #'],
       }),
@@ -65,6 +67,10 @@ export async function GET(request) {
       fetchAirtableRecords(OUTFIT_SWAP_OUTPUTS, {
         fields: ['Stage B Parent', 'Variant #', 'Status', 'Slug', 'Image', 'Dropbox Link'],
       }),
+      // Reel rows — needed to pull Selected Outfits for the reel(s)
+      // represented by the stills, so we can bundle the outfit
+      // reference photos alongside the scenes (TJP needs both).
+      fetchAirtableRecords(REELS, { fields: ['Selected Outfits'] }),
     ])
 
     let stills = allStills.filter(s => (s.fields?.Creator || []).includes(creatorId))
@@ -124,6 +130,45 @@ export async function GET(request) {
       arr.sort((a, b) => (a.fields?.['Variant #'] || 0) - (b.fields?.['Variant #'] || 0))
     }
 
+    // Collect outfit reference photos for the reel(s) in scope. The
+    // editor needs the raw outfit images alongside the scenes so TJP
+    // can use them as outfit-swap reference inputs. Pick-order from
+    // Selected Outfits drives the filename index (matches what the
+    // workflow strip shows). Across multi-reel ZIPs we union the
+    // outfits, deduped by Photo id.
+    const reelIdsInScope = new Set()
+    for (const s of stills) {
+      for (const id of (s.fields?.['Source Reel'] || [])) reelIdsInScope.add(id)
+    }
+    const reelById = Object.fromEntries(allReels.map(r => [r.id, r.fields || {}]))
+    const orderedOutfitIds = []
+    const seenOutfit = new Set()
+    for (const rid of reelIdsInScope) {
+      for (const oid of (reelById[rid]?.['Selected Outfits'] || [])) {
+        if (seenOutfit.has(oid)) continue
+        seenOutfit.add(oid); orderedOutfitIds.push(oid)
+      }
+    }
+    let outfitPhotos = []
+    if (orderedOutfitIds.length > 0) {
+      const expr = orderedOutfitIds.map(id => `RECORD_ID() = '${id}'`).join(', ')
+      const rows = await fetchAirtableRecords(PHOTOS, {
+        fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'CDN URL', 'Image'],
+        filterByFormula: `OR(${expr})`,
+      })
+      const byId = Object.fromEntries(rows.map(r => [r.id, r]))
+      outfitPhotos = orderedOutfitIds.map(id => byId[id]).filter(Boolean)
+    }
+
+    // Dropbox helpers — only initialized if we have any outfit photos
+    // that need Dropbox fallback (CDN URL is preferred when present).
+    let dbxToken = null, dbxNs = null
+    const ensureDbx = async () => {
+      if (dbxToken && dbxNs) return
+      dbxToken = await getDropboxAccessToken()
+      dbxNs = await getDropboxRootNamespaceId(dbxToken)
+    }
+
     ;(async () => {
       try {
         for (const s of stills) {
@@ -148,6 +193,40 @@ export async function GET(request) {
               const vBytes = await fetchBytes(vUrl)
               archive.append(vBytes, { name: `${vSlug}.jpg` })
             } catch (e) { console.warn(`[zip-stills] variant ${vSlug} failed:`, e.message) }
+          }
+        }
+        // Outfit reference photos under an outfits/ subfolder so TJP
+        // can grab them as a batch without mixing them up with the
+        // scene stills. Filename = NN_<handle>.jpg, NN matches the
+        // pick-order in the workflow strip.
+        for (let i = 0; i < outfitPhotos.length; i++) {
+          const op = outfitPhotos[i]
+          const f = op.fields || {}
+          const handle = (f['Source Handle'] || 'creator').replace(/[^A-Za-z0-9_-]+/g, '')
+          const idx = String(i + 1).padStart(2, '0')
+          const name = `outfits/${idx}_${handle}.jpg`
+          try {
+            // CDN URL first (public Cloudflare, no auth, fast).
+            // Falls back to Dropbox download for older rows that
+            // never got mirrored to CF Images.
+            let bytes = null
+            const cdn = f['CDN URL']
+            if (cdn) {
+              try { bytes = await fetchBytes(cdn) } catch {}
+            }
+            if (!bytes && f['Dropbox Path']) {
+              await ensureDbx()
+              bytes = await downloadFromDropbox(dbxToken, dbxNs, f['Dropbox Path'])
+            }
+            if (!bytes && f.Image?.[0]?.url) {
+              // Legacy: a few early rows still have the Airtable
+              // attachment populated and nothing else.
+              bytes = await fetchBytes(f.Image[0].url)
+            }
+            if (bytes) archive.append(bytes, { name })
+            else console.warn(`[zip-stills] outfit ${op.id} (${name}) had no bytes source`)
+          } catch (e) {
+            console.warn(`[zip-stills] outfit ${name} failed:`, e.message)
           }
         }
       } catch (e) {

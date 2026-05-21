@@ -935,8 +935,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 no reel context (e.g., admin viewing all of Amelia). */}
             {scenes.length > 0 && reel?.id ? (
               <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-stills?creatorId=${creatorId}&reelId=${reel.id}`}
+                title={reelOutfits.length > 0
+                  ? `Stills + ${reelOutfits.length} outfit reference photo${reelOutfits.length === 1 ? '' : 's'} in an outfits/ subfolder`
+                  : 'Stills only — attach outfits above to include them in the ZIP'}
                 style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
-                ⬇ Download {scenes.length} stills as ZIP
+                ⬇ Download ZIP: {scenes.length} still{scenes.length === 1 ? '' : 's'}{reelOutfits.length > 0 ? ` + ${reelOutfits.length} outfit${reelOutfits.length === 1 ? '' : 's'}` : ''}
               </a>
             ) : approved > 0 ? (
               <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
