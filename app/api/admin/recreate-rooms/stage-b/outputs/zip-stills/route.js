@@ -28,6 +28,7 @@ import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken } from '@/lib/dropbox'
 
 const OUTPUTS = 'Stage B Outputs'
+const OUTFIT_SWAP_OUTPUTS = 'Outfit Swap Outputs'
 const PALM_CREATORS = 'Palm Creators'
 const rawLink = u => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : null
 
@@ -54,9 +55,17 @@ export async function GET(request) {
     })
     const aka = (cRecs[0]?.fields?.AKA || 'Creator').replace(/[^A-Za-z0-9_-]+/g, '')
 
-    const allStills = await fetchAirtableRecords(OUTPUTS, {
-      fields: ['Creator', 'Source Reel', 'Image', 'Dropbox Link', 'Slug', 'Status', 'Reel #'],
-    })
+    const [allStills, allVariants] = await Promise.all([
+      fetchAirtableRecords(OUTPUTS, {
+        fields: ['Creator', 'Source Reel', 'Image', 'Dropbox Link', 'Slug', 'Status', 'Reel #'],
+      }),
+      // Outfit variants under each Stage B parent. Empty today but
+      // gets populated once outfit fan-out lands; we want the ZIP to
+      // pick them up automatically when they appear.
+      fetchAirtableRecords(OUTFIT_SWAP_OUTPUTS, {
+        fields: ['Stage B Parent', 'Variant #', 'Status', 'Slug', 'Image', 'Dropbox Link'],
+      }),
+    ])
 
     let stills = allStills.filter(s => (s.fields?.Creator || []).includes(creatorId))
     if (idsParam) {
@@ -100,17 +109,46 @@ export async function GET(request) {
 
     const archive = archiver('zip', { zlib: { level: 0 }, store: true })
 
+    // Group outfit variants by their Stage B parent so we can fan
+    // them out under each still in the ZIP.
+    const stillIds = new Set(stills.map(s => s.id))
+    const variantsByParent = {}
+    for (const v of allVariants) {
+      const pid = (v.fields?.['Stage B Parent'] || [])[0]
+      if (!pid || !stillIds.has(pid)) continue
+      const st = v.fields?.Status?.name || v.fields?.Status
+      if (st === 'Rejected' || st === 'Failed' || st === 'Generating') continue
+      ;(variantsByParent[pid] ||= []).push(v)
+    }
+    for (const arr of Object.values(variantsByParent)) {
+      arr.sort((a, b) => (a.fields?.['Variant #'] || 0) - (b.fields?.['Variant #'] || 0))
+    }
+
     ;(async () => {
       try {
         for (const s of stills) {
           const sf = s.fields || {}
           const slug = sf.Slug
           const photoUrl = rawLink(sf['Dropbox Link']) || sf.Image?.[0]?.url
-          if (!photoUrl) continue
-          try {
-            const bytes = await fetchBytes(photoUrl)
-            archive.append(bytes, { name: `${slug}.jpg` })
-          } catch (e) { console.warn(`[zip-stills] ${slug} failed:`, e.message) }
+          if (photoUrl) {
+            try {
+              const bytes = await fetchBytes(photoUrl)
+              archive.append(bytes, { name: `${slug}.jpg` })
+            } catch (e) { console.warn(`[zip-stills] ${slug} failed:`, e.message) }
+          }
+          // Outfit variants under this still — naming follows the
+          // existing slug convention: Amelia_R002_S03_O01.jpg.
+          const vs = variantsByParent[s.id] || []
+          for (const v of vs) {
+            const vf = v.fields || {}
+            const vUrl = rawLink(vf['Dropbox Link']) || vf.Image?.[0]?.url
+            const vSlug = vf.Slug || `${slug}_O${String(vf['Variant #'] || 0).padStart(2, '0')}`
+            if (!vUrl) continue
+            try {
+              const vBytes = await fetchBytes(vUrl)
+              archive.append(vBytes, { name: `${vSlug}.jpg` })
+            } catch (e) { console.warn(`[zip-stills] variant ${vSlug} failed:`, e.message) }
+          }
         }
       } catch (e) {
         console.error('[zip-stills] fatal:', e.message)
