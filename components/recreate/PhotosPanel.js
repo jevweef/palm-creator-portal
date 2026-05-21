@@ -288,10 +288,44 @@ function LibrarySection() {
         image: (d.cdnUrl || x.cdnUrl || x.image) + bust,
         _hdUpgraded: true, // surface a tiny ✓ pill so the editor knows it worked
       } : x))
+      return { ok: true }
     } catch (e) {
       setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, _upgradingHd: false } : x))
-      alert(`HD upgrade failed: ${e.message}`)
+      return { ok: false, error: e.message }
     }
+  }
+
+  // Bulk upgrade: walk the currently-filtered list with bounded
+  // concurrency so we don't drown RapidAPI / Dropbox. Each photo runs
+  // through the same per-row upgradeHd path, so the card flips ⏳ → ✓
+  // HD live as the batch progresses. Stops cleanly if the editor
+  // navigates away or cancels.
+  const [bulkHd, setBulkHd] = useState({ running: false, done: 0, failed: 0, total: 0, cancel: false })
+  const upgradeAllVisibleHd = async (visiblePhotos) => {
+    if (!visiblePhotos?.length) return
+    const ok = await uiConfirm(`Re-fetch HD bytes for ${visiblePhotos.length} photo${visiblePhotos.length === 1 ? '' : 's'}? Each one calls RapidAPI + Dropbox + Cloudflare Images. Runs in the background — feel free to keep working while it churns.`, { okLabel: 'Upgrade all' })
+    if (!ok) return
+    const queue = [...visiblePhotos]
+    const total = queue.length
+    setBulkHd({ running: true, done: 0, failed: 0, total, cancel: false })
+    const CONCURRENCY = 3 // Dropbox 429s above this, RapidAPI is fine either way
+    let done = 0, failed = 0
+    let cancelled = false
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length && !cancelled) {
+        // Read fresh cancel flag each loop iteration via the closure of
+        // setBulkHd (callback form ensures latest state).
+        setBulkHd(s => { if (s.cancel) cancelled = true; return s })
+        if (cancelled) break
+        const next = queue.shift()
+        if (!next) break
+        const r = await upgradeHd(next)
+        if (r?.ok) done++; else failed++
+        setBulkHd(s => ({ ...s, done, failed }))
+      }
+    })
+    await Promise.all(workers)
+    setBulkHd(s => ({ ...s, running: false }))
   }
 
   // Generate a product-flatlay version via Nano Banana. The route takes
@@ -380,6 +414,22 @@ function LibrarySection() {
         <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
           {viewMode === 'grid' ? `${groups.length} posts` : `${filtered.length} / ${photos.length}`}
         </div>
+        {!bulkHd.running ? (
+          <button onClick={() => upgradeAllVisibleHd(filtered)} disabled={filtered.length === 0}
+            title={`Re-fetch HD bytes (1080w) for all ${filtered.length} visible photo${filtered.length === 1 ? '' : 's'}. Runs in parallel — uses the same per-row upgrade route.`}
+            style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 5, background: filtered.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(120,180,232,0.16)', color: filtered.length === 0 ? 'var(--foreground-muted)' : '#8FB4F0', border: `1px solid ${filtered.length === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(120,180,232,0.35)'}`, cursor: filtered.length === 0 ? 'default' : 'pointer' }}>
+            ↑ Upgrade visible to HD
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: '#8FB4F0' }}>⏳ {bulkHd.done + bulkHd.failed} / {bulkHd.total}{bulkHd.failed ? ` · ${bulkHd.failed} failed` : ''}</span>
+            <button onClick={() => setBulkHd(s => ({ ...s, cancel: true }))}
+              title="Cancel the bulk upgrade after the in-flight ones finish"
+              style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, background: 'rgba(232,120,120,0.12)', color: '#E87878', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 5, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
