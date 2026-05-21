@@ -10,30 +10,33 @@ export async function GET() {
   try {
     await requireAdmin()
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL'],
     })
     const photos = rows.map(r => {
       const f = r.fields || {}
-      // Image bytes live in Dropbox only. The proxy at
-      // /api/admin/photos/image streams them with the correct
-      // Content-Type and is browser-cached for 24h. Airtable Image
-      // attachment field is no longer used for new records — see
-      // the import route comment. For older records that still have
-      // an attachment, the att URL is preserved as a fallback.
+      // Display priority: Cloudflare Images CDN (fastest, permanent) →
+      // Dropbox-proxy endpoint (works but pulls bytes through our server)
+      // → legacy Airtable attachment URL (only for old rows). The img
+      // tag uses `image`, falls back via onError to `imageFallback`.
+      const cdnUrl = f['CDN URL'] || ''
+      const dropboxPath = f['Dropbox Path'] || ''
+      const dropboxLink = f['Dropbox Link'] || ''
+      const proxyUrl = dropboxPath ? `/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}` : ''
       const att = f.Image
       const attThumb = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
-      const dropboxLink = f['Dropbox Link'] || ''
-      const dropboxPath = f['Dropbox Path'] || ''
-      const proxyUrl = dropboxPath ? `/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}` : ''
+      const bestImage = cdnUrl || proxyUrl || attThumb
       return {
         id: r.id,
         handle: f['Source Handle'] || '',
         postUrl: f['Source Post URL'] || '',
         carouselIndex: f['Carousel Index'] || 1,
         carouselTotal: f['Carousel Total'] || 1,
-        image: proxyUrl || attThumb,
-        imageFull: proxyUrl || attThumb,
-        imageFallback: attThumb, // legacy records that still have an attachment
+        image: bestImage,
+        imageFull: bestImage,
+        // Fallback chain for onError: proxy first (if we tried CDN),
+        // then Airtable attachment. Skips the URL already in use.
+        imageFallback: bestImage === cdnUrl ? (proxyUrl || attThumb) : attThumb,
+        cdnUrl,
         dropbox: dropboxLink,
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',

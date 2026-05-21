@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, batchCreateRecords, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdmin, batchCreateRecords, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -108,8 +109,22 @@ export async function POST(request) {
         await uploadWithRetry(tok, ns, dbxPath, buf)
         let dbxLink = ''
         try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
-        // (rawLink no longer needed — image bytes now stream through
-        // /api/admin/photos/image proxy, not direct Dropbox URL.)
+        // Also mirror to Cloudflare Images so the UI can load thumbnails
+        // from imagedelivery.net (~50ms global CDN) instead of streaming
+        // through our Dropbox proxy. Stable CF id keyed by (handle,
+        // code, idx) so re-uploads are idempotent — CF 5409 = already
+        // exists, returns the same id.
+        let cdnUrl = null, cdnImageId = null
+        if (isCloudflareImagesConfigured()) {
+          const cfId = `photos-${handle}-${code}-${String(idx).padStart(2, '0')}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+          try {
+            const r = await uploadImageBytes(buf, cfId)
+            cdnImageId = r.id
+            cdnUrl = buildDeliveryUrl(r.id, 'public')
+          } catch (e) {
+            console.warn(`[photos/import] CF Images upload ${cfId} failed:`, e.message)
+          }
+        }
         const fields = {
           Name: `@${handle}/${code}_${String(idx).padStart(2, '0')}`,
           'Source Handle': handle,
@@ -122,10 +137,11 @@ export async function POST(request) {
         if (img.postedAt) fields['Posted At'] = img.postedAt
         if (dbxPath) fields['Dropbox Path'] = dbxPath
         if (dbxLink) fields['Dropbox Link'] = dbxLink
-        // NOT attaching to Airtable's Image field anymore. Dropbox is
-        // the source of truth for the actual bytes. The library API
-        // surfaces them via /api/admin/photos/image proxy. Airtable
-        // holds metadata only — saves storage + avoids double-handling.
+        if (cdnUrl) fields['CDN URL'] = cdnUrl
+        if (cdnImageId) fields['CDN Image ID'] = cdnImageId
+        // Airtable Image attachment intentionally NOT set — Dropbox is
+        // source of truth for bytes, CF Images for fast delivery,
+        // Airtable for metadata only.
         return { fields }
       } catch (e) {
         // Normalize known Dropbox error messages into something the
