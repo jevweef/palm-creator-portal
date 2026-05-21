@@ -644,7 +644,31 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               {p._upgradingHd ? '⏳' : p._hdUpgraded ? '✓ HD' : '↑ HD'}
             </button>
           )}
-          <a href={p.postUrl} target="_blank" rel="noreferrer" style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
+          {/* Direct download — Dropbox shared link with dl=1 forces the
+              browser to save the actual stored file (HD after upgrade),
+              not the CDN-resized variant. Falls back to the CDN URL on
+              older rows that never got a Dropbox link. */}
+          {(p.dropbox || p.image) && (
+            <a href={p.dropbox ? String(p.dropbox).replace('dl=0', 'dl=1').replace('?raw=1', '?dl=1') : p.image}
+              download
+              title="Download this image (HD from Dropbox if available)"
+              style={{ ...iconBtn('#e8a878'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+              ⬇
+            </a>
+          )}
+          {/* Open the file's Dropbox preview page — useful when you
+              want to see the full bytes, share with someone outside
+              the portal, or grab the file path. */}
+          {p.dropbox && (
+            <a href={p.dropbox} target="_blank" rel="noreferrer"
+              title="Open in Dropbox"
+              style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+              📁
+            </a>
+          )}
+          <a href={p.postUrl} target="_blank" rel="noreferrer"
+            title="Open the source Instagram post"
+            style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
         </div>
       </div>
