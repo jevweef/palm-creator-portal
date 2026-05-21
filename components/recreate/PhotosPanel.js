@@ -425,10 +425,10 @@ function LibrarySection({ outfitsOnly = false }) {
           {viewMode === 'grid' ? `${groups.length} posts` : `${filtered.length} / ${photos.length}`}
         </div>
         {!bulkHd.running ? (
-          <button onClick={() => upgradeAllVisibleHd(filtered)} disabled={filtered.length === 0}
-            title={`Re-fetch HD bytes (1080w) for all ${filtered.length} visible photo${filtered.length === 1 ? '' : 's'}. Runs in parallel — uses the same per-row upgrade route.`}
-            style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 5, background: filtered.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(120,180,232,0.16)', color: filtered.length === 0 ? 'var(--foreground-muted)' : '#8FB4F0', border: `1px solid ${filtered.length === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(120,180,232,0.35)'}`, cursor: filtered.length === 0 ? 'default' : 'pointer' }}>
-            ↑ Upgrade visible to HD
+          <button onClick={() => upgradeAllVisibleHd(photos)} disabled={photos.length === 0}
+            title={`Re-fetch HD bytes (1080w) for ALL ${photos.length} photo${photos.length === 1 ? '' : 's'} in the library, regardless of the filter. Runs in parallel — uses the same per-row upgrade route.`}
+            style={{ padding: '7px 12px', fontSize: 11, fontWeight: 700, borderRadius: 5, background: photos.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(120,180,232,0.16)', color: photos.length === 0 ? 'var(--foreground-muted)' : '#8FB4F0', border: `1px solid ${photos.length === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(120,180,232,0.35)'}`, cursor: photos.length === 0 ? 'default' : 'pointer' }}>
+            ↑ Upgrade all to HD ({photos.length})
           </button>
         ) : (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
