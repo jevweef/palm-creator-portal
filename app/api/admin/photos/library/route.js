@@ -15,19 +15,25 @@ export async function GET() {
     const photos = rows.map(r => {
       const f = r.fields || {}
       const att = f.Image
-      const imgUrl = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
-      // Pull the full-size attachment URL too so the click-to-enlarge
-      // modal can show a big version without re-fetching.
-      const fullUrl = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.full?.url || att[0].url) : null
+      const attThumb = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
+      const attFull = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.full?.url || att[0].url) : null
+      // Prefer the Dropbox raw URL for display because Airtable's
+      // signed attachment URLs expire after ~2h and leave the UI with
+      // black thumbnails when the page sits open. Dropbox shared links
+      // don't expire. Airtable URL becomes the fallback if no Dropbox
+      // link exists yet (older records before the import wired in DBX).
+      const dropboxLink = f['Dropbox Link'] || ''
+      const dropboxRaw = dropboxLink ? String(dropboxLink).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
       return {
         id: r.id,
         handle: f['Source Handle'] || '',
         postUrl: f['Source Post URL'] || '',
         carouselIndex: f['Carousel Index'] || 1,
         carouselTotal: f['Carousel Total'] || 1,
-        image: imgUrl,
-        imageFull: fullUrl,
-        dropbox: f['Dropbox Link'] || '',
+        image: dropboxRaw || attThumb,
+        imageFull: dropboxRaw || attFull,
+        imageFallback: attThumb, // client can try this if Dropbox link 404s
+        dropbox: dropboxLink,
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',
         status: f.Status?.name || f.Status || 'Pending',

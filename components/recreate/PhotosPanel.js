@@ -725,6 +725,7 @@ function OutfitPickerSection() {
                     <div key={p.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
                       {p.image
                         ? <img src={p.image} alt="" loading="lazy" onClick={() => setEnlarged(p)}
+                            onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
                             style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
                         : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
                       <button onClick={() => submitReview(group.postUrl, { pickedId: p.id })} disabled={isBusy}
