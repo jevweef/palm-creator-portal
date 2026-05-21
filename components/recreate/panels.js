@@ -333,89 +333,91 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
-      {/* Merged Project panel — three columns when a reel is picked:
-          [reel preview] [creator/inspo metadata] [TJP off-site steps].
-          Kills the previous "half the row is blank" feel + puts the
-          TJP recipe right next to the reel it's referencing. */}
+      {/* Merged Project panel — 2 cols when a reel is picked:
+          LEFT  = reel preview + tiny action bar (Instagram / re-download /
+                  change reel) and inspo handle as label.
+          RIGHT = "Now do this in TJP" — the dominant block, since this
+                  is what the editor actually does between picking the
+                  reel and uploading the result.
+          Creator dropdown only shows if no project is locked (free
+          creator-pick mode). When continuing a project, the creator
+          is fixed — no point in re-asking. */}
       <div id="tour-stageb-creator" style={card}>
         {reel?.id && !showReelGrid ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) minmax(220px, 1fr) minmax(280px, 1.2fr)', gap: 20, alignItems: 'stretch' }}>
-            {/* Reel preview = leftmost column. Other columns set the
-                card height; reel fills it, cropped via object-fit
-                cover so it stays full-bleed media. */}
-            <div id="tour-stageb-reels" style={{ position: 'relative', width: '100%', minHeight: 320, borderRadius: 12, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
-              {reelPlaying && reel.streamUid ? (
-                <iframe
-                  src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
-                  allow="autoplay; fullscreen" allowFullScreen
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                />
-              ) : reelPlaying && reel.video ? (
-                <video src={reel.video} autoPlay controls playsInline loop
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (reel.streamUid || reel.thumbnail) ? (
-                <div onClick={() => setReelPlaying(true)} style={{ width: '100%', height: '100%', cursor: (reel.streamUid || reel.video) ? 'pointer' : 'default' }}>
-                  <img src={(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })) || reel.thumbnail}
-                    alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {(reel.streamUid || reel.video) && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 24, paddingLeft: 4 }}>▶</div>
-                    </div>
-                  )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 260px) 1fr', gap: 24, alignItems: 'stretch' }}>
+            {/* Reel column: preview on top, handle + action buttons
+                below. Acts as the "scene source" anchor. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+              <div id="tour-stageb-reels" style={{ position: 'relative', width: '100%', aspectRatio: '9/16', borderRadius: 12, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
+                {reelPlaying && reel.streamUid ? (
+                  <iframe
+                    src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
+                    allow="autoplay; fullscreen" allowFullScreen
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                ) : reelPlaying && reel.video ? (
+                  <video src={reel.video} autoPlay controls playsInline loop
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (reel.streamUid || reel.thumbnail) ? (
+                  <div onClick={() => setReelPlaying(true)} style={{ width: '100%', height: '100%', cursor: (reel.streamUid || reel.video) ? 'pointer' : 'default' }}>
+                    <img src={(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 480, fit: 'crop' })) || reel.thumbnail}
+                      alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {(reel.streamUid || reel.video) && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 24, paddingLeft: 4 }}>▶</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 13 }}>No preview</div>
+                )}
+              </div>
+              {/* Handle + actions strip below the reel. Compact. */}
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#e8b878', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{reel.handle || reel.reelId}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {reel.url && (
+                  <a href={reel.url} target="_blank" rel="noreferrer"
+                    style={{ padding: '5px 9px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 5, textDecoration: 'none' }}>↗ IG</a>
+                )}
+                {reel.video && (
+                  <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener"
+                    style={{ padding: '5px 9px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 5, textDecoration: 'none' }}>↓ Re-download</a>
+                )}
+                <button onClick={() => setShowReelGrid(true)}
+                  style={{ padding: '5px 9px', fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 5, cursor: 'pointer' }}>
+                  Change reel
+                </button>
+              </div>
+              {/* Free creator-pick UI only when there's no project. With
+                  a project locked, the creator was already chosen on the
+                  workspace tab — no need to re-ask. */}
+              {!project && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Creator</div>
+                  <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
+                    style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 12, width: '100%' }}>
+                    {creators.length === 0 && <option>No creators with AI refs</option>}
+                    {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
                 </div>
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 13 }}>No preview</div>
+              )}
+              {sel && myRooms.length === 0 && (
+                <div style={{ fontSize: 11, color: '#e8b878' }}>⚠️ No saved rooms — admin needs to add one first.</div>
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0, justifyContent: 'space-between' }}>
-              {/* Creator */}
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Creator</div>
-                <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
-                  style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, fontSize: 14, fontWeight: 500, width: '100%' }}>
-                  {creators.length === 0 && <option>No creators with AI refs</option>}
-                  {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.5 }}>
-                  {sel ? (
-                    myRooms.length === 0
-                      ? <>⚠️ No saved rooms yet — admin needs to create one in the Rooms tab first.</>
-                      : <>🏠 <b>{myRooms.length} room{myRooms.length === 1 ? '' : 's'}</b> on file ({myRooms.map(r => r.framing || '?').join(', ')}). Portal auto-picks by framing.</>
-                  ) : 'Pick a creator to see her saved rooms.'}
+            {/* TJP off-site steps — dominant block. Bigger header, more
+                breathing room. This is THE thing the editor needs to
+                follow between picking the reel and uploading. */}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 22, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                <div style={{ fontSize: 28 }}>🎬</div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
+                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>Off-portal — bring the result back to step 3 below.</div>
                 </div>
               </div>
-
-              {/* Inspo source */}
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Inspo source</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#e8b878', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{reel.handle || reel.reelId}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {reel.url && (
-                    <a href={reel.url} target="_blank" rel="noreferrer"
-                      style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 6, textDecoration: 'none' }}>↗ Instagram</a>
-                  )}
-                  {reel.video && (
-                    <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener"
-                      style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 6, textDecoration: 'none' }}>↓ Re-download</a>
-                  )}
-                  <button onClick={() => setShowReelGrid(true)}
-                    style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
-                    Change reel
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* TJP off-site steps — what to do between picking the reel
-                and uploading the result. Vertical list so each step
-                gets its own row at the side of the reel. */}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <div style={{ fontSize: 16 }}>🎬</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP</div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
                 {[
                   { n: 1, label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
                   { n: 2, label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
@@ -423,11 +425,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                   { n: 4, label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with the upscaled frame + your creator. 4 variations.</> },
                   { n: 5, label: 'Upload best', text: <>Pick the best of the 4, download it, drop it in <b>step 3</b> below.</> },
                 ].map(s => (
-                  <div key={s.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+                  <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{s.n}</div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#8fb4f0', marginBottom: 1 }}>{s.label}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--foreground)', lineHeight: 1.4 }}>{s.text}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#8fb4f0', marginBottom: 2 }}>{s.label}</div>
+                      <div style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.5 }}>{s.text}</div>
                     </div>
                   </div>
                 ))}
@@ -625,20 +627,32 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
-      {outputs.length > 0 && (
+      {outputs.length > 0 && (() => {
+        const started = outputs.filter(o => o.status === 'Started').length
+        const generating = outputs.filter(o => o.status === 'Generating').length
+        const pending = outputs.filter(o => o.status === 'Pending').length
+        const approved = outputs.filter(o => o.status === 'Approved').length
+        return (
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <div style={lbl}>Scenes — {sel?.name} ({outputs.length})</div>
-            {(() => {
-              const approvedCount = outputs.filter(o => o.status === 'Approved').length
-              if (!approvedCount) return null
-              return (
-                <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
-                  style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
-                  ⬇ Download all approved (1 mega-ZIP)
-                </a>
-              )
-            })()}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>All scenes for {sel?.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({outputs.length})</span></div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
+                One card per project (creator + reel). Click <b>Workspace → New Scene</b> on a reel to start one — it lives here as <span style={{ color: '#e8b878' }}>Started</span> until you upload a TJP photo and hit Generate, then becomes <span style={{ color: '#8fb4f0' }}>Generating</span> → <span style={{ color: '#e8b878' }}>Pending</span> → <span style={{ color: '#6AC68A' }}>Approved</span>.
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11, color: 'var(--foreground-muted)' }}>
+                {started > 0 && <span><b style={{ color: '#e8b878' }}>{started}</b> Started</span>}
+                {generating > 0 && <span><b style={{ color: '#8fb4f0' }}>{generating}</b> Generating</span>}
+                {pending > 0 && <span><b style={{ color: '#e8b878' }}>{pending}</b> Pending review</span>}
+                {approved > 0 && <span><b style={{ color: '#6AC68A' }}>{approved}</b> Approved</span>}
+              </div>
+            </div>
+            {approved > 0 && (
+              <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
+                ⬇ Download all approved (1 mega-ZIP)
+              </a>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 12 }}>
             {outputs.map(o => {
@@ -680,7 +694,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
             })}
           </div>
         </div>
-      )}
+        )
+      })()}
 
     </div>
   )
