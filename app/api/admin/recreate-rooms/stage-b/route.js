@@ -234,121 +234,154 @@ export async function POST(request) {
         if (best) pool = approved.filter(v => framingOf(v) === best)
       }
     }
-    const chosen = pool[Math.floor(Math.random() * pool.length)]
-    const vf = chosen.fields || {}
-    const roomUrl = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
-      || (Array.isArray(vf.Image) && vf.Image[0]?.url) || ''
-    if (!roomUrl) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
-    const roomId = (vf.Room || [])[0] || null
-    const chosenRoomName = myRooms.find(r => r.id === roomId)?.fields?.['Room Name'] || 'Room'
-    const chosenFraming = framingOf(chosen) || 'unclassified'
-
-    const locName = chosenRoomName
-    const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
-
-    // DECOUPLED: submit + return immediately; /stage-b/resolve fetches
-    // the finished image by prediction id later (no timeout possible).
-    // Figure 1 = the finished TJP person (keep EXACTLY); Figure 2 =
-    // her saved room → drop that exact person into the room and relight.
-    const images = [subjectUrl, roomUrl]
-    const prompt = buildScenePrompt()
-
-    const task = await submitWaveSpeedTask(mdl.path, mdl.body(images, prompt))
-    const predictionId = task?.id
-    if (!predictionId) {
-      return NextResponse.json({ error: 'WaveSpeed did not return a prediction id' }, { status: 502 })
+    // Fan-out: pick N distinct room variations from the pool (no
+    // repeats unless N exceeds pool size). User sets count via the
+    // panel's Variations selector — defaults to 1, capped at 4 to keep
+    // a sane parallel-task ceiling.
+    const requestedCount = Math.max(1, Math.min(4, Number(body.count) || 1))
+    const shuffled = [...pool].sort(() => Math.random() - 0.5)
+    const sampledVars = []
+    for (let i = 0; i < requestedCount; i++) {
+      sampledVars.push(shuffled[i % shuffled.length])
+    }
+    const sampled = sampledVars.map(v => {
+      const vf = v.fields || {}
+      const url = (vf['Dropbox Link'] && rawDbx(vf['Dropbox Link']))
+        || (Array.isArray(vf.Image) && vf.Image[0]?.url) || ''
+      const rid = (vf.Room || [])[0] || null
+      const roomName = myRooms.find(r => r.id === rid)?.fields?.['Room Name'] || 'Room'
+      const framing = framingOf(v) || 'unclassified'
+      return { url, roomId: rid, roomName, framing }
+    })
+    for (const s of sampled) {
+      if (!s.url) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
     }
 
-    // Record routing:
-    //   • Started placeholder (first Generate on a project) → PATCH it,
-    //     filling in the first Still under that reel.
-    //   • Already-generated project (Pending/Generating/Approved/Rejected/
-    //     Failed) → DON'T overwrite. Create a NEW sibling record under
-    //     the same source reel — nextStageBSequence auto-increments the
-    //     Still # so each Generate becomes its own card (S01, S02, S03…).
-    //     Editors can compare attempts across models / seeds / runs.
-    let reelNum = null, stillNum = null, slug = null
-    let recordId = null
-    let existingProject = null
+    const reelShort = (reelRecordId && /^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) ? reelRecordId : null
+
+    // Pre-compute the (reelNum, stillNum) base. If a Started placeholder
+    // exists we reuse its Still # for variation 0; otherwise we pull a
+    // fresh sequence. Subsequent variations get sequential Still #s
+    // (base + 1, base + 2, …) computed locally — calling
+    // nextStageBSequence N times wouldn't increment between calls
+    // because none of the new records have been written yet.
+    let baseReelNum = null, baseStillNum = null
+    let existingStartedRecord = null
     if (projectId && /^rec[A-Za-z0-9]{14}$/.test(projectId)) {
       try {
         const pRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${projectId}`,
           { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
         if (pRes.ok) {
-          existingProject = await pRes.json()
-          const existingStatus = existingProject?.fields?.Status?.name || existingProject?.fields?.Status
-          // Only reuse the record if it's still a fresh Started placeholder.
-          if (existingStatus === 'Started') {
-            slug = existingProject?.fields?.Slug || null
-            reelNum = existingProject?.fields?.['Reel #'] || null
-            stillNum = existingProject?.fields?.['Still #'] || null
-            recordId = existingProject.id
+          const ep = await pRes.json()
+          const ss = ep?.fields?.Status?.name || ep?.fields?.Status
+          if (ss === 'Started') {
+            existingStartedRecord = ep
+            baseReelNum = ep.fields?.['Reel #'] || null
+            baseStillNum = ep.fields?.['Still #'] || null
           }
         }
       } catch (e) { console.warn('[stage-b POST] could not load projectId:', e.message) }
     }
-    if (!slug) {
+    if (baseStillNum == null) {
       try {
         const seq = await nextStageBSequence({ creatorId, reelRecordId: reelShort })
-        reelNum = seq.reelNum
-        stillNum = seq.stillNum
-        slug = stageBSlug({ aka, reelNum, stillNum })
-      } catch (e) {
-        console.warn('[stage-b POST] slug compute failed:', e.message)
+        baseReelNum = seq.reelNum
+        baseStillNum = seq.stillNum
+      } catch (e) { console.warn('[stage-b POST] slug compute failed:', e.message) }
+    }
+
+    // Submit all N WaveSpeed tasks in PARALLEL. Each gets a different
+    // room URL but the same TJP subject. submitWaveSpeedTask returns
+    // immediately with a prediction id — the resolve route polls them
+    // all later, in any order, regardless of how long each one takes.
+    const prompt = buildScenePrompt()
+    const taskResults = await Promise.allSettled(
+      sampled.map(s => submitWaveSpeedTask(mdl.path, mdl.body([subjectUrl, s.url], prompt)))
+    )
+    const failedSubmits = taskResults
+      .map((r, i) => ({ r, i })).filter(({ r }) => r.status === 'rejected')
+    if (failedSubmits.length === taskResults.length) {
+      return NextResponse.json({ error: `All ${taskResults.length} WaveSpeed submits failed: ${failedSubmits[0].r.reason?.message || 'unknown'}` }, { status: 502 })
+    }
+
+    // For each successfully submitted task, PATCH the Started
+    // placeholder (variation 0 only) or CREATE a new sibling record.
+    const variations = []
+    for (let i = 0; i < sampled.length; i++) {
+      const taskRes = taskResults[i]
+      if (taskRes.status === 'rejected') {
+        console.warn(`[stage-b POST] variation ${i} submit failed: ${taskRes.reason?.message}`)
+        continue
       }
+      const task = taskRes.value
+      const predictionId = task?.id
+      if (!predictionId) continue
+      const s = sampled[i]
+      const stillNum = (baseStillNum || 1) + i
+      const slug = stageBSlug({ aka, reelNum: baseReelNum || 1, stillNum })
+
+      const attachments = {}
+      if (rawScreenshotUrl) attachments['Raw Screenshot'] = [{ url: rawScreenshotUrl, filename: `${slug}_raw.jpg` }]
+      if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug}_upscaled.jpg` }]
+      attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug}_tjp_output.jpg` }]
+
+      const recordFields = {
+        Name: slug,
+        Creator: [creatorId],
+        ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
+        ...(s.roomId ? { Room: [s.roomId] } : {}),
+        'Prediction ID': predictionId,
+        ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
+        ...(s.framing !== 'unclassified' ? { 'Room Framing': s.framing } : {}),
+        'Prompt Used': prompt,
+        'Reel #': baseReelNum || 1,
+        'Still #': stillNum,
+        Slug: slug,
+        ...(subjectDropboxPath ? { 'TJP Output Path': subjectDropboxPath } : {}),
+        ...(rawScreenshotPath ? { 'Raw Screenshot Path': rawScreenshotPath } : {}),
+        ...(upscaledScreenshotPath ? { 'Upscaled Screenshot Path': upscaledScreenshotPath } : {}),
+        ...attachments,
+        Status: 'Generating',
+      }
+
+      let recordId = null
+      try {
+        if (i === 0 && existingStartedRecord) {
+          // First variation reuses the Started placeholder.
+          const upRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${existingStartedRecord.id}`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: recordFields, typecast: true }),
+          })
+          if (!upRes.ok) throw new Error(`patch ${upRes.status}: ${await upRes.text()}`)
+          recordId = existingStartedRecord.id
+        } else {
+          const created = await createStageBRecord(recordFields)
+          recordId = created?.records?.[0]?.id || null
+        }
+      } catch (e) {
+        console.error(`[stage-b POST] record write failed for ${slug}: ${e.message}`)
+        continue
+      }
+      variations.push({ recordId, predictionId, slug, room: s.roomName, roomFraming: s.framing })
     }
 
-    // Attach organizational uploads + the TJP source photo to the
-    // record via Airtable's attach-from-URL. Airtable downloads from
-    // the Dropbox shared link and stores its own copy, so editors can
-    // see the project's artifacts in the Airtable view too.
-    const attachments = {}
-    if (rawScreenshotUrl) attachments['Raw Screenshot'] = [{ url: rawScreenshotUrl, filename: `${slug || 'raw'}_raw.jpg` }]
-    if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug || 'upscaled'}_upscaled.jpg` }]
-    attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug || 'tjp'}_tjp_output.jpg` }]
-
-    const recordFields = {
-      Name: slug || `${aka} · ${locName} · [${mdl.label}] · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-      Creator: [creatorId],
-      ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
-      ...(roomId ? { Room: [roomId] } : {}),
-      'Prediction ID': predictionId,
-      ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
-      ...(chosenFraming && chosenFraming !== 'unclassified' ? { 'Room Framing': chosenFraming } : {}),
-      'Prompt Used': prompt,
-      ...(reelNum != null ? { 'Reel #': reelNum } : {}),
-      ...(stillNum != null ? { 'Still #': stillNum } : {}),
-      ...(slug ? { Slug: slug } : {}),
-      // Path fields so the sibling can re-resolve source images later
-      // without depending on the (expiring) Airtable attachment URLs.
-      ...(subjectDropboxPath ? { 'TJP Output Path': subjectDropboxPath } : {}),
-      ...(rawScreenshotPath ? { 'Raw Screenshot Path': rawScreenshotPath } : {}),
-      ...(upscaledScreenshotPath ? { 'Upscaled Screenshot Path': upscaledScreenshotPath } : {}),
-      ...attachments,
-      Status: 'Generating',
+    if (variations.length === 0) {
+      return NextResponse.json({ error: 'All variations failed to record — check server logs' }, { status: 500 })
     }
 
-    if (recordId) {
-      // Reuse path: PATCH the existing Started record.
-      const upRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${recordId}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: recordFields, typecast: true }),
-      })
-      if (!upRes.ok) throw new Error(`Stage B record update ${upRes.status}: ${await upRes.text()}`)
-    } else {
-      // Create path: brand-new record with status='Generating'.
-      const created = await createStageBRecord(recordFields)
-      recordId = created?.records?.[0]?.id || null
-    }
-
+    // Back-compat: also surface first variation's fields at top-level so
+    // older client code reading `recordId` / `room` / etc still works.
+    const first = variations[0]
     return NextResponse.json({
       ok: true,
       generating: true,
-      recordId,
-      predictionId,
-      slug,
-      room: chosenRoomName, roomFraming: chosenFraming,
+      variations,
+      recordId: first.recordId,
+      predictionId: first.predictionId,
+      slug: first.slug,
+      room: first.room,
+      roomFraming: first.roomFraming,
       screenshotFraming: shotFraming || 'unknown',
     })
   } catch (err) {

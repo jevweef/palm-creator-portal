@@ -125,6 +125,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [showOptionalUploads, setShowOptionalUploads] = useState(false) // Raw + upscaled, archival only
   const [reelPlaying, setReelPlaying] = useState(false) // Click-to-play the selected reel inline
   const [model, setModel] = useState('wan') // 'wan' | 'nano' | 'gpt' — Wan tends to zoom out, alternatives may respect framing better
+  const [count, setCount] = useState(1) // 1 | 2 | 4 — fan-out N variations into DIFFERENT rooms in parallel
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
   const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
 
@@ -301,6 +302,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           rawScreenshotPath: rawSlot.path || undefined,
           upscaledScreenshotPath: upscaledSlot.path || undefined,
           model,
+          count, // server fans out N parallel jobs, each into a different room variation
           // If we came from a Started project card, reuse its record
           // so the slug + Reel # assigned at download time persist.
           ...(project?.id ? { projectId: project.id } : {}),
@@ -314,7 +316,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         : String(v)
       if (d && d.ok && d.generating) {
         setStageBOut(null)
-        setMsg(`✅ Scene submitted. The portal read your photo as ${d.screenshotFraming} framing and picked her "${d.room}" [${d.roomFraming}] room. Rendering — check the Scenes section below in a few minutes.`)
+        // Multi-variation summary if the server fanned out
+        if (Array.isArray(d.variations) && d.variations.length > 1) {
+          const rooms = d.variations.map(v => `${v.room} [${v.roomFraming}]`).join(', ')
+          setMsg(`✅ ${d.variations.length} scenes submitted in parallel — rooms: ${rooms}. Read as ${d.screenshotFraming} framing. Check Scenes below in a few minutes.`)
+        } else {
+          setMsg(`✅ Scene submitted. The portal read your photo as ${d.screenshotFraming} framing and picked her "${d.room}" [${d.roomFraming}] room. Rendering — check the Scenes section below in a few minutes.`)
+        }
         loadOutputs()
         setTimeout(() => document.getElementById('stageb-outputs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
       } else if (d && d.ok) {
@@ -568,6 +576,28 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                   ))}
                 </div>
               </div>
+              {/* Variations — fan out N parallel jobs, each into a
+                  different randomly-picked room variation. Useful for
+                  A/B'ing rooms or grabbing several attempts at once. */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Variations</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[1, 2, 4].map(n => (
+                    <button key={n} onClick={() => setCount(n)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 6px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: count === n ? 'rgba(232,168,120,0.25)' : 'rgba(255,255,255,0.04)',
+                        color: count === n ? '#e8b878' : 'var(--foreground-muted)',
+                        border: `1px solid ${count === n ? 'rgba(232,168,120,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                      }}>{n}×</button>
+                  ))}
+                </div>
+              </div>
               {(() => {
                 const hasSubject = !!(subjectSlot.path || subjectSlot.url)
                 const ready = hasSubject && !subjectSlot.uploading
@@ -587,7 +617,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                       boxShadow: ready && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
                       transition: 'all 0.15s ease',
                     }}>
-                    {busy ? '⏳ Working…' : subjectSlot.uploading ? '⏳ Uploading…' : ready ? '🪄 Generate' : 'Upload first →'}
+                    {busy ? '⏳ Working…' : subjectSlot.uploading ? '⏳ Uploading…' : ready ? (count > 1 ? `🪄 Generate ${count}×` : '🪄 Generate') : 'Upload first →'}
                   </button>
                 )
               })()}
