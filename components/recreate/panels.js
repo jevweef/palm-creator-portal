@@ -273,6 +273,28 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     return () => clearTimeout(t)
   }, [armedDeleteId])
 
+  // Arrow-key navigation when the detail modal is open. ← / → flip
+  // between visible scene cards (Started placeholders are hidden so
+  // we filter to the same set the gallery shows). Esc is already
+  // handled by ModalHost-style click-outside; we don't fight it here.
+  useEffect(() => {
+    if (!selectedOutput) return
+    const onKey = (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      // Avoid stealing arrow keys from inputs/textareas (e.g. a
+      // rejection prompt opened from inside the modal).
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      const visible = outputs.filter(o => o.status !== 'Started')
+      const i = visible.findIndex(o => o.id === selectedOutput.id)
+      if (i < 0) return
+      const next = e.key === 'ArrowRight' ? visible[i + 1] : visible[i - 1]
+      if (next) { e.preventDefault(); setSelectedOutput(next) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedOutput, outputs])
+
 
 
   const sel = creators.find(c => c.id === creatorId)
@@ -883,11 +905,44 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         const o = selectedOutput
         const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
         const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
+        // Compute neighbors in the visible (non-Started) scene set so
+        // the chevrons + arrow keys agree on what "prev/next" means.
+        const visible = outputs.filter(o2 => o2.status !== 'Started')
+        const idx = visible.findIndex(o2 => o2.id === o.id)
+        const prev = idx > 0 ? visible[idx - 1] : null
+        const next = idx >= 0 && idx < visible.length - 1 ? visible[idx + 1] : null
+        const chevronStyle = (enabled) => ({
+          position: 'absolute',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          background: enabled ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.25)',
+          color: enabled ? '#fff' : 'rgba(255,255,255,0.3)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          fontSize: 20,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: enabled ? 'pointer' : 'default',
+          zIndex: 1,
+          transition: 'background 0.15s ease',
+        })
         return (
           <div onClick={() => setSelectedOutput(null)}
             style={{ position: 'fixed', inset: 0, zIndex: 2800, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <button onClick={e => { e.stopPropagation(); if (prev) setSelectedOutput(prev) }}
+              disabled={!prev}
+              style={{ ...chevronStyle(!!prev), left: 12 }}
+              aria-label="Previous scene">‹</button>
+            <button onClick={e => { e.stopPropagation(); if (next) setSelectedOutput(next) }}
+              disabled={!next}
+              style={{ ...chevronStyle(!!next), right: 12 }}
+              aria-label="Next scene">›</button>
             <div onClick={e => e.stopPropagation()}
-              style={{ width: 'min(960px, 95vw)', maxHeight: '92vh', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(280px, 420px) 1fr', gap: 20, background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.55)', overflow: 'auto' }}>
+              style={{ position: 'relative', width: 'min(960px, 95vw)', maxHeight: '92vh', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(280px, 420px) 1fr', gap: 20, background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.55)', overflow: 'auto' }}>
               {o.image
                 ? <img src={o.image} alt="" style={{ width: '100%', maxHeight: isMobile ? '50vh' : 'none', aspectRatio: isMobile ? 'auto' : '9/16', objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block', alignSelf: 'start' }} />
                 : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: sc, background: '#000', borderRadius: 10 }}>{o.status}</div>}
@@ -895,7 +950,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'ui-monospace, Menlo, monospace' }}>{o.slug || `${sel?.name} · Reel ${o.index ?? '?'}`}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: sc, marginTop: 4 }}>{o.status}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: sc }}>{o.status}</span>
+                      {visible.length > 1 && idx >= 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>{idx + 1} / {visible.length} · ← →</span>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => setSelectedOutput(null)}
                     style={{ padding: '4px 10px', fontSize: 16, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>✕</button>
