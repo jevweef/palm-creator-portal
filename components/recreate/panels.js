@@ -36,7 +36,7 @@ export function ModalHost() {
     if (!st) return
     const onKey = e => {
       if (e.key !== 'Escape') return
-      const r = st.resolve; _modalState = null; setSt(null)
+      const r = st.resolve; _modalState = null; _emitModal()
       r(st.kind === 'confirm' ? false : st.kind === 'prompt' ? null : undefined)
     }
     window.addEventListener('keydown', onKey)
@@ -44,7 +44,11 @@ export function ModalHost() {
   }, [st])
   if (!st) return null
 
-  const finish = (result) => { const r = st.resolve; _modalState = null; setSt(null); r(result) }
+  // Broadcast the cleared state to ALL mounted ModalHosts via the
+  // listener list — otherwise if more than one host is mounted (e.g.
+  // page-level + panel-level) only the clicked host clears, and the
+  // others keep rendering the modal until clicked through again.
+  const finish = (result) => { const r = st.resolve; _modalState = null; _emitModal(); r(result) }
   const cancelVal = st.kind === 'confirm' ? false : st.kind === 'prompt' ? null : undefined
   const okColor = st.danger ? '#E87878' : 'var(--palm-pink, #e8a878)'
 
