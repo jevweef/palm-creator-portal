@@ -142,17 +142,33 @@ async function createStageBRecord(fields) {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { creatorId, reelRecordId, model, subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath, projectId } = await request.json()
+    const body = await request.json()
+    const { creatorId, reelRecordId, model, projectId } = body
+    let { subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath } = body
     const mdl = MODELS[model] || MODELS.wan
 
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    // The portal does ONE generation step: take the TJP image-to-image
-    // output (creator-in-reel-environment) and swap the background to
-    // her saved room. The TJP photo is the subject; the room variation
-    // is the new background. No more from-scratch composite via Wan —
-    // that work happens in TJP now (image-to-image with creator refs).
+    // Continuing-a-project path: when projectId is set and the editor
+    // has already eager-uploaded files (via /stage-b/attach), the
+    // record's path fields are the source of truth. Fall back to them
+    // if the client didn't include the paths in the body — covers the
+    // "refresh mid-flow" case where panel state is empty but the
+    // record has the files.
+    if (projectId && /^rec[A-Za-z0-9]{14}$/.test(projectId)) {
+      try {
+        const pRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(STAGE_B_OUTPUTS)}/${projectId}`,
+          { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
+        if (pRes.ok) {
+          const pf = (await pRes.json()).fields || {}
+          if (!subjectDropboxPath) subjectDropboxPath = pf['TJP Output Path'] || null
+          if (!rawScreenshotPath) rawScreenshotPath = pf['Raw Screenshot Path'] || null
+          if (!upscaledScreenshotPath) upscaledScreenshotPath = pf['Upscaled Screenshot Path'] || null
+        }
+      } catch (e) { console.warn('[stage-b POST] could not preload project paths:', e.message) }
+    }
+
     if (!subjectDropboxPath || typeof subjectDropboxPath !== 'string') {
       return NextResponse.json({ error: 'subjectDropboxPath is required — upload the TJP image-to-image output first' }, { status: 400 })
     }

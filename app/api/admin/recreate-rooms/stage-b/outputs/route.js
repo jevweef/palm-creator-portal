@@ -19,7 +19,9 @@ export async function GET(request) {
       fetchAirtableRecords(OUTPUTS, {
         fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
           'Pose Time', 'Screenshot Framing', 'Room Framing', 'Status', 'Reject Reason',
-          'Reel #', 'Still #', 'Slug'],
+          'Reel #', 'Still #', 'Slug',
+          'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
+          'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
       }),
       fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'] }),
       fetchAirtableRecords(ROOMS, { fields: ['Room Name'] }),
@@ -94,6 +96,15 @@ export async function GET(request) {
             video: (reel['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
           } : null,
           variants: variantsByParent[o.id] || [],
+          // Eager-uploaded artifacts. Each has an Airtable thumbnail
+          // URL (for preview) and a Dropbox path (for re-use at
+          // Generate time). The panel restores its file slots from
+          // these on mount, so refreshing mid-flow doesn't lose work.
+          uploads: {
+            rawScreenshot: f['Raw Screenshot Path'] ? { path: f['Raw Screenshot Path'], url: f['Raw Screenshot']?.[0]?.thumbnails?.large?.url || f['Raw Screenshot']?.[0]?.url || null, filename: f['Raw Screenshot']?.[0]?.filename || '' } : null,
+            upscaledScreenshot: f['Upscaled Screenshot Path'] ? { path: f['Upscaled Screenshot Path'], url: f['Upscaled Screenshot']?.[0]?.thumbnails?.large?.url || f['Upscaled Screenshot']?.[0]?.url || null, filename: f['Upscaled Screenshot']?.[0]?.filename || '' } : null,
+            tjpOutput: f['TJP Output Path'] ? { path: f['TJP Output Path'], url: f['TJP Output']?.[0]?.thumbnails?.large?.url || f['TJP Output']?.[0]?.url || null, filename: f['TJP Output']?.[0]?.filename || '' } : null,
+          },
           createdTime: o.createdTime,
         }
       })

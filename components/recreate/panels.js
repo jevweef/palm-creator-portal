@@ -107,9 +107,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [reel, setReel] = useState(null)
   const [stageBOut, setStageBOut] = useState(null)
   const [outputs, setOutputs] = useState([])
-  const [subjectFile, setSubjectFile] = useState(null)
-  const [rawScreenshotFile, setRawScreenshotFile] = useState(null)
-  const [upscaledScreenshotFile, setUpscaledScreenshotFile] = useState(null)
+  // Each upload slot tracks: { name, url (for preview), path (Dropbox,
+  // for Generate), uploading }. Path is the source of truth — once set,
+  // Generate sends it and the work survives refresh because we
+  // eager-attached to the Airtable record (see /stage-b/attach).
+  const [subjectSlot, setSubjectSlot] = useState({ name: '', url: '', path: '', uploading: false })
+  const [rawSlot, setRawSlot] = useState({ name: '', url: '', path: '', uploading: false })
+  const [upscaledSlot, setUpscaledSlot] = useState({ name: '', url: '', path: '', uploading: false })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [project, setProject] = useState(null) // Existing Started project when continuing
@@ -168,6 +172,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         if (match) {
           setProject(match)
           if (match.reel && !reel) setReel(match.reel)
+          // Restore eager-uploaded artifacts from the record so the
+          // editor's file slots stay populated across page refreshes.
+          if (match.uploads?.tjpOutput) setSubjectSlot({ name: match.uploads.tjpOutput.filename || 'tjp-output.jpg', url: match.uploads.tjpOutput.url || '', path: match.uploads.tjpOutput.path || '', uploading: false })
+          if (match.uploads?.rawScreenshot) setRawSlot({ name: match.uploads.rawScreenshot.filename || 'raw.jpg', url: match.uploads.rawScreenshot.url || '', path: match.uploads.rawScreenshot.path || '', uploading: false })
+          if (match.uploads?.upscaledScreenshot) setUpscaledSlot({ name: match.uploads.upscaledScreenshot.filename || 'upscaled.jpg', url: match.uploads.upscaledScreenshot.url || '', path: match.uploads.upscaledScreenshot.path || '', uploading: false })
         }
       } catch {}
     })()
@@ -220,27 +229,51 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     ? reels.filter(r => !(r.producedFor || []).includes(creatorId))
     : reels
 
+  // Eager-upload a file the moment the editor picks it: ship to
+  // Dropbox, then PATCH the Airtable record (via /attach) so the slot
+  // survives a page refresh. Returns the resolved path so callers can
+  // optimistically update state. Falls back to a non-persisted upload
+  // when there's no project yet (rare — new-scene-without-download
+  // path). The route then uploads at Generate time as before.
+  const pickFile = async (file, kind, setSlot) => {
+    if (!file) { setSlot({ name: '', url: '', path: '', uploading: false }); return }
+    const localUrl = URL.createObjectURL(file)
+    setSlot({ name: file.name, url: localUrl, path: '', uploading: true })
+    try {
+      const path = await stageBUpload(file, kind)
+      if (project?.id) {
+        // Eager-attach to the Airtable record so refreshing won't lose
+        // this upload. The path field on the record persists.
+        try {
+          await fetch('/api/admin/recreate-rooms/stage-b/attach', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId: project.id, kind, dropboxPath: path }),
+          })
+        } catch (e) { console.warn('[panel] eager attach failed:', e?.message) }
+      }
+      setSlot({ name: file.name, url: localUrl, path, uploading: false })
+    } catch (e) {
+      setSlot({ name: file.name, url: localUrl, path: '', uploading: false })
+      setMsg(`❌ Upload failed: ${e?.message || String(e)}`)
+    }
+  }
+
   const generate = async () => {
     if (!creatorId) { setMsg('⚠️ Pick a creator first (step 1).'); return }
     if (!reel?.id) { setMsg('⚠️ Pick the inspo reel this scene goes with (step 2).'); return }
-    if (!subjectFile) { setMsg('⚠️ Upload the TJP image-to-image photo (step 3).'); return }
-    setBusy(true); setStageBOut(null); setMsg('⏳ Uploading your files…')
+    if (!subjectSlot.path && !subjectSlot.url) { setMsg('⚠️ Upload the TJP image-to-image photo (step 3).'); return }
+    if (subjectSlot.uploading || rawSlot.uploading || upscaledSlot.uploading) { setMsg('⏳ Wait for uploads to finish first.'); return }
+    setBusy(true); setStageBOut(null); setMsg('⏳ Submitting…')
     try {
-      // Upload the TJP photo (required input to generation) plus the
-      // optional organizational artifacts. The route attaches all three
-      // to the new record so the editor can find them later by project.
-      const subjectDropboxPath = await stageBUpload(subjectFile, 'subject')
-      const rawScreenshotPath = rawScreenshotFile ? await stageBUpload(rawScreenshotFile, 'raw_screenshot') : null
-      const upscaledScreenshotPath = upscaledScreenshotFile ? await stageBUpload(upscaledScreenshotFile, 'upscaled_screenshot') : null
       setMsg('⏳ Creating the scene — the AI is swapping her background to her saved room. This takes 3–6 minutes; you can navigate away and the result will appear in Scenes below.')
       const res = await fetch('/api/admin/recreate-rooms/stage-b', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId,
           reelRecordId: reel.id,
-          subjectDropboxPath,
-          rawScreenshotPath,
-          upscaledScreenshotPath,
+          subjectDropboxPath: subjectSlot.path || undefined, // route falls back to record's path
+          rawScreenshotPath: rawSlot.path || undefined,
+          upscaledScreenshotPath: upscaledSlot.path || undefined,
           // If we came from a Started project card, reuse its record
           // so the slug + Reel # assigned at download time persist.
           ...(project?.id ? { projectId: project.id } : {}),
@@ -306,8 +339,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           on the right. No more "reel card 60% empty" issue. */}
       <div id="tour-stageb-creator" style={card}>
         {reel?.id && !showReelGrid ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
-            <div id="tour-stageb-reels" style={{ position: 'relative', aspectRatio: '9/16', borderRadius: 12, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) 1fr', gap: 24, alignItems: 'stretch' }}>
+            {/* Reel preview = the right column sets the card height;
+                reel fills 100% of that height, cropped via object-fit
+                cover so it stays full-bleed media without towering
+                over the metadata column. */}
+            <div id="tour-stageb-reels" style={{ position: 'relative', width: '100%', minHeight: 320, borderRadius: 12, overflow: 'hidden', background: '#000', border: '2px solid var(--palm-pink)', boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}>
               {reelPlaying && reel.streamUid ? (
                 <iframe
                   src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
@@ -332,7 +369,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0, justifyContent: 'space-between' }}>
               {/* Creator */}
               <div>
                 <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Creator</div>
@@ -450,28 +487,30 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>
           <span style={{ fontSize: 14 }}>{showOptionalUploads ? '−' : '+'}</span>
           Optionally archive the TJP raw + upscaled screenshots
-          {rawScreenshotFile && <span style={{ color: '#6AC68A' }}>· raw ✓</span>}
-          {upscaledScreenshotFile && <span style={{ color: '#6AC68A' }}>· upscaled ✓</span>}
+          {rawSlot.path && <span style={{ color: '#6AC68A' }}>· raw ✓</span>}
+          {upscaledSlot.path && <span style={{ color: '#6AC68A' }}>· upscaled ✓</span>}
         </button>
         {showOptionalUploads && (
           <div style={{ ...card, marginTop: 8 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
               {[
-                { label: 'Raw screenshot', file: rawScreenshotFile, set: setRawScreenshotFile },
-                { label: 'Upscaled screenshot', file: upscaledScreenshotFile, set: setUpscaledScreenshotFile },
-              ].map(slot => (
-                <label key={slot.label} style={{ display: 'block', cursor: 'pointer' }}>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{slot.label}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'rgba(0,0,0,0.25)', border: `1px dashed rgba(255,255,255,${slot.file ? '0.16' : '0.1'})`, borderRadius: 6 }}>
-                    {slot.file ? (
+                { label: 'Raw screenshot', slot: rawSlot, set: setRawSlot, kind: 'raw_screenshot' },
+                { label: 'Upscaled screenshot', slot: upscaledSlot, set: setUpscaledSlot, kind: 'upscaled_screenshot' },
+              ].map(o => (
+                <label key={o.label} style={{ display: 'block', cursor: 'pointer' }}>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{o.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'rgba(0,0,0,0.25)', border: `1px dashed rgba(255,255,255,${o.slot.url ? '0.16' : '0.1'})`, borderRadius: 6 }}>
+                    {o.slot.url ? (
                       <>
-                        <img src={URL.createObjectURL(slot.file)} alt="" style={{ width: 44, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
-                        <span style={{ fontSize: 11, color: '#6AC68A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>✓ {slot.file.name}</span>
+                        <img src={o.slot.url} alt="" style={{ width: 44, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
+                        <span style={{ fontSize: 11, color: o.slot.uploading ? '#8fb4f0' : '#6AC68A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {o.slot.uploading ? `⏳ ${o.slot.name}` : `✓ ${o.slot.name}`}
+                        </span>
                       </>
                     ) : (
                       <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Click to choose a file</span>
                     )}
-                    <input type="file" accept="image/*" onChange={e => slot.set(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <input type="file" accept="image/*" onChange={e => pickFile(e.target.files?.[0] || null, o.kind, o.set)} style={{ display: 'none' }} />
                   </div>
                 </label>
               ))}
@@ -488,39 +527,53 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
 
         <label
           onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = 'rgba(232,168,120,0.14)' }}
-          onDragLeave={e => { e.currentTarget.style.background = subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)' }}
+          onDragLeave={e => { e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)' }}
           onDrop={e => {
             e.preventDefault()
-            e.currentTarget.style.background = subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)'
+            e.currentTarget.style.background = subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)'
             const f = [...(e.dataTransfer?.files || [])].find(x => x.type.startsWith('image/'))
-            if (f) setSubjectFile(f)
+            if (f) pickFile(f, 'subject', setSubjectSlot)
           }}
           style={{
             display: 'block',
-            border: `2px dashed rgba(232,168,120,${subjectFile ? '0.3' : '0.45'})`,
+            border: `2px dashed rgba(232,168,120,${subjectSlot.url ? '0.3' : '0.45'})`,
             borderRadius: 12,
-            padding: subjectFile ? 20 : 0,
-            minHeight: subjectFile ? undefined : 280,
-            background: subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)',
+            padding: subjectSlot.url ? 20 : 0,
+            minHeight: subjectSlot.url ? undefined : 280,
+            background: subjectSlot.url ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)',
             cursor: 'pointer',
             transition: 'background 0.15s ease',
           }}>
-          <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-          {subjectFile ? (
+          <input type="file" accept="image/*" onChange={e => pickFile(e.target.files?.[0] || null, 'subject', setSubjectSlot)} style={{ display: 'none' }} />
+          {subjectSlot.url ? (
             // Filled state: big 9:16 preview on the left so editor can
             // verify the right photo's loaded, status + replace hint
             // stacks to the right.
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) 1fr', gap: 20, alignItems: 'stretch' }}>
-              <img src={URL.createObjectURL(subjectFile)} alt=""
+              <img src={subjectSlot.url} alt=""
                 style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', borderRadius: 10, background: '#000', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }} />
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#6AC68A', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>✓</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#6AC68A' }}>Ready to generate</div>
+                    {subjectSlot.uploading ? (
+                      <>
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#8fb4f0', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>⏳</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#8fb4f0' }}>Uploading…</div>
+                      </>
+                    ) : subjectSlot.path ? (
+                      <>
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#6AC68A', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>✓</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#6AC68A' }}>Saved · ready to generate</div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#e8b878', color: '#1a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>!</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: '#e8b878' }}>Not saved (no project yet)</div>
+                      </>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subjectFile.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>{Math.round((subjectFile.size || 0) / 1024)} KB</div>
+                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subjectSlot.name}</div>
+                  {subjectSlot.path && <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>Auto-saved to this project — will survive refresh.</div>}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--foreground-muted)', padding: '8px 10px', background: 'rgba(0,0,0,0.25)', borderRadius: 6 }}>
                   Click anywhere on this card or drag a new file here to replace.
@@ -534,7 +587,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)' }}>Drop the TJP photo here</div>
               <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 6 }}>or click anywhere on this card to browse</div>
               <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 18, padding: '6px 12px', background: 'rgba(0,0,0,0.25)', borderRadius: 5, maxWidth: 360 }}>
-                jpg or png · the creator&apos;s likeness should already be in the photo (TJP image-to-image output)
+                jpg or png · the creator&apos;s likeness should already be in the photo (TJP image-to-image output) · auto-saved when picked
               </div>
             </div>
           )}
@@ -545,22 +598,28 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
           Swaps {sel?.name || 'the creator'}&apos;s background for her saved room and relights her to match. ~3–6 minutes.
         </div>
-        <button onClick={generate} disabled={busy || !subjectFile}
-          style={{
-            display: 'inline-block',
-            padding: '14px 36px',
-            fontSize: 16,
-            fontWeight: 700,
-            background: busy ? 'rgba(232,168,120,0.3)' : !subjectFile ? 'rgba(232,168,120,0.2)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
-            color: !subjectFile && !busy ? 'rgba(26,10,10,0.5)' : '#1a0a0a',
-            border: 'none',
-            borderRadius: 10,
-            cursor: (busy || !subjectFile) ? 'default' : 'pointer',
-            boxShadow: subjectFile && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
-            transition: 'all 0.15s ease',
-          }}>
-          {busy ? '⏳ Working…' : subjectFile ? '🪄 Generate scene' : 'Upload the TJP photo first'}
-        </button>
+        {(() => {
+          const hasSubject = !!(subjectSlot.path || subjectSlot.url)
+          const ready = hasSubject && !subjectSlot.uploading
+          return (
+            <button onClick={generate} disabled={busy || !ready}
+              style={{
+                display: 'inline-block',
+                padding: '14px 36px',
+                fontSize: 16,
+                fontWeight: 700,
+                background: busy ? 'rgba(232,168,120,0.3)' : !ready ? 'rgba(232,168,120,0.2)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
+                color: !ready && !busy ? 'rgba(26,10,10,0.5)' : '#1a0a0a',
+                border: 'none',
+                borderRadius: 10,
+                cursor: (busy || !ready) ? 'default' : 'pointer',
+                boxShadow: ready && !busy ? '0 4px 16px rgba(232,168,120,0.3)' : 'none',
+                transition: 'all 0.15s ease',
+              }}>
+              {busy ? '⏳ Working…' : subjectSlot.uploading ? '⏳ Waiting for upload to finish…' : ready ? '🪄 Generate scene' : 'Upload the TJP photo first'}
+            </button>
+          )
+        })()}
         {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 6, borderLeft: '3px solid rgba(232,168,120,0.4)', textAlign: 'left' }}>{msg}</div>}
       </div>
 
