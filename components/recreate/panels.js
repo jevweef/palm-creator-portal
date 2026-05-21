@@ -414,10 +414,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               rather than a long vertical column. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
             {[
-              { n: 1, label: 'Download the reel', text: <>Use the <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download mp4</span> button and bring it into TJP.</> },
-              { n: 2, label: 'Screenshot the pose', text: <>Take a screenshot of the pose you want to recreate.</> },
-              { n: 3, label: 'Upscale', text: <>Upscale that screenshot in TJP.</> },
-              { n: 4, label: 'Image-to-image', text: <>Run <b>Apex Transfer → image-to-image</b> with the upscaled screenshot + your creator. TJP gives you 4 variations.</> },
+              { n: 1, label: 'Download the reel', text: <>Use the <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download mp4</span> button above and bring the file into TJP.</> },
+              { n: 2, label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Drop the reel in, scrub to the pose, <b>Capture Frame</b>.</> },
+              { n: 3, label: 'Apex Upscale', text: <>TJP → <b>Apex Upscale</b> on the captured frame.</> },
+              { n: 4, label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with the upscaled frame + your creator. Gives you 4 variations.</> },
               { n: 5, label: 'Upload best', text: <>Pick the best of the 4, download it, upload below in <b>step 3</b>.</> },
             ].map(s => (
               <div key={s.n} style={{ padding: 12, background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(120,160,232,0.12)', borderRadius: 8 }}>
