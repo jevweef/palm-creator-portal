@@ -50,18 +50,25 @@ export async function POST(request) {
     // 50 images = ~150s (timeouts). Concurrency 6 brings the same 50
     // down to ~25-40s.
     let dupes = 0
-    let failed = 0
+    const failures = [] // detailed per-image: { code, carouselIndex, reason }
     const CONCURRENCY = 6
     const processOne = async (img) => {
       const code = String(img.code || '').trim()
       const idx = Number(img.carouselIndex) || 1
-      if (!code) { failed++; return null }
+      if (!code) { failures.push({ code: '?', carouselIndex: idx, reason: 'missing code' }); return null }
       if (existingKeys.has(`${code}|${idx}`)) { dupes++; return null }
       const srcUrl = img.fullResUrl || img.thumbnail
-      if (!srcUrl) { failed++; return null }
+      if (!srcUrl) { failures.push({ code, carouselIndex: idx, reason: 'no source URL in cache' }); return null }
       try {
         const ir = await fetch(srcUrl)
-        if (!ir.ok) { console.warn(`[photos/import] fetch ${code}_${idx}: ${ir.status}`); failed++; return null }
+        if (!ir.ok) {
+          // Instagram CDN URLs expire after ~24-48h. 410 / 403 here
+          // usually means the cached URL is stale — the editor needs
+          // to Refresh the scrape to get fresh URLs.
+          const expired = ir.status === 410 || ir.status === 403 || ir.status === 404
+          failures.push({ code, carouselIndex: idx, reason: expired ? `URL expired (HTTP ${ir.status}) — Refresh the scrape` : `image fetch failed (HTTP ${ir.status})` })
+          return null
+        }
         const buf = Buffer.from(await ir.arrayBuffer())
         const dbxPath = `/Palm Ops/Photos/${handle}/${code}_${String(idx).padStart(2, '0')}.jpg`
         await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
@@ -83,8 +90,7 @@ export async function POST(request) {
         if (rawLink) fields.Image = [{ url: rawLink, filename: `${code}_${String(idx).padStart(2, '0')}.jpg` }]
         return { fields }
       } catch (e) {
-        console.warn(`[photos/import] ${code}_${idx} failed:`, e.message)
-        failed++
+        failures.push({ code, carouselIndex: idx, reason: e.message || 'unknown error' })
         return null
       }
     }
@@ -94,6 +100,8 @@ export async function POST(request) {
       const batchResults = await Promise.all(chunk.map(processOne))
       for (const r of batchResults) if (r) records.push(r)
     }
+    const failed = failures.length
+    if (failed > 0) console.warn(`[photos/import] ${failed} failures:`, failures.slice(0, 5))
 
     let created = []
     if (records.length > 0) {
@@ -104,6 +112,7 @@ export async function POST(request) {
       created: created.length,
       duplicates: dupes,
       failed,
+      failures, // per-image detail so the UI can surface reasons + retry just the bad ones
       ids: created.map(r => r.id),
     })
   } catch (err) {

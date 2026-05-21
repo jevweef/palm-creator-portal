@@ -410,6 +410,7 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
     for (let i = 0; i < picked.length; i += CHUNK_SIZE) chunks.push(picked.slice(i, i + CHUNK_SIZE))
     let totalCreated = 0, totalDupes = 0, totalFailed = 0
     let importedSoFar = new Set()
+    let allFailures = [] // [{code, carouselIndex, reason}]
     try {
       for (let c = 0; c < chunks.length; c++) {
         const chunk = chunks[c]
@@ -430,12 +431,35 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
         totalCreated += (d.created || 0)
         totalDupes += (d.duplicates || 0)
         totalFailed += (d.failed || 0)
+        if (Array.isArray(d.failures)) allFailures = allFailures.concat(d.failures)
         // Mark this chunk's images as imported immediately so the UI
         // reflects partial progress even if a later chunk fails.
-        for (const img of chunk) importedSoFar.add(keyOf(img))
+        // BUT skip the ones the server reported as failed — keep them
+        // in the selection so the editor can retry just those.
+        const failedKeysInChunk = new Set(
+          (d.failures || []).map(f => `${f.code}|${f.carouselIndex || 1}`)
+        )
+        for (const img of chunk) {
+          if (!failedKeysInChunk.has(keyOf(img))) importedSoFar.add(keyOf(img))
+        }
         setImages(prev => prev.map(i => importedSoFar.has(keyOf(i)) ? { ...i, alreadyImported: true } : i))
       }
-      setImportMsg(`✓ Imported ${totalCreated} image${totalCreated === 1 ? '' : 's'}${totalDupes ? ` (${totalDupes} dup)` : ''}${totalFailed ? ` (${totalFailed} failed)` : ''}.`)
+      // Build a one-line summary of failure reasons grouped + counted
+      // so the editor sees "5 URL expired, 3 fetch error" rather than
+      // just a number.
+      const reasonCounts = allFailures.reduce((acc, f) => {
+        // Strip the HTTP code + " — Refresh…" suffix so similar reasons
+        // collapse into one bucket. e.g. "URL expired (HTTP 410) — Refresh
+        // the scrape" + "URL expired (HTTP 403)" both bucket to "URL expired".
+        const key = (f.reason || 'unknown').replace(/\s*\(.*$/, '').replace(/\s*—.*$/, '').trim()
+        acc[key] = (acc[key] || 0) + 1
+        return acc
+      }, {})
+      const reasonSummary = Object.entries(reasonCounts).map(([k, v]) => `${v} ${k}`).join(', ')
+      const failHint = totalFailed > 0
+        ? allFailures.some(f => /expired/i.test(f.reason)) ? ' — try ↻ Refresh then Import again (URLs go stale after ~24h)' : ''
+        : ''
+      setImportMsg(`✓ Imported ${totalCreated}${totalDupes ? ` (${totalDupes} dup)` : ''}${totalFailed ? ` · ${totalFailed} failed: ${reasonSummary}${failHint}` : '.'}`)
       onImported?.(totalCreated)
       // Clear selection of anything that successfully imported
       setSelected(prev => {
