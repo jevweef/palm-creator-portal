@@ -533,8 +533,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 {[
                   { n: 'a', label: 'Re-download → Frame Extractor', text: <>Click <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span>, then drop the mp4 straight into TJP&apos;s <b>Frame Extractor</b> (under Tools). Scrub to the pose, <b>Capture Frame</b>.</> },
                   { n: 'b', label: 'Apex Upscale', text: <>Right in the Frame Extractor panel, click <b>Upscale</b> — the captured frame loads into Apex Upscale. Click <b>Upscale</b> again to run it.</> },
-                  { n: 'c', label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with the upscaled frame + your creator. 4 variations.</> },
-                  { n: 'd', label: 'Pick best → drop in step 3', text: <>Choose the best of the 4 variations, download it, drop it in <b>step 3</b> →.</> },
+                  { n: 'c', label: 'Apex Transfer → Image-to-Image', text: <>The upscaled image lands in your <b>Studio</b> queue. Open <b>Apex Image-to-Image</b>, drag the upscaled frame onto your creator — the prompt should auto-fill (if not, refresh + drag again). Set <b>Quality 50</b> and <b>Creative Variance ~30</b>, then <b>Generate</b>. 4 variations come back.</> },
+                  { n: 'd', label: 'Upload best → step 3', text: <>Pick the best of the 4 variations, download it, then upload it into <span style={{ color: '#e8b878', fontWeight: 700 }}>step 3 →</span> on this page.</> },
                 ].map(s => (
                   <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
@@ -544,6 +544,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                     </div>
                   </div>
                 ))}
+              </div>
+              {/* Visual hand-off to step 3 — anchored to the bottom of
+                  the TJP guidance column, pointing physically toward
+                  the next column. So the editor's eye lands on the
+                  drop zone the moment they finish step d. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 14, padding: '8px 12px', background: 'rgba(232,168,120,0.08)', border: '1px dashed rgba(232,168,120,0.35)', borderRadius: 8, color: '#e8b878', fontSize: 13, fontWeight: 700 }}>
+                <span>Upload best to step 3</span>
+                <span style={{ fontSize: 18 }}>→</span>
               </div>
             </div>
 
