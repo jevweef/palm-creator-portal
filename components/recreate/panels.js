@@ -342,7 +342,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           just upload a file. */}
       <div id="tour-stageb-creator" style={card}>
         {reel?.id && !showReelGrid ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 1.4fr 1fr 1fr', gap: 16, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16, alignItems: 'stretch' }}>
             {/* Reel column: preview on top, handle + action buttons
                 below. Acts as the "scene source" anchor. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
