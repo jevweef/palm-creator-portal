@@ -945,32 +945,75 @@ function OutfitPickerSection() {
       )}
 
       {/* Click-to-enlarge image modal */}
-      {enlarged && (
-        <div onClick={() => setEnlarged(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ maxWidth: 'min(900px, 95vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-            <img src={enlarged.imageFull || enlarged.image} alt=""
-              onError={(e) => { if (enlarged.imageFallback && e.currentTarget.src !== enlarged.imageFallback) e.currentTarget.src = enlarged.imageFallback }}
-              style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#bbb' }}>
-              <a href={`https://instagram.com/${enlarged.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{enlarged.handle}</a>
-              {enlarged.carouselTotal > 1 && <span>· image {enlarged.carouselIndex} / {enlarged.carouselTotal}</span>}
-              <a href={enlarged.postUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { submitReview(enlarged.postUrl, { pickedId: enlarged.id }); setEnlarged(null) }}
-                style={{ padding: '10px 18px', fontSize: 13, fontWeight: 700, background: 'rgba(106,198,138,0.22)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.4)', borderRadius: 6, cursor: 'pointer' }}>
-                ✓ Pick this as the outfit
-              </button>
-              <button onClick={() => setEnlarged(null)}
-                style={{ padding: '10px 18px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      <EnlargeModal enlarged={enlarged} photos={photos} setEnlarged={setEnlarged} submitReview={submitReview} />
+    </div>
+  )
+}
+
+// Enlarge modal lives in its own component so the keydown listener
+// can mount/unmount cleanly with `enlarged`. Arrow keys walk through
+// the carousel siblings (same Source Post URL, sorted by Carousel
+// Index); Escape closes. Visible chevrons exist only when the post
+// has more than one image.
+function EnlargeModal({ enlarged, photos, setEnlarged, submitReview }) {
+  const siblings = enlarged
+    ? photos
+        .filter(p => p.postUrl === enlarged.postUrl)
+        .sort((a, b) => (a.carouselIndex || 1) - (b.carouselIndex || 1))
+    : []
+  const idx = enlarged ? siblings.findIndex(p => p.id === enlarged.id) : -1
+  const prev = idx > 0 ? siblings[idx - 1] : null
+  const next = idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null
+
+  useEffect(() => {
+    if (!enlarged) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft' && prev) { e.preventDefault(); setEnlarged(prev) }
+      else if (e.key === 'ArrowRight' && next) { e.preventDefault(); setEnlarged(next) }
+      else if (e.key === 'Escape') { setEnlarged(null) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [enlarged, prev, next, setEnlarged])
+
+  if (!enlarged) return null
+  const navBtn = (side) => ({
+    position: 'absolute', top: '50%', [side]: 16, transform: 'translateY(-50%)',
+    width: 48, height: 48, borderRadius: '50%',
+    background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+    fontSize: 22, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 2,
+  })
+  return (
+    <div onClick={() => setEnlarged(null)}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      {prev && (
+        <button onClick={(e) => { e.stopPropagation(); setEnlarged(prev) }} title="Previous (←)" style={navBtn('left')}>‹</button>
       )}
+      {next && (
+        <button onClick={(e) => { e.stopPropagation(); setEnlarged(next) }} title="Next (→)" style={navBtn('right')}>›</button>
+      )}
+      <div onClick={e => e.stopPropagation()}
+        style={{ maxWidth: 'min(900px, 95vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <img src={enlarged.imageFull || enlarged.image} alt=""
+          onError={(e) => { if (enlarged.imageFallback && e.currentTarget.src !== enlarged.imageFallback) e.currentTarget.src = enlarged.imageFallback }}
+          style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#bbb' }}>
+          <a href={`https://instagram.com/${enlarged.handle}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{enlarged.handle}</a>
+          {siblings.length > 1 && <span>· image {idx + 1} / {siblings.length} · ← → to navigate</span>}
+          <a href={enlarged.postUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => { submitReview(enlarged.postUrl, { pickedId: enlarged.id }); setEnlarged(null) }}
+            style={{ padding: '10px 18px', fontSize: 13, fontWeight: 700, background: 'rgba(106,198,138,0.22)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.4)', borderRadius: 6, cursor: 'pointer' }}>
+            ✓ Pick this as the outfit
+          </button>
+          <button onClick={() => setEnlarged(null)}
+            style={{ padding: '10px 18px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
