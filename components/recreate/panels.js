@@ -268,8 +268,20 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     setBusy(false)
   }
 
-  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, marginBottom: 16 }
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 14 }
   const lbl = { fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }
+  // Numbered step header — circle + title. Replaces the small uppercase
+  // "N · TITLE" labels. Optional `subtitle` shows the short description
+  // inline so each card has a clear top heading.
+  const stepHead = (n, title, subtitle = null, color = 'var(--palm-pink, #e8a0a0)') => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: subtitle ? 4 : 14 }}>
+      <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: '#1a0a0a', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{n}</div>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--foreground)', lineHeight: 1.2 }}>{title}</div>
+        {subtitle && <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>{subtitle}</div>}
+      </div>
+    </div>
+  )
 
   return (
     <div>
@@ -287,41 +299,54 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       )}
 
       <div id="tour-stageb-creator" style={card}>
-        <div style={lbl}>1 · Creator</div>
+        {stepHead(1, 'Creator')}
         <select value={creatorId} onChange={e => setCreatorId(e.target.value)}
-          style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}>
+          style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 8, fontSize: 14, fontWeight: 500, minWidth: 240 }}>
           {creators.length === 0 && <option>No creators with AI refs</option>}
-          {creators.map(c => <option key={c.id} value={c.id}>{c.name} — {c.face}F·{c.front}Fr·{c.back}B</option>)}
+          {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 8 }}>
+        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 10, lineHeight: 1.5 }}>
           {sel ? (
             myRooms.length === 0
-              ? `⚠️ ${sel.name} has no saved rooms yet — an admin needs to create one in the Rooms tab before you can generate scenes for her.`
-              : `${sel.name} has ${myRooms.length} room${myRooms.length === 1 ? '' : 's'} on file (${myRooms.map(r => r.framing || '?').join(', ')}). The portal will auto-pick the one whose framing matches your uploaded photo.`
+              ? <>⚠️ <b>{sel.name}</b> has no saved rooms yet — an admin needs to create one in the Rooms tab before you can generate scenes for her.</>
+              : <>🏠 <b>{sel.name}</b> has <b>{myRooms.length} room{myRooms.length === 1 ? '' : 's'}</b> on file ({myRooms.map(r => r.framing || '?').join(', ')}). The portal auto-picks the one whose framing matches your uploaded photo.</>
           ) : 'Pick a creator to see her saved rooms.'}
         </div>
       </div>
 
       <div style={card}>
-        <div style={lbl}>2 · Inspo reel this scene goes with</div>
+        {stepHead(2, 'Inspo reel this scene goes with')}
         {reel?.id && !showReelGrid ? (
-          // Compact view when a reel is already selected (the common case
-          // for continuing a project). The full grid is one click away.
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' })) || reel.thumbnail ? (
-              <img src={(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' })) || reel.thumbnail}
-                alt="" style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, border: '2px solid var(--palm-pink)' }} />
+          // Compact-but-prominent view when a reel is already selected
+          // (the common case for continuing a project). The full grid is
+          // one click away. Thumbnail is large enough to feel like media,
+          // not a tiny icon.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 320, fit: 'crop' })) || reel.thumbnail ? (
+              <a href={reel.url || '#'} target="_blank" rel="noreferrer"
+                style={{ flexShrink: 0, position: 'relative', display: 'block', textDecoration: 'none' }}>
+                <img src={(reel.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 320, fit: 'crop' })) || reel.thumbnail}
+                  alt="" style={{ width: 110, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, border: '2px solid var(--palm-pink)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, paddingLeft: 2 }}>▶</div>
+                </div>
+              </a>
             ) : null}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#e8b878' }}>@{reel.handle || reel.reelId}</div>
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
-                {reel.url && <a href={reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↗ open on Instagram</a>}
-                {reel.url && reel.video && ' · '}
-                {reel.video && <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener" style={{ color: '#8fb4f0', textDecoration: 'none' }}>↓ re-download mp4</a>}
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#e8b878', marginBottom: 6 }}>@{reel.handle || reel.reelId}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {reel.url && (
+                  <a href={reel.url} target="_blank" rel="noreferrer"
+                    style={{ padding: '5px 10px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 5, textDecoration: 'none' }}>↗ Open on Instagram</a>
+                )}
+                {reel.video && (
+                  <a href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1')} target="_blank" rel="noopener"
+                    style={{ padding: '5px 10px', fontSize: 11, fontWeight: 600, color: '#8fb4f0', background: 'rgba(120,160,232,0.12)', border: '1px solid rgba(120,160,232,0.25)', borderRadius: 5, textDecoration: 'none' }}>↓ Re-download mp4</a>
+                )}
               </div>
             </div>
             <button onClick={() => setShowReelGrid(true)}
-              style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 6, cursor: 'pointer' }}>
+              style={{ flexShrink: 0, padding: '8px 14px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 6, cursor: 'pointer' }}>
               Change reel
             </button>
           </div>
@@ -359,76 +384,129 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           tells the editor exactly what to do before coming back here. */}
       {reel?.id && (
         <div style={{ ...card, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)' }}>
-          <div style={{ ...lbl, color: '#8fb4f0' }}>Now do this in TJP (off-site)</div>
-          <ol style={{ margin: 0, paddingLeft: 18, color: 'var(--foreground)', fontSize: 13, lineHeight: 1.7 }}>
-            <li>Download the reel above (↓ re-download mp4) and bring it into TJP.</li>
-            <li>Take a screenshot of the pose you want to recreate.</li>
-            <li>Upscale that screenshot in TJP.</li>
-            <li>Run TJP&apos;s Apex Transfer → image-to-image with the upscaled screenshot + your creator. TJP gives you 4 variations.</li>
-            <li>Pick the best of the 4, download it, then come back here and upload it in step 5 below.</li>
-          </ol>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ fontSize: 20 }}>🎬</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#8fb4f0' }}>Now do this in TJP (off-site)</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { n: 1, text: <>Download the reel above (the <span style={{ color: '#8fb4f0' }}>↓ Re-download mp4</span> button) and bring it into TJP.</> },
+              { n: 2, text: <>Take a screenshot of the pose you want to recreate.</> },
+              { n: 3, text: <>Upscale that screenshot in TJP.</> },
+              { n: 4, text: <>Run TJP&apos;s <b>Apex Transfer → image-to-image</b> with the upscaled screenshot + your creator. TJP gives you 4 variations.</> },
+              { n: 5, text: <>Pick the best of the 4, download it, then come back here and upload it in <b>step 3</b> below.</> },
+            ].map(s => (
+              <div key={s.n} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ minWidth: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.2)', color: '#8fb4f0', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+                <div style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.5 }}>{s.text}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Optional uploads — the editor probably doesn't fill these in
-          most of the time. Collapsed by default to keep the page short. */}
-      <div style={card}>
+      {/* Optional uploads — collapsed by default. Editor doesn't usually
+          care about archival; hiding them keeps the page short. */}
+      <div style={{ marginBottom: 14 }}>
         <button onClick={() => setShowOptionalUploads(s => !s)}
-          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
-          {showOptionalUploads ? '− Hide' : '+ Optionally archive'} the TJP raw + upscaled screenshots {(rawScreenshotFile || upscaledScreenshotFile) && '·'} {rawScreenshotFile && <span style={{ color: '#6AC68A' }}>raw ✓</span>}{rawScreenshotFile && upscaledScreenshotFile && ' · '}{upscaledScreenshotFile && <span style={{ color: '#6AC68A' }}>upscaled ✓</span>}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', fontSize: 12, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer' }}>
+          <span style={{ fontSize: 14 }}>{showOptionalUploads ? '−' : '+'}</span>
+          Optionally archive the TJP raw + upscaled screenshots
+          {rawScreenshotFile && <span style={{ color: '#6AC68A' }}>· raw ✓</span>}
+          {upscaledScreenshotFile && <span style={{ color: '#6AC68A' }}>· upscaled ✓</span>}
         </button>
         {showOptionalUploads && (
-          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Raw screenshot</div>
-              <input type="file" accept="image/*" onChange={e => setRawScreenshotFile(e.target.files?.[0] || null)}
-                style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-              {rawScreenshotFile && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                  <img src={URL.createObjectURL(rawScreenshotFile)} alt="" style={{ width: 42, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
-                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{rawScreenshotFile.name}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Upscaled screenshot</div>
-              <input type="file" accept="image/*" onChange={e => setUpscaledScreenshotFile(e.target.files?.[0] || null)}
-                style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-              {upscaledScreenshotFile && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                  <img src={URL.createObjectURL(upscaledScreenshotFile)} alt="" style={{ width: 42, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
-                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{upscaledScreenshotFile.name}</span>
-                </div>
-              )}
+          <div style={{ ...card, marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+              {[
+                { label: 'Raw screenshot', file: rawScreenshotFile, set: setRawScreenshotFile },
+                { label: 'Upscaled screenshot', file: upscaledScreenshotFile, set: setUpscaledScreenshotFile },
+              ].map(slot => (
+                <label key={slot.label} style={{ display: 'block', cursor: 'pointer' }}>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{slot.label}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, background: 'rgba(0,0,0,0.25)', border: `1px dashed rgba(255,255,255,${slot.file ? '0.16' : '0.1'})`, borderRadius: 6 }}>
+                    {slot.file ? (
+                      <>
+                        <img src={URL.createObjectURL(slot.file)} alt="" style={{ width: 44, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 4, background: '#000' }} />
+                        <span style={{ fontSize: 11, color: '#6AC68A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>✓ {slot.file.name}</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Click to choose a file</span>
+                    )}
+                    <input type="file" accept="image/*" onChange={e => slot.set(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      <div id="tour-stageb-subject" style={{ ...card, border: '1px solid rgba(232,168,120,0.35)' }}>
-        <div style={{ ...lbl, color: '#e8b878' }}>3 · TJP image-to-image output (required)</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-          The TJP photo of your creator in the reel&apos;s pose &amp; outfit (still in the reel&apos;s original environment). The portal keeps her exactly as-is and just swaps the background to her saved room.
-        </div>
-        <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)}
-          style={{ fontSize: 12, color: 'var(--foreground-muted)' }} />
-        {subjectFile && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-            <img src={URL.createObjectURL(subjectFile)} alt="" style={{ width: 70, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 6, background: '#000' }} />
-            <span style={{ fontSize: 12, color: '#6AC68A' }}>✓ {subjectFile.name}</span>
-          </div>
-        )}
+      {/* TJP photo upload — the only required thing on this page.
+          Treated as a proper drop zone instead of a tiny file input so
+          it reads as the main action visually. */}
+      <div id="tour-stageb-subject" style={{ ...card, border: '1px solid rgba(232,168,120,0.4)', padding: 20 }}>
+        {stepHead(3, 'TJP image-to-image output', 'The TJP photo of your creator in the reel\'s pose & outfit (still in the reel\'s environment). The portal swaps the background to her saved room.', '#e8b878')}
+
+        <label
+          onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = 'rgba(232,168,120,0.12)' }}
+          onDragLeave={e => { e.currentTarget.style.background = subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)' }}
+          onDrop={e => {
+            e.preventDefault()
+            e.currentTarget.style.background = subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)'
+            const f = [...(e.dataTransfer?.files || [])].find(x => x.type.startsWith('image/'))
+            if (f) setSubjectFile(f)
+          }}
+          style={{
+            display: 'block',
+            border: `2px dashed rgba(232,168,120,${subjectFile ? '0.3' : '0.45'})`,
+            borderRadius: 10,
+            padding: subjectFile ? 16 : 32,
+            background: subjectFile ? 'rgba(106,198,138,0.06)' : 'rgba(232,168,120,0.05)',
+            cursor: 'pointer',
+            textAlign: 'center',
+            transition: 'background 0.15s ease',
+          }}>
+          <input type="file" accept="image/*" onChange={e => setSubjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+          {subjectFile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left' }}>
+              <img src={URL.createObjectURL(subjectFile)} alt="" style={{ width: 110, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, background: '#000', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>✓ Ready to generate</div>
+                <div style={{ fontSize: 12, color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subjectFile.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 6 }}>Click to replace · or drag a new file here</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📤</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>Drop the TJP photo here</div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to browse</div>
+            </>
+          )}
+        </label>
       </div>
 
-      <div id="tour-stageb-generate" style={card}>
-        <div style={lbl}>4 · Generate the scene</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 10 }}>
-          Swaps {sel?.name || 'the creator'}&apos;s background for her saved room and relights her to match. Takes ~3–6 minutes — you can navigate away, the result lands in Scenes below when it&apos;s done.
-        </div>
-        <button onClick={generate} disabled={busy} style={{ padding: '10px 24px', fontSize: 14, fontWeight: 700, background: busy ? 'rgba(232,168,120,0.3)' : '#e8a878', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: busy ? 'default' : 'pointer' }}>
-          {busy ? 'Working…' : '🪄 Generate scene'}
+      <div id="tour-stageb-generate" style={{ ...card, padding: 20 }}>
+        {stepHead(4, 'Generate the scene', `Swaps ${sel?.name || 'the creator'}'s background for her saved room and relights her to match. Takes ~3–6 minutes — you can navigate away, the result lands in Scenes below when it's done.`)}
+        <button onClick={generate} disabled={busy || !subjectFile}
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '14px 24px',
+            fontSize: 15,
+            fontWeight: 700,
+            background: busy ? 'rgba(232,168,120,0.3)' : !subjectFile ? 'rgba(232,168,120,0.2)' : 'linear-gradient(135deg, #e8a878 0%, #e8b878 100%)',
+            color: !subjectFile && !busy ? 'rgba(26,10,10,0.5)' : '#1a0a0a',
+            border: 'none',
+            borderRadius: 10,
+            cursor: (busy || !subjectFile) ? 'default' : 'pointer',
+            boxShadow: subjectFile && !busy ? '0 4px 16px rgba(232,168,120,0.25)' : 'none',
+            transition: 'all 0.15s ease',
+          }}>
+          {busy ? '⏳ Working…' : subjectFile ? '🪄 Generate scene' : '🪄 Generate scene — upload the TJP photo first'}
         </button>
-        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 12 }}>{msg}</div>}
+        {msg && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 6, borderLeft: '3px solid rgba(232,168,120,0.4)' }}>{msg}</div>}
       </div>
 
       {stageBOut && (
