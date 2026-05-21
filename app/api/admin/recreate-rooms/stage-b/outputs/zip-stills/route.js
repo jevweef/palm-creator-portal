@@ -169,6 +169,23 @@ export async function GET(request) {
       dbxNs = await getDropboxRootNamespaceId(dbxToken)
     }
 
+    // Slug collisions happen when the editor regenerates against the
+    // same scene number (e.g. two Amelia_R002_S03 records). Archiver
+    // keys by filename, so duplicate appends drop silently. Track
+    // seen names + suffix collisions _b, _c, _d so every record makes
+    // it into the ZIP.
+    const seenNames = new Map() // base.jpg -> count
+    const uniqueName = (base) => {
+      const n = (seenNames.get(base) || 0) + 1
+      seenNames.set(base, n)
+      if (n === 1) return base
+      // base = "Amelia_R002_S03.jpg" → "Amelia_R002_S03_b.jpg"
+      const dot = base.lastIndexOf('.')
+      const stem = dot > 0 ? base.slice(0, dot) : base
+      const ext = dot > 0 ? base.slice(dot) : ''
+      return `${stem}_${String.fromCharCode(96 + n)}${ext}` // 97='a' so n=2 → 'b'
+    }
+
     ;(async () => {
       try {
         for (const s of stills) {
@@ -178,7 +195,7 @@ export async function GET(request) {
           if (photoUrl) {
             try {
               const bytes = await fetchBytes(photoUrl)
-              archive.append(bytes, { name: `${slug}.jpg` })
+              archive.append(bytes, { name: uniqueName(`${slug}.jpg`) })
             } catch (e) { console.warn(`[zip-stills] ${slug} failed:`, e.message) }
           }
           // Outfit variants under this still — naming follows the
@@ -191,7 +208,7 @@ export async function GET(request) {
             if (!vUrl) continue
             try {
               const vBytes = await fetchBytes(vUrl)
-              archive.append(vBytes, { name: `${vSlug}.jpg` })
+              archive.append(vBytes, { name: uniqueName(`${vSlug}.jpg`) })
             } catch (e) { console.warn(`[zip-stills] variant ${vSlug} failed:`, e.message) }
           }
         }
