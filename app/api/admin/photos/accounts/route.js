@@ -6,6 +6,23 @@ export const dynamic = 'force-dynamic'
 const TABLE = 'Photo Accounts'
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 
+// Pull the bare username out of whatever the editor pasted:
+//   "@amira"                              -> "amira"
+//   "https://www.instagram.com/amira/"    -> "amira"
+//   "instagram.com/amira?hl=en"           -> "amira"
+//   "amira"                               -> "amira"
+function normalizeHandle(input) {
+  let s = String(input || '').trim()
+  if (!s) return ''
+  // Strip protocol + host if a full URL/path was pasted.
+  s = s.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
+  s = s.replace(/^instagram\.com\//i, '')
+  // Drop any trailing path segments / query / hash.
+  s = s.split(/[\/?#]/)[0]
+  s = s.replace(/^@/, '')
+  return s.toLowerCase().trim()
+}
+
 // GET — list every Photo Account, normalized.
 export async function GET() {
   try {
@@ -40,7 +57,7 @@ export async function POST(request) {
     await requireAdmin()
     const body = await request.json()
     const raw = Array.isArray(body.handles) ? body.handles : String(body.handles || '').split(/[\n,]+/)
-    const clean = [...new Set(raw.map(h => String(h || '').replace(/^@/, '').trim().toLowerCase()).filter(Boolean))]
+    const clean = [...new Set(raw.map(h => normalizeHandle(h)).filter(Boolean))]
     if (!clean.length) return NextResponse.json({ error: 'no handles' }, { status: 400 })
 
     const existing = await fetchAirtableRecords(TABLE, { fields: ['Handle'] })

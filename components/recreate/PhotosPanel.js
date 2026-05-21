@@ -277,6 +277,7 @@ function iconBtn(color) {
 function BrowsePhotosModal({ account, onClose, onImported }) {
   const [loading, setLoading] = useState(true)
   const [images, setImages] = useState([])
+  const [postsSeen, setPostsSeen] = useState(0)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [importing, setImporting] = useState(false)
@@ -289,8 +290,9 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
       .then(r => r.json())
       .then(d => {
         if (cancelled) return
-        if (d.error) { setError(d.error); setImages([]); return }
+        if (d.error) { setError(d.error); setImages([]); setPostsSeen(0); return }
         setImages(d.images || [])
+        setPostsSeen(d.postsSeen || 0)
       })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -334,13 +336,19 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
 
   const newCount = images.filter(i => !i.alreadyImported).length
   const dupCount = images.filter(i => i.alreadyImported).length
+  // Belt-and-suspenders: if the stored Handle was a URL (older row
+  // added before normalization), display just the username so the
+  // header doesn't render as "@https://www.instagram.com/...".
+  const displayHandle = String(account.handle || '')
+    .replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/^instagram\.com\//i, '')
+    .split(/[\/?#]/)[0].replace(/^@/, '').toLowerCase()
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={e => e.stopPropagation()} style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>👁 Browse @{account.handle}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>👁 Browse @{displayHandle}</div>
             <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
               {loading ? 'Loading thumbnails…' : (error ? <span style={{ color: '#E87878' }}>{error}</span> : (
                 <>{images.length} images (carousels exploded) · <span style={{ color: '#7DD3A4' }}>{newCount} new</span>{dupCount ? ` · ${dupCount} already imported` : ''} · {selected.size} marked</>
@@ -359,7 +367,13 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
         )}
         <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
           {loading && <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>⏳ Fetching from RapidAPI…</div>}
-          {!loading && !error && images.length === 0 && <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>No photo posts returned (account may only post reels).</div>}
+          {!loading && !error && images.length === 0 && (
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13, lineHeight: 1.5 }}>
+              {postsSeen > 0
+                ? <>RapidAPI returned {postsSeen} post{postsSeen === 1 ? '' : 's'} but none were photos — this account may only post reels.</>
+                : <>RapidAPI returned no posts. The handle may be wrong, the account may be private, or this list of accounts is empty. Try opening <a href={`https://instagram.com/${account.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0' }}>@{account.handle}</a> on Instagram to confirm.</>}
+            </div>
+          )}
           {!loading && images.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
               {images.map(img => {

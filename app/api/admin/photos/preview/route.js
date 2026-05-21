@@ -22,7 +22,14 @@ export async function GET(request) {
     if (!RAPIDAPI_KEY) return NextResponse.json({ error: 'RAPIDAPI_KEY not set' }, { status: 500 })
 
     const u = new URL(request.url)
-    const handle = (u.searchParams.get('handle') || '').replace(/^@/, '').trim()
+    let handle = (u.searchParams.get('handle') || '').trim()
+    // Defensive normalization in case a URL-shaped value is in Airtable
+    // from before we tightened handle parsing in the Add UI.
+    handle = handle.replace(/^https?:\/\//i, '').replace(/^www\./i, '')
+                   .replace(/^instagram\.com\//i, '')
+                   .split(/[\/?#]/)[0]
+                   .replace(/^@/, '')
+                   .toLowerCase()
     const limit = Math.min(60, Math.max(5, parseInt(u.searchParams.get('limit') || '30', 10)))
     if (!handle) return NextResponse.json({ error: 'handle required' }, { status: 400 })
 
