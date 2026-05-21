@@ -665,9 +665,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
             {outputs.map(o => {
               const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
               const placeholder = o.status === 'Generating' ? '⏳ rendering…' : o.status === 'Failed' ? '✕ failed' : '…'
+              // While the project is re-Generating, hide any stale image
+              // from a prior run — otherwise the card shows the old
+              // (possibly bad) result with "Generating" stamped on it.
+              const showImage = !!o.image && o.status !== 'Generating' && o.status !== 'Started'
               return (
                 <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-                  {o.image
+                  {showImage
                     ? <img src={o.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }} />
                     : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
                   <div style={{ padding: 8, fontSize: 11 }}>
