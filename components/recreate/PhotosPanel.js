@@ -414,7 +414,19 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
   const doImport = async () => {
     if (selected.size === 0) return
     setImporting(true); setImportMsg('')
-    const picked = images.filter(i => selected.has(keyOf(i)))
+    // Dedupe before chunking — older caches written by the buggy
+    // exploder may surface the same (code, carouselIndex) multiple
+    // times in `images`, and `images.filter(selected)` returns every
+    // duplicate. Keep only the first occurrence per key.
+    const seenPick = new Set()
+    const picked = []
+    for (const i of images) {
+      if (!selected.has(keyOf(i))) continue
+      const k = keyOf(i)
+      if (seenPick.has(k)) continue
+      seenPick.add(k)
+      picked.push(i)
+    }
     const chunks = []
     for (let i = 0; i < picked.length; i += CHUNK_SIZE) chunks.push(picked.slice(i, i + CHUNK_SIZE))
     let totalCreated = 0, totalDupes = 0, totalFailed = 0

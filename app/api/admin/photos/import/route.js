@@ -22,10 +22,21 @@ export async function POST(request) {
     await requireAdmin()
     const body = await request.json()
     const handle = String(body.handle || '').replace(/^@/, '').trim()
-    const images = Array.isArray(body.images) ? body.images : []
+    const rawImages = Array.isArray(body.images) ? body.images : []
     if (!handle) return NextResponse.json({ error: 'handle required' }, { status: 400 })
-    if (images.length === 0) return NextResponse.json({ error: 'no images selected' }, { status: 400 })
-    if (images.length > 50) return NextResponse.json({ error: 'max 50 images per import' }, { status: 400 })
+    if (rawImages.length === 0) return NextResponse.json({ error: 'no images selected' }, { status: 400 })
+    if (rawImages.length > 50) return NextResponse.json({ error: 'max 50 images per import' }, { status: 400 })
+    // Server-side dedupe in case the client sent the same (code,
+    // carouselIndex) twice (older scrape cache could've contained
+    // duplicates and the modal's filter expanded each one).
+    const seenServerKey = new Set()
+    const images = []
+    for (const img of rawImages) {
+      const k = `${img.code}|${img.carouselIndex || 1}`
+      if (seenServerKey.has(k)) continue
+      seenServerKey.add(k)
+      images.push(img)
+    }
 
     // Dup check against existing Photos rows for this handle.
     const existing = await fetchAirtableRecords('Photos', {
