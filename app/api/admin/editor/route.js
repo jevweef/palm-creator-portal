@@ -420,6 +420,33 @@ export async function PATCH(request) {
       if (assetId) {
         await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Editing' })
       }
+
+      // If the task was already approved (Post records exist in Post Prep /
+      // grid), archive them so they leave the prep + planner views. Admin
+      // recalling an approval means the existing Posts are no longer the
+      // version we want to ship — they'll be re-created on the next approve.
+      // Skip Posts that have already gone out (Sent to Telegram / Posted) —
+      // those are committed.
+      try {
+        const linkedPosts = await fetchAirtableRecords('Posts', {
+          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+          fields: ['Status', 'Telegram Sent At', 'Posted At'],
+        })
+        const archivable = linkedPosts.filter(p => {
+          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+        })
+        if (archivable.length) {
+          await Promise.all(archivable.map(p =>
+            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+          ))
+          console.log(`[Editor] Archived ${archivable.length} sibling Post(s) for recalled task ${taskId}`)
+        }
+      } catch (postErr) {
+        console.warn('[Editor] Failed to archive sibling Posts for revision:', postErr.message)
+      }
+
       console.log(`[Editor] Task ${taskId} sent back for revision`)
 
       // Send Telegram notification to editor in the background. The fetch
