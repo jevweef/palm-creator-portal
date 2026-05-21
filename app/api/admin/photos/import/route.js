@@ -46,12 +46,35 @@ export async function POST(request) {
 
     // Parallelize image downloads + Dropbox uploads at a concurrency
     // ceiling that keeps us under Vercel's 120s function timeout while
-    // staying inside Dropbox's per-second rate limits. Sequential at
-    // 50 images = ~150s (timeouts). Concurrency 6 brings the same 50
-    // down to ~25-40s.
+    // staying inside Dropbox's per-second write rate limit (around
+    // 10-12 ops/sec/app). Concurrency 4 + retry-with-backoff on 429
+    // handles the burst case where a fast network briefly pushes
+    // writes/sec above the cap.
     let dupes = 0
     const failures = [] // detailed per-image: { code, carouselIndex, reason }
-    const CONCURRENCY = 6
+    const CONCURRENCY = 4
+
+    // Wrap uploadToDropbox with retry on 429 (too_many_write_operations).
+    // Dropbox tells us how long to wait via retry_after; we honour it
+    // with a small jitter so concurrent retries don't perfectly align
+    // and slam the API again at the exact same instant.
+    const uploadWithRetry = async (tok, ns, path, buf, maxAttempts = 3) => {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          return await uploadToDropbox(tok, ns, path, buf, { overwrite: true })
+        } catch (e) {
+          const msg = e?.message || ''
+          const m429 = msg.match(/429.*retry_after"\s*:\s*(\d+)/)
+          if (m429 && attempt < maxAttempts - 1) {
+            const waitMs = (parseInt(m429[1], 10) || 1) * 1000 + Math.floor(Math.random() * 500)
+            await new Promise(r => setTimeout(r, waitMs))
+            continue
+          }
+          throw e
+        }
+      }
+      throw new Error('uploadToDropbox: retries exhausted')
+    }
     const processOne = async (img) => {
       const code = String(img.code || '').trim()
       const idx = Number(img.carouselIndex) || 1
@@ -71,7 +94,7 @@ export async function POST(request) {
         }
         const buf = Buffer.from(await ir.arrayBuffer())
         const dbxPath = `/Palm Ops/Photos/${handle}/${code}_${String(idx).padStart(2, '0')}.jpg`
-        await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
+        await uploadWithRetry(tok, ns, dbxPath, buf)
         let dbxLink = ''
         try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
         const rawLink = rawDbx(dbxLink)
@@ -90,7 +113,16 @@ export async function POST(request) {
         if (rawLink) fields.Image = [{ url: rawLink, filename: `${code}_${String(idx).padStart(2, '0')}.jpg` }]
         return { fields }
       } catch (e) {
-        failures.push({ code, carouselIndex: idx, reason: e.message || 'unknown error' })
+        // Normalize known Dropbox error messages into something the
+        // editor can act on. Raw Dropbox JSON is huge and unhelpful
+        // in the UI footer.
+        const raw = e?.message || 'unknown error'
+        const reason = /too_many_write_operations/i.test(raw) ? 'Dropbox rate limited (retries exhausted) — try Import again'
+          : /no_write_permission/i.test(raw) ? 'Dropbox: no write permission'
+          : /insufficient_space/i.test(raw) ? 'Dropbox: out of space'
+          : raw.length > 120 ? raw.slice(0, 120) + '…'
+          : raw
+        failures.push({ code, carouselIndex: idx, reason })
         return null
       }
     }
