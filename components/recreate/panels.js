@@ -402,7 +402,8 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
             </div>
 
             {/* TJP off-site steps — what to do between picking the reel
-                and dropping the result in step 3. */}
+                and dropping the result in step 3. Lettered so they
+                don't collide with the portal's step 3 / step 4. */}
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: 14, background: 'rgba(120,160,232,0.06)', border: '1px solid rgba(120,160,232,0.2)', borderRadius: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 20 }}>🎬</div>
@@ -413,11 +414,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
                 {[
-                  { n: 1, label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
-                  { n: 2, label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
-                  { n: 3, label: 'Apex Upscale', text: <>TJP → <b>Apex Upscale</b> on the captured frame.</> },
-                  { n: 4, label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with upscaled frame + your creator. 4 variations.</> },
-                  { n: 5, label: 'Upload best', text: <>Pick the best of the 4, download, drop it in <b>step 3</b> →.</> },
+                  { n: 'a', label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
+                  { n: 'b', label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
+                  { n: 'c', label: 'Apex Upscale', text: <>TJP → <b>Apex Upscale</b> on the captured frame.</> },
+                  { n: 'd', label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with upscaled frame + your creator. 4 variations.</> },
+                  { n: 'e', label: 'Pick best → drop in step 3', text: <>Choose the best of the 4 variations, download it, drop it in <b>step 3</b> →.</> },
                 ].map(s => (
                   <div key={s.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
