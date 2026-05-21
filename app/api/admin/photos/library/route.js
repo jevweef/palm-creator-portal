@@ -14,20 +14,14 @@ export async function GET() {
     })
     const photos = rows.map(r => {
       const f = r.fields || {}
+      // Image bytes live in Dropbox only. The proxy at
+      // /api/admin/photos/image streams them with the correct
+      // Content-Type and is browser-cached for 24h. Airtable Image
+      // attachment field is no longer used for new records — see
+      // the import route comment. For older records that still have
+      // an attachment, the att URL is preserved as a fallback.
       const att = f.Image
       const attThumb = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
-      const attFull = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.full?.url || att[0].url) : null
-      // Prefer the Dropbox raw URL for display because Airtable's
-      // signed attachment URLs expire after ~2h and leave the UI with
-      // black thumbnails when the page sits open. Dropbox shared links
-      // don't expire. Airtable URL becomes the fallback if no Dropbox
-      // link exists yet (older records before the import wired in DBX).
-      // Serve image bytes through our /api/admin/photos/image proxy so
-      // <img> tags get the correct Content-Type. Dropbox shared links
-      // return application/json for the underlying bytes (browser won't
-      // render), and Airtable signed URLs expire after a few hours.
-      // The proxy resolves Dropbox Path → bytes with proper image MIME
-      // and is cacheable in the browser for 24h.
       const dropboxLink = f['Dropbox Link'] || ''
       const dropboxPath = f['Dropbox Path'] || ''
       const proxyUrl = dropboxPath ? `/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}` : ''
@@ -38,8 +32,8 @@ export async function GET() {
         carouselIndex: f['Carousel Index'] || 1,
         carouselTotal: f['Carousel Total'] || 1,
         image: proxyUrl || attThumb,
-        imageFull: proxyUrl || attFull,
-        imageFallback: attThumb, // client retries on this if proxy fails
+        imageFull: proxyUrl || attThumb,
+        imageFallback: attThumb, // legacy records that still have an attachment
         dropbox: dropboxLink,
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',

@@ -97,7 +97,8 @@ export async function POST(request) {
         await uploadWithRetry(tok, ns, dbxPath, buf)
         let dbxLink = ''
         try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
-        const rawLink = rawDbx(dbxLink)
+        // (rawLink no longer needed — image bytes now stream through
+        // /api/admin/photos/image proxy, not direct Dropbox URL.)
         const fields = {
           Name: `@${handle}/${code}_${String(idx).padStart(2, '0')}`,
           'Source Handle': handle,
@@ -110,7 +111,10 @@ export async function POST(request) {
         if (img.postedAt) fields['Posted At'] = img.postedAt
         if (dbxPath) fields['Dropbox Path'] = dbxPath
         if (dbxLink) fields['Dropbox Link'] = dbxLink
-        if (rawLink) fields.Image = [{ url: rawLink, filename: `${code}_${String(idx).padStart(2, '0')}.jpg` }]
+        // NOT attaching to Airtable's Image field anymore. Dropbox is
+        // the source of truth for the actual bytes. The library API
+        // surfaces them via /api/admin/photos/image proxy. Airtable
+        // holds metadata only — saves storage + avoids double-handling.
         return { fields }
       } catch (e) {
         // Normalize known Dropbox error messages into something the
