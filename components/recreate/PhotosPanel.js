@@ -15,18 +15,19 @@ import { useEffect, useState, useCallback } from 'react'
 import { uiConfirm } from './panels'
 
 export default function PhotosPanel() {
-  const [tab, setTab] = useState('accounts') // 'accounts' | 'library'
+  const [tab, setTab] = useState('accounts') // 'accounts' | 'library' | 'outfit-picker'
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Photos</h1>
           <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 4 }}>Scrape IG photo posts (single + carousels) from accounts you trust. Feeds outfit swaps + future inspiration recreate.</p>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {[
             { k: 'accounts', label: 'Accounts' },
             { k: 'library', label: 'Library' },
+            { k: 'outfit-picker', label: '👗 Outfit Picker' },
           ].map(t => (
             <button key={t.k} onClick={() => setTab(t.k)}
               style={{
@@ -41,7 +42,9 @@ export default function PhotosPanel() {
           ))}
         </div>
       </div>
-      {tab === 'accounts' ? <AccountsSection /> : <LibrarySection />}
+      {tab === 'accounts' ? <AccountsSection />
+        : tab === 'library' ? <LibrarySection />
+        : <OutfitPickerSection />}
     </div>
   )
 }
@@ -582,6 +585,190 @@ function BrowsePhotosModal({ account, onClose, onImported }) {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Outfit Picker ──────────────────────────────────────────────────────────
+//
+// Curation workflow. The Library view shows every imported photo as a
+// carousel-grouped grid (useful for recreating whole posts). This view
+// flips that intent — it's for picking ONE image per post as "the
+// outfit," or dismissing the post entirely. The point is to build a
+// lean outfit-source pool for the upcoming fan-out feature where every
+// outfit gets applied to every scene.
+//
+// Behaviour:
+//   • Shows only posts where NO image has Outfit Reviewed = true
+//   • Carousels render thumbnails side by side, click to pick
+//   • Single-image posts let you confirm with one click
+//   • "✕ No outfit" button on each group dismisses the whole post
+//   • Click any thumbnail to open the enlarge modal (closer look)
+//   • After pick OR dismiss, the post fades and drops out of the queue
+//
+// The picked image gets Is Outfit=true. Every image in a reviewed
+// post (picked or dismissed) gets Outfit Reviewed=true so it won't
+// reappear here. The regular Library view still shows everything.
+function OutfitPickerSection() {
+  const [photos, setPhotos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [busyPost, setBusyPost] = useState(null) // postUrl currently mid-action
+  const [enlarged, setEnlarged] = useState(null) // photo object opened in modal
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/photos/library')
+      const d = await r.json()
+      if (d.ok) setPhotos(d.photos || [])
+    } catch {} finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  // Group by post URL → only keep groups where NO image has been
+  // reviewed yet (so a previously-reviewed post stays out of the queue
+  // even if a new sibling image got added later).
+  const groups = (() => {
+    const byPost = new Map()
+    for (const p of photos) {
+      const key = p.postUrl || p.id
+      if (!byPost.has(key)) byPost.set(key, [])
+      byPost.get(key).push(p)
+    }
+    const out = []
+    for (const [postUrl, items] of byPost) {
+      if (items.some(i => i.outfitReviewed)) continue
+      items.sort((a, b) => (a.carouselIndex || 1) - (b.carouselIndex || 1))
+      out.push({ postUrl, items, newest: items[0]?.createdTime || '' })
+    }
+    return out.sort((a, b) => (b.newest || '').localeCompare(a.newest || ''))
+  })()
+
+  const submitReview = async (postUrl, opts) => {
+    setBusyPost(postUrl)
+    // Optimistic: hide the post immediately. If the request fails,
+    // reload to put it back.
+    const snapshot = photos
+    setPhotos(prev => prev.map(p => p.postUrl === postUrl
+      ? { ...p, outfitReviewed: true, isOutfit: p.id === opts.pickedId }
+      : p))
+    try {
+      const r = await fetch('/api/admin/photos/library/outfit-review', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postUrl, ...opts }),
+      })
+      const d = await r.json()
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+    } catch (e) {
+      // Roll back to the pre-action photos.
+      setPhotos(snapshot)
+      alert(`Review failed: ${e.message}`)
+    } finally { setBusyPost(null) }
+  }
+
+  const queueCount = groups.length
+  const totalReviewed = photos.reduce((n, p) => n + (p.outfitReviewed ? 1 : 0), 0)
+  const totalPicked = photos.reduce((n, p) => n + (p.isOutfit ? 1 : 0), 0)
+
+  return (
+    <div>
+      <div style={{ padding: 12, background: 'rgba(232,168,120,0.06)', border: '1px solid rgba(232,168,120,0.2)', borderRadius: 10, marginBottom: 16, fontSize: 13, color: 'var(--foreground)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <b>👗 Outfit Picker</b> — for each post, choose the best outfit image OR dismiss if no outfit is usable. The pick gets flagged <span style={{ color: '#6AC68A' }}>Is Outfit</span> so the fan-out picker draws only those.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+            <b style={{ color: '#e8b878' }}>{queueCount}</b> posts left · <b style={{ color: '#6AC68A' }}>{totalPicked}</b> outfits picked · {totalReviewed} reviewed
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>Loading…</div>
+      ) : groups.length === 0 ? (
+        <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+          {photos.length === 0
+            ? 'No photos in library yet. Switch to Accounts and Browse some IG handles to import images.'
+            : 'Queue empty — every imported post has been reviewed. Import more photos to keep going, or go to Library to see your full outfit pool.'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {groups.map(group => {
+            const isBusy = busyPost === group.postUrl
+            const handle = group.items[0]?.handle || ''
+            const isCarousel = group.items.length > 1 || (group.items[0]?.carouselTotal || 1) > 1
+            const total = group.items[0]?.carouselTotal || group.items.length
+            return (
+              <div key={group.postUrl}
+                style={{
+                  padding: 14, borderRadius: 10,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  opacity: isBusy ? 0.4 : 1,
+                  transition: 'opacity 0.3s',
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--foreground-muted)' }}>
+                    <span style={{ fontSize: 14 }}>{isCarousel ? '📚' : '🖼️'}</span>
+                    <span>{isCarousel ? `${group.items.length} / ${total} images` : 'single image'}</span>
+                    <span>·</span>
+                    <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{handle}</a>
+                    <span>·</span>
+                    <a href={group.postUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
+                  </div>
+                  <button onClick={() => submitReview(group.postUrl, { dismiss: true })} disabled={isBusy}
+                    style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, background: 'rgba(232,120,120,0.12)', color: '#E87878', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 5, cursor: isBusy ? 'default' : 'pointer' }}>
+                    ✕ No outfit in this post
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isCarousel ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(180px, 220px))', gap: 10 }}>
+                  {group.items.map(p => (
+                    <div key={p.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      {p.image
+                        ? <img src={p.image} alt="" loading="lazy" onClick={() => setEnlarged(p)}
+                            style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
+                        : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                      <button onClick={() => submitReview(group.postUrl, { pickedId: p.id })} disabled={isBusy}
+                        title="Mark this image as the outfit choice for this post"
+                        style={{ width: '100%', padding: '7px 10px', fontSize: 11, fontWeight: 700, background: 'rgba(106,198,138,0.18)', color: '#6AC68A', border: 'none', borderTop: '1px solid rgba(106,198,138,0.25)', cursor: isBusy ? 'default' : 'pointer' }}>
+                        ✓ Pick as outfit
+                      </button>
+                      {p.carouselTotal > 1 && (
+                        <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 6px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 10, fontWeight: 700 }}>{p.carouselIndex}/{p.carouselTotal}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Click-to-enlarge image modal */}
+      {enlarged && (
+        <div onClick={() => setEnlarged(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 'min(900px, 95vw)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            <img src={enlarged.imageFull || enlarged.image} alt="" style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 10, background: '#000' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#bbb' }}>
+              <a href={`https://instagram.com/${enlarged.handle}`} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>@{enlarged.handle}</a>
+              {enlarged.carouselTotal > 1 && <span>· image {enlarged.carouselIndex} / {enlarged.carouselTotal}</span>}
+              <a href={enlarged.postUrl} target="_blank" rel="noreferrer" style={{ color: '#8FB4F0', textDecoration: 'none' }}>↗ post</a>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => { submitReview(enlarged.postUrl, { pickedId: enlarged.id }); setEnlarged(null) }}
+                style={{ padding: '10px 18px', fontSize: 13, fontWeight: 700, background: 'rgba(106,198,138,0.22)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.4)', borderRadius: 6, cursor: 'pointer' }}>
+                ✓ Pick this as the outfit
+              </button>
+              <button onClick={() => setEnlarged(null)}
+                style={{ padding: '10px 18px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -10,12 +10,15 @@ export async function GET() {
   try {
     await requireAdmin()
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed'],
     })
     const photos = rows.map(r => {
       const f = r.fields || {}
       const att = f.Image
       const imgUrl = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.large?.url || att[0].url) : null
+      // Pull the full-size attachment URL too so the click-to-enlarge
+      // modal can show a big version without re-fetching.
+      const fullUrl = (Array.isArray(att) && att[0]) ? (att[0].thumbnails?.full?.url || att[0].url) : null
       return {
         id: r.id,
         handle: f['Source Handle'] || '',
@@ -23,12 +26,15 @@ export async function GET() {
         carouselIndex: f['Carousel Index'] || 1,
         carouselTotal: f['Carousel Total'] || 1,
         image: imgUrl,
+        imageFull: fullUrl,
         dropbox: f['Dropbox Link'] || '',
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',
         status: f.Status?.name || f.Status || 'Pending',
         outfitType: f['Outfit Type']?.name || f['Outfit Type'] || null,
         creatorIds: f.Creator || [],
+        isOutfit: !!f['Is Outfit'],
+        outfitReviewed: !!f['Outfit Reviewed'],
         createdTime: r.createdTime,
       }
     }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
