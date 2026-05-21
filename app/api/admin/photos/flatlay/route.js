@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { fetchPostHdUrls } from '@/lib/instagramHd'
 
 export const dynamic = 'force-dynamic'
 // Nano Banana edits typically finish in 10–30s. 90s leaves comfortable
@@ -56,11 +57,15 @@ const FLATLAY_PROMPT = (
   + 'of the source garment (silk should look like silk, ribbed knit should look '
   + 'ribbed, sheer should stay sheer). Do NOT cheapen or flatten the material. '
   + 'Photoreal, sharp focus, high detail.\n\n'
-  + 'STRICTLY exclude: the person/model, any body parts, the original background, '
-  + 'sunglasses, phones, drinks, bags, environmental context. Also exclude store '
+  + 'STRICTLY exclude everything that is NOT a garment the subject is wearing: '
+  + 'the person/model, body parts, original background, sunglasses, phones, '
+  + 'drinks, bags, jewelry not visibly on the subject, environmental textiles '
+  + '(towels, blankets, sheets, pillows, robes laid on a surface, beach throws, '
+  + 'rugs, sarongs draped on furniture), furniture, plants. Also exclude store '
   + 'or brand tags, price tags, hang tags, swing tags, size labels, hangers, '
-  + 'rulers, or any commercial-listing decorations. Just the clean clothes on a '
-  + 'white surface, nothing else.'
+  + 'mannequins, rulers, or any commercial-listing decorations. Only items '
+  + 'actually worn by the person belong in the flatlay — if it is on a chair, '
+  + 'a bed, the floor, or behind the subject, omit it.'
 )
 
 // POST { photoId, model? } — generate a flatlay for one Photos row.
@@ -107,14 +112,33 @@ export async function POST(request) {
     // and render a spinner.
     await patchAirtableRecord(PHOTOS, photoId, { 'Flatlay Status': 'Generating' }, { typecast: true })
 
-    // WaveSpeed needs a publicly fetchable URL. If we don't have a CDN
-    // URL yet, fall back to our Dropbox proxy (server-side fetched +
-    // re-served with correct MIME). The proxy URL needs to be absolute
-    // for WaveSpeed to reach it from outside our domain.
+    // Source for WaveSpeed: always try to grab a fresh 1080w HD URL
+    // straight from Instagram first — the CDN copy may still be the
+    // ~480w feed thumbnail if this row was imported before the HD-on-
+    // import fix and hasn't been upgraded yet. More pixels at the input
+    // = the model has more fabric texture / silhouette detail to read
+    // from, which directly affects how well the flatlay matches.
+    //
+    // Falls back to CDN URL (if HD lookup misses, e.g. post deleted or
+    // rate-limited), then to the Dropbox proxy as a last resort.
     const origin = new URL(request.url).origin
-    const sourceImageUrl = cdnUrl
-      ? cdnUrl
-      : `${origin}/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}`
+    let sourceImageUrl = null
+    let sourceVariant = 'unknown'
+    try {
+      const hdMap = await fetchPostHdUrls(code)
+      const hdUrl = hdMap?.get(idx)
+      if (hdUrl) { sourceImageUrl = hdUrl; sourceVariant = 'ig-1080w' }
+    } catch (e) { console.warn('[photos/flatlay] HD lookup failed:', e.message) }
+    if (!sourceImageUrl && cdnUrl) { sourceImageUrl = cdnUrl; sourceVariant = 'cdn' }
+    if (!sourceImageUrl && dropboxPath) {
+      sourceImageUrl = `${origin}/api/admin/photos/image?path=${encodeURIComponent(dropboxPath)}`
+      sourceVariant = 'dropbox-proxy'
+    }
+    if (!sourceImageUrl) {
+      await patchAirtableRecord(PHOTOS, photoId, { 'Flatlay Status': 'Failed' }, { typecast: true })
+      return NextResponse.json({ error: 'No source bytes available for this photo' }, { status: 400 })
+    }
+    console.log(`[photos/flatlay] ${photoId} model=${modelKey} source=${sourceVariant}`)
 
     let task
     try {
