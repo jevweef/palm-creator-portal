@@ -531,11 +531,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, justifyContent: 'space-between' }}>
                 {[
-                  { n: 'a', label: 'Download the reel', text: <>Use <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span> and bring the mp4 into TJP.</> },
-                  { n: 'b', label: 'Frame Extractor', text: <>TJP → <b>Tools → Frame Extractor</b>. Scrub to the pose, <b>Capture Frame</b>.</> },
-                  { n: 'c', label: 'Apex Upscale', text: <>TJP → <b>Apex Upscale</b> on the captured frame.</> },
-                  { n: 'd', label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with upscaled frame + your creator. 4 variations.</> },
-                  { n: 'e', label: 'Pick best → drop in step 3', text: <>Choose the best of the 4 variations, download it, drop it in <b>step 3</b> →.</> },
+                  { n: 'a', label: 'Re-download → Frame Extractor', text: <>Click <span style={{ color: '#8fb4f0', whiteSpace: 'nowrap' }}>↓ Re-download</span>, then drop the mp4 straight into TJP&apos;s <b>Frame Extractor</b> (under Tools). Scrub to the pose, <b>Capture Frame</b>.</> },
+                  { n: 'b', label: 'Apex Upscale', text: <>Right in the Frame Extractor panel, click <b>Upscale</b> — the captured frame loads into Apex Upscale. Click <b>Upscale</b> again to run it.</> },
+                  { n: 'c', label: 'Apex Transfer', text: <>TJP → <b>Apex Transfer → image-to-image</b> with the upscaled frame + your creator. 4 variations.</> },
+                  { n: 'd', label: 'Pick best → drop in step 3', text: <>Choose the best of the 4 variations, download it, drop it in <b>step 3</b> →.</> },
                 ].map(s => (
                   <div key={s.n} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(120,160,232,0.25)', color: '#8fb4f0', fontSize: 15, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{s.n}</div>
