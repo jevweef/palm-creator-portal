@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
+// Bumped from manual-only "client cache" to durable server cache —
+// the cached scrape lives on the Photo Accounts row's Scrape Cache
+// field so we never re-pay RapidAPI for the same handle across
+// modal closes / different devices. Editor clicks Refresh to bust.
+const CACHE_VALID_FOR_MS = 30 * 24 * 60 * 60 * 1000 // 30 days — generous; the editor decides when stale
 
 // GET /api/admin/photos/preview?handle=X&limit=30
 //
@@ -34,6 +39,7 @@ export async function GET(request) {
     // returns ~12-24 posts, so this controls pagination depth, not the
     // exact image count — a single carousel post can yield 10+ images).
     const limit = Math.min(200, Math.max(5, parseInt(u.searchParams.get('limit') || '60', 10)))
+    const forceRefresh = u.searchParams.get('refresh') === '1'
     if (!handle) return NextResponse.json({ error: 'handle required' }, { status: 400 })
 
     // Already-imported lookup. Photos table holds one record per image
@@ -48,6 +54,41 @@ export async function GET(request) {
       const idx = r.fields?.['Carousel Index'] || 1
       const m = url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/)
       if (m) existingKeys.add(`${m[1]}|${idx}`)
+    }
+
+    // Look up the Photo Account row so we can read/write its cache.
+    const accountRows = await fetchAirtableRecords('Photo Accounts', {
+      fields: ['Handle', 'Scrape Cache', 'Last Scraped At', 'Last Photos Scraped'],
+      filterByFormula: `LOWER({Handle}) = "${handle.replace(/"/g, '\\"')}"`,
+      maxRecords: 1,
+    })
+    const accountRow = accountRows[0]
+    const accountId = accountRow?.id || null
+
+    // Cache hit? Parse the JSON blob, validate freshness, recompute
+    // alreadyImported (since the Photos table changes independently
+    // of the cache) and return without hitting RapidAPI.
+    if (!forceRefresh && accountRow?.fields?.['Scrape Cache']) {
+      try {
+        const cached = JSON.parse(accountRow.fields['Scrape Cache'])
+        const fetchedAt = cached?.fetchedAt ? Date.parse(cached.fetchedAt) : 0
+        if (fetchedAt && (Date.now() - fetchedAt) < CACHE_VALID_FOR_MS && Array.isArray(cached.images)) {
+          const refreshed = cached.images.map(img => ({
+            ...img,
+            alreadyImported: existingKeys.has(`${img.code}|${img.carouselIndex || 1}`),
+          }))
+          return NextResponse.json({
+            ok: true,
+            handle,
+            postsSeen: cached.postsSeen || 0,
+            total: refreshed.length,
+            alreadyImportedCount: refreshed.filter(i => i.alreadyImported).length,
+            images: refreshed,
+            cachedAt: cached.fetchedAt,
+            fromCache: true,
+          })
+        }
+      } catch (e) { console.warn('[photos/preview] cache parse failed:', e.message) }
     }
 
     const images = [] // exploded list — one entry per image
@@ -163,6 +204,39 @@ export async function GET(request) {
     // Final trim — generous so carousels don't get cut off mid-post.
     const trimmed = images.slice(0, limit * 5)
 
+    // Persist to the Photo Accounts row so future Browse opens skip
+    // RapidAPI entirely. Strip the alreadyImported flag from the
+    // cache payload — that's recomputed on every read from the live
+    // Photos table. Captions truncated to 200 chars to keep the
+    // multilineText field well under the 100KB cell cap (200 imgs
+    // x ~400 bytes = ~80KB after pretty-print).
+    const fetchedAt = new Date().toISOString()
+    if (accountId) {
+      try {
+        const blob = {
+          fetchedAt,
+          postsSeen,
+          imageCount: trimmed.length,
+          images: trimmed.map(({ alreadyImported, caption, ...rest }) => ({ ...rest, caption: (caption || '').slice(0, 200) })),
+        }
+        const serialized = JSON.stringify(blob)
+        // Hard cap at 95KB — Airtable's multilineText soft limit is
+        // 100KB. If we exceed it, drop captions and re-serialize.
+        let payload = serialized
+        if (serialized.length > 95_000) {
+          const lean = { ...blob, images: blob.images.map(i => ({ ...i, caption: '' })) }
+          payload = JSON.stringify(lean)
+        }
+        await patchAirtableRecord('Photo Accounts', accountId, {
+          'Scrape Cache': payload,
+          'Last Scraped At': fetchedAt,
+          'Last Photos Scraped': trimmed.length,
+        }, { typecast: true })
+      } catch (e) {
+        console.warn('[photos/preview] cache write failed:', e.message)
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       handle,
@@ -170,6 +244,8 @@ export async function GET(request) {
       total: trimmed.length,
       alreadyImportedCount: trimmed.filter(i => i.alreadyImported).length,
       images: trimmed,
+      cachedAt: fetchedAt,
+      fromCache: false,
       // Diagnostic surface — only meaningful when postsSeen === 0
       // and the editor needs to see why. Lists the response shape so
       // we can spot a renamed key (e.g. "feed_items" vs "posts").
