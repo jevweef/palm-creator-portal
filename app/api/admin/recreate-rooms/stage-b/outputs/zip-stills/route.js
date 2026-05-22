@@ -24,6 +24,7 @@ export const maxDuration = 180
 import { NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
 import archiver from 'archiver'
+import sharp from 'sharp'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
 
@@ -103,6 +104,22 @@ export async function GET(request) {
       const r2 = await fetch(link)
       if (!r2.ok) throw new Error(`fetch ${r2.status}`)
       return Buffer.from(await r2.arrayBuffer())
+    }
+
+    // Defensive PNG→JPEG coercion for legacy Stage B stills + flatlays.
+    // Wan and GPT return PNG bytes; older outputs were saved as .jpg
+    // without re-encoding so Finder / TJP flag them as malformed.
+    // Sniff the magic bytes and re-encode when the extension lies.
+    const coerceJpegIfNeeded = async (buf) => {
+      if (!buf || buf.length < 8) return buf
+      const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+      if (!isPng) return buf
+      try {
+        return await sharp(buf).jpeg({ quality: 92, mozjpeg: true }).toBuffer()
+      } catch (e) {
+        console.warn('[zip-stills] jpeg re-encode failed, keeping raw bytes:', e.message)
+        return buf
+      }
     }
 
     // Bundle name: prefer slug-derived reel id if all stills share one;
@@ -195,7 +212,8 @@ export async function GET(request) {
           const photoUrl = rawLink(sf['Dropbox Link']) || sf.Image?.[0]?.url
           if (photoUrl) {
             try {
-              const bytes = await fetchBytes(photoUrl)
+              const raw = await fetchBytes(photoUrl)
+              const bytes = await coerceJpegIfNeeded(raw)
               archive.append(bytes, { name: uniqueName(`${slug}.jpg`) })
             } catch (e) { console.warn(`[zip-stills] ${slug} failed:`, e.message) }
           }
@@ -208,7 +226,8 @@ export async function GET(request) {
             const vSlug = vf.Slug || `${slug}_O${String(vf['Variant #'] || 0).padStart(2, '0')}`
             if (!vUrl) continue
             try {
-              const vBytes = await fetchBytes(vUrl)
+              const raw = await fetchBytes(vUrl)
+              const vBytes = await coerceJpegIfNeeded(raw)
               archive.append(vBytes, { name: uniqueName(`${vSlug}.jpg`) })
             } catch (e) { console.warn(`[zip-stills] variant ${vSlug} failed:`, e.message) }
           }

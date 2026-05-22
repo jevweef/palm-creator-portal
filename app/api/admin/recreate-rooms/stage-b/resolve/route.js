@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { pollWaveSpeedTask } from '@/lib/wavespeed'
+import sharp from 'sharp'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +45,19 @@ export async function POST() {
           try {
             const ir = await fetch(outUrl)
             if (ir.ok) {
-              const buf = Buffer.from(await ir.arrayBuffer())
+              const rawBuf = Buffer.from(await ir.arrayBuffer())
+              // Coerce to JPEG. Wan and GPT return PNG bytes even when
+              // we save the file as .jpg — macOS Finder catches the
+              // extension/content mismatch and renders a broken-alias
+              // icon, and TJP rejects the file as malformed. Same fix
+              // we applied to the flatlay route earlier.
+              let buf
+              try {
+                buf = await sharp(rawBuf).jpeg({ quality: 92, mozjpeg: true }).toBuffer()
+              } catch (e) {
+                console.warn(`[stage-b/resolve] jpeg re-encode failed for ${r.id}, using raw bytes:`, e.message)
+                buf = rawBuf
+              }
               // Use the canonical slug for the Dropbox filename so the
               // editor's local files match the slug end-to-end. Pre-slug
               // records (no Slug field set) fall back to the record-id
