@@ -248,7 +248,11 @@ export async function GET(request) {
           const dbxPath = useFlatlay ? flatlayDbx : (f['Dropbox Path'] || '')
           const cdnUrl = useFlatlay ? flatlayCdn : (f['CDN URL'] || '')
           const ext = extOf(dbxPath || 'x.jpg')
-          const name = `outfits/${idx}_${handle}_${sourceLabel}.${ext}`
+          // Flat ZIP — no subfolder. Editor wanted outfits sitting
+          // alongside the scene stills so TJP picks them up in a
+          // single import without re-walking folders. "outfit-" prefix
+          // keeps them visually grouped without isolating them.
+          const name = `outfit-${idx}_${handle}_${sourceLabel}.${ext}`
 
           try {
             let bytes = null
