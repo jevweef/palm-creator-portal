@@ -556,9 +556,15 @@ function LibrarySection({ outfitsOnly = false }) {
             const total = cover.carouselTotal || group.items.length
             const isCarousel = group.items.length > 1 || total > 1
             const sc = cover.status === 'Approved' ? '#6AC68A' : cover.status === 'Rejected' ? '#E87878' : '#e8b878'
+            // Single-image posts (Pinterest uploads, IG singles) skip
+            // the modal flow — there's nothing to expand to. Clicking
+            // them does nothing; the action buttons handle everything
+            // inline. Carousels still open the modal so siblings show.
+            const isSinglePost = group.items.length === 1 && !isCarousel
             return (
-              <div key={group.postUrl} onClick={() => setOpenPostUrl(group.postUrl)}
-                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: 'pointer' }}>
+              <div key={group.postUrl}
+                onClick={() => { if (!isSinglePost) setOpenPostUrl(group.postUrl) }}
+                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: isSinglePost ? 'default' : 'pointer' }}>
                 {cover.image
                   ? <img src={cover.image} alt="" loading="lazy"
                       onError={(e) => { if (cover.imageFallback && e.currentTarget.src !== cover.imageFallback) e.currentTarget.src = cover.imageFallback }}
@@ -567,6 +573,20 @@ function LibrarySection({ outfitsOnly = false }) {
                 {isCarousel && (
                   <div style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.72)', color: '#fff', fontSize: 10, fontWeight: 700 }}>📚 {group.items.length}/{total}</div>
                 )}
+                {/* Top-left delete pill — visible without opening the
+                    modal. stopPropagation so the card click (which
+                    opens the modal) doesn't fire underneath. */}
+                <button onClick={(e) => { e.stopPropagation(); removePhoto(cover) }}
+                  title="Delete this photo (removes Dropbox file + Cloudflare variant too)"
+                  style={{
+                    position: 'absolute', top: 6, left: 6,
+                    padding: '4px 8px', borderRadius: 4,
+                    background: 'rgba(232,120,120,0.85)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                  🗑
+                </button>
                 <div style={{ padding: '7px 9px', fontSize: 11, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#8FB4F0' }}>@{cover.handle}</span>
                   <span style={{ color: sc, fontWeight: 700, fontSize: 10 }}>{cover.status}</span>
