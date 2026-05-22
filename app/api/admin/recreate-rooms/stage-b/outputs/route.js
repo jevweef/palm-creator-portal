@@ -143,9 +143,13 @@ export async function PATCH(request) {
 
 // DELETE ?id= — remove a Stage B output record (Airtable only;
 // Dropbox copy left in place, cheap and useful as a tuning archive).
+// ai_editor allowed: their workflow includes deleting their own
+// rejected/unwanted generations as a normal step (the 🗑 button on
+// scene cards). Gating to admin-only made that button silently 403
+// for editor users.
 export async function DELETE(request) {
   try {
-    await requireAdmin()
+    await requireAdminOrAiEditor()
     const id = new URL(request.url).searchParams.get('id')
     if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
       return NextResponse.json({ error: 'Valid id required' }, { status: 400 })

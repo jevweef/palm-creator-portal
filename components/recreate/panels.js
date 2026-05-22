@@ -310,11 +310,26 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   // before the record itself is removed — preserves the signal for the
   // editor who explicitly asked to combine the two actions.
   const deleteOutput = async (o) => {
-    await fetch('/api/admin/recreate-rooms/stage-b/outputs', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: o.id, status: 'Rejected', reason: '' }),
-    }).catch(() => {})
-    await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' }).catch(() => {})
+    // Swallowing errors silently used to mask a real auth mismatch —
+    // ai_editor clicked Sure and nothing happened because DELETE was
+    // admin-only. Now we surface non-OK responses so the editor knows
+    // whether the action actually landed.
+    try {
+      const r1 = await fetch('/api/admin/recreate-rooms/stage-b/outputs', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: o.id, status: 'Rejected', reason: '' }),
+      })
+      if (!r1.ok) console.warn(`[deleteOutput] PATCH reject failed: ${r1.status}`)
+      const r2 = await fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${o.id}`, { method: 'DELETE' })
+      if (!r2.ok) {
+        const text = await r2.text().catch(() => '')
+        alert(`Delete failed: HTTP ${r2.status} ${text.slice(0, 120)}`)
+        return
+      }
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`)
+      return
+    }
     setArmedDeleteId(null)
     loadOutputs()
   }
