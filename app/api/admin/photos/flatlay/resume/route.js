@@ -33,7 +33,7 @@ export async function POST(request) {
     }
 
     const rows = await fetchAirtableRecords('Photos', {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Flatlay Status', 'Flatlay Prediction ID', 'Flatlay Model', 'Flatlay Locked'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Flatlay Status', 'Flatlay Prediction ID', 'Flatlay Model', 'Flatlay Locked', 'Flatlay Variants'],
       filterByFormula: `RECORD_ID() = '${photoId}'`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
@@ -105,9 +105,24 @@ export async function POST(request) {
       } catch (e) { console.warn(`[photos/flatlay/resume] CF upload failed:`, e.message) }
     }
 
+    // Append to variant history (same logic as the main route).
+    let variants = []
+    try { variants = JSON.parse(f['Flatlay Variants'] || '[]') } catch {}
+    if (!Array.isArray(variants)) variants = []
+    variants = variants.filter(v => v && v.model !== modelKey)
+    variants.unshift({
+      model: modelKey,
+      cdnUrl: flatlayCdnUrl || '',
+      dropboxPath: dbxUploadOk ? dbxPath : '',
+      predictionId,
+      generatedAt: new Date().toISOString(),
+    })
+    variants = variants.slice(0, 6)
+
     const patch = {
       'Flatlay Status': 'Done',
       'Flatlay Model': modelKey,
+      'Flatlay Variants': JSON.stringify(variants),
       ...(dbxUploadOk ? { 'Flatlay Dropbox Path': dbxPath } : { 'Flatlay Dropbox Path': '' }),
       ...(flatlayCdnUrl ? { 'Flatlay CDN URL': flatlayCdnUrl } : {}),
     }

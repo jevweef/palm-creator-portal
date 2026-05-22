@@ -760,8 +760,21 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, res
   // feature is about analyzing the clothes the subject is wearing).
   // Status flow: None → Generating → Done | Failed.
   const fl = p.flatlayStatus || 'None'
-  const flatlayReady = fl === 'Done' && !!p.flatlayCdnUrl
+  const variants = Array.isArray(p.flatlayVariants) ? p.flatlayVariants : []
+  const flatlayReady = fl === 'Done' && !!(p.flatlayCdnUrl || variants[0]?.cdnUrl)
   const [showFlatlay, setShowFlatlay] = useState(false)
+  // Which variant the dual-view shows. Default to whatever Flatlay
+  // Model on the row says (the "current" pointer), fall back to the
+  // newest entry in the variants array. Lets the editor click between
+  // Nano / Wan / GPT side by side.
+  const [activeVariantModel, setActiveVariantModel] = useState(p.flatlayModel || variants[0]?.model || '')
+  const activeVariant = variants.find(v => v.model === activeVariantModel) || variants[0] || null
+  // Display URL: prefer the active variant, fall back to the legacy
+  // single-flatlay CDN URL for rows that haven't been re-generated
+  // since the variants field landed.
+  const displayedFlatlayUrl = activeVariant?.cdnUrl || p.flatlayCdnUrl || ''
+  const displayedFlatlayModel = activeVariant?.model || p.flatlayModel || ''
+  const displayedFlatlayDropboxPath = activeVariant?.dropboxPath || p.flatlayDropboxPath || ''
   // Side-by-side when dualView is on AND a flatlay actually exists —
   // otherwise we fall through to the regular single-image render so the
   // card doesn't show a wasted empty pane when generation hasn't
@@ -783,15 +796,37 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, res
               title="Download original" style={paneDownloadBtn}>⬇</a>
           </div>
           <div style={{ position: 'relative', background: '#fff' }}>
-            <img src={p.flatlayCdnUrl} alt="" loading="lazy"
+            <img src={displayedFlatlayUrl} alt="" loading="lazy"
               style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(232,168,120,0.92)', color: '#1a0a0a', fontSize: 10, fontWeight: 800 }}>
-              📦 flatlay{p.flatlayModel ? ` · ${p.flatlayModel.toUpperCase()}` : ''}
+              📦 flatlay{displayedFlatlayModel ? ` · ${displayedFlatlayModel.toUpperCase()}` : ''}
             </div>
-            <a href={flatlayDownloadHref(p)} download={flatlayDownloadName(p)}
+            <a
+              href={flatlayDownloadHref({ ...p, flatlayCdnUrl: displayedFlatlayUrl, flatlayDropboxPath: displayedFlatlayDropboxPath, flatlayModel: displayedFlatlayModel })}
+              download={flatlayDownloadName({ ...p, flatlayModel: displayedFlatlayModel })}
               title="Download flatlay" style={paneDownloadBtn}>⬇</a>
             {p.flatlayLocked && (
               <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>🔒 LOCKED</div>
+            )}
+            {/* Variant switcher — chips for every model that has been
+                generated for this outfit. Click swaps which one fills
+                the flatlay pane (no re-generation, just changes what's
+                visible). Only renders when 2+ variants exist. */}
+            {variants.length > 1 && (
+              <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4, padding: 4, background: 'rgba(0,0,0,0.6)', borderRadius: 6 }}>
+                {variants.map(v => (
+                  <button key={v.model} onClick={() => setActiveVariantModel(v.model)}
+                    title={`Show ${v.model.toUpperCase()} variant`}
+                    style={{
+                      padding: '4px 8px', fontSize: 10, fontWeight: 800, borderRadius: 4,
+                      background: v.model === activeVariantModel ? 'rgba(232,168,120,0.92)' : 'rgba(255,255,255,0.15)',
+                      color: v.model === activeVariantModel ? '#1a0a0a' : '#fff',
+                      border: 'none', cursor: 'pointer',
+                    }}>
+                    {v.model.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>

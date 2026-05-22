@@ -155,7 +155,7 @@ export async function POST(request) {
     // a public Cloudflare URL — no auth, fastest to fetch). Fall back
     // to Dropbox-proxied bytes if the row hasn't been CF-mirrored yet.
     const rows = await fetchAirtableRecords(PHOTOS, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked', 'Flatlay Variants'],
       filterByFormula: `RECORD_ID() = '${photoId}'`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
@@ -314,13 +314,34 @@ export async function POST(request) {
       }
     }
 
+    // Append to Flatlay Variants (history of every run). Each entry
+    // is {model, cdnUrl, dropboxPath, predictionId, generatedAt}.
+    // Same-model re-runs replace the existing entry for that model so
+    // we don't accumulate duplicate Nano runs across many iterations
+    // — the bytes on Dropbox/CF are keyed by model so they overwrite
+    // naturally too.
+    let variants = []
+    try { variants = JSON.parse(f['Flatlay Variants'] || '[]') } catch {}
+    if (!Array.isArray(variants)) variants = []
+    variants = variants.filter(v => v && v.model !== modelKey)
+    variants.unshift({
+      model: modelKey,
+      cdnUrl: flatlayCdnUrl || '',
+      dropboxPath: dbxUploadOk ? dbxPath : '',
+      predictionId,
+      generatedAt: new Date().toISOString(),
+    })
+    // Keep at most 6 variants to stay well under Airtable's
+    // multilineText cell cap, even though we only have 3 models today.
+    variants = variants.slice(0, 6)
+
     const patch = {
       'Flatlay Status': 'Done',
       'Flatlay Model': modelKey,
-      // Only write the path field when the Dropbox upload actually
-      // succeeded. Stale paths cause the ⬇ button to hit empty bytes
-      // (broken-link icon in Finder) since the route proxies through
-      // downloadFromDropbox.
+      'Flatlay Variants': JSON.stringify(variants),
+      // The "current" pointer fields (single-flatlay UI fallback) get
+      // set to whatever model just ran so the editor sees their latest
+      // click as the default in the dual-view pane.
       ...(dbxUploadOk ? { 'Flatlay Dropbox Path': dbxPath } : { 'Flatlay Dropbox Path': '' }),
       ...(flatlayCdnUrl ? { 'Flatlay CDN URL': flatlayCdnUrl } : {}),
     }
