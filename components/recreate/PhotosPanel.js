@@ -432,7 +432,16 @@ function LibrarySection({ outfitsOnly = false }) {
         body: JSON.stringify({ photoId: p.id, model }),
       })
       const d = await r.json()
-      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+      // Coerce error to a human-readable string so we don't alert
+      // "[object Object]" when the server passes through a WaveSpeed
+      // object error.
+      if (!r.ok || d.error) {
+        const errStr = typeof d.error === 'string' ? d.error
+          : d.error?.message ? d.error.message
+          : d.error ? JSON.stringify(d.error)
+          : `HTTP ${r.status}`
+        throw new Error(errStr)
+      }
       setPhotos(prev => prev.map(x => x.id === p.id ? {
         ...x,
         flatlayStatus: 'Done',

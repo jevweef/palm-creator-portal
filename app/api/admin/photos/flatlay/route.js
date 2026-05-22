@@ -244,7 +244,17 @@ export async function POST(request) {
         if (!outputUrl) { lastError = 'WaveSpeed completed with no outputs'; break }
         break
       }
-      if (d.status === 'failed') { lastError = d.error || 'WaveSpeed reported failed'; break }
+      if (d.status === 'failed') {
+        // WaveSpeed sometimes returns `error` as an object ({message, code}
+        // or similar) rather than a string. Stringify defensively so the
+        // client gets something readable instead of "[object Object]".
+        const raw = d.error
+        lastError = typeof raw === 'string' ? raw
+          : raw?.message ? raw.message
+          : raw ? JSON.stringify(raw)
+          : 'WaveSpeed reported failed'
+        break
+      }
       await new Promise(r => setTimeout(r, 2500))
     }
     if (!outputUrl) {
