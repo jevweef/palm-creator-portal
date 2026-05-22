@@ -11,7 +11,7 @@
 // explodes carousels into individual image thumbnails, lets the admin
 // click to mark, then imports the marked ones to Dropbox + Airtable.
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { uiConfirm } from './panels'
 
@@ -302,6 +302,33 @@ function LibrarySection({ outfitsOnly = false }) {
     }
   }
 
+  // Pinterest-style bulk upload. Drag-and-drop a folder of saved Pins
+  // into the dropzone and they all flow into the Outfit Library at
+  // once — pre-flagged Is Outfit so they bypass the curation step.
+  // Files go to /Palm Ops/Photos/Pinterest/ on Dropbox + CF Images,
+  // metadata to the Photos table with Source Type=Pinterest.
+  const [pinDrop, setPinDrop] = useState({ uploading: false, msg: '' })
+  const uploadPinterest = useCallback(async (files) => {
+    if (!files?.length) return
+    setPinDrop({ uploading: true, msg: `Uploading ${files.length}…` })
+    try {
+      const form = new FormData()
+      for (const f of files) form.append('files', f)
+      const r = await fetch('/api/admin/photos/upload-pinterest', { method: 'POST', body: form })
+      const text = await r.text()
+      let d = null
+      try { d = JSON.parse(text) } catch {
+        throw new Error(`HTTP ${r.status} returned non-JSON (likely a server timeout). ${text.slice(0, 160)}`)
+      }
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+      setPinDrop({ uploading: false, msg: `✓ Added ${d.created} outfit${d.created === 1 ? '' : 's'}${d.failed ? ` · ${d.failed} failed` : ''}` })
+      // Refresh the library so the new rows appear without a full reload.
+      load()
+    } catch (e) {
+      setPinDrop({ uploading: false, msg: `❌ ${e.message}` })
+    }
+  }, [load])
+
   // Bulk upgrade: walk the currently-filtered list with bounded
   // concurrency so we don't drown RapidAPI / Dropbox. Each photo runs
   // through the same per-row upgradeHd path, so the card flips ⏳ → ✓
@@ -389,6 +416,11 @@ function LibrarySection({ outfitsOnly = false }) {
 
   const filtered = photos.filter(p => {
     if (outfitsOnly && !p.isOutfit) return false
+    // Hide Pinterest uploads from the regular Library — they have no
+    // post URL / no carousel siblings so they'd just show as
+    // standalone single-image groups, cluttering the IG carousel view.
+    // The Outfit Library is where they belong.
+    if (!outfitsOnly && p.sourceType === 'Pinterest') return false
     if (statusFilter !== 'all' && p.status !== statusFilter) return false
     if (!filter) return true
     const q = filter.toLowerCase()
@@ -415,6 +447,13 @@ function LibrarySection({ outfitsOnly = false }) {
 
   return (
     <div>
+      {outfitsOnly && (
+        // Pinterest dropzone — only the Outfit Library surfaces it
+        // since Pinterest uploads are pre-flagged outfit-and-reviewed.
+        // Big visible target so editors can drag from Finder; click
+        // also fires the native file picker as a fallback.
+        <PinterestDropzone onFiles={uploadPinterest} pinDrop={pinDrop} />
+      )}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <input type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by handle or caption…"
           style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13 }} />
@@ -773,6 +812,49 @@ function iconBtn(color) {
     padding: '3px 8px', fontSize: 10, fontWeight: 700,
     background: `${color}20`, color, border: 'none', borderRadius: 4, cursor: 'pointer',
   }
+}
+
+// Drag-and-drop zone for the Outfit Library. Accepts image files,
+// hands them to `onFiles` which posts them as multipart to the
+// /upload-pinterest route. Plain click triggers a hidden file input
+// for editors who don't want to drag.
+function PinterestDropzone({ onFiles, pinDrop }) {
+  const [over, setOver] = useState(false)
+  const inputRef = useRef(null)
+  const handleFiles = (fileList) => {
+    if (!fileList) return
+    const files = [...fileList].filter(f => f.type?.startsWith('image/'))
+    if (files.length) onFiles(files)
+  }
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); handleFiles(e.dataTransfer.files) }}
+      style={{
+        marginBottom: 14, padding: '18px 16px', borderRadius: 10,
+        border: `2px dashed ${over ? '#e8a878' : 'rgba(255,255,255,0.18)'}`,
+        background: over ? 'rgba(232,168,120,0.08)' : 'rgba(255,255,255,0.02)',
+        cursor: pinDrop.uploading ? 'wait' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: 14, transition: 'all 0.15s',
+      }}>
+      <div style={{ fontSize: 24 }}>📌</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+          {pinDrop.uploading ? '⏳ Uploading…' : 'Drop outfit images here (saved Pins, screenshots, anything)'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
+          {pinDrop.msg
+            ? pinDrop.msg
+            : 'Each file lands in the Outfit Library pre-flagged 👗 OUTFIT. Up to 50 per upload. Tagged Pinterest so they stay out of the IG carousel Library.'}
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" multiple
+        onChange={(e) => handleFiles(e.target.files)}
+        style={{ display: 'none' }} />
+    </div>
+  )
 }
 
 // Floating ⬇ pill rendered over each pane in the dual-view modal.

@@ -16,7 +16,7 @@ export async function GET(request) {
     await requireAdminOrAiEditor()
     const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type'],
       ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
@@ -58,6 +58,9 @@ export async function GET(request) {
         flatlayDropboxPath: f['Flatlay Dropbox Path'] || '',
         flatlayModel: f['Flatlay Model'] || '',
         flatlayLocked: !!f['Flatlay Locked'],
+        // Source Type defaults to "Instagram" semantically — legacy
+        // rows lack the field but they all came from the IG scraper.
+        sourceType: f['Source Type']?.name || f['Source Type'] || 'Instagram',
         createdTime: r.createdTime,
       }
     }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
