@@ -621,14 +621,16 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
     <div style={{ position: 'relative', border: `1px solid ${p.flatlayLocked ? '#6AC68A' : p.isOutfit ? '#6AC68A' : `${sc}40`}`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
       {showDual ? (
         // Two-pane layout — original on the left, AI flatlay on the right.
-        // Each pane gets its own label so it's obvious which is which.
-        // Bigger paneRatio keeps the images tall and readable.
+        // Each pane gets its own label + ⬇ overlay so the editor can
+        // download exactly the version they want without leaving the modal.
         <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'rgba(255,255,255,0.08)' }}>
           <div style={{ position: 'relative', background: '#000' }}>
             <img src={p.image} alt="" loading="lazy"
               onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
               style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 10, fontWeight: 700 }}>📷 original</div>
+            <a href={originalDownloadHref(p)} download={originalDownloadName(p)}
+              title="Download original" style={paneDownloadBtn}>⬇</a>
           </div>
           <div style={{ position: 'relative', background: '#fff' }}>
             <img src={p.flatlayCdnUrl} alt="" loading="lazy"
@@ -636,8 +638,10 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
             <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(232,168,120,0.92)', color: '#1a0a0a', fontSize: 10, fontWeight: 800 }}>
               📦 flatlay{p.flatlayModel ? ` · ${p.flatlayModel.toUpperCase()}` : ''}
             </div>
+            <a href={flatlayDownloadHref(p)} download={flatlayDownloadName(p)}
+              title="Download flatlay" style={paneDownloadBtn}>⬇</a>
             {p.flatlayLocked && (
-              <div style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>🔒 LOCKED</div>
+              <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>🔒 LOCKED</div>
             )}
           </div>
         </div>
@@ -711,18 +715,25 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               {p._upgradingHd ? '⏳' : p._hdUpgraded ? '✓ HD' : '↑ HD'}
             </button>
           )}
-          {/* Direct download — Dropbox shared link with dl=1 forces the
-              browser to save the actual stored file (HD after upgrade),
-              not the CDN-resized variant. Falls back to the CDN URL on
-              older rows that never got a Dropbox link. */}
-          {(p.dropbox || p.image) && (
-            <a href={p.dropbox ? String(p.dropbox).replace('dl=0', 'dl=1').replace('?raw=1', '?dl=1') : p.image}
-              download
-              title="Download this image (HD from Dropbox if available)"
-              style={{ ...iconBtn('#e8a878'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              ⬇
-            </a>
-          )}
+          {/* Direct download — context-aware. In single-view mode with
+              the flatlay toggle active, this saves the flatlay; otherwise
+              it saves the original. In dual-view mode the per-pane ⬇
+              buttons handle it (this row stays but acts as a duplicate
+              for the original). Routes through our Dropbox proxy so the
+              file lands with a clean filename + correct MIME, sidestepping
+              cross-origin download-attr restrictions on CDN URLs. */}
+          {(p.dropboxPath || p.flatlayDropboxPath || p.image) && (() => {
+            const wantFlatlay = (showFlatlay || showDual) && flatlayReady && p.flatlayDropboxPath
+            const href = wantFlatlay ? flatlayDownloadHref(p) : originalDownloadHref(p)
+            const name = wantFlatlay ? flatlayDownloadName(p) : originalDownloadName(p)
+            return (
+              <a href={href} download={name}
+                title={wantFlatlay ? 'Download the AI flatlay' : 'Download the original (HD from Dropbox)'}
+                style={{ ...iconBtn('#e8a878'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                ⬇
+              </a>
+            )
+          })()}
           {/* Open the file's Dropbox preview page — useful when you
               want to see the full bytes, share with someone outside
               the portal, or grab the file path. */}
@@ -748,6 +759,49 @@ function iconBtn(color) {
     padding: '3px 8px', fontSize: 10, fontWeight: 700,
     background: `${color}20`, color, border: 'none', borderRadius: 4, cursor: 'pointer',
   }
+}
+
+// Floating ⬇ pill rendered over each pane in the dual-view modal.
+// Bottom-right keeps it clear of the label (bottom-left) and the
+// 🔒 badge (top-left).
+const paneDownloadBtn = {
+  position: 'absolute', bottom: 6, right: 6,
+  padding: '4px 9px', borderRadius: 4,
+  background: 'rgba(0,0,0,0.7)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)',
+  fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'none',
+}
+
+// Build sensible filenames from the post metadata so the user's
+// download folder doesn't fill up with dropbox-shared-link gibberish.
+function postCodeFor(p) {
+  return String(p.postUrl || '').match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/)?.[1] || 'post'
+}
+function originalDownloadName(p) {
+  return `${p.handle || 'photo'}_${postCodeFor(p)}_${String(p.carouselIndex || 1).padStart(2, '0')}.jpg`
+}
+function flatlayDownloadName(p) {
+  const model = p.flatlayModel ? `_${p.flatlayModel}` : ''
+  return `${p.handle || 'photo'}_${postCodeFor(p)}_${String(p.carouselIndex || 1).padStart(2, '0')}_flatlay${model}.jpg`
+}
+// Originals route through Dropbox proxy with ?download= so the file
+// saves with our intended filename (instead of the raw Dropbox name)
+// and the browser doesn't get confused by application/json MIME on
+// the shared link.
+function originalDownloadHref(p) {
+  if (p.dropboxPath) {
+    return `/api/admin/photos/image?path=${encodeURIComponent(p.dropboxPath)}&download=${encodeURIComponent(originalDownloadName(p))}`
+  }
+  // Legacy rows with no Dropbox Path — fall back to the shared link.
+  return p.dropbox ? String(p.dropbox).replace('dl=0', 'dl=1').replace('?raw=1', '?dl=1') : (p.image || '')
+}
+// Flatlays: route through the same proxy with the flatlay Dropbox path
+// so cross-origin restrictions on imagedelivery.net don't block the
+// download-attribute behavior.
+function flatlayDownloadHref(p) {
+  if (p.flatlayDropboxPath) {
+    return `/api/admin/photos/image?path=${encodeURIComponent(p.flatlayDropboxPath)}&download=${encodeURIComponent(flatlayDownloadName(p))}`
+  }
+  return p.flatlayCdnUrl || ''
 }
 
 // ─── Browse Photos modal ────────────────────────────────────────────────────

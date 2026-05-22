@@ -45,6 +45,7 @@ export async function GET(request) {
         imageFallback: bestImage === cdnUrl ? (proxyUrl || attThumb) : attThumb,
         cdnUrl,
         dropbox: dropboxLink,
+        dropboxPath, // needed by the download helpers in PhotoCard
         postedAt: f['Posted At'] || null,
         caption: f.Caption || '',
         status: f.Status?.name || f.Status || 'Pending',

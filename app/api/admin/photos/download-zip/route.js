@@ -20,7 +20,7 @@ export async function GET(request) {
     if (!postUrl) return NextResponse.json({ error: 'postUrl required' }, { status: 400 })
 
     const rows = await fetchAirtableRecords('Photos', {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Status'],
       filterByFormula: `{Source Post URL} = "${postUrl.replace(/"/g, '\\"')}"`,
     })
     if (rows.length === 0) return NextResponse.json({ error: 'no photos for that post' }, { status: 404 })
@@ -30,6 +30,13 @@ export async function GET(request) {
         handle: r.fields?.['Source Handle'] || 'unknown',
         idx: r.fields?.['Carousel Index'] || 1,
         path: r.fields?.['Dropbox Path'] || '',
+        // Flatlay metadata — pulled into the zip under a flatlays/
+        // subfolder when present. Only Done status counts; in-flight
+        // or failed runs don't have usable bytes.
+        flatlayPath: (r.fields?.['Flatlay Status']?.name || r.fields?.['Flatlay Status']) === 'Done'
+          ? (r.fields?.['Flatlay Dropbox Path'] || '')
+          : '',
+        flatlayModel: r.fields?.['Flatlay Model'] || '',
       }))
       .filter(p => p.path)
       .sort((a, b) => a.idx - b.idx)
@@ -51,11 +58,27 @@ export async function GET(request) {
     })
 
     for (const p of photos) {
+      const base = `${p.handle}_${code}_${String(p.idx).padStart(2, '0')}`
+      // Original
       try {
         const buf = await downloadFromDropbox(tok, ns, p.path)
-        if (buf) archive.append(buf, { name: `${p.handle}_${code}_${String(p.idx).padStart(2, '0')}.jpg` })
+        if (buf) archive.append(buf, { name: `${base}.jpg` })
       } catch (e) {
-        console.warn(`[photos/download-zip] skip ${p.path}:`, e.message)
+        console.warn(`[photos/download-zip] skip original ${p.path}:`, e.message)
+      }
+      // Flatlay (under flatlays/ subfolder so unzipping keeps the
+      // categories clean — editors can grab just the originals or
+      // just the flatlays by walking one folder).
+      if (p.flatlayPath) {
+        try {
+          const fbuf = await downloadFromDropbox(tok, ns, p.flatlayPath)
+          if (fbuf) {
+            const suffix = p.flatlayModel ? `_${p.flatlayModel}` : ''
+            archive.append(fbuf, { name: `flatlays/${base}_flatlay${suffix}.jpg` })
+          }
+        } catch (e) {
+          console.warn(`[photos/download-zip] skip flatlay ${p.flatlayPath}:`, e.message)
+        }
       }
     }
     archive.finalize()

@@ -39,6 +39,16 @@ export async function GET(request) {
       : ext === 'gif' ? 'image/gif'
       : 'image/jpeg'
 
+    // Optional ?download=filename — when set, serve with
+    // Content-Disposition: attachment so the browser saves the file
+    // instead of rendering it inline. Lets us reuse this proxy for the
+    // ⬇ buttons in the Library (sidesteps cross-origin download-attr
+    // restrictions on Cloudflare Images URLs).
+    const downloadName = u.searchParams.get('download')
+    const dispositionHeader = downloadName
+      ? { 'Content-Disposition': `attachment; filename="${downloadName.replace(/"/g, '')}"` }
+      : {}
+
     return new NextResponse(buf, {
       status: 200,
       headers: {
@@ -46,6 +56,7 @@ export async function GET(request) {
         // Long cache: photo bytes never change (Dropbox path is
         // unique per import). Private since the proxy is auth-gated.
         'Cache-Control': 'private, max-age=86400, immutable',
+        ...dispositionHeader,
       },
     })
   } catch (err) {
