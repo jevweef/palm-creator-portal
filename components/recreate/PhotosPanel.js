@@ -531,14 +531,50 @@ function LibrarySection({ outfitsOnly = false }) {
         flatlayModel: model,
       } : x))
     } catch (e) {
-      // Detect Vercel-timeout messages — keep Generating state so the
-      // Check stuck overlay button stays visible. Real failures (CLAUDE
-      // erroring, WaveSpeed failing fast, etc.) flip the state to Failed
-      // so the editor sees N/W/G buttons re-appear for a fresh try.
       const isTimeout = /took longer than our server|HTTP 504|timed out/i.test(e.message || '')
-      if (!isTimeout) {
-        setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
+      if (isTimeout) {
+        // Silent recovery — Vercel killed the function but WaveSpeed is
+        // probably still cooking. Auto-poll the resume route every 15s
+        // for up to 5 minutes. The Generating overlay stays visible
+        // (with its ↻ Check stuck escape hatch) the whole time. No
+        // alert, no failed state, no editor action required when the
+        // happy path completes.
+        const photoId = p.id
+        const start = Date.now()
+        const tick = async () => {
+          if (Date.now() - start > 5 * 60 * 1000) return // give up after 5 min
+          try {
+            const r = await fetch('/api/admin/photos/flatlay/resume', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ photoId }),
+            })
+            if (r.status === 202) {
+              setTimeout(tick, 15000) // still cooking
+              return
+            }
+            const d = await r.json().catch(() => null)
+            if (r.ok && d?.ok) {
+              setPhotos(prev => prev.map(x => x.id === photoId ? {
+                ...x,
+                flatlayStatus: 'Done',
+                flatlayCdnUrl: d.flatlayCdnUrl || '',
+                flatlayDropboxPath: d.flatlayDropboxPath || '',
+                flatlayModel: model,
+              } : x))
+              return
+            }
+            // Resume returned an explicit failure — show Failed so the
+            // editor can try again with a different model.
+            setPhotos(prev => prev.map(x => x.id === photoId ? { ...x, flatlayStatus: 'Failed' } : x))
+          } catch {
+            setTimeout(tick, 15000)
+          }
+        }
+        setTimeout(tick, 10000) // first check after 10s
+        return
       }
+      // Real failure — flip to Failed and surface it.
+      setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
       alert(`Flatlay (${model}) failed: ${e.message}`)
     }
   }
