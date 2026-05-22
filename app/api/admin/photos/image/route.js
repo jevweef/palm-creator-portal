@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { requireAdmin } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
 
@@ -57,6 +58,22 @@ export async function GET(request) {
       : ext === 'webp' ? 'image/webp'
       : ext === 'gif' ? 'image/gif'
       : 'image/jpeg'
+
+    // Defensive coercion for legacy flatlays: some early generations
+    // were saved as .jpg but contain PNG bytes (Wan/GPT default output
+    // format), which macOS Finder flags as a corrupt JPEG. If the
+    // filename promises JPEG but the magic bytes say PNG, re-encode
+    // before serving so the file extension and content agree.
+    if (mime === 'image/jpeg' && buf.length >= 8) {
+      const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
+      if (isPng) {
+        try {
+          buf = await sharp(buf).jpeg({ quality: 92, mozjpeg: true }).toBuffer()
+        } catch (e) {
+          console.warn(`[photos/image] jpeg re-encode for legacy PNG failed:`, e.message)
+        }
+      }
+    }
 
     // Optional ?download=filename — when set, serve with
     // Content-Disposition: attachment so the browser saves the file

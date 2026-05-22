@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
@@ -258,7 +259,19 @@ export async function POST(request) {
       await patchAirtableRecord(PHOTOS, photoId, { 'Flatlay Status': 'Failed' }, { typecast: true })
       return NextResponse.json({ error: `Couldn't fetch flatlay output: HTTP ${ir.status}` }, { status: 502 })
     }
-    const buf = Buffer.from(await ir.arrayBuffer())
+    const rawBuf = Buffer.from(await ir.arrayBuffer())
+
+    // Coerce to JPEG. Wan and GPT return PNG even though we save as
+    // .jpg, causing macOS Finder to flag the file as corrupt (extension
+    // ↔ content mismatch). Re-encoding with sharp gives us a real
+    // JPEG that matches the filename + Content-Type the proxy serves.
+    let buf
+    try {
+      buf = await sharp(rawBuf).jpeg({ quality: 92, mozjpeg: true }).toBuffer()
+    } catch (e) {
+      console.warn(`[photos/flatlay] jpeg re-encode failed, using raw bytes:`, e.message)
+      buf = rawBuf
+    }
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
