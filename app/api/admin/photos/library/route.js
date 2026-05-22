@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
+import { deleteImage as deleteCfImage, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 
 export const dynamic = 'force-dynamic'
 const TABLE = 'Photos'
@@ -90,8 +92,17 @@ export async function PATCH(request) {
   }
 }
 
-// DELETE ?id=rec... — removes the Airtable record (Dropbox file stays
-// in place; harmless and recoverable.)
+// DELETE ?id=rec... — removes the Airtable record AND the underlying
+// Dropbox files (original + flatlay) AND the Cloudflare Images
+// variants (original + flatlay). Photos rows are 1:1 with bytes —
+// nothing else references them — so full cleanup is safe and keeps
+// storage from leaking. Pinterest uploads especially benefit since
+// the editor uploaded those bytes themselves and expects "delete"
+// to actually delete.
+//
+// Cleanup failures (Dropbox 409 / CF 404 etc.) are logged but
+// non-fatal: the Airtable record always gets removed so the photo
+// disappears from the UI even when the storage cleanup misses.
 export async function DELETE(request) {
   try {
     await requireAdmin()
@@ -99,10 +110,57 @@ export async function DELETE(request) {
     if (!id || !/^rec[A-Za-z0-9]{14}$/.test(id)) {
       return NextResponse.json({ error: 'Valid id required' }, { status: 400 })
     }
+
+    // Look up the row first so we know which files to clean up.
+    const rows = await fetchAirtableRecords(TABLE, {
+      fields: ['Dropbox Path', 'CDN Image ID', 'Flatlay Dropbox Path', 'CDN URL', 'Flatlay CDN URL'],
+      filterByFormula: `RECORD_ID() = '${id}'`,
+    })
+    const f = rows[0]?.fields || {}
+    const dropboxPath = f['Dropbox Path'] || ''
+    const flatlayDropboxPath = f['Flatlay Dropbox Path'] || ''
+    const cdnImageId = f['CDN Image ID'] || ''
+    // Flatlay CF ids follow the pattern `flatlay-{model?}-{handle}-{code}-{idx}`
+    // but we don't store the id field — extract from the URL.
+    const flatlayCdnId = (() => {
+      const u = f['Flatlay CDN URL'] || ''
+      const m = u.match(/imagedelivery\.net\/[^/]+\/([^/]+)\//)
+      return m?.[1] || ''
+    })()
+
+    // Kick off storage cleanup in parallel. None of these are fatal —
+    // worst case bytes leak, the user can run a cleanup pass later.
+    const cleanupTasks = []
+    if (dropboxPath || flatlayDropboxPath) {
+      cleanupTasks.push((async () => {
+        try {
+          const tok = await getDropboxAccessToken()
+          const ns = await getDropboxRootNamespaceId(tok)
+          if (dropboxPath) await deleteDropboxFile(tok, ns, dropboxPath).catch(e =>
+            console.warn(`[photos/library DELETE] Dropbox original ${dropboxPath}:`, e.message))
+          if (flatlayDropboxPath) await deleteDropboxFile(tok, ns, flatlayDropboxPath).catch(e =>
+            console.warn(`[photos/library DELETE] Dropbox flatlay ${flatlayDropboxPath}:`, e.message))
+        } catch (e) { console.warn(`[photos/library DELETE] Dropbox setup:`, e.message) }
+      })())
+    }
+    if (isCloudflareImagesConfigured()) {
+      if (cdnImageId) cleanupTasks.push(deleteCfImage(cdnImageId).catch(e =>
+        console.warn(`[photos/library DELETE] CF original ${cdnImageId}:`, e.message)))
+      if (flatlayCdnId) cleanupTasks.push(deleteCfImage(flatlayCdnId).catch(e =>
+        console.warn(`[photos/library DELETE] CF flatlay ${flatlayCdnId}:`, e.message)))
+    }
+
+    // Drop the Airtable record. This is the "user-visible" delete —
+    // even if storage cleanup fails the photo disappears from the UI.
     const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(TABLE)}/${id}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${AIRTABLE_PAT}` },
     })
     if (!res.ok) return NextResponse.json({ error: `airtable ${res.status}` }, { status: 500 })
+
+    // Let storage tasks finish so we surface failures in logs, but
+    // we already returned the user-visible result so no waiting cost.
+    await Promise.allSettled(cleanupTasks)
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof Response) return err

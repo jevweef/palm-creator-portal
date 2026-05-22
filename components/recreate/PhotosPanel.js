@@ -829,9 +829,11 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               📁
             </a>
           )}
-          <a href={p.postUrl} target="_blank" rel="noreferrer"
-            title="Open the source Instagram post"
-            style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
+          {p.postUrl && (
+            <a href={p.postUrl} target="_blank" rel="noreferrer"
+              title="Open the source Instagram post"
+              style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
+          )}
           <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
         </div>
       </div>
