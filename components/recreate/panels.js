@@ -902,12 +902,18 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       )}
 
       {outputs.length > 0 && (() => {
-        // Hide Started placeholders from the Scenes gallery — those are
-        // reels-waiting-to-be-generated, not real scenes. They live in
-        // the Workspace tab's My Projects section, which is where the
-        // editor picks them up and runs Generate. Showing them here
-        // creates "empty card" noise that confuses the gallery.
-        const scenes = outputs.filter(o => o.status !== 'Started')
+        // Filter scenes down to:
+        //   1. Hide Started placeholders — those are reels waiting on
+        //      Generate, not real scenes. They live in My Projects.
+        //   2. When a reel is selected, scope the gallery to ONLY that
+        //      reel's scenes. The user expected the workflow to show
+        //      the active project's gallery, not every scene for the
+        //      whole creator (which was leaking R002 into R003).
+        const scenes = outputs.filter(o => {
+          if (o.status === 'Started') return false
+          if (reel?.id && o.reel?.id !== reel.id) return false
+          return true
+        })
         if (scenes.length === 0) return null
         const generating = scenes.filter(o => o.status === 'Generating').length
         const pending = scenes.filter(o => o.status === 'Pending').length
@@ -917,7 +923,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>All scenes for {sel?.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({scenes.length})</span></div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                {reel?.id ? `Scenes for this reel` : `All scenes for ${sel?.name}`}
+                <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}> ({scenes.length})</span>
+              </div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
                 Every Generate click creates a new card. Status flows <span style={{ color: '#8fb4f0' }}>Generating</span> → <span style={{ color: '#e8b878' }}>Pending</span> → <span style={{ color: '#6AC68A' }}>Approved</span> or <span style={{ color: '#E87878' }}>Rejected</span>. Started reels you haven&apos;t generated on yet are over in <b>Workspace → My Projects</b>.
               </div>
