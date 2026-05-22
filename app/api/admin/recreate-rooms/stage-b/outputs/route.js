@@ -23,7 +23,7 @@ export async function GET(request) {
           'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
           'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
       }),
-      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'] }),
+      fetchAirtableRecords(REELS, { fields: ['Reel ID', 'Reel URL', 'Source Handle', 'Stream UID', 'Thumbnail', 'Dropbox Video Link', 'Selected Outfits'] }),
       fetchAirtableRecords(ROOMS, { fields: ['Room Name'] }),
       fetchAirtableRecords('Outfit Swap Outputs', {
         fields: ['Stage B Parent', 'Variant #', 'Outfit', 'Image', 'Dropbox Link', 'Slug', 'Status'],
@@ -95,6 +95,7 @@ export async function GET(request) {
             streamUid: reel['Stream UID'] || null,
             thumbnail: Array.isArray(reel.Thumbnail) && reel.Thumbnail[0] ? (reel.Thumbnail[0].thumbnails?.large?.url || reel.Thumbnail[0].url) : null,
             video: (reel['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
+            selectedOutfits: Array.isArray(reel['Selected Outfits']) ? reel['Selected Outfits'] : [],
           } : null,
           variants: variantsByParent[o.id] || [],
           // Eager-uploaded artifacts. Each has an Airtable thumbnail

@@ -57,13 +57,28 @@ export async function GET(request) {
     }
 
     // Look up the Photo Account row so we can read/write its cache.
-    const accountRows = await fetchAirtableRecords('Photo Accounts', {
-      fields: ['Handle', 'Scrape Cache', 'Last Scraped At', 'Last Photos Scraped'],
-      filterByFormula: `LOWER({Handle}) = "${handle.replace(/"/g, '\\"')}"`,
-      maxRecords: 1,
-    })
-    const accountRow = accountRows[0]
+    // Client sends accountId directly when known (faster + dodges any
+    // filterByFormula edge cases). Fall back to a full scan if not.
+    const accountIdParam = u.searchParams.get('accountId')
+    let accountRow = null
+    if (accountIdParam && /^rec[A-Za-z0-9]{14}$/.test(accountIdParam)) {
+      try {
+        const r = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Photo Accounts')}/${accountIdParam}`,
+          { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }, cache: 'no-store' })
+        if (r.ok) accountRow = await r.json()
+      } catch (e) { console.warn('[photos/preview] direct fetch failed:', e.message) }
+    }
+    if (!accountRow) {
+      // Fallback: scan all rows and match on Handle (case-insensitive).
+      // Filtering client-side instead of via filterByFormula avoids any
+      // quoting / URL-encoding gotchas with LOWER().
+      const all = await fetchAirtableRecords('Photo Accounts', {
+        fields: ['Handle', 'Scrape Cache', 'Last Scraped At', 'Last Photos Scraped'],
+      })
+      accountRow = all.find(r => String(r.fields?.Handle || '').toLowerCase().trim() === handle) || null
+    }
     const accountId = accountRow?.id || null
+    if (!accountId) console.warn(`[photos/preview] no Photo Accounts row found for handle "${handle}" — cache write will be skipped`)
 
     // Cache hit? Parse the JSON blob, validate freshness, recompute
     // alreadyImported (since the Photos table changes independently
@@ -73,17 +88,26 @@ export async function GET(request) {
         const cached = JSON.parse(accountRow.fields['Scrape Cache'])
         const fetchedAt = cached?.fetchedAt ? Date.parse(cached.fetchedAt) : 0
         if (fetchedAt && (Date.now() - fetchedAt) < CACHE_VALID_FOR_MS && Array.isArray(cached.images)) {
-          const refreshed = cached.images.map(img => ({
-            ...img,
-            alreadyImported: existingKeys.has(`${img.code}|${img.carouselIndex || 1}`),
-          }))
+          // Dedupe on read in case the cache was written by older code
+          // that double-counted RapidAPI's overlapping pagination. Future
+          // writes are already deduped (seenCodes set), but old caches
+          // need this layer so the user sees clean data without paying
+          // for a fresh scrape.
+          const seen = new Set()
+          const deduped = []
+          for (const img of cached.images) {
+            const k = `${img.code}|${img.carouselIndex || 1}`
+            if (seen.has(k)) continue
+            seen.add(k)
+            deduped.push({ ...img, alreadyImported: existingKeys.has(k) })
+          }
           return NextResponse.json({
             ok: true,
             handle,
             postsSeen: cached.postsSeen || 0,
-            total: refreshed.length,
-            alreadyImportedCount: refreshed.filter(i => i.alreadyImported).length,
-            images: refreshed,
+            total: deduped.length,
+            alreadyImportedCount: deduped.filter(i => i.alreadyImported).length,
+            images: deduped,
             cachedAt: cached.fetchedAt,
             fromCache: true,
           })
@@ -92,6 +116,12 @@ export async function GET(request) {
     }
 
     const images = [] // exploded list — one entry per image
+    // RapidAPI's pagination_token sometimes returns overlapping posts
+    // across consecutive pages (saw a single 7-image carousel exploded
+    // into 14 entries because the page above repeated it). Track which
+    // post codes we've already exploded so duplicates from later pages
+    // get skipped.
+    const seenCodes = new Set()
     let postsSeen = 0
     let paginationToken = null
     const maxPages = 10
@@ -139,6 +169,11 @@ export async function GET(request) {
         const media = node?.node?.media || node?.node || node?.media || node || {}
         const code = media.code || media.shortcode
         if (!code) continue
+        // Skip posts we've already exploded — RapidAPI pagination can
+        // overlap and shipping every image twice tripled scrape size for
+        // one handle in testing.
+        if (seenCodes.has(code)) continue
+        seenCodes.add(code)
         const postUrl = `https://www.instagram.com/p/${code}/`
         const takenAt = media.taken_at || media.taken_at_timestamp
         const postedAt = takenAt
@@ -211,6 +246,7 @@ export async function GET(request) {
     // multilineText field well under the 100KB cell cap (200 imgs
     // x ~400 bytes = ~80KB after pretty-print).
     const fetchedAt = new Date().toISOString()
+    let cacheWriteError = null
     if (accountId) {
       try {
         const blob = {
@@ -220,11 +256,22 @@ export async function GET(request) {
           images: trimmed.map(({ alreadyImported, caption, ...rest }) => ({ ...rest, caption: (caption || '').slice(0, 200) })),
         }
         const serialized = JSON.stringify(blob)
-        // Hard cap at 95KB — Airtable's multilineText soft limit is
-        // 100KB. If we exceed it, drop captions and re-serialize.
+        // Soft cap at 95KB — Airtable's multilineText cell ceiling is
+        // 100KB. Drop captions first, then trim image list if still over.
         let payload = serialized
         if (serialized.length > 95_000) {
           const lean = { ...blob, images: blob.images.map(i => ({ ...i, caption: '' })) }
+          payload = JSON.stringify(lean)
+        }
+        if (payload.length > 95_000) {
+          // Even with captions stripped, trim images down until it fits.
+          const lean = { ...blob }
+          let imgs = lean.images.map(i => ({ ...i, caption: '' }))
+          while (imgs.length > 0 && JSON.stringify({ ...lean, images: imgs }).length > 95_000) {
+            imgs = imgs.slice(0, Math.floor(imgs.length * 0.9))
+          }
+          lean.images = imgs
+          lean.imageCount = imgs.length
           payload = JSON.stringify(lean)
         }
         await patchAirtableRecord('Photo Accounts', accountId, {
@@ -233,8 +280,11 @@ export async function GET(request) {
           'Last Photos Scraped': trimmed.length,
         }, { typecast: true })
       } catch (e) {
-        console.warn('[photos/preview] cache write failed:', e.message)
+        cacheWriteError = e.message || String(e)
+        console.warn('[photos/preview] cache write failed:', cacheWriteError)
       }
+    } else {
+      cacheWriteError = 'no Photo Accounts row found for this handle'
     }
 
     return NextResponse.json({
@@ -246,6 +296,7 @@ export async function GET(request) {
       images: trimmed,
       cachedAt: fetchedAt,
       fromCache: false,
+      cacheWriteError, // null if save succeeded; surfaces silently-failed writes
       // Diagnostic surface — only meaningful when postsSeen === 0
       // and the editor needs to see why. Lists the response shape so
       // we can spot a renamed key (e.g. "feed_items" vs "posts").

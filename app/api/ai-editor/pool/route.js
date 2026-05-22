@@ -30,7 +30,7 @@ export async function GET(request) {
       // via ARRAYJOIN+FIND (that yields primary-field text, not rec IDs,
       // so FIND('rec…') silently matches nothing).
       const rows = (await fetchAirtableRecords('Recreate Reels', {
-        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Stream UID', 'Thumbnail', 'Status', 'Produced For'],
+        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Stream UID', 'Thumbnail', 'Status', 'Produced For', 'Selected Outfits'],
         filterByFormula: `{Status} = 'Available'`,
         sort: [{ field: 'Posted At', direction: 'desc' }],
       })).filter(r => !(r.fields?.['Produced For'] || []).includes(creatorId))
@@ -48,6 +48,10 @@ export async function GET(request) {
           video: rawLink(f['Dropbox Video Link']),
           streamUid: f['Stream UID'] || null,
           thumbnail: thumb,
+          // Outfit IDs attached to this reel — the workflow uses these
+          // to drive the outfit fan-out step. Just IDs here; the photo
+          // metadata is hydrated client-side from the Photos library.
+          selectedOutfits: Array.isArray(f['Selected Outfits']) ? f['Selected Outfits'] : [],
         }
       })
     }

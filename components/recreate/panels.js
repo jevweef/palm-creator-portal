@@ -145,6 +145,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [count, setCount] = useState(1) // 1 | 2 | 4 — fan-out N variations into DIFFERENT rooms in parallel
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
   const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
+  // Outfits attached to the current reel. Drives the upcoming fan-out
+  // step (every selected outfit × every approved Stage B scene). Stored
+  // server-side on the Recreate Reels row, hydrated to photo metadata
+  // here so the strip can render thumbnails without a second join.
+  const [reelOutfits, setReelOutfits] = useState([])
+  const [outfitPickerOpen, setOutfitPickerOpen] = useState(false)
 
   const [creators, setCreators] = useState([])
 
@@ -180,12 +186,59 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     setReelPlaying(false) // stop playback when reel changes
   }, [reel?.id])
 
+  // Pull the Selected Outfits attached to the active reel. Re-runs when
+  // the reel changes; clears the list on no-reel so leftover thumbnails
+  // don't bleed across reel switches.
+  useEffect(() => {
+    if (!reel?.id) { setReelOutfits([]); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/admin/recreate-rooms/stage-b/reel-outfits?reelId=${reel.id}`)
+        const d = await r.json()
+        if (!cancelled && d?.ok) setReelOutfits(d.outfits || [])
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [reel?.id])
+
+  // Two write paths on the same field: bulk PUT (picker modal closes
+  // with the full set) and inline POST (× on a strip thumbnail). Both
+  // return the freshly-hydrated outfit list so we can drop client-side
+  // merge logic.
+  const setReelOutfitIds = async (outfitIds) => {
+    if (!reel?.id) return
+    try {
+      const r = await fetch('/api/admin/recreate-rooms/stage-b/reel-outfits', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reelId: reel.id, outfitIds }),
+      })
+      const d = await r.json()
+      if (d?.ok) setReelOutfits(d.outfits || [])
+    } catch {}
+  }
+  const removeReelOutfit = async (id) => {
+    if (!reel?.id) return
+    const snap = reelOutfits
+    setReelOutfits(prev => prev.filter(o => o.id !== id)) // optimistic
+    try {
+      const r = await fetch('/api/admin/recreate-rooms/stage-b/reel-outfits', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reelId: reel.id, removeId: id }),
+      })
+      const d = await r.json()
+      if (d?.ok) setReelOutfits(d.outfits || [])
+      else setReelOutfits(snap)
+    } catch { setReelOutfits(snap) }
+  }
+
   // Continuing a Started project: load the record (so we know its slug)
   // and pre-pick the reel from its Source Reel field, regardless of
   // whether the pool-loaded reels list contains it (the reel might be
   // hidden from the pool because it's already a project).
   useEffect(() => {
-    if (!initialProjectId) return
+    // Need at least one of project or reel to know what to restore.
+    if (!initialProjectId && !initialReelRecordId) return
     let cancelled = false
     ;(async () => {
       try {
@@ -197,11 +250,12 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         // Primary lookup: exact record id from the URL. Falls back to
         // ANY sibling under the same reel that still has TJP Output
         // Path set — this rescues the panel when the editor deleted
-        // the original project but other generations under the same
-        // reel still hold the uploaded TJP source. Without this the
-        // slot reads empty and Generate complains about no upload
-        // even though the work is still in Airtable + Dropbox.
-        let match = outputs.find(o => o.id === initialProjectId)
+        // the original project, AND covers the new "open reel from My
+        // Projects" deep link which lands with no specific project ID
+        // (we want to re-hydrate the TJP slot from any existing scene
+        // under the same reel so Generate doesn't ask the editor to
+        // re-upload work that's already saved).
+        let match = initialProjectId ? outputs.find(o => o.id === initialProjectId) : null
         if (!match && initialReelRecordId) {
           match = outputs.find(o => o.reel?.id === initialReelRecordId && o.uploads?.tjpOutput)
         }
@@ -285,7 +339,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       // rejection prompt opened from inside the modal).
       const tag = e.target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      const visible = outputs.filter(o => o.status !== 'Started')
+      // Same filter as the gallery: hide Started, and when a reel is
+      // selected, scope to that reel's scenes only — otherwise the
+      // arrows leak the editor into a different project's gallery.
+      const visible = outputs.filter(o => {
+        if (o.status === 'Started') return false
+        if (reel?.id && o.reel?.id !== reel.id) return false
+        return true
+      })
       const i = visible.findIndex(o => o.id === selectedOutput.id)
       if (i < 0) return
       const next = e.key === 'ArrowRight' ? visible[i + 1] : visible[i - 1]
@@ -293,7 +354,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedOutput, outputs])
+  }, [selectedOutput, outputs, reel?.id])
 
 
 
@@ -800,13 +861,66 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
       )}
 
+      {/* Outfits panel — only relevant once a reel is selected. The
+          actual outfit fan-out generation lands as a separate step;
+          this section is the "connection" piece (pick + persist). */}
+      {reel?.id && (
+        <div style={{ ...card, marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                👗 Outfits for this reel <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({reelOutfits.length})</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
+                Pick outfits from the library. Every selected outfit will fan out across every approved scene under this reel (N outfits × M scenes).
+              </div>
+            </div>
+            <button onClick={() => setOutfitPickerOpen(true)}
+              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+              + Pick outfits
+            </button>
+          </div>
+          {reelOutfits.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 8, textAlign: 'center' }}>
+              No outfits attached yet. Click <b>+ Pick outfits</b> to choose from the outfit library (📷 Photos → 👗 Outfit Picker is where you build that pool).
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+              {reelOutfits.map(o => (
+                <div key={o.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(106,198,138,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                  {o.image
+                    ? <img src={o.image} alt="" loading="lazy"
+                        onError={(e) => { if (o.imageFallback && e.currentTarget.src !== o.imageFallback) e.currentTarget.src = o.imageFallback }}
+                        style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                  <button onClick={() => removeReelOutfit(o.id)}
+                    title="Remove from this reel"
+                    style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', color: '#E87878', border: '1px solid rgba(232,120,120,0.3)', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    ✕
+                  </button>
+                  <div style={{ padding: 6, fontSize: 10, color: '#8FB4F0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    @{o.handle}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {outputs.length > 0 && (() => {
-        // Hide Started placeholders from the Scenes gallery — those are
-        // reels-waiting-to-be-generated, not real scenes. They live in
-        // the Workspace tab's My Projects section, which is where the
-        // editor picks them up and runs Generate. Showing them here
-        // creates "empty card" noise that confuses the gallery.
-        const scenes = outputs.filter(o => o.status !== 'Started')
+        // Filter scenes down to:
+        //   1. Hide Started placeholders — those are reels waiting on
+        //      Generate, not real scenes. They live in My Projects.
+        //   2. When a reel is selected, scope the gallery to ONLY that
+        //      reel's scenes. The user expected the workflow to show
+        //      the active project's gallery, not every scene for the
+        //      whole creator (which was leaking R002 into R003).
+        const scenes = outputs.filter(o => {
+          if (o.status === 'Started') return false
+          if (reel?.id && o.reel?.id !== reel.id) return false
+          return true
+        })
         if (scenes.length === 0) return null
         const generating = scenes.filter(o => o.status === 'Generating').length
         const pending = scenes.filter(o => o.status === 'Pending').length
@@ -816,7 +930,10 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>All scenes for {sel?.name} <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}>({scenes.length})</span></div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                {reel?.id ? `Scenes for this reel` : `All scenes for ${sel?.name}`}
+                <span style={{ color: 'var(--foreground-muted)', fontWeight: 500 }}> ({scenes.length})</span>
+              </div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
                 Every Generate click creates a new card. Status flows <span style={{ color: '#8fb4f0' }}>Generating</span> → <span style={{ color: '#e8b878' }}>Pending</span> → <span style={{ color: '#6AC68A' }}>Approved</span> or <span style={{ color: '#E87878' }}>Rejected</span>. Started reels you haven&apos;t generated on yet are over in <b>Workspace → My Projects</b>.
               </div>
@@ -834,8 +951,11 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 no reel context (e.g., admin viewing all of Amelia). */}
             {scenes.length > 0 && reel?.id ? (
               <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-stills?creatorId=${creatorId}&reelId=${reel.id}`}
+                title={reelOutfits.length > 0
+                  ? `Stills + ${reelOutfits.length} outfit reference photo${reelOutfits.length === 1 ? '' : 's'} in an outfits/ subfolder`
+                  : 'Stills only — attach outfits above to include them in the ZIP'}
                 style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'rgba(232,168,120,0.18)', color: '#e8b878', border: '1px solid rgba(232,168,120,0.25)', borderRadius: 5, textDecoration: 'none' }}>
-                ⬇ Download {scenes.length} stills as ZIP
+                ⬇ Download ZIP: {scenes.length} still{scenes.length === 1 ? '' : 's'}{reelOutfits.length > 0 ? ` + ${reelOutfits.length} outfit${reelOutfits.length === 1 ? '' : 's'}` : ''}
               </a>
             ) : approved > 0 ? (
               <a href={`/api/admin/recreate-rooms/stage-b/outputs/zip-all?creatorId=${creatorId}`}
@@ -922,9 +1042,15 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         const o = selectedOutput
         const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
         const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
-        // Compute neighbors in the visible (non-Started) scene set so
-        // the chevrons + arrow keys agree on what "prev/next" means.
-        const visible = outputs.filter(o2 => o2.status !== 'Started')
+        // Compute neighbors in the visible scene set so the chevrons +
+        // arrow keys agree on what "prev/next" means. Mirror the
+        // gallery's scope: Started hidden, and reel-scoped when a reel
+        // is selected (don't leak into another project's scenes).
+        const visible = outputs.filter(o2 => {
+          if (o2.status === 'Started') return false
+          if (reel?.id && o2.reel?.id !== reel.id) return false
+          return true
+        })
         const idx = visible.findIndex(o2 => o2.id === o.id)
         const prev = idx > 0 ? visible[idx - 1] : null
         const next = idx >= 0 && idx < visible.length - 1 ? visible[idx + 1] : null
@@ -1053,6 +1179,137 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         )
       })()}
 
+      {outfitPickerOpen && reel?.id && (
+        <OutfitPickerModal
+          currentIds={reelOutfits.map(o => o.id)}
+          onClose={() => setOutfitPickerOpen(false)}
+          onSave={async (ids) => { await setReelOutfitIds(ids); setOutfitPickerOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Outfit picker — pulls the curated outfit pool (Photos with Is Outfit
+// = true) and lets the editor multi-select. Selection state stays
+// modal-local until Save fires; closing without saving discards.
+function OutfitPickerModal({ currentIds, onClose, onSave }) {
+  const [pool, setPool] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState(new Set(currentIds || []))
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/admin/photos/library?outfitsOnly=1')
+        const d = await r.json()
+        if (!cancelled && d?.ok) setPool(d.photos || [])
+      } catch {} finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const toggle = (id) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  const filtered = pool.filter(p => {
+    if (!filter) return true
+    const q = filter.toLowerCase()
+    return (p.handle || '').toLowerCase().includes(q) || (p.caption || '').toLowerCase().includes(q)
+  })
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      // Preserve a sensible ordering: anything already attached keeps
+      // its prior slot (editor's prior pick-order), new picks append.
+      const order = [...currentIds.filter(id => selected.has(id)), ...[...selected].filter(id => !currentIds.includes(id))]
+      await onSave(order)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>👗 Pick outfits for this reel</div>
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
+              {loading ? 'Loading outfit pool…' : <>{pool.length} outfit{pool.length === 1 ? '' : 's'} available · <b style={{ color: '#6AC68A' }}>{selected.size}</b> selected</>}
+            </div>
+          </div>
+          <input type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by handle…"
+            style={{ flex: 1, minWidth: 180, padding: '8px 12px', background: 'rgba(0,0,0,0.35)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13 }} />
+          <button onClick={onClose}
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+          {loading ? (
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>⏳ Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+              {pool.length === 0
+                ? 'No outfits in the pool yet. Go to Photos → Outfit Picker to flag images as outfits first.'
+                : 'No outfits match the filter.'}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+              {filtered.map(p => {
+                const isSel = selected.has(p.id)
+                // Prefer the AI flatlay over the contextual photo for
+                // picker thumbnails — the picker exists to communicate
+                // "which outfit", and the clean product shot reads more
+                // clearly than someone wearing it on a couch.
+                const flatlayReady = !!p.flatlayCdnUrl && (p.flatlayStatus === 'Done')
+                const displayImage = flatlayReady ? p.flatlayCdnUrl : p.image
+                const fallback = flatlayReady ? (p.image || p.imageFallback) : p.imageFallback
+                return (
+                  <div key={p.id} onClick={() => toggle(p.id)}
+                    style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
+                      border: isSel ? '3px solid #6AC68A' : '1px solid rgba(255,255,255,0.1)' }}>
+                    {displayImage
+                      ? <img src={displayImage} alt="" loading="lazy"
+                          onError={(e) => { if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback }}
+                          style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: flatlayReady ? '#fff' : '#000' }} />
+                      : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+                    {isSel && (
+                      <div style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: '#6AC68A', color: '#0a1a10', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>✓</div>
+                    )}
+                    {flatlayReady && (
+                      <div style={{ position: 'absolute', top: 5, left: 5, padding: '2px 5px', borderRadius: 3, background: 'rgba(232,168,120,0.85)', color: '#1a0a0a', fontSize: 9, fontWeight: 800 }}>📦 FLATLAY</div>
+                    )}
+                    <div style={{ padding: '6px 8px', fontSize: 11, background: 'rgba(0,0,0,0.55)', color: '#8FB4F0', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+                      @{p.handle}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+            Click to mark/unmark. Save replaces the reel&apos;s outfit list.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose}
+              style={{ padding: '8px 14px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={save} disabled={saving}
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, background: saving ? 'rgba(106,198,138,0.18)' : '#6AC68A', color: saving ? 'rgba(255,255,255,0.4)' : '#0a1a10', border: 'none', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? '⏳ Saving…' : `Save ${selected.size} outfit${selected.size === 1 ? '' : 's'}`}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
