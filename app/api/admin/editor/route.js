@@ -381,6 +381,49 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true, action: 'approve', scheduledDate: scheduledDate?.toISOString() || null })
     }
 
+    // ── Admin: Recall Approval ──────────────────────────────────────────────────
+    // Reverse of approve — admin clicked Approve, then changed their mind
+    // while looking at Post Prep. Flips the Task back to Done + Pending
+    // Review (so it shows up in For Review again), archives sibling Posts
+    // that were created on approval, and leaves the Asset at In Review.
+    // Does NOT touch the editor — they aren't getting a revision ping;
+    // admin just wants a second look. If admin then decides the editor
+    // needs to make changes, they use the existing Request Revision button
+    // on the For Review card and that fires the full revision flow.
+    if (action === 'recallApproval') {
+      await patchAirtableRecord('Tasks', taskId, {
+        'Admin Review Status': 'Pending Review',
+        'Status': 'Done',
+      })
+      if (assetId) {
+        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Review' })
+      }
+
+      // Archive sibling Posts that haven't gone out yet — Prepping, Staged,
+      // Sending, Send Failed. Committed posts (Telegram Sent / Posted) stay.
+      try {
+        const linkedPosts = await fetchAirtableRecords('Posts', {
+          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+          fields: ['Status', 'Telegram Sent At', 'Posted At'],
+        })
+        const archivable = linkedPosts.filter(p => {
+          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+        })
+        if (archivable.length) {
+          await Promise.all(archivable.map(p =>
+            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+          ))
+          console.log(`[Editor] Recalled task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+        }
+      } catch (postErr) {
+        console.warn('[Editor] Failed to archive sibling Posts on recall:', postErr.message)
+      }
+
+      return NextResponse.json({ ok: true, action: 'recallApproval' })
+    }
+
     // ── Admin: Request Revision ─────────────────────────────────────────────────
     if (action === 'requestRevision') {
       const taskUpdate = {
