@@ -401,21 +401,29 @@ export async function PATCH(request) {
 
       // Archive sibling Posts that haven't gone out yet — Prepping, Staged,
       // Sending, Send Failed. Committed posts (Telegram Sent / Posted) stay.
+      // IMPORTANT: pull sibling IDs from `tasks[0].fields.Posts` (the back-link
+      // already on the prefetched task), NOT a FIND(taskId, ARRAYJOIN({Task}))
+      // formula on the Posts table — ARRAYJOIN returns the primary-field text
+      // of linked records, not their IDs, so FIND silently returns 0 and the
+      // archive becomes a no-op. See feedback_airtable_arrayjoin_linked_records.
       try {
-        const linkedPosts = await fetchAirtableRecords('Posts', {
-          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-          fields: ['Status', 'Telegram Sent At', 'Posted At'],
-        })
-        const archivable = linkedPosts.filter(p => {
-          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
-          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
-        })
-        if (archivable.length) {
-          await Promise.all(archivable.map(p =>
-            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
-          ))
-          console.log(`[Editor] Recalled task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+        const postIds = tasks[0]?.fields?.Posts || []
+        if (postIds.length) {
+          const linkedPosts = await fetchAirtableRecords('Posts', {
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            fields: ['Status', 'Telegram Sent At', 'Posted At'],
+          })
+          const archivable = linkedPosts.filter(p => {
+            const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+            if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+          })
+          if (archivable.length) {
+            await Promise.all(archivable.map(p =>
+              patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+            ))
+            console.log(`[Editor] Recalled task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+          }
         }
       } catch (postErr) {
         console.warn('[Editor] Failed to archive sibling Posts on recall:', postErr.message)
@@ -441,21 +449,26 @@ export async function PATCH(request) {
       }
 
       // Archive sibling Posts (same rule as recall — anything pre-flight).
+      // Pull post IDs from the task's Posts back-link, not a broken ARRAYJOIN
+      // formula. See feedback_airtable_arrayjoin_linked_records.
       try {
-        const linkedPosts = await fetchAirtableRecords('Posts', {
-          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-          fields: ['Status', 'Telegram Sent At', 'Posted At'],
-        })
-        const archivable = linkedPosts.filter(p => {
-          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
-          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed' || s === 'Queued for Telegram'
-        })
-        if (archivable.length) {
-          await Promise.all(archivable.map(p =>
-            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
-          ))
-          console.log(`[Editor] Discarded task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+        const postIds = tasks[0]?.fields?.Posts || []
+        if (postIds.length) {
+          const linkedPosts = await fetchAirtableRecords('Posts', {
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            fields: ['Status', 'Telegram Sent At', 'Posted At'],
+          })
+          const archivable = linkedPosts.filter(p => {
+            const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+            if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed' || s === 'Queued for Telegram'
+          })
+          if (archivable.length) {
+            await Promise.all(archivable.map(p =>
+              patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+            ))
+            console.log(`[Editor] Discarded task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+          }
         }
       } catch (postErr) {
         console.warn('[Editor] Failed to archive sibling Posts on discard:', postErr.message)
@@ -509,22 +522,26 @@ export async function PATCH(request) {
       // recalling an approval means the existing Posts are no longer the
       // version we want to ship — they'll be re-created on the next approve.
       // Skip Posts that have already gone out (Sent to Telegram / Posted) —
-      // those are committed.
+      // those are committed. Pull IDs from the task's Posts back-link, not
+      // a broken ARRAYJOIN formula — see feedback_airtable_arrayjoin_linked_records.
       try {
-        const linkedPosts = await fetchAirtableRecords('Posts', {
-          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-          fields: ['Status', 'Telegram Sent At', 'Posted At'],
-        })
-        const archivable = linkedPosts.filter(p => {
-          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
-          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
-        })
-        if (archivable.length) {
-          await Promise.all(archivable.map(p =>
-            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
-          ))
-          console.log(`[Editor] Archived ${archivable.length} sibling Post(s) for recalled task ${taskId}`)
+        const postIds = tasks[0]?.fields?.Posts || []
+        if (postIds.length) {
+          const linkedPosts = await fetchAirtableRecords('Posts', {
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            fields: ['Status', 'Telegram Sent At', 'Posted At'],
+          })
+          const archivable = linkedPosts.filter(p => {
+            const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+            if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+          })
+          if (archivable.length) {
+            await Promise.all(archivable.map(p =>
+              patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+            ))
+            console.log(`[Editor] Archived ${archivable.length} sibling Post(s) for recalled task ${taskId}`)
+          }
         }
       } catch (postErr) {
         console.warn('[Editor] Failed to archive sibling Posts for revision:', postErr.message)

@@ -172,10 +172,23 @@ export async function PATCH(request) {
       const taskId = (source.Task || [])[0] || null
       assetIdForFanout = (source.Asset || [])[0] || null
       if (taskId) {
-        const siblings = await fetchAirtableRecords('Posts', {
-          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
-          fields: ['Task', 'Telegram Sent At', 'Posted At'],
+        // Pull sibling IDs from the Task's Posts back-link — NOT a FIND(taskId,
+        // ARRAYJOIN({Task})) formula on Posts. ARRAYJOIN on a linked-record
+        // field returns the primary-field text of the linked records, not
+        // their record IDs, so FIND silently matches zero and fan-out becomes
+        // a single-record no-op. See feedback_airtable_arrayjoin_linked_records.
+        const taskList = await fetchAirtableRecords('Tasks', {
+          filterByFormula: `RECORD_ID()='${taskId}'`,
+          fields: ['Posts'],
         })
+        const allSiblingIds = (taskList[0]?.fields?.Posts || []).filter(id => id !== postId)
+        let siblings = []
+        if (allSiblingIds.length) {
+          siblings = await fetchAirtableRecords('Posts', {
+            filterByFormula: `OR(${allSiblingIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            fields: ['Task', 'Telegram Sent At', 'Posted At'],
+          })
+        }
         // For Status fan-out, never drag an already-sent or already-live
         // sibling backwards. Thumbnail-only fan-out is fine on any sibling.
         const isStatusChange = 'Status' in update
