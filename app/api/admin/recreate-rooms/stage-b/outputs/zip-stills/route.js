@@ -153,7 +153,8 @@ export async function GET(request) {
     if (orderedOutfitIds.length > 0) {
       const expr = orderedOutfitIds.map(id => `RECORD_ID() = '${id}'`).join(', ')
       const rows = await fetchAirtableRecords(PHOTOS, {
-        fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'CDN URL', 'Image'],
+        fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'CDN URL', 'Image',
+          'Flatlay Status', 'Flatlay Dropbox Path', 'Flatlay CDN URL', 'Flatlay Model'],
         filterByFormula: `OR(${expr})`,
       })
       const byId = Object.fromEntries(rows.map(r => [r.id, r]))
@@ -233,12 +234,26 @@ export async function GET(request) {
           const f = op.fields || {}
           const handle = (f['Source Handle'] || 'creator').replace(/[^A-Za-z0-9_-]+/g, '')
           const idx = String(i + 1).padStart(2, '0')
-          const dbxPath = f['Dropbox Path'] || ''
-          const ext = extOf(dbxPath)
-          const name = `outfits/${idx}_${handle}.${ext}`
+
+          // PREFER FLATLAY when one exists. The editor picked outfits
+          // in the modal seeing the flatlay thumbnails (clean product
+          // shot on white) — they expect TJP to receive those, not the
+          // contextual Pinterest photo with the model in it. Falls back
+          // to the original photo if no flatlay has been generated.
+          const flatlayReady = (f['Flatlay Status']?.name || f['Flatlay Status']) === 'Done'
+          const flatlayDbx = f['Flatlay Dropbox Path'] || ''
+          const flatlayCdn = f['Flatlay CDN URL'] || ''
+          const useFlatlay = flatlayReady && (flatlayDbx || flatlayCdn)
+          const sourceLabel = useFlatlay ? `flatlay-${f['Flatlay Model'] || 'nano'}` : 'original'
+          const dbxPath = useFlatlay ? flatlayDbx : (f['Dropbox Path'] || '')
+          const cdnUrl = useFlatlay ? flatlayCdn : (f['CDN URL'] || '')
+          const ext = extOf(dbxPath || 'x.jpg')
+          const name = `outfits/${idx}_${handle}_${sourceLabel}.${ext}`
+
           try {
             let bytes = null
-            // Dropbox first — full-resolution original bytes.
+            // Dropbox first — full-resolution original bytes (or the
+            // flatlay's full-res when flatlay is chosen).
             if (dbxPath) {
               await ensureDbx()
               bytes = await downloadFromDropbox(dbxToken, dbxNs, dbxPath)
@@ -246,8 +261,8 @@ export async function GET(request) {
             // CDN fallback only when Dropbox doesn't have it.
             // Warning: CF's public variant is compressed; this is a
             // safety net, not the preferred source.
-            if (!bytes && f['CDN URL']) {
-              try { bytes = await fetchBytes(f['CDN URL']) } catch {}
+            if (!bytes && cdnUrl) {
+              try { bytes = await fetchBytes(cdnUrl) } catch {}
             }
             if (!bytes && f.Image?.[0]?.url) {
               bytes = await fetchBytes(f.Image[0].url)
