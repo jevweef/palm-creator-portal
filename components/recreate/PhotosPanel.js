@@ -307,25 +307,57 @@ function LibrarySection({ outfitsOnly = false }) {
   // once — pre-flagged Is Outfit so they bypass the curation step.
   // Files go to /Palm Ops/Photos/Pinterest/ on Dropbox + CF Images,
   // metadata to the Photos table with Source Type=Pinterest.
+  //
+  // Chunked client-side because Vercel caps serverless request bodies
+  // at 4.5 MB. We bucket files into groups whose combined size stays
+  // under ~3.5 MB (margin for multipart overhead), then POST each
+  // chunk sequentially.
   const [pinDrop, setPinDrop] = useState({ uploading: false, msg: '' })
   const uploadPinterest = useCallback(async (files) => {
     if (!files?.length) return
-    setPinDrop({ uploading: true, msg: `Uploading ${files.length}…` })
-    try {
-      const form = new FormData()
-      for (const f of files) form.append('files', f)
-      const r = await fetch('/api/admin/photos/upload-pinterest', { method: 'POST', body: form })
-      const text = await r.text()
-      let d = null
-      try { d = JSON.parse(text) } catch {
-        throw new Error(`HTTP ${r.status} returned non-JSON (likely a server timeout). ${text.slice(0, 160)}`)
+    // Build chunks. A single file > 3.5 MB still gets its own chunk
+    // (we report a warning if it ends up failing because Vercel rejects
+    // it on size — those should be downscaled before upload).
+    const MAX_CHUNK_BYTES = 3.5 * 1024 * 1024
+    const chunks = []
+    let current = [], currentSize = 0
+    for (const f of files) {
+      const sz = f.size || 0
+      if (current.length > 0 && currentSize + sz > MAX_CHUNK_BYTES) {
+        chunks.push(current); current = []; currentSize = 0
       }
-      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
-      setPinDrop({ uploading: false, msg: `✓ Added ${d.created} outfit${d.created === 1 ? '' : 's'}${d.failed ? ` · ${d.failed} failed` : ''}` })
-      // Refresh the library so the new rows appear without a full reload.
+      current.push(f); currentSize += sz
+    }
+    if (current.length > 0) chunks.push(current)
+
+    setPinDrop({ uploading: true, msg: `Uploading ${files.length} in ${chunks.length} batch${chunks.length === 1 ? '' : 'es'}…` })
+    let totalCreated = 0, totalFailed = 0
+    const allFailures = []
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]
+        setPinDrop({ uploading: true, msg: `⏳ Batch ${i + 1}/${chunks.length} (${chunk.length} files, ${(chunk.reduce((s, f) => s + (f.size || 0), 0) / 1024 / 1024).toFixed(1)} MB)…` })
+        const form = new FormData()
+        for (const f of chunk) form.append('files', f)
+        const r = await fetch('/api/admin/photos/upload-pinterest', { method: 'POST', body: form })
+        const text = await r.text()
+        let d = null
+        try { d = JSON.parse(text) } catch {
+          // 413 / 504 return HTML, not JSON. Surface it as-is so the
+          // editor sees the actual cause (e.g. PAYLOAD_TOO_LARGE).
+          throw new Error(`Batch ${i + 1}: HTTP ${r.status} returned non-JSON. ${text.slice(0, 160)}`)
+        }
+        if (!r.ok || d.error) throw new Error(`Batch ${i + 1}: ${d.error || `HTTP ${r.status}`}`)
+        totalCreated += d.created || 0
+        totalFailed += d.failed || 0
+        if (Array.isArray(d.failures)) allFailures.push(...d.failures)
+      }
+      const summary = `✓ Added ${totalCreated}${totalFailed ? ` · ${totalFailed} failed (${allFailures.slice(0, 3).map(f => f.reason).join(', ')}${allFailures.length > 3 ? '…' : ''})` : ''}`
+      setPinDrop({ uploading: false, msg: summary })
       load()
     } catch (e) {
-      setPinDrop({ uploading: false, msg: `❌ ${e.message}` })
+      setPinDrop({ uploading: false, msg: `❌ ${e.message}. ${totalCreated > 0 ? `${totalCreated} uploaded before the failure.` : ''}` })
+      if (totalCreated > 0) load()
     }
   }, [load])
 
