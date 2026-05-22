@@ -582,22 +582,23 @@ function LibrarySection({ outfitsOnly = false }) {
                 </div>
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: '18px 22px' }}>
-                {/* Layout strategy for dualView cards:
-                    • 1 item → max-width 900px, centered (one big card)
-                    • 2+ items → 2-column grid (each card is already wide
-                      because it shows original + flatlay side-by-side)
-                    Anything narrower wastes the modal real estate the
-                    user complained about. */}
+                {/* Layout depends on context:
+                    • Outfit Library → dualView cards (original + flatlay
+                      side-by-side), so cards need ~520px each
+                    • Regular Library → single-image cards with the
+                      flatlay toggle; narrower, fit more per row
+                    1-item carousels center as a single big card either
+                    way so we don't waste modal real estate. */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: group.items.length === 1
-                    ? 'minmax(0, 900px)'
-                    : 'repeat(auto-fit, minmax(520px, 1fr))',
+                    ? `minmax(0, ${outfitsOnly ? 900 : 600}px)`
+                    : `repeat(auto-fit, minmax(${outfitsOnly ? 520 : 280}px, 1fr))`,
                   justifyContent: group.items.length === 1 ? 'center' : 'stretch',
                   gap: 16,
                 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView={outfitsOnly} />
                   ))}
                 </div>
               </div>
