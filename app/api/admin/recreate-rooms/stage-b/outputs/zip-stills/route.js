@@ -69,9 +69,10 @@ export async function GET(request) {
         fields: ['Stage B Parent', 'Variant #', 'Status', 'Slug', 'Image', 'Dropbox Link'],
       }),
       // Reel rows — needed to pull Selected Outfits for the reel(s)
-      // represented by the stills, so we can bundle the outfit
-      // reference photos alongside the scenes (TJP needs both).
-      fetchAirtableRecords(REELS, { fields: ['Selected Outfits'] }),
+      // represented by the stills (so we can bundle the outfit
+      // reference photos), AND the source video so TJP gets the
+      // motion-control source in the same bundle.
+      fetchAirtableRecords(REELS, { fields: ['Selected Outfits', 'Dropbox Video Link', 'Reel ID', 'Source Handle'] }),
     ])
 
     let stills = allStills.filter(s => (s.fields?.Creator || []).includes(creatorId))
@@ -294,6 +295,34 @@ export async function GET(request) {
             else console.warn(`[zip-stills] outfit ${op.id} (${name}) had no bytes source`)
           } catch (e) {
             console.warn(`[zip-stills] outfit ${name} failed:`, e.message)
+          }
+        }
+
+        // Source reel video(s). Multi-reel ZIPs are rare (the workflow
+        // is per-reel), but support them — each reel's MP4 gets a
+        // distinct filename. Single-reel ZIPs name the file `reel.mp4`
+        // so TJP doesn't have to guess.
+        const reelById = Object.fromEntries(allReels.map(r => [r.id, r.fields || {}]))
+        for (const rid of reelIdsInScope) {
+          const rf = reelById[rid]
+          const videoLink = (rf?.['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1')
+          if (!videoLink) {
+            console.warn(`[zip-stills] reel ${rid} has no Dropbox Video Link — skipping`)
+            continue
+          }
+          const reelLabel = rf?.['Reel ID'] || rid
+          // One-reel ZIPs get a generic name; multi-reel ZIPs disambiguate.
+          const videoName = reelIdsInScope.size === 1
+            ? 'reel.mp4'
+            : `reel-${reelLabel}.mp4`
+          try {
+            const vid = await fetchBytes(videoLink)
+            if (vid) {
+              archive.append(vid, { name: videoName })
+              console.log(`[zip-stills] reel ${reelLabel} → ${videoName} (${vid.length} bytes)`)
+            }
+          } catch (e) {
+            console.warn(`[zip-stills] reel video ${reelLabel} failed:`, e.message)
           }
         }
       } catch (e) {
