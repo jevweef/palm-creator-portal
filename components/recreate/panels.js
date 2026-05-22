@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { buildStreamPosterUrl, buildStreamIframeUrl } from '@/lib/cfStreamUrl'
+import SceneUploadModal from './SceneUploadModal'
 
 // Mobile breakpoint detection — inline styles can't use media queries
 // so any layout that needs to collapse on phone screens reads this hook.
@@ -145,6 +146,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [count, setCount] = useState(1) // 1 | 2 | 4 — fan-out N variations into DIFFERENT rooms in parallel
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
   const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
+  const [uploadingScene, setUploadingScene] = useState(null) // Scene-scoped upload modal — opens in-place instead of routing back to /ai-editor
   // Outfits attached to the current reel. Drives the upcoming fan-out
   // step (every selected outfit × every approved Stage B scene). Stored
   // server-side on the Recreate Reels row, hydrated to photo metadata
@@ -1017,8 +1019,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                         style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(232,168,120,0.18)', color: '#e8b878', borderRadius: 5, textDecoration: 'none' }}>⬇ ZIP for TJP (still + reel)</a>
                     )}
                     {o.status === 'Approved' && o.reel?.id && (
-                      <a href={`/ai-editor?creator=${creatorId}&upload=${o.reel.id}`}
-                        style={{ display: 'block', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.16)', color: '#6AC68A', borderRadius: 5, textDecoration: 'none' }}>↑ Upload finished video(s)</a>
+                      // Opens an inline modal scoped to this scene
+                      // (creates Asset + Task via the same /upload
+                      // route, just without navigating away from the
+                      // workflow).
+                      <button onClick={() => setUploadingScene(o)}
+                        style={{ display: 'block', width: '100%', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.16)', color: '#6AC68A', borderRadius: 5, border: 'none', cursor: 'pointer' }}>
+                        ↑ Upload finished video(s)
+                      </button>
                     )}
 
                     <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
@@ -1050,6 +1058,18 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         </div>
         )
       })()}
+
+      {/* Scene-scoped upload modal — replaces the old "redirect to
+          /ai-editor and auto-open the upload form" flow. Editor stays
+          in the workflow; modal closes on success. */}
+      {uploadingScene && (
+        <SceneUploadModal
+          scene={uploadingScene}
+          creatorId={creatorId}
+          onClose={() => setUploadingScene(null)}
+          onSuccess={() => { setUploadingScene(null); loadOutputs() }}
+        />
+      )}
 
       {/* Click-to-expand detail modal for a Scene card. Big preview +
           metadata + actions in one place. Click outside or ✕ to close. */}
