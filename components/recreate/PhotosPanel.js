@@ -394,6 +394,38 @@ function LibrarySection({ outfitsOnly = false }) {
     setBulkHd(s => ({ ...s, running: false }))
   }
 
+  // Pick a specific variant as the "current" flatlay — updates the
+  // row's Flatlay Model + Flatlay CDN URL + Flatlay Dropbox Path so
+  // the choice survives a refresh. The variants array stays intact;
+  // this just moves the "active pointer" within it. Pairs with the
+  // 🔒 lock button: click chip → pick variant → click lock → final.
+  const setActiveVariant = async (p, variant) => {
+    if (!variant?.model) return
+    // Optimistic local update
+    setPhotos(prev => prev.map(x => x.id === p.id ? {
+      ...x,
+      flatlayModel: variant.model,
+      flatlayCdnUrl: variant.cdnUrl || x.flatlayCdnUrl,
+      flatlayDropboxPath: variant.dropboxPath || x.flatlayDropboxPath,
+    } : x))
+    try {
+      const r = await fetch('/api/admin/photos/library', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: p.id,
+          fields: {
+            'Flatlay Model': variant.model,
+            ...(variant.cdnUrl ? { 'Flatlay CDN URL': variant.cdnUrl } : {}),
+            ...(variant.dropboxPath ? { 'Flatlay Dropbox Path': variant.dropboxPath } : {}),
+          },
+        }),
+      })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    } catch (e) {
+      alert(`Couldn't save active variant: ${e.message}`)
+    }
+  }
+
   // Toggle the lock state on a flatlay. Locked rows refuse re-runs at
   // the server (409) so a stray N/W/G click can't blow away a result
   // the editor wants to keep.
@@ -680,7 +712,7 @@ function LibrarySection({ outfitsOnly = false }) {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} setActiveVariant={setActiveVariant} />
                   ))}
                 </div>
               </div>
@@ -754,7 +786,7 @@ function LibrarySection({ outfitsOnly = false }) {
                   gap: 16,
                 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView={outfitsOnly} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} setActiveVariant={setActiveVariant} dualView={outfitsOnly} />
                   ))}
                 </div>
               </div>
@@ -774,7 +806,7 @@ function LibrarySection({ outfitsOnly = false }) {
 // dualView: when true (the post modal), render original + flatlay
 // side-by-side instead of one with a toggle. The grid view stays as
 // toggle-style because each row needs the compact footprint.
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, resumeFlatlay, upgradeHd, toggleFlatlayLock, dualView = false }) {
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, resumeFlatlay, upgradeHd, toggleFlatlayLock, setActiveVariant, dualView = false }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   // Flatlay button is only meaningful on outfit-flagged rows (the whole
   // feature is about analyzing the clothes the subject is wearing).
@@ -835,8 +867,15 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, res
             {variants.length > 1 && (
               <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4, padding: 4, background: 'rgba(0,0,0,0.6)', borderRadius: 6 }}>
                 {variants.map(v => (
-                  <button key={v.model} onClick={() => setActiveVariantModel(v.model)}
-                    title={`Show ${v.model.toUpperCase()} variant`}
+                  <button key={v.model}
+                    onClick={() => {
+                      // Persist the pick — local state for instant swap,
+                      // Airtable patch so it survives refresh and the
+                      // 🔒 lock button targets the right variant.
+                      setActiveVariantModel(v.model)
+                      if (setActiveVariant) setActiveVariant(p, v)
+                    }}
+                    title={`Pick ${v.model.toUpperCase()} as the chosen variant${p.flatlayLocked ? '' : ' (then click 🔒 to lock it as final)'}`}
                     style={{
                       padding: '4px 8px', fontSize: 10, fontWeight: 800, borderRadius: 4,
                       background: v.model === activeVariantModel ? 'rgba(232,168,120,0.92)' : 'rgba(255,255,255,0.15)',
