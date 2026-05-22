@@ -335,12 +335,37 @@ function LibrarySection({ outfitsOnly = false }) {
     setBulkHd(s => ({ ...s, running: false }))
   }
 
+  // Toggle the lock state on a flatlay. Locked rows refuse re-runs at
+  // the server (409) so a stray N/W/G click can't blow away a result
+  // the editor wants to keep.
+  const toggleFlatlayLock = async (p) => {
+    const next = !p.flatlayLocked
+    setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayLocked: next } : x))
+    try {
+      const r = await fetch('/api/admin/photos/library', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, fields: { 'Flatlay Locked': next } }),
+      })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    } catch (e) {
+      // Roll back on failure.
+      setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayLocked: !next } : x))
+      alert(`Lock toggle failed: ${e.message}`)
+    }
+  }
+
   // Generate a product-flatlay version. `model` picks between WaveSpeed's
   // Nano Banana (default), Wan 2.7, and GPT-Image-2 — each gives a
   // different style/quality tradeoff and the editor wants to compare.
   // Server stores per-model bytes on Dropbox + CF (path/id include the
   // model key) but only the latest run wins the `Flatlay CDN URL` field.
   const generateFlatlay = async (p, model = 'nano') => {
+    // Defensive client-side block — server already returns 409 when
+    // locked, but we save the trip by checking here too.
+    if (p.flatlayLocked) {
+      alert('This flatlay is locked. Click 🔒 to unlock before re-generating.')
+      return
+    }
     setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Generating' } : x))
     try {
       const r = await fetch('/api/admin/photos/flatlay', {
@@ -354,6 +379,7 @@ function LibrarySection({ outfitsOnly = false }) {
         flatlayStatus: 'Done',
         flatlayCdnUrl: d.flatlayCdnUrl || '',
         flatlayDropboxPath: d.flatlayDropboxPath || '',
+        flatlayModel: model,
       } : x))
     } catch (e) {
       setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
@@ -498,7 +524,7 @@ function LibrarySection({ outfitsOnly = false }) {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} />
                   ))}
                 </div>
               </div>
@@ -558,7 +584,7 @@ function LibrarySection({ outfitsOnly = false }) {
               <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView />
                   ))}
                 </div>
               </div>
@@ -574,35 +600,68 @@ function LibrarySection({ outfitsOnly = false }) {
 // the per-image actions stay identical. pickOutfit + generateFlatlay
 // are optional — passed only from the post modal so the inline expanded
 // view stays uncluttered (use the Outfit Picker tab + flatlay icons there).
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upgradeHd }) {
+//
+// dualView: when true (the post modal), render original + flatlay
+// side-by-side instead of one with a toggle. The grid view stays as
+// toggle-style because each row needs the compact footprint.
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upgradeHd, toggleFlatlayLock, dualView = false }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   // Flatlay button is only meaningful on outfit-flagged rows (the whole
   // feature is about analyzing the clothes the subject is wearing).
   // Status flow: None → Generating → Done | Failed.
   const fl = p.flatlayStatus || 'None'
+  const flatlayReady = fl === 'Done' && !!p.flatlayCdnUrl
   const [showFlatlay, setShowFlatlay] = useState(false)
+  // Side-by-side when dualView is on AND a flatlay actually exists —
+  // otherwise we fall through to the regular single-image render so the
+  // card doesn't show a wasted empty pane when generation hasn't
+  // happened yet.
+  const showDual = dualView && flatlayReady
   return (
-    <div style={{ position: 'relative', border: `1px solid ${p.isOutfit ? '#6AC68A' : `${sc}40`}`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-      {p.image
-        ? <img src={(showFlatlay && p.flatlayCdnUrl) ? p.flatlayCdnUrl : p.image} alt="" loading="lazy"
-            onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-            style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
-        : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
-      {p.isOutfit && (
-        <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>👗 OUTFIT</div>
+    <div style={{ position: 'relative', border: `1px solid ${p.flatlayLocked ? '#6AC68A' : p.isOutfit ? '#6AC68A' : `${sc}40`}`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+      {showDual ? (
+        // Two-pane layout — original on the left, AI flatlay on the right.
+        // Each pane gets its own label so it's obvious which is which.
+        // Bigger paneRatio keeps the images tall and readable.
+        <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'rgba(255,255,255,0.08)' }}>
+          <div style={{ position: 'relative', background: '#000' }}>
+            <img src={p.image} alt="" loading="lazy"
+              onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+              style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 10, fontWeight: 700 }}>📷 original</div>
+          </div>
+          <div style={{ position: 'relative', background: '#fff' }}>
+            <img src={p.flatlayCdnUrl} alt="" loading="lazy"
+              style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(232,168,120,0.92)', color: '#1a0a0a', fontSize: 10, fontWeight: 800 }}>
+              📦 flatlay{p.flatlayModel ? ` · ${p.flatlayModel.toUpperCase()}` : ''}
+            </div>
+            {p.flatlayLocked && (
+              <div style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>🔒 LOCKED</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {p.image
+            ? <img src={(showFlatlay && p.flatlayCdnUrl) ? p.flatlayCdnUrl : p.image} alt="" loading="lazy"
+                onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
+            : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
+          {flatlayReady && (
+            <button onClick={() => setShowFlatlay(v => !v)}
+              title={showFlatlay ? 'Switch to original photo' : `Switch to AI flatlay${p.flatlayModel ? ` (${p.flatlayModel.toUpperCase()})` : ''}`}
+              style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: showFlatlay ? '#e8a878' : '#fff', fontSize: 10, fontWeight: 700, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer' }}>
+              {showFlatlay ? '📷 original' : `📦 flatlay${p.flatlayModel ? ` · ${p.flatlayModel.toUpperCase()}` : ''}`}
+            </button>
+          )}
+        </>
       )}
-      {fl === 'Done' && p.flatlayCdnUrl && (
-        // Tiny pill that toggles the displayed image between original
-        // and flatlay. Sits opposite the OUTFIT badge so they don't
-        // collide.
-        <button onClick={() => setShowFlatlay(v => !v)}
-          title={showFlatlay ? 'Switch to original photo' : 'Switch to AI flatlay version'}
-          style={{ position: 'absolute', top: 6, right: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.7)', color: showFlatlay ? '#e8a878' : '#fff', fontSize: 10, fontWeight: 700, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer' }}>
-          {showFlatlay ? '📷 original' : '📦 flatlay'}
-        </button>
+      {p.isOutfit && (
+        <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800, zIndex: 2 }}>👗 OUTFIT</div>
       )}
       {fl === 'Generating' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', color: '#e8a878', fontSize: 12, fontWeight: 700, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', color: '#e8a878', fontSize: 12, fontWeight: 700, pointerEvents: 'none', zIndex: 3 }}>
           ⏳ generating flatlay…
         </div>
       )}
@@ -625,17 +684,25 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
             // Three side-by-side icons let the editor try each model
             // and pick the best result — N (Nano-Banana, default fast/cheap),
             // W (Wan 2.7), G (GPT-Image-2). The latest run wins.
+            // Locked → buttons disabled until 🔒 is toggled off.
             <>
-              <button onClick={() => generateFlatlay(p, 'nano')}
-                title="Generate flatlay with Nano-Banana 2 (default — fast, cheap)"
-                style={iconBtn('#e8a878')}>📦N</button>
-              <button onClick={() => generateFlatlay(p, 'wan')}
-                title="Generate flatlay with Wan 2.7 image-edit-pro"
-                style={iconBtn('#e8a878')}>📦W</button>
-              <button onClick={() => generateFlatlay(p, 'gpt')}
-                title="Generate flatlay with GPT-Image-2 (slowest, often most accurate)"
-                style={iconBtn('#e8a878')}>📦G</button>
+              <button onClick={() => generateFlatlay(p, 'nano')} disabled={p.flatlayLocked}
+                title={p.flatlayLocked ? 'Unlock the flatlay (🔒 button) before re-generating' : 'Generate flatlay with Nano-Banana 2 (default — fast, cheap)'}
+                style={{ ...iconBtn('#e8a878'), opacity: p.flatlayLocked ? 0.35 : 1, cursor: p.flatlayLocked ? 'not-allowed' : 'pointer' }}>📦N</button>
+              <button onClick={() => generateFlatlay(p, 'wan')} disabled={p.flatlayLocked}
+                title={p.flatlayLocked ? 'Unlock first' : 'Generate flatlay with Wan 2.7 image-edit-pro'}
+                style={{ ...iconBtn('#e8a878'), opacity: p.flatlayLocked ? 0.35 : 1, cursor: p.flatlayLocked ? 'not-allowed' : 'pointer' }}>📦W</button>
+              <button onClick={() => generateFlatlay(p, 'gpt')} disabled={p.flatlayLocked}
+                title={p.flatlayLocked ? 'Unlock first' : 'Generate flatlay with GPT-Image-2 (slowest, often most accurate)'}
+                style={{ ...iconBtn('#e8a878'), opacity: p.flatlayLocked ? 0.35 : 1, cursor: p.flatlayLocked ? 'not-allowed' : 'pointer' }}>📦G</button>
             </>
+          )}
+          {toggleFlatlayLock && flatlayReady && (
+            <button onClick={() => toggleFlatlayLock(p)}
+              title={p.flatlayLocked ? 'Unlock so N/W/G can re-generate' : 'Lock this flatlay so re-runs can\'t overwrite it'}
+              style={iconBtn(p.flatlayLocked ? '#6AC68A' : '#888')}>
+              {p.flatlayLocked ? '🔒' : '🔓'}
+            </button>
           )}
           {upgradeHd && (
             <button onClick={() => upgradeHd(p)} disabled={p._upgradingHd}

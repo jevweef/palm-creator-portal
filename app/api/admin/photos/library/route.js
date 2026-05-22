@@ -16,7 +16,7 @@ export async function GET(request) {
     await requireAdminOrAiEditor()
     const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked'],
       ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
@@ -55,6 +55,8 @@ export async function GET(request) {
         flatlayStatus: f['Flatlay Status']?.name || f['Flatlay Status'] || 'None',
         flatlayCdnUrl: f['Flatlay CDN URL'] || '',
         flatlayDropboxPath: f['Flatlay Dropbox Path'] || '',
+        flatlayModel: f['Flatlay Model'] || '',
+        flatlayLocked: !!f['Flatlay Locked'],
         createdTime: r.createdTime,
       }
     }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))

@@ -151,11 +151,17 @@ export async function POST(request) {
     // a public Cloudflare URL — no auth, fastest to fetch). Fall back
     // to Dropbox-proxied bytes if the row hasn't been CF-mirrored yet.
     const rows = await fetchAirtableRecords(PHOTOS, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked'],
       filterByFormula: `RECORD_ID() = '${photoId}'`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
     const f = rows[0].fields || {}
+    // Lock guard — once the editor has marked a flatlay as final, refuse
+    // to overwrite it. They must unlock before re-running so a stray
+    // click on N/W/G doesn't destroy a result they liked.
+    if (f['Flatlay Locked']) {
+      return NextResponse.json({ error: 'This flatlay is locked. Unlock it first to re-generate.' }, { status: 409 })
+    }
     const handle = (f['Source Handle'] || 'unknown').replace(/[^A-Za-z0-9_-]+/g, '-').toLowerCase()
     const postUrl = f['Source Post URL'] || ''
     const idx = f['Carousel Index'] || 1
@@ -282,6 +288,7 @@ export async function POST(request) {
     const patch = {
       'Flatlay Status': 'Done',
       'Flatlay Dropbox Path': dbxPath,
+      'Flatlay Model': modelKey,
       ...(flatlayCdnUrl ? { 'Flatlay CDN URL': flatlayCdnUrl } : {}),
     }
     await patchAirtableRecord(PHOTOS, photoId, patch, { typecast: true })
