@@ -855,81 +855,46 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '1px' }}>{post.creator?.name}</div>
         </div>
 
-        {/* Caption — promoted, the main thing typed on this card */}
+        {/* Caption — the main thing typed on this card. Compact by default;
+            user can drag the resize handle if they want more room. */}
         <div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
-            placeholder="Add caption..." rows={4}
-            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', minHeight: '80px' }} />
+            placeholder="Add caption..." rows={2}
+            style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', minHeight: '48px' }} />
         </div>
 
-        {/* Thumbnail — the other thing routinely picked. Big swatch + two
-            primary actions; upload-from-device tucked behind a small link. */}
+        {/* Thumbnail — swatch + Pick from video. Library + device upload
+            paths were never used in practice so we drop them. Click the
+            existing swatch (if any) to re-open the frame picker too. */}
         <div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {thumbnailUrl ? (
               isHeic(thumbnailUrl) ? (
                 <HeicImage
                   src={thumbnailUrl}
                   alt="thumbnail"
-                  onClick={() => setShowPhotoPicker(true)}
-                  style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => canPickFrame && setShowFramePicker(true)}
+                  style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent', flexShrink: 0, cursor: canPickFrame ? 'pointer' : 'default' }}
                 />
               ) : (
                 <img
                   src={thumbnailUrl.includes('dropbox.com') ? rawDropboxUrl(thumbnailUrl) : thumbnailUrl}
                   alt="thumbnail"
-                  style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent', flexShrink: 0, cursor: 'pointer' }}
-                  onClick={() => setShowPhotoPicker(true)}
+                  style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '6px', border: '1px solid transparent', flexShrink: 0, cursor: canPickFrame ? 'pointer' : 'default' }}
+                  onClick={() => canPickFrame && setShowFramePicker(true)}
                 />
               )
             ) : (
               <div style={{ width: '56px', height: '56px', borderRadius: '6px', flexShrink: 0, background: 'var(--background)', border: '1px dashed var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-subtle)', fontSize: '18px' }}>—</div>
             )}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-              <button onClick={() => setShowPhotoPicker(true)}
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer', textAlign: 'center' }}>
-                {thumbnailUrl ? 'Change from library' : '+ Choose from library'}
+            {canPickFrame && (
+              <button onClick={() => setShowFramePicker(true)}
+                style={{ flex: 1, padding: '8px 10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--palm-pink)', cursor: 'pointer', textAlign: 'center', fontWeight: 600 }}>
+                🎞 {thumbnailUrl ? 'Change' : 'Pick'} from video
               </button>
-              {canPickFrame && (
-                <button onClick={() => setShowFramePicker(true)}
-                  style={{ width: '100%', padding: '6px 10px', background: 'rgba(232, 160, 160, 0.04)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--palm-pink)', cursor: 'pointer', textAlign: 'center' }}>
-                  🎞 Pick from video
-                </button>
-              )}
-              <input ref={thumbFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  setThumbUploading(true)
-                  try {
-                    const form = new FormData()
-                    form.append('file', file)
-                    form.append('postId', post.id)
-                    const res = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
-                    const data = await res.json()
-                    if (data.url) setThumbnailUrl(data.url)
-                  } catch (err) {
-                    console.error('Thumbnail upload failed:', err)
-                  } finally {
-                    setThumbUploading(false)
-                    e.target.value = ''
-                  }
-                }}
-              />
-              {showUploadOption ? (
-                <button onClick={() => thumbFileRef.current?.click()} disabled={thumbUploading}
-                  style={{ width: '100%', padding: '6px 10px', background: 'rgba(125, 211, 164, 0.08)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#7DD3A4', cursor: 'pointer', textAlign: 'center', opacity: thumbUploading ? 0.6 : 1 }}>
-                  {thumbUploading ? 'Uploading…' : '📁 Upload from device'}
-                </button>
-              ) : (
-                <button onClick={() => setShowUploadOption(true)}
-                  style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '10px', cursor: 'pointer', padding: '2px 0', textAlign: 'left', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
-                  upload from device
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
@@ -938,14 +903,12 @@ function PostCard({ post, onRefresh, onSend }) {
         <div>
           {!showPlatforms ? (
             <button onClick={() => setShowPlatforms(true)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '6px 10px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-subtle)' }}>Platforms</span>
-                <span style={{ color: platforms.length ? 'var(--palm-pink)' : 'var(--foreground-subtle)' }}>
-                  {platforms.length === 0 ? 'none' : platforms.length === 1 ? platforms[0] : `${platforms[0]} +${platforms.length - 1}`}
-                </span>
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '6px 10px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer', gap: '8px' }}>
+              <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-subtle)', flexShrink: 0 }}>Platforms</span>
+              <span style={{ flex: 1, minWidth: 0, color: platforms.length ? 'var(--palm-pink)' : 'var(--foreground-subtle)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>
+                {platforms.length === 0 ? 'none' : platforms.length === 1 ? platforms[0] : `${platforms[0]} +${platforms.length - 1}`}
               </span>
-              <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px' }}>edit ▾</span>
+              <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px', flexShrink: 0 }}>▾</span>
             </button>
           ) : (
             <div>
@@ -971,39 +934,10 @@ function PostCard({ post, onRefresh, onSend }) {
           )}
         </div>
 
-        {/* Hashtags — collapsed by default. Summary shows count or "+ Add" */}
-        <div>
-          {!showHashtags ? (
-            <button onClick={() => setShowHashtags(true)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '6px 10px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-subtle)' }}>Hashtags</span>
-                <span style={{ color: hashtags.trim() ? 'var(--palm-pink)' : 'var(--foreground-subtle)' }}>
-                  {(() => {
-                    const tags = hashtags.match(/#\w+/g) || []
-                    if (!tags.length) return '+ add'
-                    if (tags.length === 1) return tags[0]
-                    return `${tags.length} tags`
-                  })()}
-                </span>
-              </span>
-              <span style={{ color: 'var(--foreground-subtle)', fontSize: '10px' }}>edit ▾</span>
-            </button>
-          ) : (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hashtags</div>
-                <button onClick={() => setShowHashtags(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '10px', cursor: 'pointer', padding: 0 }}>
-                  collapse ▴
-                </button>
-              </div>
-              <textarea value={hashtags} onChange={e => { setHashtags(e.target.value); setEditing(true) }}
-                placeholder="#hashtag1 #hashtag2..." rows={2}
-                style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'var(--palm-pink)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
-            </div>
-          )}
-        </div>
+        {/* Hashtags + scheduled-date readout were dropped from this card per
+            user feedback (not used in practice, and the schedule lives in
+            Grid Planner now). The underlying fields are still wired in the
+            data layer — they just don't appear in Post Prep anymore. */}
 
         {videoModal && (
           <PostVideoModal
@@ -1050,16 +984,6 @@ function PostCard({ post, onRefresh, onSend }) {
             onClose={() => setShowPhotoPicker(false)}
           />
         )}
-
-        {/* Scheduled Date — single quiet line, displayed in Eastern Time */}
-        {scheduledDate && (() => {
-          const label = formatScheduledLabel(post.scheduledDate || etLocalToUTC(scheduledDate))
-          return label ? (
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
-              <span style={{ color: 'var(--foreground-subtle)' }}>Scheduled · </span>{label}
-            </div>
-          ) : null
-        })()}
 
         {/* Actions — bigger touch targets, vertical stack so nothing gets
             squeezed when Save appears. Send to Grid is the primary action,
