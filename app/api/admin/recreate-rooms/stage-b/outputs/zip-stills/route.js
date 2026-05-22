@@ -214,30 +214,42 @@ export async function GET(request) {
         }
         // Outfit reference photos under an outfits/ subfolder so TJP
         // can grab them as a batch without mixing them up with the
-        // scene stills. Filename = NN_<handle>.jpg, NN matches the
-        // pick-order in the workflow strip.
+        // scene stills. Filename = NN_<handle>.{ext}, NN matches the
+        // pick-order in the workflow strip; ext follows the actual
+        // Dropbox file (Pinterest uploads may be png/webp).
+        //
+        // BYTE-FIDELITY: Dropbox first, NOT CDN. The Cloudflare Images
+        // "public" variant compresses + can resize, which downsized
+        // Pinterest uploads from 1.3 MB → 50 KB and broke TJP's pixel
+        // minimum check. CDN is only the last-ditch fallback for rows
+        // that somehow lack a Dropbox path.
+        const extOf = (p) => {
+          const m = String(p || '').toLowerCase().match(/\.([a-z0-9]+)$/)
+          const e = m?.[1] || 'jpg'
+          return e === 'jpeg' ? 'jpg' : e
+        }
         for (let i = 0; i < outfitPhotos.length; i++) {
           const op = outfitPhotos[i]
           const f = op.fields || {}
           const handle = (f['Source Handle'] || 'creator').replace(/[^A-Za-z0-9_-]+/g, '')
           const idx = String(i + 1).padStart(2, '0')
-          const name = `outfits/${idx}_${handle}.jpg`
+          const dbxPath = f['Dropbox Path'] || ''
+          const ext = extOf(dbxPath)
+          const name = `outfits/${idx}_${handle}.${ext}`
           try {
-            // CDN URL first (public Cloudflare, no auth, fast).
-            // Falls back to Dropbox download for older rows that
-            // never got mirrored to CF Images.
             let bytes = null
-            const cdn = f['CDN URL']
-            if (cdn) {
-              try { bytes = await fetchBytes(cdn) } catch {}
-            }
-            if (!bytes && f['Dropbox Path']) {
+            // Dropbox first — full-resolution original bytes.
+            if (dbxPath) {
               await ensureDbx()
-              bytes = await downloadFromDropbox(dbxToken, dbxNs, f['Dropbox Path'])
+              bytes = await downloadFromDropbox(dbxToken, dbxNs, dbxPath)
+            }
+            // CDN fallback only when Dropbox doesn't have it.
+            // Warning: CF's public variant is compressed; this is a
+            // safety net, not the preferred source.
+            if (!bytes && f['CDN URL']) {
+              try { bytes = await fetchBytes(f['CDN URL']) } catch {}
             }
             if (!bytes && f.Image?.[0]?.url) {
-              // Legacy: a few early rows still have the Airtable
-              // attachment populated and nothing else.
               bytes = await fetchBytes(f.Image[0].url)
             }
             if (bytes) archive.append(bytes, { name })
