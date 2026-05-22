@@ -670,6 +670,13 @@ function PostCard({ post, onRefresh, onSend }) {
   const [revising, setRevising] = useState(false)
   const [revisionError, setRevisionError] = useState('')
 
+  // "Discard" — terminal kill. Cancels the Task, marks Asset as Discarded so
+  // it stops appearing in editor library / unreviewed / dashboard queries,
+  // archives every pre-flight sibling Post. Dropbox/CF media untouched.
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const [discardError, setDiscardError] = useState('')
+
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
   const hasFile = !!post.asset?.editedFileLink
   // For frame picker: prefer original dropboxLink, fall back to editedFileLink
@@ -785,6 +792,38 @@ function PostCard({ post, onRefresh, onSend }) {
       setRevisionError(err.message)
     } finally {
       setRevising(false)
+    }
+  }
+
+  // Discard the post AND the underlying asset. One-shot kill — no editor
+  // ping, no review queue, no re-pickup. Asset.Pipeline Status='Discarded'
+  // drops it from every queue that filters by Pipeline Status.
+  const handleDiscard = async () => {
+    if (!post.taskId) {
+      setDiscardError('No linked task on this post — cannot discard.')
+      return
+    }
+    setDiscarding(true)
+    setDiscardError('')
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: post.taskId,
+          action: 'discardPost',
+        }),
+      })
+      if (!res.ok) {
+        const errBody = await res.text()
+        throw new Error(errBody.slice(0, 200) || 'Discard failed')
+      }
+      setShowDiscardConfirm(false)
+      if (onRefresh) await onRefresh()
+    } catch (err) {
+      setDiscardError(err.message)
+    } finally {
+      setDiscarding(false)
     }
   }
 
@@ -1047,6 +1086,32 @@ function PostCard({ post, onRefresh, onSend }) {
           )}
           {revisionError && (
             <div style={{ fontSize: '10px', color: '#E87878', textAlign: 'center' }}>{revisionError}</div>
+          )}
+          {/* Discard — terminal kill. Same pre-flight gate as send-back (no
+              point discarding something already on Telegram or live). Two
+              clicks: link → "Discard this clip permanently? Yes / Cancel". */}
+          {post.taskId && (post.status === 'Prepping' || post.status === 'Staged') && (
+            !showDiscardConfirm ? (
+              <button onClick={() => { setShowDiscardConfirm(true); setDiscardError('') }}
+                style={{ background: 'none', border: 'none', color: 'rgba(232, 120, 120, 0.75)', fontSize: '10px', cursor: 'pointer', padding: '2px 0', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                Discard
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', padding: '2px 0', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>Discard this clip permanently?</span>
+                <button onClick={handleDiscard} disabled={discarding}
+                  style={{ background: 'rgba(232, 120, 120, 0.18)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.4)', borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: 700, cursor: discarding ? 'default' : 'pointer' }}>
+                  {discarding ? '…' : 'Yes, discard'}
+                </button>
+                <button onClick={() => { setShowDiscardConfirm(false); setDiscardError('') }} disabled={discarding}
+                  style={{ background: 'transparent', color: 'var(--foreground-muted)', border: 'none', padding: '2px 6px', fontSize: '10px', cursor: discarding ? 'default' : 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            )
+          )}
+          {discardError && (
+            <div style={{ fontSize: '10px', color: '#E87878', textAlign: 'center' }}>{discardError}</div>
           )}
         </div>
       </div>

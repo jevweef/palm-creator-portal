@@ -424,6 +424,46 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true, action: 'recallApproval' })
     }
 
+    // ── Admin: Discard Post ─────────────────────────────────────────────────────
+    // Hard kill — admin doesn't want this edit at all, doesn't want to send it
+    // back to the editor, doesn't want the clip surfacing again anywhere. Flips
+    // Task → Cancelled, Asset → Discarded (so editor library + unreviewed +
+    // dashboard filters drop it), archives every sibling Post not already out
+    // the door. Like recallApproval but terminal — the workflow ends here.
+    // Dropbox + Cloudflare media are NOT deleted; the Asset record just stops
+    // showing up in any queue that filters by Pipeline Status.
+    if (action === 'discardPost') {
+      await patchAirtableRecord('Tasks', taskId, { 'Status': 'Cancelled' })
+      if (assetId) {
+        // typecast lets Airtable auto-create the 'Discarded' option on the
+        // Pipeline Status singleSelect the first time we write it.
+        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'Discarded' }, { typecast: true })
+      }
+
+      // Archive sibling Posts (same rule as recall — anything pre-flight).
+      try {
+        const linkedPosts = await fetchAirtableRecords('Posts', {
+          filterByFormula: `FIND('${taskId}', ARRAYJOIN({Task}))`,
+          fields: ['Status', 'Telegram Sent At', 'Posted At'],
+        })
+        const archivable = linkedPosts.filter(p => {
+          const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
+          if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
+          return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed' || s === 'Queued for Telegram'
+        })
+        if (archivable.length) {
+          await Promise.all(archivable.map(p =>
+            patchAirtableRecord('Posts', p.id, { 'Status': 'Archived' })
+          ))
+          console.log(`[Editor] Discarded task ${taskId} — archived ${archivable.length} sibling Post(s)`)
+        }
+      } catch (postErr) {
+        console.warn('[Editor] Failed to archive sibling Posts on discard:', postErr.message)
+      }
+
+      return NextResponse.json({ ok: true, action: 'discardPost' })
+    }
+
     // ── Admin: Request Revision ─────────────────────────────────────────────────
     if (action === 'requestRevision') {
       const taskUpdate = {
