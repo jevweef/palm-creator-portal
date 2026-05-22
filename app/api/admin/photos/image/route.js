@@ -28,7 +28,26 @@ export async function GET(request) {
 
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
-    const buf = await downloadFromDropbox(tok, ns, path)
+    let buf = await downloadFromDropbox(tok, ns, path)
+
+    // Fallback: if Dropbox returns nothing (e.g. flatlay upload failed
+    // silently but the path got written anyway, or the file was deleted
+    // out from under us), and the caller passed a public ?fallback= URL
+    // — fetch that and stream those bytes instead. Lets downloads keep
+    // working even when Dropbox-side is broken; the editor gets the
+    // CDN copy which is still 2K resolution.
+    if (!buf || buf.length === 0) {
+      const fallback = u.searchParams.get('fallback')
+      if (fallback && /^https?:\/\//i.test(fallback)) {
+        try {
+          const r = await fetch(fallback)
+          if (r.ok) buf = Buffer.from(await r.arrayBuffer())
+        } catch (e) { console.warn('[photos/image] fallback fetch failed:', e.message) }
+      }
+    }
+    if (!buf || buf.length === 0) {
+      return NextResponse.json({ error: `Dropbox file not found at ${path} (and no working fallback)` }, { status: 404 })
+    }
 
     // Guess MIME from the filename extension. Default jpeg since
     // every Photos record uses .jpg. The browser only needs a

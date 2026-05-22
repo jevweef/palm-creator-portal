@@ -810,12 +810,23 @@ function originalDownloadHref(p) {
 }
 // Flatlays: route through the same proxy with the flatlay Dropbox path
 // so cross-origin restrictions on imagedelivery.net don't block the
-// download-attribute behavior.
+// download-attribute behavior. CDN URL is passed as ?fallback= so
+// older rows whose Dropbox upload silently failed still produce a
+// real file instead of a broken-link icon.
 function flatlayDownloadHref(p) {
+  const dl = encodeURIComponent(flatlayDownloadName(p))
+  const fallback = p.flatlayCdnUrl ? `&fallback=${encodeURIComponent(p.flatlayCdnUrl)}` : ''
   if (p.flatlayDropboxPath) {
-    return `/api/admin/photos/image?path=${encodeURIComponent(p.flatlayDropboxPath)}&download=${encodeURIComponent(flatlayDownloadName(p))}`
+    return `/api/admin/photos/image?path=${encodeURIComponent(p.flatlayDropboxPath)}&download=${dl}${fallback}`
   }
-  return p.flatlayCdnUrl || ''
+  // No Dropbox path at all — route the CDN URL through the proxy with
+  // an empty path so the fallback branch kicks in and we still set
+  // Content-Disposition. We use a sentinel path that exists nowhere
+  // so the lookup misses immediately.
+  if (p.flatlayCdnUrl) {
+    return `/api/admin/photos/image?path=/Palm%20Ops/__no_local__&download=${dl}${fallback}`
+  }
+  return ''
 }
 
 // ─── Browse Photos modal ────────────────────────────────────────────────────

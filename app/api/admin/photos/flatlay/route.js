@@ -263,11 +263,14 @@ export async function POST(request) {
     const tok = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(tok)
     const dbxPath = `/Palm Ops/Photos/Flatlays/${handle}/${code}_${String(idx).padStart(2, '0')}_flatlay_${modelKey}.jpg`
+    let dbxUploadOk = false
     try {
       await uploadToDropbox(tok, ns, dbxPath, buf, { overwrite: true })
+      dbxUploadOk = true
     } catch (e) {
       // Non-fatal — CF mirror below is the actual delivery path. Log
-      // and keep going so the editor still sees the result.
+      // and keep going so the editor still sees the result, but DON'T
+      // write the path field below or downloads will hit empty files.
       console.warn(`[photos/flatlay] Dropbox upload failed for ${dbxPath}:`, e.message)
     }
 
@@ -287,8 +290,12 @@ export async function POST(request) {
 
     const patch = {
       'Flatlay Status': 'Done',
-      'Flatlay Dropbox Path': dbxPath,
       'Flatlay Model': modelKey,
+      // Only write the path field when the Dropbox upload actually
+      // succeeded. Stale paths cause the ⬇ button to hit empty bytes
+      // (broken-link icon in Finder) since the route proxies through
+      // downloadFromDropbox.
+      ...(dbxUploadOk ? { 'Flatlay Dropbox Path': dbxPath } : { 'Flatlay Dropbox Path': '' }),
       ...(flatlayCdnUrl ? { 'Flatlay CDN URL': flatlayCdnUrl } : {}),
     }
     await patchAirtableRecord(PHOTOS, photoId, patch, { typecast: true })
