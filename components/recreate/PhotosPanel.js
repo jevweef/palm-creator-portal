@@ -834,8 +834,21 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               title="Open the source Instagram post"
               style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           )}
-          <button onClick={() => removePhoto(p)} style={{ padding: '3px 7px', fontSize: 10, background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, cursor: 'pointer' }}>🗑</button>
         </div>
+        {/* Delete on its own row, full-width, red — was a faint gray 🗑
+            tucked in the action wrap; users missed it (especially on
+            Pinterest cards where there's no other red affordance). */}
+        <button onClick={() => removePhoto(p)}
+          title="Delete this photo from the library (also removes the Dropbox file + Cloudflare Images variant)"
+          style={{
+            width: '100%', marginTop: 8, padding: '6px 8px',
+            fontSize: 11, fontWeight: 700,
+            background: 'rgba(232,120,120,0.12)', color: '#E87878',
+            border: '1px solid rgba(232,120,120,0.3)', borderRadius: 5,
+            cursor: 'pointer',
+          }}>
+          🗑 Delete
+        </button>
       </div>
     </div>
   )
