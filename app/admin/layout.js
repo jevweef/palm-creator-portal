@@ -73,6 +73,10 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
   const isChatManager = role === 'chat_manager'
+  // AI editor gets scoped access — only /admin/recreate-source (the
+  // Outfit Library). Everything else under /admin/* is admin-only.
+  const isAiEditor = role === 'ai_editor'
+  const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -101,6 +105,12 @@ export default function AdminLayout({ children }) {
 
   useEffect(() => {
     if (!isLoaded) return
+    // AI editor: allowed on /admin/recreate-source only, bounced to
+    // /ai-editor otherwise.
+    if (isAiEditor) {
+      if (!aiEditorAllowedPath) router.replace('/ai-editor')
+      return
+    }
     if (!isAdmin && !isEditor && !isChatManager) {
       router.replace('/dashboard')
     }
@@ -113,12 +123,12 @@ export default function AdminLayout({ children }) {
     if (isChatManager) {
       router.replace('/photo-library')
     }
-  }, [isLoaded, user, router, pathname, isAdmin, isEditor, isChatManager])
+  }, [isLoaded, user, router, pathname, isAdmin, isEditor, isChatManager, isAiEditor, aiEditorAllowedPath])
 
   // Early returns AFTER all hooks. Chat managers never render the admin
   // layout — they're redirected above. This block catches anyone else
   // without a permitted role.
-  if (!isLoaded || (!isAdmin && !isEditor)) {
+  if (!isLoaded || (!isAdmin && !isEditor && !(isAiEditor && aiEditorAllowedPath))) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading...</div>
@@ -128,11 +138,14 @@ export default function AdminLayout({ children }) {
 
   const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
   const isInboxOwner = OWNER_ONLY_EMAILS.includes(userEmail)
-  const NAV_ITEMS = (isAdmin ? ADMIN_NAV : EDITOR_NAV).filter(item => {
-    if (item.ownerOnly && !isInboxOwner) return false
-    return true
-  })
-  const sectionLabel = isAdmin ? 'Admin' : 'Editor'
+  const NAV_ITEMS = (isAiEditor
+      ? ADMIN_NAV.filter(item => item.href === '/admin/recreate-source')
+      : isAdmin ? ADMIN_NAV : EDITOR_NAV)
+    .filter(item => {
+      if (item.ownerOnly && !isInboxOwner) return false
+      return true
+    })
+  const sectionLabel = isAiEditor ? 'AI Editor' : isAdmin ? 'Admin' : 'Editor'
   // Kept for backwards-compatible main-content centering on the deleted
   // legacy /admin/chat-wall path. Always false now since the page moved.
   const isOnChatWall = false
