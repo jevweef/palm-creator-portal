@@ -12,6 +12,7 @@ export default function Header() {
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
+  const isAiEditor = role === 'ai_editor'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
   const isChatWallPath = pathname?.startsWith('/photo-library')
@@ -95,6 +96,18 @@ export default function Header() {
             <>
               <Link href="/editor" style={linkStyle(pathname === '/editor')}>Editor Queue</Link>
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
+            </>
+          ) : isAiEditor ? (
+            // AI Editor gets a focused two-link nav. Their workflow lives
+            // at /ai-editor (the Stage B + scene pipeline) and the Outfit
+            // Library at /admin/recreate-source. Nothing else from the
+            // generic nav applies to their job.
+            <>
+              <Link href="/ai-editor" style={linkStyle(pathname?.startsWith('/ai-editor'))}>AI Editor</Link>
+              <Link href="/admin/recreate-source?tab=photos&sub=outfits"
+                style={linkStyle(pathname?.startsWith('/admin/recreate-source'))}>
+                Outfit Library
+              </Link>
             </>
           ) : isCreatorPath ? (
             <>
