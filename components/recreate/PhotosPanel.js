@@ -962,13 +962,6 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, res
                 style={{ ...iconBtn('#e8a878'), opacity: p.flatlayLocked ? 0.35 : 1, cursor: p.flatlayLocked ? 'not-allowed' : 'pointer' }}>📦G</button>
             </>
           )}
-          {toggleFlatlayLock && flatlayReady && (
-            <button onClick={() => toggleFlatlayLock(p)}
-              title={p.flatlayLocked ? 'Unlock so N/W/G can re-generate' : 'Lock this flatlay so re-runs can\'t overwrite it'}
-              style={iconBtn(p.flatlayLocked ? '#6AC68A' : '#888')}>
-              {p.flatlayLocked ? '🔒' : '🔓'}
-            </button>
-          )}
           {upgradeHd && (
             <button onClick={() => upgradeHd(p)} disabled={p._upgradingHd}
               title="Re-fetch the high-res version from Instagram (1080w instead of the ~480w feed thumbnail) and replace the Dropbox + CDN copy."
@@ -1011,6 +1004,29 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, res
               style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           )}
         </div>
+        {/* Approve bar — full-width, prominent. Locks the currently-
+            picked variant (whichever chip is active) as the chosen
+            flatlay. Toggles to "Locked — Unlock to change" once
+            approved. Lives between the icon row and Delete because
+            it's the most common terminal action. */}
+        {toggleFlatlayLock && flatlayReady && (
+          <button onClick={() => toggleFlatlayLock(p)}
+            title={p.flatlayLocked
+              ? `Unlock to switch variants or re-generate.`
+              : `Lock ${(p.flatlayModel || '').toUpperCase() || 'this variant'} as the chosen flatlay — N/W/G can no longer overwrite it.`}
+            style={{
+              width: '100%', marginTop: 8, padding: '7px 10px',
+              fontSize: 12, fontWeight: 800,
+              background: p.flatlayLocked ? 'rgba(106,198,138,0.22)' : 'rgba(106,198,138,0.12)',
+              color: '#6AC68A',
+              border: `1px solid ${p.flatlayLocked ? 'rgba(106,198,138,0.55)' : 'rgba(106,198,138,0.3)'}`,
+              borderRadius: 5, cursor: 'pointer',
+            }}>
+            {p.flatlayLocked
+              ? `🔒 Approved · ${(p.flatlayModel || '').toUpperCase()} — click to unlock`
+              : `✓ Approve ${(p.flatlayModel || '').toUpperCase() || 'flatlay'}`}
+          </button>
+        )}
         {/* Delete on its own row, full-width, red — was a faint gray 🗑
             tucked in the action wrap; users missed it (especially on
             Pinterest cards where there's no other red affordance). */}
