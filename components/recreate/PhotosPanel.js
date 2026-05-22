@@ -546,7 +546,7 @@ function LibrarySection({ outfitsOnly = false }) {
           <div onClick={() => setOpenPostUrl(null)}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={e => e.stopPropagation()}
-              style={{ width: 'min(1100px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              style={{ width: 'min(1600px, 96vw)', maxHeight: '94vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--foreground-muted)' }}>
                   <span style={{ fontSize: 15 }}>{isCarousel ? '📚' : '🖼️'}</span>
@@ -581,8 +581,21 @@ function LibrarySection({ outfitsOnly = false }) {
                     style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
                 </div>
               </div>
-              <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              <div style={{ flex: 1, overflow: 'auto', padding: '18px 22px' }}>
+                {/* Layout strategy for dualView cards:
+                    • 1 item → max-width 900px, centered (one big card)
+                    • 2+ items → 2-column grid (each card is already wide
+                      because it shows original + flatlay side-by-side)
+                    Anything narrower wastes the modal real estate the
+                    user complained about. */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: group.items.length === 1
+                    ? 'minmax(0, 900px)'
+                    : 'repeat(auto-fit, minmax(520px, 1fr))',
+                  justifyContent: group.items.length === 1 ? 'center' : 'stretch',
+                  gap: 16,
+                }}>
                   {group.items.map(p => (
                     <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView />
                   ))}
