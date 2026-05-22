@@ -18,7 +18,7 @@ export async function GET(request) {
     await requireAdminOrAiEditor()
     const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type', 'Flatlay Variants'],
       ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
@@ -60,6 +60,27 @@ export async function GET(request) {
         flatlayDropboxPath: f['Flatlay Dropbox Path'] || '',
         flatlayModel: f['Flatlay Model'] || '',
         flatlayLocked: !!f['Flatlay Locked'],
+        // Parsed variant history — every flatlay generation, newest
+        // first. Legacy rows without the field synthesize a single
+        // entry from the active CDN/path fields so the UI shows what
+        // exists rather than empty.
+        flatlayVariants: (() => {
+          try {
+            const arr = JSON.parse(f['Flatlay Variants'] || '[]')
+            if (Array.isArray(arr) && arr.length) return arr
+          } catch {}
+          // Legacy fallback: synthesize from the single-flatlay fields.
+          if (f['Flatlay CDN URL'] || f['Flatlay Dropbox Path']) {
+            return [{
+              model: f['Flatlay Model'] || 'nano',
+              cdnUrl: f['Flatlay CDN URL'] || '',
+              dropboxPath: f['Flatlay Dropbox Path'] || '',
+              predictionId: '',
+              generatedAt: '',
+            }]
+          }
+          return []
+        })(),
         // Source Type defaults to "Instagram" semantically — legacy
         // rows lack the field but they all came from the IG scraper.
         sourceType: f['Source Type']?.name || f['Source Type'] || 'Instagram',

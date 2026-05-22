@@ -46,12 +46,12 @@ async function describeGarment(imageUrl) {
             'Describe EXACTLY the garment(s) the person is wearing in this photo, for a flatlay product photographer who will reconstruct them on a white background.\n\n'
             + 'For EACH visible garment, list:\n'
             + '• Garment type (e.g. triangle bikini top, low-rise side-tie bikini bottom, slip dress, one-shoulder mini dress, ribbed crop top, bandeau, halter, etc.)\n'
-            + '• Exact color (be specific: "pale dusty pink", "warm chocolate brown", "lavender ribbed", not just "pink" or "brown")\n'
+            + '• Exact color — REQUIRED FORMAT: hex code FIRST, then descriptive name. Example: "#B0BAC4 (powder blue-gray / chambray)" or "#7A4A30 (warm chocolate brown)". Sample the actual fabric pixels, not lit highlights or shadowed folds — pick the hex of the mid-tone. Be aware of cool/warm undertones: a light gray with a blue undertone is NOT pure gray, it\'s #B0B5C0 / powder blue. A "white" with a yellow undertone is cream / ivory. Always include the hex; the diffusion model uses hex codes more reliably than color words.\n'
             + '• Fabric type and texture (ribbed knit / smooth jersey / sheer mesh / silky satin / waffle / textured weave / etc.) — describe what the surface looks and feels like\n'
             + '• Cut, silhouette, and coverage (high-rise, low-rise, micro, full coverage, cheeky, asymmetric, mini, midi, cropped, etc.)\n'
             + '• Neckline / strap detail (thin spaghetti string ties, thick straps, halter neck, cowl, square-cut, sweetheart, one-shoulder, racerback, etc.)\n'
-            + '• Closures or trim (front tie, side tie at hips, back tie, hooks, zipper, ruching, cutout placement, etc.)\n'
-            + '• Any prints, patterns, embellishments, or stitching detail\n\n'
+            + '• Closures — be exhaustive. COUNT visible buttons, snaps, ties, drawstrings, hooks, eyelets, grommets. State where they sit (center placket front-to-hem, side seam, shoulder, hip). If there is a button-front fly on shorts/pants, say "button-front fly with N visible buttons down the front" — do not just say "shorts" or describe them as elastic-only. If there are no closures, say "no visible closures."\n'
+            + '• Any prints, patterns, embellishments, hem details (raw / rolled / lettuce-edge / scalloped), or visible stitching/seams\n\n'
             + 'IGNORE accessories (sunglasses, jewelry, watches, bags, shoes), hair, makeup, the person themselves, and the environment. ONLY describe garments that would be in the flatlay.\n\n'
             + 'If part of a garment is hidden by pose or body, infer the most likely typical cut — assume symmetric construction unless the design is clearly asymmetric.\n\n'
             + 'Be concise but specific. Return one paragraph per garment, no preamble.'
@@ -101,8 +101,11 @@ function buildFlatlayPrompt(garmentDescription) {
     + 'the same category — copy the specific design language visible in the source.\n'
     + '2. FABRIC must match — ribbed knit stays ribbed, smooth jersey stays smooth, sheer stays sheer, '
     + 'satin stays glossy. Do not flatten textured fabric into matte solid.\n'
-    + '3. COLOR must match the exact shade — not a "close enough" version. Pale dusty pink ≠ hot pink. '
-    + 'Lavender ≠ purple. Match the literal hue.\n'
+    + '3. COLOR — render the EXACT hex code(s) given in the garment description above. The hex '
+    + 'code is canonical; the descriptive English name ("powder blue", "chambray") is supporting '
+    + 'context. If the description says #B0BAC4 powder blue-gray, render #B0BAC4 — do not default '
+    + 'to a neutral gray or pure blue. Match the literal hue and undertone, not a "close enough" '
+    + 'interpretation of the English word.\n'
     + '4. Strap detail, tie placement, neckline shape, hem cut, ruching, cutouts, prints — every '
     + 'design detail in the description must appear in the flatlay.\n\n'
     + 'PRESENTATION:\n'
@@ -152,7 +155,7 @@ export async function POST(request) {
     // a public Cloudflare URL — no auth, fastest to fetch). Fall back
     // to Dropbox-proxied bytes if the row hasn't been CF-mirrored yet.
     const rows = await fetchAirtableRecords(PHOTOS, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked', 'Flatlay Variants'],
       filterByFormula: `RECORD_ID() = '${photoId}'`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
@@ -244,7 +247,17 @@ export async function POST(request) {
         if (!outputUrl) { lastError = 'WaveSpeed completed with no outputs'; break }
         break
       }
-      if (d.status === 'failed') { lastError = d.error || 'WaveSpeed reported failed'; break }
+      if (d.status === 'failed') {
+        // WaveSpeed sometimes returns `error` as an object ({message, code}
+        // or similar) rather than a string. Stringify defensively so the
+        // client gets something readable instead of "[object Object]".
+        const raw = d.error
+        lastError = typeof raw === 'string' ? raw
+          : raw?.message ? raw.message
+          : raw ? JSON.stringify(raw)
+          : 'WaveSpeed reported failed'
+        break
+      }
       await new Promise(r => setTimeout(r, 2500))
     }
     if (!outputUrl) {
@@ -301,13 +314,34 @@ export async function POST(request) {
       }
     }
 
+    // Append to Flatlay Variants (history of every run). Each entry
+    // is {model, cdnUrl, dropboxPath, predictionId, generatedAt}.
+    // Same-model re-runs replace the existing entry for that model so
+    // we don't accumulate duplicate Nano runs across many iterations
+    // — the bytes on Dropbox/CF are keyed by model so they overwrite
+    // naturally too.
+    let variants = []
+    try { variants = JSON.parse(f['Flatlay Variants'] || '[]') } catch {}
+    if (!Array.isArray(variants)) variants = []
+    variants = variants.filter(v => v && v.model !== modelKey)
+    variants.unshift({
+      model: modelKey,
+      cdnUrl: flatlayCdnUrl || '',
+      dropboxPath: dbxUploadOk ? dbxPath : '',
+      predictionId,
+      generatedAt: new Date().toISOString(),
+    })
+    // Keep at most 6 variants to stay well under Airtable's
+    // multilineText cell cap, even though we only have 3 models today.
+    variants = variants.slice(0, 6)
+
     const patch = {
       'Flatlay Status': 'Done',
       'Flatlay Model': modelKey,
-      // Only write the path field when the Dropbox upload actually
-      // succeeded. Stale paths cause the ⬇ button to hit empty bytes
-      // (broken-link icon in Finder) since the route proxies through
-      // downloadFromDropbox.
+      'Flatlay Variants': JSON.stringify(variants),
+      // The "current" pointer fields (single-flatlay UI fallback) get
+      // set to whatever model just ran so the editor sees their latest
+      // click as the default in the dual-view pane.
       ...(dbxUploadOk ? { 'Flatlay Dropbox Path': dbxPath } : { 'Flatlay Dropbox Path': '' }),
       ...(flatlayCdnUrl ? { 'Flatlay CDN URL': flatlayCdnUrl } : {}),
     }

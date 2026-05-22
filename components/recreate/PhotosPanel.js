@@ -394,6 +394,38 @@ function LibrarySection({ outfitsOnly = false }) {
     setBulkHd(s => ({ ...s, running: false }))
   }
 
+  // Pick a specific variant as the "current" flatlay — updates the
+  // row's Flatlay Model + Flatlay CDN URL + Flatlay Dropbox Path so
+  // the choice survives a refresh. The variants array stays intact;
+  // this just moves the "active pointer" within it. Pairs with the
+  // 🔒 lock button: click chip → pick variant → click lock → final.
+  const setActiveVariant = async (p, variant) => {
+    if (!variant?.model) return
+    // Optimistic local update
+    setPhotos(prev => prev.map(x => x.id === p.id ? {
+      ...x,
+      flatlayModel: variant.model,
+      flatlayCdnUrl: variant.cdnUrl || x.flatlayCdnUrl,
+      flatlayDropboxPath: variant.dropboxPath || x.flatlayDropboxPath,
+    } : x))
+    try {
+      const r = await fetch('/api/admin/photos/library', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: p.id,
+          fields: {
+            'Flatlay Model': variant.model,
+            ...(variant.cdnUrl ? { 'Flatlay CDN URL': variant.cdnUrl } : {}),
+            ...(variant.dropboxPath ? { 'Flatlay Dropbox Path': variant.dropboxPath } : {}),
+          },
+        }),
+      })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    } catch (e) {
+      alert(`Couldn't save active variant: ${e.message}`)
+    }
+  }
+
   // Toggle the lock state on a flatlay. Locked rows refuse re-runs at
   // the server (409) so a stray N/W/G click can't blow away a result
   // the editor wants to keep.
@@ -410,6 +442,42 @@ function LibrarySection({ outfitsOnly = false }) {
       // Roll back on failure.
       setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayLocked: !next } : x))
       alert(`Lock toggle failed: ${e.message}`)
+    }
+  }
+
+  // Resume a stuck flatlay generation. The main route holds the
+  // function open polling WaveSpeed; if Vercel kills it (90s timeout)
+  // the Airtable row stays pinned to Generating forever even when
+  // WaveSpeed actually finished. This calls the resume endpoint
+  // which pulls the saved prediction ID and finishes the job.
+  const resumeFlatlay = async (p) => {
+    try {
+      const r = await fetch('/api/admin/photos/flatlay/resume', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: p.id }),
+      })
+      // 202 means still cooking — let the UI keep the overlay.
+      if (r.status === 202) {
+        const d = await r.json().catch(() => ({}))
+        alert(d.message || 'WaveSpeed still processing — try again in a bit.')
+        return
+      }
+      const d = await r.json()
+      if (!r.ok || d.error) {
+        const errStr = typeof d.error === 'string' ? d.error
+          : d.error?.message ? d.error.message
+          : d.error ? JSON.stringify(d.error)
+          : `HTTP ${r.status}`
+        throw new Error(errStr)
+      }
+      setPhotos(prev => prev.map(x => x.id === p.id ? {
+        ...x,
+        flatlayStatus: 'Done',
+        flatlayCdnUrl: d.flatlayCdnUrl || '',
+        flatlayDropboxPath: d.flatlayDropboxPath || '',
+      } : x))
+    } catch (e) {
+      alert(`Resume failed: ${e.message}`)
     }
   }
 
@@ -431,8 +499,30 @@ function LibrarySection({ outfitsOnly = false }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoId: p.id, model }),
       })
-      const d = await r.json()
-      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`)
+      // Read as text first — when Vercel kills the function at the 90s
+      // timeout it returns an HTML error page, not JSON. r.json() would
+      // throw "Unexpected token 'A'..." (Vercel's HTML starts with "An
+      // error occurred…"). Catch that explicitly + tell the editor to
+      // use the Check stuck button instead of showing the parse error.
+      const text = await r.text()
+      let d = null
+      try { d = JSON.parse(text) } catch {}
+      if (!d) {
+        // Almost certainly a Vercel timeout — the generation is likely
+        // still cooking on WaveSpeed. Leave Generating state intact so
+        // the "Check stuck" button stays visible.
+        throw new Error(
+          `WaveSpeed ${model.toUpperCase()} took longer than our server can wait (90s).\n\n` +
+          `Click ↻ Check stuck on the overlay to pull the result once WaveSpeed finishes — usually 30-60s more.`
+        )
+      }
+      if (!r.ok || d.error) {
+        const errStr = typeof d.error === 'string' ? d.error
+          : d.error?.message ? d.error.message
+          : d.error ? JSON.stringify(d.error)
+          : `HTTP ${r.status}`
+        throw new Error(errStr)
+      }
       setPhotos(prev => prev.map(x => x.id === p.id ? {
         ...x,
         flatlayStatus: 'Done',
@@ -441,6 +531,49 @@ function LibrarySection({ outfitsOnly = false }) {
         flatlayModel: model,
       } : x))
     } catch (e) {
+      const isTimeout = /took longer than our server|HTTP 504|timed out/i.test(e.message || '')
+      if (isTimeout) {
+        // Silent recovery — Vercel killed the function but WaveSpeed is
+        // probably still cooking. Auto-poll the resume route every 15s
+        // for up to 5 minutes. The Generating overlay stays visible
+        // (with its ↻ Check stuck escape hatch) the whole time. No
+        // alert, no failed state, no editor action required when the
+        // happy path completes.
+        const photoId = p.id
+        const start = Date.now()
+        const tick = async () => {
+          if (Date.now() - start > 5 * 60 * 1000) return // give up after 5 min
+          try {
+            const r = await fetch('/api/admin/photos/flatlay/resume', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ photoId }),
+            })
+            if (r.status === 202) {
+              setTimeout(tick, 15000) // still cooking
+              return
+            }
+            const d = await r.json().catch(() => null)
+            if (r.ok && d?.ok) {
+              setPhotos(prev => prev.map(x => x.id === photoId ? {
+                ...x,
+                flatlayStatus: 'Done',
+                flatlayCdnUrl: d.flatlayCdnUrl || '',
+                flatlayDropboxPath: d.flatlayDropboxPath || '',
+                flatlayModel: model,
+              } : x))
+              return
+            }
+            // Resume returned an explicit failure — show Failed so the
+            // editor can try again with a different model.
+            setPhotos(prev => prev.map(x => x.id === photoId ? { ...x, flatlayStatus: 'Failed' } : x))
+          } catch {
+            setTimeout(tick, 15000)
+          }
+        }
+        setTimeout(tick, 10000) // first check after 10s
+        return
+      }
+      // Real failure — flip to Failed and surface it.
       setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
       alert(`Flatlay (${model}) failed: ${e.message}`)
     }
@@ -556,15 +689,15 @@ function LibrarySection({ outfitsOnly = false }) {
             const total = cover.carouselTotal || group.items.length
             const isCarousel = group.items.length > 1 || total > 1
             const sc = cover.status === 'Approved' ? '#6AC68A' : cover.status === 'Rejected' ? '#E87878' : '#e8b878'
-            // Single-image posts (Pinterest uploads, IG singles) skip
-            // the modal flow — there's nothing to expand to. Clicking
-            // them does nothing; the action buttons handle everything
-            // inline. Carousels still open the modal so siblings show.
-            const isSinglePost = group.items.length === 1 && !isCarousel
+            // All cards open the modal — that's where the flatlay
+            // generation (📦N/W/G), dual-view comparison, lock toggle,
+            // and per-image downloads live. Even single-image posts
+            // (Pinterest uploads, IG singles) get the modal so the
+            // editor can run flatlays on them.
             return (
               <div key={group.postUrl}
-                onClick={() => { if (!isSinglePost) setOpenPostUrl(group.postUrl) }}
-                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: isSinglePost ? 'default' : 'pointer' }}>
+                onClick={() => setOpenPostUrl(group.postUrl)}
+                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: 'pointer' }}>
                 {cover.image
                   ? <img src={cover.image} alt="" loading="lazy"
                       onError={(e) => { if (cover.imageFallback && e.currentTarget.src !== cover.imageFallback) e.currentTarget.src = cover.imageFallback }}
@@ -615,7 +748,7 @@ function LibrarySection({ outfitsOnly = false }) {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} setActiveVariant={setActiveVariant} />
                   ))}
                 </div>
               </div>
@@ -689,7 +822,7 @@ function LibrarySection({ outfitsOnly = false }) {
                   gap: 16,
                 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView={outfitsOnly} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} setActiveVariant={setActiveVariant} dualView={outfitsOnly} />
                   ))}
                 </div>
               </div>
@@ -709,14 +842,27 @@ function LibrarySection({ outfitsOnly = false }) {
 // dualView: when true (the post modal), render original + flatlay
 // side-by-side instead of one with a toggle. The grid view stays as
 // toggle-style because each row needs the compact footprint.
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upgradeHd, toggleFlatlayLock, dualView = false }) {
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, resumeFlatlay, upgradeHd, toggleFlatlayLock, setActiveVariant, dualView = false }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   // Flatlay button is only meaningful on outfit-flagged rows (the whole
   // feature is about analyzing the clothes the subject is wearing).
   // Status flow: None → Generating → Done | Failed.
   const fl = p.flatlayStatus || 'None'
-  const flatlayReady = fl === 'Done' && !!p.flatlayCdnUrl
+  const variants = Array.isArray(p.flatlayVariants) ? p.flatlayVariants : []
+  const flatlayReady = fl === 'Done' && !!(p.flatlayCdnUrl || variants[0]?.cdnUrl)
   const [showFlatlay, setShowFlatlay] = useState(false)
+  // Which variant the dual-view shows. Default to whatever Flatlay
+  // Model on the row says (the "current" pointer), fall back to the
+  // newest entry in the variants array. Lets the editor click between
+  // Nano / Wan / GPT side by side.
+  const [activeVariantModel, setActiveVariantModel] = useState(p.flatlayModel || variants[0]?.model || '')
+  const activeVariant = variants.find(v => v.model === activeVariantModel) || variants[0] || null
+  // Display URL: prefer the active variant, fall back to the legacy
+  // single-flatlay CDN URL for rows that haven't been re-generated
+  // since the variants field landed.
+  const displayedFlatlayUrl = activeVariant?.cdnUrl || p.flatlayCdnUrl || ''
+  const displayedFlatlayModel = activeVariant?.model || p.flatlayModel || ''
+  const displayedFlatlayDropboxPath = activeVariant?.dropboxPath || p.flatlayDropboxPath || ''
   // Side-by-side when dualView is on AND a flatlay actually exists —
   // otherwise we fall through to the regular single-image render so the
   // card doesn't show a wasted empty pane when generation hasn't
@@ -738,24 +884,59 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               title="Download original" style={paneDownloadBtn}>⬇</a>
           </div>
           <div style={{ position: 'relative', background: '#fff' }}>
-            <img src={p.flatlayCdnUrl} alt="" loading="lazy"
+            <img src={displayedFlatlayUrl} alt="" loading="lazy"
               style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', bottom: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(232,168,120,0.92)', color: '#1a0a0a', fontSize: 10, fontWeight: 800 }}>
-              📦 flatlay{p.flatlayModel ? ` · ${p.flatlayModel.toUpperCase()}` : ''}
+              📦 flatlay{displayedFlatlayModel ? ` · ${displayedFlatlayModel.toUpperCase()}` : ''}
             </div>
-            <a href={flatlayDownloadHref(p)} download={flatlayDownloadName(p)}
+            <a
+              href={flatlayDownloadHref({ ...p, flatlayCdnUrl: displayedFlatlayUrl, flatlayDropboxPath: displayedFlatlayDropboxPath, flatlayModel: displayedFlatlayModel })}
+              download={flatlayDownloadName({ ...p, flatlayModel: displayedFlatlayModel })}
               title="Download flatlay" style={paneDownloadBtn}>⬇</a>
             {p.flatlayLocked && (
               <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800 }}>🔒 LOCKED</div>
+            )}
+            {/* Variant switcher — chips for every model that has been
+                generated for this outfit. Click swaps which one fills
+                the flatlay pane (no re-generation, just changes what's
+                visible). Only renders when 2+ variants exist. */}
+            {variants.length > 1 && (
+              <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4, padding: 4, background: 'rgba(0,0,0,0.6)', borderRadius: 6 }}>
+                {variants.map(v => (
+                  <button key={v.model}
+                    onClick={() => {
+                      // Persist the pick — local state for instant swap,
+                      // Airtable patch so it survives refresh and the
+                      // 🔒 lock button targets the right variant.
+                      setActiveVariantModel(v.model)
+                      if (setActiveVariant) setActiveVariant(p, v)
+                    }}
+                    title={`Pick ${v.model.toUpperCase()} as the chosen variant${p.flatlayLocked ? '' : ' (then click 🔒 to lock it as final)'}`}
+                    style={{
+                      padding: '4px 8px', fontSize: 10, fontWeight: 800, borderRadius: 4,
+                      background: v.model === activeVariantModel ? 'rgba(232,168,120,0.92)' : 'rgba(255,255,255,0.15)',
+                      color: v.model === activeVariantModel ? '#1a0a0a' : '#fff',
+                      border: 'none', cursor: 'pointer',
+                    }}>
+                    {v.model.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
       ) : (
         <>
+          {/* In modal context (dualView=true) the image fits to height
+              with object-fit: contain so a tall Pinterest portrait
+              doesn't push the action buttons off-screen. In grid
+              context, keep the 4/5 cover-crop tile look. */}
           {p.image
             ? <img src={(showFlatlay && p.flatlayCdnUrl) ? p.flatlayCdnUrl : p.image} alt="" loading="lazy"
                 onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-                style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
+                style={dualView
+                  ? { width: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block', margin: '0 auto', background: showFlatlay ? '#fff' : '#000' }
+                  : { width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
             : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
           {flatlayReady && (
             <button onClick={() => setShowFlatlay(v => !v)}
@@ -770,8 +951,19 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
         <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800, zIndex: 2 }}>👗 OUTFIT</div>
       )}
       {fl === 'Generating' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', color: '#e8a878', fontSize: 12, fontWeight: 700, pointerEvents: 'none', zIndex: 3 }}>
-          ⏳ generating flatlay…
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(0,0,0,0.65)', color: '#e8a878', fontSize: 12, fontWeight: 700, zIndex: 3 }}>
+          <div>⏳ generating flatlay…</div>
+          {resumeFlatlay && (
+            // Recover button — fires the resume route to pull the
+            // result from WaveSpeed if the original request timed out
+            // server-side. Stops the click from bubbling so the card
+            // doesn't try to open the modal underneath.
+            <button onClick={(e) => { e.stopPropagation(); resumeFlatlay(p) }}
+              title="If the flatlay finished on WaveSpeed but the page is stuck, click to pull the result and unstick this card."
+              style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, background: 'rgba(120,180,232,0.18)', color: '#8FB4F0', border: '1px solid rgba(120,180,232,0.4)', borderRadius: 5, cursor: 'pointer' }}>
+              ↻ Check stuck
+            </button>
+          )}
         </div>
       )}
       <div style={{ padding: 8, fontSize: 11 }}>
@@ -805,13 +997,6 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
                 title={p.flatlayLocked ? 'Unlock first' : 'Generate flatlay with GPT-Image-2 (slowest, often most accurate)'}
                 style={{ ...iconBtn('#e8a878'), opacity: p.flatlayLocked ? 0.35 : 1, cursor: p.flatlayLocked ? 'not-allowed' : 'pointer' }}>📦G</button>
             </>
-          )}
-          {toggleFlatlayLock && flatlayReady && (
-            <button onClick={() => toggleFlatlayLock(p)}
-              title={p.flatlayLocked ? 'Unlock so N/W/G can re-generate' : 'Lock this flatlay so re-runs can\'t overwrite it'}
-              style={iconBtn(p.flatlayLocked ? '#6AC68A' : '#888')}>
-              {p.flatlayLocked ? '🔒' : '🔓'}
-            </button>
           )}
           {upgradeHd && (
             <button onClick={() => upgradeHd(p)} disabled={p._upgradingHd}
@@ -855,6 +1040,29 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
               style={{ ...iconBtn('#8FB4F0'), textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>↗</a>
           )}
         </div>
+        {/* Approve bar — full-width, prominent. Locks the currently-
+            picked variant (whichever chip is active) as the chosen
+            flatlay. Toggles to "Locked — Unlock to change" once
+            approved. Lives between the icon row and Delete because
+            it's the most common terminal action. */}
+        {toggleFlatlayLock && flatlayReady && (
+          <button onClick={() => toggleFlatlayLock(p)}
+            title={p.flatlayLocked
+              ? `Unlock to switch variants or re-generate.`
+              : `Lock ${(p.flatlayModel || '').toUpperCase() || 'this variant'} as the chosen flatlay — N/W/G can no longer overwrite it.`}
+            style={{
+              width: '100%', marginTop: 8, padding: '7px 10px',
+              fontSize: 12, fontWeight: 800,
+              background: p.flatlayLocked ? 'rgba(106,198,138,0.22)' : 'rgba(106,198,138,0.12)',
+              color: '#6AC68A',
+              border: `1px solid ${p.flatlayLocked ? 'rgba(106,198,138,0.55)' : 'rgba(106,198,138,0.3)'}`,
+              borderRadius: 5, cursor: 'pointer',
+            }}>
+            {p.flatlayLocked
+              ? `🔒 Approved · ${(p.flatlayModel || '').toUpperCase()} — click to unlock`
+              : `✓ Approve ${(p.flatlayModel || '').toUpperCase() || 'flatlay'}`}
+          </button>
+        )}
         {/* Delete on its own row, full-width, red — was a faint gray 🗑
             tucked in the action wrap; users missed it (especially on
             Pinterest cards where there's no other red affordance). */}
