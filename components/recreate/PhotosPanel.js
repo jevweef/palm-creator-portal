@@ -467,10 +467,23 @@ function LibrarySection({ outfitsOnly = false }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoId: p.id, model }),
       })
-      const d = await r.json()
-      // Coerce error to a human-readable string so we don't alert
-      // "[object Object]" when the server passes through a WaveSpeed
-      // object error.
+      // Read as text first — when Vercel kills the function at the 90s
+      // timeout it returns an HTML error page, not JSON. r.json() would
+      // throw "Unexpected token 'A'..." (Vercel's HTML starts with "An
+      // error occurred…"). Catch that explicitly + tell the editor to
+      // use the Check stuck button instead of showing the parse error.
+      const text = await r.text()
+      let d = null
+      try { d = JSON.parse(text) } catch {}
+      if (!d) {
+        // Almost certainly a Vercel timeout — the generation is likely
+        // still cooking on WaveSpeed. Leave Generating state intact so
+        // the "Check stuck" button stays visible.
+        throw new Error(
+          `WaveSpeed ${model.toUpperCase()} took longer than our server can wait (90s).\n\n` +
+          `Click ↻ Check stuck on the overlay to pull the result once WaveSpeed finishes — usually 30-60s more.`
+        )
+      }
       if (!r.ok || d.error) {
         const errStr = typeof d.error === 'string' ? d.error
           : d.error?.message ? d.error.message
@@ -486,7 +499,14 @@ function LibrarySection({ outfitsOnly = false }) {
         flatlayModel: model,
       } : x))
     } catch (e) {
-      setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
+      // Detect Vercel-timeout messages — keep Generating state so the
+      // Check stuck overlay button stays visible. Real failures (CLAUDE
+      // erroring, WaveSpeed failing fast, etc.) flip the state to Failed
+      // so the editor sees N/W/G buttons re-appear for a fresh try.
+      const isTimeout = /took longer than our server|HTTP 504|timed out/i.test(e.message || '')
+      if (!isTimeout) {
+        setPhotos(prev => prev.map(x => x.id === p.id ? { ...x, flatlayStatus: 'Failed' } : x))
+      }
       alert(`Flatlay (${model}) failed: ${e.message}`)
     }
   }
