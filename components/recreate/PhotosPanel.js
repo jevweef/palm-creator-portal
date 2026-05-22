@@ -752,10 +752,16 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
         </div>
       ) : (
         <>
+          {/* In modal context (dualView=true) the image fits to height
+              with object-fit: contain so a tall Pinterest portrait
+              doesn't push the action buttons off-screen. In grid
+              context, keep the 4/5 cover-crop tile look. */}
           {p.image
             ? <img src={(showFlatlay && p.flatlayCdnUrl) ? p.flatlayCdnUrl : p.image} alt="" loading="lazy"
                 onError={(e) => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-                style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
+                style={dualView
+                  ? { width: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block', margin: '0 auto', background: showFlatlay ? '#fff' : '#000' }
+                  : { width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block', background: showFlatlay ? '#fff' : '#000' }} />
             : <div style={{ width: '100%', aspectRatio: '4/5', background: '#000' }} />}
           {flatlayReady && (
             <button onClick={() => setShowFlatlay(v => !v)}
