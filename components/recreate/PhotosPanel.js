@@ -556,15 +556,15 @@ function LibrarySection({ outfitsOnly = false }) {
             const total = cover.carouselTotal || group.items.length
             const isCarousel = group.items.length > 1 || total > 1
             const sc = cover.status === 'Approved' ? '#6AC68A' : cover.status === 'Rejected' ? '#E87878' : '#e8b878'
-            // Single-image posts (Pinterest uploads, IG singles) skip
-            // the modal flow — there's nothing to expand to. Clicking
-            // them does nothing; the action buttons handle everything
-            // inline. Carousels still open the modal so siblings show.
-            const isSinglePost = group.items.length === 1 && !isCarousel
+            // All cards open the modal — that's where the flatlay
+            // generation (📦N/W/G), dual-view comparison, lock toggle,
+            // and per-image downloads live. Even single-image posts
+            // (Pinterest uploads, IG singles) get the modal so the
+            // editor can run flatlays on them.
             return (
               <div key={group.postUrl}
-                onClick={() => { if (!isSinglePost) setOpenPostUrl(group.postUrl) }}
-                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: isSinglePost ? 'default' : 'pointer' }}>
+                onClick={() => setOpenPostUrl(group.postUrl)}
+                style={{ position: 'relative', border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)', cursor: 'pointer' }}>
                 {cover.image
                   ? <img src={cover.image} alt="" loading="lazy"
                       onError={(e) => { if (cover.imageFallback && e.currentTarget.src !== cover.imageFallback) e.currentTarget.src = cover.imageFallback }}
