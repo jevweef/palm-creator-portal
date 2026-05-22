@@ -413,6 +413,42 @@ function LibrarySection({ outfitsOnly = false }) {
     }
   }
 
+  // Resume a stuck flatlay generation. The main route holds the
+  // function open polling WaveSpeed; if Vercel kills it (90s timeout)
+  // the Airtable row stays pinned to Generating forever even when
+  // WaveSpeed actually finished. This calls the resume endpoint
+  // which pulls the saved prediction ID and finishes the job.
+  const resumeFlatlay = async (p) => {
+    try {
+      const r = await fetch('/api/admin/photos/flatlay/resume', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: p.id }),
+      })
+      // 202 means still cooking — let the UI keep the overlay.
+      if (r.status === 202) {
+        const d = await r.json().catch(() => ({}))
+        alert(d.message || 'WaveSpeed still processing — try again in a bit.')
+        return
+      }
+      const d = await r.json()
+      if (!r.ok || d.error) {
+        const errStr = typeof d.error === 'string' ? d.error
+          : d.error?.message ? d.error.message
+          : d.error ? JSON.stringify(d.error)
+          : `HTTP ${r.status}`
+        throw new Error(errStr)
+      }
+      setPhotos(prev => prev.map(x => x.id === p.id ? {
+        ...x,
+        flatlayStatus: 'Done',
+        flatlayCdnUrl: d.flatlayCdnUrl || '',
+        flatlayDropboxPath: d.flatlayDropboxPath || '',
+      } : x))
+    } catch (e) {
+      alert(`Resume failed: ${e.message}`)
+    }
+  }
+
   // Generate a product-flatlay version. `model` picks between WaveSpeed's
   // Nano Banana (default), Wan 2.7, and GPT-Image-2 — each gives a
   // different style/quality tradeoff and the editor wants to compare.
@@ -624,7 +660,7 @@ function LibrarySection({ outfitsOnly = false }) {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} />
                   ))}
                 </div>
               </div>
@@ -698,7 +734,7 @@ function LibrarySection({ outfitsOnly = false }) {
                   gap: 16,
                 }}>
                   {group.items.map(p => (
-                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView={outfitsOnly} />
+                    <PhotoCard key={p.id} p={p} setStatus={setStatus} removePhoto={removePhoto} pickOutfit={pickOutfit} generateFlatlay={generateFlatlay} resumeFlatlay={resumeFlatlay} upgradeHd={upgradeHd} toggleFlatlayLock={toggleFlatlayLock} dualView={outfitsOnly} />
                   ))}
                 </div>
               </div>
@@ -718,7 +754,7 @@ function LibrarySection({ outfitsOnly = false }) {
 // dualView: when true (the post modal), render original + flatlay
 // side-by-side instead of one with a toggle. The grid view stays as
 // toggle-style because each row needs the compact footprint.
-function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upgradeHd, toggleFlatlayLock, dualView = false }) {
+function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, resumeFlatlay, upgradeHd, toggleFlatlayLock, dualView = false }) {
   const sc = p.status === 'Approved' ? '#6AC68A' : p.status === 'Rejected' ? '#E87878' : '#e8b878'
   // Flatlay button is only meaningful on outfit-flagged rows (the whole
   // feature is about analyzing the clothes the subject is wearing).
@@ -785,8 +821,19 @@ function PhotoCard({ p, setStatus, removePhoto, pickOutfit, generateFlatlay, upg
         <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 7px', borderRadius: 4, background: 'rgba(106,198,138,0.85)', color: '#0a1a10', fontSize: 10, fontWeight: 800, zIndex: 2 }}>👗 OUTFIT</div>
       )}
       {fl === 'Generating' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', color: '#e8a878', fontSize: 12, fontWeight: 700, pointerEvents: 'none', zIndex: 3 }}>
-          ⏳ generating flatlay…
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(0,0,0,0.65)', color: '#e8a878', fontSize: 12, fontWeight: 700, zIndex: 3 }}>
+          <div>⏳ generating flatlay…</div>
+          {resumeFlatlay && (
+            // Recover button — fires the resume route to pull the
+            // result from WaveSpeed if the original request timed out
+            // server-side. Stops the click from bubbling so the card
+            // doesn't try to open the modal underneath.
+            <button onClick={(e) => { e.stopPropagation(); resumeFlatlay(p) }}
+              title="If the flatlay finished on WaveSpeed but the page is stuck, click to pull the result and unstick this card."
+              style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, background: 'rgba(120,180,232,0.18)', color: '#8FB4F0', border: '1px solid rgba(120,180,232,0.4)', borderRadius: 5, cursor: 'pointer' }}>
+              ↻ Check stuck
+            </button>
+          )}
         </div>
       )}
       <div style={{ padding: 8, fontSize: 11 }}>
