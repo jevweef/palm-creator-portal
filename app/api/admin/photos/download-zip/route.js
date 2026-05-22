@@ -57,12 +57,24 @@ export async function GET(request) {
       archive.on('warning', reject)
     })
 
+    // Preserve the actual file extension from the Dropbox path —
+    // Pinterest uploads keep .png / .webp if that's what the editor
+    // dropped in. Forcing .jpg silently mislabeled files and could
+    // confuse downstream tools (TJP, validators, etc.). Defaults to
+    // .jpg only when the path itself doesn't tell us.
+    const extOf = (path) => {
+      const m = String(path || '').toLowerCase().match(/\.([a-z0-9]+)$/)
+      const e = m?.[1] || 'jpg'
+      // Normalize legacy "jpeg" to "jpg" for consistency.
+      return e === 'jpeg' ? 'jpg' : e
+    }
+
     for (const p of photos) {
       const base = `${p.handle}_${code}_${String(p.idx).padStart(2, '0')}`
       // Original
       try {
         const buf = await downloadFromDropbox(tok, ns, p.path)
-        if (buf) archive.append(buf, { name: `${base}.jpg` })
+        if (buf) archive.append(buf, { name: `${base}.${extOf(p.path)}` })
       } catch (e) {
         console.warn(`[photos/download-zip] skip original ${p.path}:`, e.message)
       }
@@ -74,7 +86,7 @@ export async function GET(request) {
           const fbuf = await downloadFromDropbox(tok, ns, p.flatlayPath)
           if (fbuf) {
             const suffix = p.flatlayModel ? `_${p.flatlayModel}` : ''
-            archive.append(fbuf, { name: `flatlays/${base}_flatlay${suffix}.jpg` })
+            archive.append(fbuf, { name: `flatlays/${base}_flatlay${suffix}.${extOf(p.flatlayPath)}` })
           }
         } catch (e) {
           console.warn(`[photos/download-zip] skip flatlay ${p.flatlayPath}:`, e.message)

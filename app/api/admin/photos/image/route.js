@@ -59,12 +59,16 @@ export async function GET(request) {
       : ext === 'gif' ? 'image/gif'
       : 'image/jpeg'
 
-    // Defensive coercion for legacy flatlays: some early generations
-    // were saved as .jpg but contain PNG bytes (Wan/GPT default output
-    // format), which macOS Finder flags as a corrupt JPEG. If the
-    // filename promises JPEG but the magic bytes say PNG, re-encode
-    // before serving so the file extension and content agree.
-    if (mime === 'image/jpeg' && buf.length >= 8) {
+    // Defensive coercion for legacy flatlays only: early Wan/GPT runs
+    // were saved as .jpg but contain PNG bytes, which macOS Finder
+    // flags as corrupt. New flatlays are re-encoded at generation time
+    // so this branch is shrinking, but legacy files still need it.
+    //
+    // Scoped to /Flatlays/ paths so Pinterest + IG uploads are served
+    // BYTE-FOR-BYTE identical to what's in Dropbox — TJP has pixel
+    // minimums and any silent re-encode (even at quality 92) changes
+    // file size and can shift dimension validation.
+    if (mime === 'image/jpeg' && buf.length >= 8 && path.includes('/Flatlays/')) {
       const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
       if (isPng) {
         try {
