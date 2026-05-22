@@ -339,7 +339,14 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
       // rejection prompt opened from inside the modal).
       const tag = e.target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      const visible = outputs.filter(o => o.status !== 'Started')
+      // Same filter as the gallery: hide Started, and when a reel is
+      // selected, scope to that reel's scenes only — otherwise the
+      // arrows leak the editor into a different project's gallery.
+      const visible = outputs.filter(o => {
+        if (o.status === 'Started') return false
+        if (reel?.id && o.reel?.id !== reel.id) return false
+        return true
+      })
       const i = visible.findIndex(o => o.id === selectedOutput.id)
       if (i < 0) return
       const next = e.key === 'ArrowRight' ? visible[i + 1] : visible[i - 1]
@@ -347,7 +354,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedOutput, outputs])
+  }, [selectedOutput, outputs, reel?.id])
 
 
 
@@ -1035,9 +1042,15 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         const o = selectedOutput
         const sc = o.status === 'Approved' ? '#6AC68A' : o.status === 'Rejected' ? '#E87878' : o.status === 'Failed' ? '#E87878' : o.status === 'Generating' ? '#8fb4f0' : '#e8b878'
         const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
-        // Compute neighbors in the visible (non-Started) scene set so
-        // the chevrons + arrow keys agree on what "prev/next" means.
-        const visible = outputs.filter(o2 => o2.status !== 'Started')
+        // Compute neighbors in the visible scene set so the chevrons +
+        // arrow keys agree on what "prev/next" means. Mirror the
+        // gallery's scope: Started hidden, and reel-scoped when a reel
+        // is selected (don't leak into another project's scenes).
+        const visible = outputs.filter(o2 => {
+          if (o2.status === 'Started') return false
+          if (reel?.id && o2.reel?.id !== reel.id) return false
+          return true
+        })
         const idx = visible.findIndex(o2 => o2.id === o.id)
         const prev = idx > 0 ? visible[idx - 1] : null
         const next = idx >= 0 && idx < visible.length - 1 ? visible[idx + 1] : null
