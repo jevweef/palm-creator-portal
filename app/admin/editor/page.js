@@ -1822,6 +1822,20 @@ function ReviewClipCell({ streamUid, posterCdnUrl, posterUrl, fallbackUrl, onOpe
   // External (Instagram) URLs can't open in our VideoModal — Instagram blocks
   // iframes via X-Frame-Options. Open in a new tab instead.
   const isExternalLink = fallbackUrl && /^https?:\/\/(www\.)?instagram\.com\//i.test(fallbackUrl)
+  // When Stream hasn't mirrored yet, fall back to autoplaying the raw Dropbox
+  // MP4 directly via <video>. Matches the Stream-iframe behavior visually so
+  // the card looks alive whether or not mirroring has caught up.
+  // - dl=0/dl=1 → raw=1 (Dropbox's "stream the file" mode)
+  // - bare dropbox.com URL with no params → append ?raw=1
+  // - skip for Instagram or other non-dropbox URLs (no direct video stream)
+  const isDropbox = fallbackUrl && /(^|\/\/)(www\.)?dropbox\.com\//i.test(fallbackUrl)
+  const rawVideoUrl = !streamUid && isDropbox
+    ? (() => {
+        let u = fallbackUrl.replace(/([?&])dl=[01]/, '$1raw=1')
+        if (!/[?&]raw=1/.test(u)) u += (u.includes('?') ? '&' : '?') + 'raw=1'
+        return u
+      })()
+    : null
   const handleClick = () => {
     if (!playable) return
     if (streamUid) {
@@ -1846,12 +1860,28 @@ function ReviewClipCell({ streamUid, posterCdnUrl, posterUrl, fallbackUrl, onOpe
               allow="autoplay"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
             />
+          ) : rawVideoUrl ? (
+            // Direct Dropbox autoplay-while-Stream-mirroring-catches-up.
+            // preload=metadata keeps the grid light — browsers will fetch
+            // enough to start playback once the cell is in view.
+            <video
+              src={rawVideoUrl}
+              poster={posterSrc || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', background: '#000' }}
+            />
           ) : posterSrc ? (
             <img src={posterSrc} alt="" loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
           ) : null}
-          {/* Play badge only shown when not autoplaying — autoplay needs no hint */}
-          {!streamUid && (
+          {/* Play badge only shown when nothing is autoplaying (i.e. static
+              poster + click-to-modal). Stream iframe + direct <video> both
+              autoplay, so the badge would just be noise. */}
+          {!streamUid && !rawVideoUrl && (
             <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
           )}
         </button>
