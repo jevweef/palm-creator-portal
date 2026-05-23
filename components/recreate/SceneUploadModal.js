@@ -39,7 +39,13 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [progress, setProgress] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
+  // Optional custom thumbnail. When null, falls back to the scene's still
+  // (the existing behavior — most uploads just use the still). When set,
+  // submitUpload encodes this image instead.
+  const [thumbnailFile, setThumbnailFile] = useState(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState(null) // local data URL for preview
   const videoFileRef = useRef(null)
+  const thumbnailFileRef = useRef(null)
   const reelId = scene?.reel?.id
   const slug = scene?.slug || null
 
@@ -51,6 +57,27 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     }
     setErr('')
     setSelectedFile(file)
+  }
+
+  const acceptThumbnail = (file) => {
+    if (!file) return
+    if (!file.type?.startsWith('image/')) {
+      setErr('Thumbnail must be an image (jpg, png, webp)')
+      return
+    }
+    setErr('')
+    setThumbnailFile(file)
+    // Generate preview so the UI updates immediately to the picked image.
+    const r = new FileReader()
+    r.onload = () => setThumbnailPreview(String(r.result))
+    r.onerror = () => setErr('Could not read thumbnail file')
+    r.readAsDataURL(file)
+  }
+
+  const resetThumbnail = () => {
+    setThumbnailFile(null)
+    setThumbnailPreview(null)
+    if (thumbnailFileRef.current) thumbnailFileRef.current.value = ''
   }
 
   const submitUpload = async () => {
@@ -83,16 +110,20 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
       })
       if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
 
-      // 3. Pull the scene's still as the Asset thumbnail. Falls back
-      //    to base64 of a 1x1 transparent pixel if the still fetch
-      //    fails — the Asset still gets created, just without a
-      //    pretty thumb (admin can add one in review).
+      // 3. Encode the thumbnail. Order of preference:
+      //    a. Custom thumbnail the user picked in the modal (overrides)
+      //    b. Scene's still image fetched + encoded (the default)
+      //    c. 1x1 transparent PNG (keeps Asset creation happy if both fail)
       setProgress('Encoding thumbnail…')
       let thumbnailBase64 = ''
       try {
-        if (scene.image) thumbnailBase64 = await urlToBase64(scene.image)
+        if (thumbnailFile) {
+          thumbnailBase64 = await fileToBase64(thumbnailFile)
+        } else if (scene.image) {
+          thumbnailBase64 = await urlToBase64(scene.image)
+        }
       } catch (e) {
-        console.warn('[scene-upload] still→thumbnail failed:', e.message)
+        console.warn('[scene-upload] thumbnail encode failed:', e.message)
       }
       if (!thumbnailBase64) {
         // 1x1 transparent PNG — keeps the Asset creation happy.
@@ -139,12 +170,69 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
         </div>
 
         <div style={{ padding: '18px 22px', display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-          {/* Scene still preview so the editor sees which scene they're
-              uploading for (especially useful if they have several
-              Approved scenes open). */}
-          {scene?.image && (
-            <img src={scene.image} alt="" style={{ width: 120, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 8, background: '#000', flexShrink: 0 }} />
-          )}
+          {/* Clickable thumbnail. Defaults to the scene's still (matches the
+              For Review card the admin will see), but click → file picker
+              lets the editor swap in a custom thumbnail (e.g. an exported
+              frame from the finished video, or a curated cover image).
+              The "↺ Use scene still" reset link only appears when a custom
+              one is loaded so the default state stays uncluttered. */}
+          <div style={{ flexShrink: 0, width: 120 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thumbnail</div>
+            <div
+              onClick={() => !uploading && thumbnailFileRef.current?.click()}
+              title={thumbnailFile ? `Custom: ${thumbnailFile.name}` : 'Click to upload a custom thumbnail'}
+              style={{
+                position: 'relative',
+                width: 120,
+                aspectRatio: '9/16',
+                borderRadius: 8,
+                background: '#000',
+                cursor: uploading ? 'wait' : 'pointer',
+                overflow: 'hidden',
+                border: thumbnailFile ? '2px solid rgba(106,198,138,0.55)' : '2px solid transparent',
+                transition: 'border-color 0.15s',
+              }}>
+              {(thumbnailPreview || scene?.image) ? (
+                <img
+                  src={thumbnailPreview || scene.image}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-muted)', fontSize: 11 }}>
+                  No still
+                </div>
+              )}
+              {/* Always-visible hint badge so the editor knows the still is
+                  swappable (the bare image looked like a non-interactive
+                  preview). */}
+              <div style={{
+                position: 'absolute', bottom: 6, left: 6, right: 6,
+                background: 'rgba(0,0,0,0.7)', color: '#fff',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                textAlign: 'center', padding: '3px 4px', borderRadius: 4,
+                pointerEvents: 'none',
+              }}>
+                {thumbnailFile ? '✓ CUSTOM' : '↑ CLICK TO REPLACE'}
+              </div>
+            </div>
+            {thumbnailFile && (
+              <button
+                type="button"
+                onClick={resetThumbnail}
+                disabled={uploading}
+                style={{ display: 'block', width: '100%', marginTop: 6, fontSize: 10, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 4, padding: '4px 6px', cursor: uploading ? 'wait' : 'pointer' }}>
+                ↺ Use scene still
+              </button>
+            )}
+            <input
+              ref={thumbnailFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/*"
+              onChange={(e) => acceptThumbnail(e.target.files?.[0])}
+              style={{ display: 'none' }}
+            />
+          </div>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished video</label>
 
@@ -198,7 +286,9 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
               style={{ display: 'none' }} />
 
             <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5, marginTop: 10 }}>
-              The scene&apos;s still image is auto-used as the thumbnail.
+              {thumbnailFile
+                ? <>Using your <strong style={{ color: '#6AC68A' }}>custom thumbnail</strong>.</>
+                : <>The scene&apos;s still is auto-used as the thumbnail — click it on the left to swap in a custom image.</>}
               {slug && (
                 <>
                   {' '}Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
