@@ -1928,6 +1928,11 @@ function ForReview({ showToast }) {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
   const [videoModal, setVideoModal] = useState(null)
+  // Lightbox for the "🖼 Thumbnail" peek button on AI Generated cards.
+  // The editor curates this in the upload modal and it lands as the
+  // post's thumbnail in Post Prep — this lets the reviewer verify it
+  // without it cluttering the autoplay strip.
+  const [imageModal, setImageModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
   const [page, setPage] = useState(0)
@@ -2083,11 +2088,15 @@ function ForReview({ showToast }) {
                       {/* OUTPUT — the AI editor's uploaded finished video.
                           Stream Edit ID is populated once the asset finishes
                           mirroring; Dropbox link is the always-available
-                          fallback. */}
+                          fallback. NO posterUrl on this cell intentionally —
+                          the editor's curated thumbnail is reserved for the
+                          Post Prep stage (it auto-applies there), and we
+                          don't want it flashing here before the video plays.
+                          A peek button under the card lets you view it on
+                          demand. */}
                       <ReviewClipCell
                         streamUid={task.asset.streamEditId}
                         posterCdnUrl={task.asset.cdnUrl}
-                        posterUrl={task.asset.thumbnail}
                         fallbackUrl={task.asset.dropboxLink ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
                         onOpenModal={(payload) => setVideoModal(payload)}
                         label="OUTPUT"
@@ -2174,6 +2183,17 @@ function ForReview({ showToast }) {
                         style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
                         Original Reel ↗
                       </a>
+                    )}
+                    {/* Peek at the editor's curated thumbnail. Hidden on
+                        non-AI tasks where the thumbnail is usually just an
+                        auto-poster (so the button would be noise). */}
+                    {isAiGenerated && task.asset.thumbnail && (
+                      <button
+                        type="button"
+                        onClick={() => setImageModal({ src: task.asset.thumbnail, label: 'Post thumbnail' })}
+                        style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: '4px', cursor: 'pointer' }}>
+                        🖼 Thumbnail
+                      </button>
                     )}
                   </div>
 
@@ -2293,6 +2313,31 @@ function ForReview({ showToast }) {
       {videoModal && (
         <VideoModal streamUid={videoModal.streamUid} url={videoModal.url} onClose={() => setVideoModal(null)} />
       )}
+
+      {imageModal && (
+        <ImageLightbox src={imageModal.src} label={imageModal.label} onClose={() => setImageModal(null)} />
+      )}
+    </div>
+  )
+}
+
+// Simple image lightbox — used for the "🖼 Thumbnail" peek button on AI
+// Generated review cards. Click outside or the × to dismiss. Aspect-fit so
+// any size works (the editor might upload landscape or portrait).
+function ImageLightbox({ src, label, onClose }) {
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+      <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+        {label && (
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        )}
+        <img src={src} alt={label || ''} style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain', display: 'block' }} />
+        <button onClick={onClose}
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: 'rgba(0,0,0,0.85)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '50%', width: '36px', height: '36px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          ×
+        </button>
+      </div>
     </div>
   )
 }
