@@ -44,6 +44,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   // submitUpload encodes this image instead.
   const [thumbnailFile, setThumbnailFile] = useState(null)
   const [thumbnailPreview, setThumbnailPreview] = useState(null) // local data URL for preview
+  const [dragOverThumbnail, setDragOverThumbnail] = useState(false)
   const videoFileRef = useRef(null)
   const thumbnailFileRef = useRef(null)
   const reelId = scene?.reel?.id
