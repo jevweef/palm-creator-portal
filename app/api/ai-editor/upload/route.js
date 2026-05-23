@@ -143,7 +143,10 @@ export async function POST(request) {
       }
     }
 
-    // Create the review Task — Done (producer = AI editor), Pending Review
+    // Create the review Task — Done (producer = AI editor), Pending Review.
+    // Stamp Completed At = now so the admin's For Review card renders
+    // the "Submitted {date}" timestamp the same way regular editor
+    // submissions do (driven by task.completedAt in the review route).
     const taskRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
@@ -156,6 +159,7 @@ export async function POST(request) {
             'Admin Review Status': 'Pending Review',
             'Asset': [assetId],
             'Creator': [creatorId],
+            'Completed At': new Date().toISOString(),
           },
         }],
       }),
