@@ -739,9 +739,9 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                       {currentInputs ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                           {[
-                            { url: currentInputs.subjectUrl, label: 'Fig 1 · subject (full-res)' },
+                            { url: currentInputs.subjectUrl, label: 'Fig 1 · subject' },
                             { url: currentInputs.roomUrl, label: `Fig 2 · room${currentInputs.roomName ? ` (${currentInputs.roomName})` : ''}` },
-                            { url: currentInputs.outfitUrl, label: `Fig 3 · outfit (${currentInputs.outfitVariant || '?'}, 2K)` },
+                            { url: currentInputs.outfitUrl, label: `Fig 3 · outfit (${currentInputs.outfitVariant || '?'})` },
                           ].map((it, i) => (
                             <a key={i} href={it.url} target="_blank" rel="noopener noreferrer"
                               style={{ display: 'block', position: 'relative', aspectRatio: '1/1', borderRadius: 4, overflow: 'hidden', background: '#000', textDecoration: 'none' }}>
@@ -758,7 +758,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                   )}
 
                   <div style={{ fontSize: 10, color: 'var(--foreground-muted)', lineHeight: 1.4 }}>
-                    Wan gets 3 refs at full-res: scene render + empty bedroom + outfit flatlay (CF /w=2048). Output is 4:5 (1080×1350) for IG feed.
+                    All 3 refs are full-res Dropbox URLs (canonical source). Output is 4:5 (1080×1350) for IG feed.
                   </div>
 
                   {altPoseError && (
