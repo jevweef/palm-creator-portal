@@ -170,62 +170,78 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
             style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
-        <div style={{ padding: '18px 22px', display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-          {/* Clickable thumbnail. Defaults to the scene's still (matches the
-              For Review card the admin will see), but click → file picker
-              lets the editor swap in a custom thumbnail (e.g. an exported
-              frame from the finished video, or a curated cover image).
-              The "↺ Use scene still" reset link only appears when a custom
-              one is loaded so the default state stays uncluttered. */}
-          <div style={{ flexShrink: 0, width: 120 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thumbnail</div>
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* ─── THUMBNAIL BOX ─────────────────────────────────────────
+              Same shape + drag-drop affordance as the video box below.
+              Defaults to the scene's still (shows it as a small preview
+              chip in the drop zone) so the editor never has to upload
+              one unless they want to override. */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Thumbnail <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional — defaults to scene still)</span>
+            </label>
             <div
               onClick={() => !uploading && thumbnailFileRef.current?.click()}
-              title={thumbnailFile ? `Custom: ${thumbnailFile.name}` : 'Click to upload a custom thumbnail'}
+              onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOverThumbnail(true) }}
+              onDragLeave={() => setDragOverThumbnail(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setDragOverThumbnail(false)
+                if (uploading) return
+                const file = e.dataTransfer?.files?.[0]
+                if (file) acceptThumbnail(file)
+              }}
               style={{
-                position: 'relative',
-                width: 120,
-                aspectRatio: '9/16',
-                borderRadius: 8,
-                background: '#000',
+                padding: '14px 16px',
+                borderRadius: 10,
+                border: `2px dashed ${dragOverThumbnail ? '#6AC68A' : thumbnailFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                background: dragOverThumbnail ? 'rgba(106,198,138,0.10)' : thumbnailFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
                 cursor: uploading ? 'wait' : 'pointer',
-                overflow: 'hidden',
-                border: thumbnailFile ? '2px solid rgba(106,198,138,0.55)' : '2px solid transparent',
-                transition: 'border-color 0.15s',
+                transition: 'all 0.15s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
               }}>
-              {(thumbnailPreview || scene?.image) ? (
-                <img
-                  src={thumbnailPreview || scene.image}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-muted)', fontSize: 11 }}>
-                  No still
-                </div>
-              )}
-              {/* Always-visible hint badge so the editor knows the still is
-                  swappable (the bare image looked like a non-interactive
-                  preview). */}
-              <div style={{
-                position: 'absolute', bottom: 6, left: 6, right: 6,
-                background: 'rgba(0,0,0,0.7)', color: '#fff',
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
-                textAlign: 'center', padding: '3px 4px', borderRadius: 4,
-                pointerEvents: 'none',
-              }}>
-                {thumbnailFile ? '✓ CUSTOM' : '↑ CLICK TO REPLACE'}
+              {/* Tiny preview of the current thumbnail (scene still by
+                  default, custom file when picked). Anchors the box
+                  visually so it never looks empty. */}
+              <div style={{ flexShrink: 0, width: 56, aspectRatio: '9/16', borderRadius: 6, overflow: 'hidden', background: '#000' }}>
+                {(thumbnailPreview || scene?.image) && (
+                  <img src={thumbnailPreview || scene.image} alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                )}
               </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {thumbnailFile ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      🖼 {thumbnailFile.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+                      Custom thumbnail · drop another or click to swap
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                      Drop a custom thumbnail here
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
+                      or click to pick · skip to use the scene&apos;s still ←
+                    </div>
+                  </>
+                )}
+              </div>
+              {thumbnailFile && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); resetThumbnail() }}
+                  disabled={uploading}
+                  title="Use scene still instead"
+                  style={{ flexShrink: 0, fontSize: 11, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 5, padding: '5px 9px', cursor: uploading ? 'wait' : 'pointer' }}>
+                  ↺ Reset
+                </button>
+              )}
             </div>
-            {thumbnailFile && (
-              <button
-                type="button"
-                onClick={resetThumbnail}
-                disabled={uploading}
-                style={{ display: 'block', width: '100%', marginTop: 6, fontSize: 10, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 4, padding: '4px 6px', cursor: uploading ? 'wait' : 'pointer' }}>
-                ↺ Use scene still
-              </button>
-            )}
             <input
               ref={thumbnailFileRef}
               type="file"
@@ -234,13 +250,12 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
               style={{ display: 'none' }}
             />
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished video</label>
 
-            {/* Big drag-drop zone — clicking it fires the hidden native
-                file input, dragging from Finder also works. Once a file
-                is picked the zone replaces itself with a confirmation
-                card showing filename + size + a "swap" link. */}
+          {/* ─── FINISHED VIDEO BOX ────────────────────────────────────
+              Required. Same shape as the thumbnail box above for visual
+              parity — both look obviously droppable. */}
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished video</label>
             <div
               onClick={() => !uploading && videoFileRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true) }}
@@ -286,16 +301,11 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
               onChange={(e) => acceptFile(e.target.files?.[0])}
               style={{ display: 'none' }} />
 
-            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5, marginTop: 10 }}>
-              {thumbnailFile
-                ? <>Using your <strong style={{ color: '#6AC68A' }}>custom thumbnail</strong>.</>
-                : <>The scene&apos;s still is auto-used as the thumbnail — click it on the left to swap in a custom image.</>}
-              {slug && (
-                <>
-                  {' '}Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
-                </>
-              )}
-            </div>
+            {slug && (
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5, marginTop: 8 }}>
+                Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
+              </div>
+            )}
 
             {err && (
               <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{err}</div>
