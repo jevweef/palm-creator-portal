@@ -83,6 +83,16 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [thumbnailFile, setThumbnailFile] = useState(null)
   const [thumbnailPreview, setThumbnailPreview] = useState(null) // local data URL for preview
   const [dragOverThumbnail, setDragOverThumbnail] = useState(false)
+  // AI-generated alt-pose thumbnail. Generated on demand via Wan 2.7
+  // (locks room+outfit+identity, changes pose). When set, takes priority
+  // over the scene still but yields to a manually-uploaded thumbnailFile.
+  // The URL points at a Cloudflare Images delivery URL, so we hand it to
+  // the upload finalize as `thumbnailSourceUrl` (no bytes needed client-side).
+  const [altPoseCdnUrl, setAltPoseCdnUrl] = useState(null)
+  const [altPosePanelOpen, setAltPosePanelOpen] = useState(false)
+  const [altPosePrompt, setAltPosePrompt] = useState('')
+  const [altPoseLoading, setAltPoseLoading] = useState(false)
+  const [altPoseError, setAltPoseError] = useState('')
   const videoFileRef = useRef(null)
   const thumbnailFileRef = useRef(null)
   const reelId = scene?.reel?.id
@@ -118,6 +128,50 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     setThumbnailPreview(null)
     if (thumbnailFileRef.current) thumbnailFileRef.current.value = ''
   }
+
+  // Fire Wan 2.7 alt-pose generation. Server returns a CDN URL — we
+  // store it as the active "AI thumbnail" without touching thumbnailFile,
+  // so the editor can still drop a custom file to override. Generation
+  // takes ~30-60s; UI shows a progress overlay over the thumbnail box.
+  const generateAltPose = async () => {
+    if (!scene?.id) { setAltPoseError('Scene id missing — cannot generate'); return }
+    setAltPoseLoading(true)
+    setAltPoseError('')
+    try {
+      const res = await fetch('/api/admin/recreate-rooms/stage-b/pose-alt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneId: scene.id, poseDirection: altPosePrompt }),
+      })
+      const parsed = await safeJson(res)
+      if (!parsed.ok) throw new Error(parsed.error || parsed.data?.error || 'Generation failed')
+      const url = parsed.data?.cdnUrl || parsed.data?.imageUrl
+      if (!url) throw new Error('No image URL returned')
+      setAltPoseCdnUrl(url)
+      setAltPosePanelOpen(false)  // collapse the panel, the preview now shows the result
+    } catch (e) {
+      setAltPoseError(e.message)
+    } finally {
+      setAltPoseLoading(false)
+    }
+  }
+
+  const clearAltPose = () => setAltPoseCdnUrl(null)
+
+  // Resolve which image to show as the thumbnail preview.
+  // Priority: manual upload > AI-generated alt-pose > scene still.
+  // (Lower-priority sources should still be visible when higher-priority
+  // ones are cleared, hence the explicit chain rather than e.g. nullish-only.)
+  const activeThumbnailPreview =
+      thumbnailPreview
+   || altPoseCdnUrl
+   || scene?.image
+   || null
+
+  // Whether the displayed thumbnail is something the user explicitly
+  // chose (custom upload or AI gen) — drives the green border + reset
+  // button visibility in the box.
+  const hasOverrideThumbnail = !!(thumbnailFile || altPoseCdnUrl)
 
   const submitUpload = async () => {
     const vf = selectedFile || videoFileRef.current?.files?.[0]
@@ -158,12 +212,18 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
       //    b. Scene still (default): send just the URL — the server
       //       passes it straight to CF's "upload by URL" endpoint, so
       //       no image bytes ever transit Vercel.
+      // Thumbnail resolution priority (matches the modal preview):
+      //   1. Manual upload (custom file) → compress to base64, server uploads to CF
+      //   2. AI alt-pose generation → already a CF URL, server uses by-URL upload
+      //   3. Scene still → already an Airtable URL, server uses by-URL upload
       setProgress(thumbnailFile ? 'Compressing thumbnail…' : 'Preparing thumbnail…')
       let thumbnailBase64 = null
       let thumbnailSourceUrl = null
       try {
         if (thumbnailFile) {
           thumbnailBase64 = await compressImageToBase64(thumbnailFile)
+        } else if (altPoseCdnUrl) {
+          thumbnailSourceUrl = altPoseCdnUrl
         } else if (scene.image) {
           thumbnailSourceUrl = scene.image
         }
@@ -237,12 +297,12 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                 Thumbnail <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
               </label>
               <div
-                onClick={() => !uploading && thumbnailFileRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOverThumbnail(true) }}
+                onClick={() => !uploading && !altPoseLoading && thumbnailFileRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); if (!uploading && !altPoseLoading) setDragOverThumbnail(true) }}
                 onDragLeave={() => setDragOverThumbnail(false)}
                 onDrop={(e) => {
                   e.preventDefault(); setDragOverThumbnail(false)
-                  if (uploading) return
+                  if (uploading || altPoseLoading) return
                   const file = e.dataTransfer?.files?.[0]
                   if (file) acceptThumbnail(file)
                 }}
@@ -250,18 +310,19 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                   position: 'relative',
                   aspectRatio: '9/16',
                   borderRadius: 10,
-                  border: `2px dashed ${dragOverThumbnail ? '#6AC68A' : thumbnailFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                  border: `2px dashed ${dragOverThumbnail ? '#6AC68A' : hasOverrideThumbnail ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
                   background: dragOverThumbnail ? 'rgba(106,198,138,0.10)' : '#000',
-                  cursor: uploading ? 'wait' : 'pointer',
+                  cursor: (uploading || altPoseLoading) ? 'wait' : 'pointer',
                   transition: 'all 0.15s',
                   overflow: 'hidden',
                 }}>
                 {/* Preview fills the whole drop zone so the editor sees
                     exactly what will be used as the For Review / Post
-                    thumbnail. */}
-                {(thumbnailPreview || scene?.image) && (
-                  <img src={thumbnailPreview || scene.image} alt=""
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: dragOverThumbnail ? 0.45 : 1, transition: 'opacity 0.15s' }} />
+                    thumbnail. Source priority: manual upload > AI alt-pose
+                    > scene still. */}
+                {activeThumbnailPreview && (
+                  <img src={activeThumbnailPreview} alt=""
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: dragOverThumbnail || altPoseLoading ? 0.35 : 1, transition: 'opacity 0.15s' }} />
                 )}
                 {/* Bottom overlay with state-aware drop hint */}
                 <div style={{
@@ -277,7 +338,16 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                         🖼 {thumbnailFile.name}
                       </div>
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)' }}>
-                        Custom · click to swap
+                        Custom upload · click to swap
+                      </div>
+                    </>
+                  ) : altPoseCdnUrl ? (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#C8A8FF', marginBottom: 2 }}>
+                        ✨ AI alt pose
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)' }}>
+                        Generated · click to upload custom instead
                       </div>
                     </>
                   ) : (
@@ -291,17 +361,41 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                     </>
                   )}
                 </div>
-                {/* Reset link (only when custom). stopPropagation so the
-                    click doesn't re-open the file picker. */}
-                {thumbnailFile && (
+                {/* Reset corner — context-aware label depending on what's
+                    overriding the scene still. Click swaps back to default.
+                    stopPropagation so we don't re-open the file picker. */}
+                {hasOverrideThumbnail && !altPoseLoading && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); resetThumbnail() }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (thumbnailFile) resetThumbnail()
+                      else if (altPoseCdnUrl) clearAltPose()
+                    }}
                     disabled={uploading}
-                    title="Use scene still instead"
+                    title="Revert to scene still"
                     style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 5, padding: '4px 8px', cursor: uploading ? 'wait' : 'pointer' }}>
                     ↺ Reset
                   </button>
+                )}
+                {/* Full-cover generating overlay. The thumbnail box is the
+                    natural place to show progress since the result lands
+                    inside it. */}
+                {altPoseLoading && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(0,0,0,0.55)',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', gap: 8,
+                    pointerEvents: 'none',
+                  }}>
+                    <div style={{ fontSize: 22 }}>✨</div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>Generating alt pose…</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', textAlign: 'center', padding: '0 14px' }}>
+                      Wan 2.7 · usually 30-60s
+                    </div>
+                  </div>
                 )}
               </div>
               <input
@@ -311,6 +405,75 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                 onChange={(e) => acceptThumbnail(e.target.files?.[0])}
                 style={{ display: 'none' }}
               />
+
+              {/* Alt-pose generator. Folded down by default so the modal
+                  stays simple for editors who just want to upload; click
+                  the button to expand the pose-direction textarea + Generate
+                  button. Errors and the textarea live below the thumbnail
+                  box (not inside it) so we don't disrupt the preview. */}
+              {!altPosePanelOpen ? (
+                <button
+                  type="button"
+                  onClick={() => !uploading && !altPoseLoading && setAltPosePanelOpen(true)}
+                  disabled={uploading || altPoseLoading}
+                  style={{
+                    display: 'block', width: '100%', marginTop: 8,
+                    padding: '8px 10px', fontSize: 11, fontWeight: 700,
+                    color: '#C8A8FF',
+                    background: 'rgba(200,168,255,0.08)',
+                    border: '1px solid rgba(200,168,255,0.25)',
+                    borderRadius: 6, cursor: (uploading || altPoseLoading) ? 'wait' : 'pointer',
+                    textAlign: 'center',
+                  }}>
+                  ✨ Generate alt pose with Wan 2.7
+                </button>
+              ) : (
+                <div style={{ marginTop: 8, padding: 10, background: 'rgba(200,168,255,0.05)', border: '1px solid rgba(200,168,255,0.20)', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Pose direction <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+                  </div>
+                  <textarea
+                    value={altPosePrompt}
+                    onChange={(e) => setAltPosePrompt(e.target.value)}
+                    placeholder="e.g. weight on one hip, hand at waist, body angled, full body framed so legs are visible — leave blank for the default."
+                    rows={4}
+                    disabled={altPoseLoading}
+                    style={{
+                      width: '100%', resize: 'vertical', minHeight: 70,
+                      padding: '6px 8px', fontSize: 11, lineHeight: 1.4,
+                      color: 'var(--foreground)',
+                      background: 'rgba(0,0,0,0.35)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 4,
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  <div style={{ fontSize: 10, color: 'var(--foreground-muted)', lineHeight: 1.4 }}>
+                    Bedroom + outfit + identity are locked. Only her pose changes.
+                  </div>
+                  {altPoseError && (
+                    <div style={{ fontSize: 11, color: '#E87878', padding: '4px 6px', background: 'rgba(232,120,120,0.10)', borderRadius: 4 }}>
+                      {altPoseError}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => { setAltPosePanelOpen(false); setAltPoseError('') }}
+                      disabled={altPoseLoading}
+                      style={{ flex: 1, padding: '6px 10px', fontSize: 11, fontWeight: 600, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 5, cursor: altPoseLoading ? 'wait' : 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateAltPose}
+                      disabled={altPoseLoading || uploading}
+                      style={{ flex: 2, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#C8A8FF', background: altPoseLoading ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.18)', border: '1px solid rgba(200,168,255,0.40)', borderRadius: 5, cursor: altPoseLoading ? 'wait' : 'pointer' }}>
+                      {altPoseLoading ? '✨ Generating…' : '✨ Generate'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ─── FINISHED VIDEO BOX ────────────────────────────────────
