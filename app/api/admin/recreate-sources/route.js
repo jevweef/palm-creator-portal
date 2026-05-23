@@ -18,7 +18,7 @@ export async function GET() {
         sort: [{ field: 'Last Scraped', direction: 'desc' }],
       }),
       fetchAirtableRecords('Recreate Reels', {
-        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Posted At', 'Views', 'Thumbnail', 'Dropbox Video Link', 'Stream UID', 'Status', 'Produced For'],
+        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Posted At', 'Views', 'Thumbnail', 'Dropbox Video Link', 'Stream UID', 'Status', 'Produced For', 'Added Via', 'Added By'],
         sort: [{ field: 'Posted At', direction: 'desc' }],
       }),
     ])
@@ -54,6 +54,10 @@ export async function GET() {
           streamUid: f['Stream UID'] || null,
           producedForCount: Array.isArray(f['Produced For']) ? f['Produced For'].length : 0,
           producedFor: Array.isArray(f['Produced For']) ? f['Produced For'] : [],
+          // Source classification — drives the "Admin scraped / Editor
+          // uploaded / Uploaded by Yassine" filter dropdown on the library.
+          addedVia: f['Added Via']?.name || f['Added Via'] || null,
+          addedBy: f['Added By'] || '',
         }
       }),
     })

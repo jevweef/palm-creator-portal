@@ -15,8 +15,12 @@ function LibraryReel({ reel, onRemove }) {
   // Prefer Cloudflare Stream: a CDN poster image loads instantly (fast to
   // sift), click plays the Stream player. Reels not yet mirrored fall
   // back to the Dropbox video first-frame.
+  // Editor-uploaded reels get a faint purple border + corner badge so
+  // they're visually distinguishable from admin scrapes (editor can find
+  // what they just added at a glance).
+  const isEditorUpload = reel.addedVia === 'Editor Upload'
   return (
-    <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: '#000', aspectRatio: '9/16' }}>
+    <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: '#000', aspectRatio: '9/16', outline: isEditorUpload ? '1px solid rgba(200,168,255,0.45)' : 'none', outlineOffset: -1 }}>
       {playing && reel.streamUid ? (
         <iframe
           src={buildStreamIframeUrl(reel.streamUid, { autoplay: true, muted: false, loop: true, controls: true })}
@@ -64,6 +68,12 @@ function LibraryReel({ reel, onRemove }) {
           produced ×{reel.producedForCount}
         </div>
       )}
+      {isEditorUpload && (
+        <div title={reel.addedBy ? `Uploaded by ${reel.addedBy}` : 'Editor upload'}
+          style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(200,168,255,0.92)', padding: '1px 6px', borderRadius: 4, fontSize: 9, color: '#1a0a2a', fontWeight: 700, letterSpacing: '0.02em' }}>
+          ↑ editor
+        </div>
+      )}
     </div>
   )
 }
@@ -77,6 +87,9 @@ export default function RecreateLibraryPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [filter, setFilter] = useState('')
+  // Source filter: 'all' | 'admin' | 'editor' | 'editor:{email}' — drives the
+  // "Admin scraped vs Editor uploaded vs Uploaded by Yassine" dropdown.
+  const [sourceFilter, setSourceFilter] = useState('all')
   const [posterBusy, setPosterBusy] = useState(false)
   // "Upload inspo" modal state — editor pastes an IG reel URL, we scrape
   // that specific URL (not the whole handle's recent reels).
@@ -222,7 +235,21 @@ export default function RecreateLibraryPage() {
   }
 
   const queuedCount = sources.filter(s => s.status === 'Queued').length
-  const shownReels = filter ? reels.filter(r => r.handle.toLowerCase().includes(filter.toLowerCase())) : reels
+  // Build unique-editor list for the per-uploader filter options. Sorted
+  // alphabetically; capped invisibly to keep the dropdown sane.
+  const editorEmails = [...new Set(reels.filter(r => r.addedVia === 'Editor Upload' && r.addedBy).map(r => r.addedBy))].sort()
+  const shownReels = reels.filter(r => {
+    // Handle text filter
+    if (filter && !r.handle.toLowerCase().includes(filter.toLowerCase())) return false
+    // Source classification filter
+    if (sourceFilter === 'admin' && r.addedVia !== 'Admin Scrape') return false
+    if (sourceFilter === 'editor' && r.addedVia !== 'Editor Upload') return false
+    if (sourceFilter.startsWith('editor:')) {
+      const target = sourceFilter.slice('editor:'.length)
+      if (r.addedVia !== 'Editor Upload' || (r.addedBy || '') !== target) return false
+    }
+    return true
+  })
 
   if (tab === 'rooms') {
     return (
@@ -322,9 +349,25 @@ export default function RecreateLibraryPage() {
         {sources.length === 0 && !loading && <span style={{ color: '#666', fontSize: 12 }}>No accounts yet.</span>}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0' }}>
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by handle…"
-          style={{ padding: '7px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, width: 220 }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by handle…"
+            style={{ padding: '7px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, width: 220 }} />
+          {/* Source filter — distinguishes admin scrapes from editor
+              uploads. Per-uploader options appear when ≥1 editor has
+              actually uploaded something, so the dropdown stays empty
+              of noise on a fresh install. */}
+          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+            style={{ padding: '7px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12 }}>
+            <option value="all">All sources</option>
+            <option value="admin">Admin scraped</option>
+            <option value="editor">Editor uploaded</option>
+            {editorEmails.length > 0 && <option disabled>───────────</option>}
+            {editorEmails.map(e => (
+              <option key={e} value={`editor:${e}`}>Uploaded by {e}</option>
+            ))}
+          </select>
+        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>{shownReels.length} reels in library</span>
           <button onClick={backfillPosters} disabled={posterBusy}
