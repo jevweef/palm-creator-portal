@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
-import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured, cdnUrlAtSize } from '@/lib/cloudflareImages'
 
 // Vercel function budget — Wan 2.7 image-edit-pro typically completes in
 // 25-45s. We poll for up to 70s, leaving headroom for the CF Images
@@ -170,25 +170,44 @@ export async function POST(request) {
     })
     const outfitF = outfitRows[0]?.fields || {}
     const flatlayReady = (outfitF['Flatlay Status']?.name || outfitF['Flatlay Status']) === 'Done' && outfitF['Flatlay CDN URL']
-    const outfitUrl = flatlayReady
+    // Stored CF URLs end in /public (~1500px on long edge). Wan ingests
+    // up to ~2k; bumping to /w=2048,quality=95 via CF Flexible Variants
+    // gives Wan more pixels to work with for outfit detail (button rows,
+    // stitching, color anchors) without us doing a re-upload.
+    const rawOutfitUrl = flatlayReady
       ? outfitF['Flatlay CDN URL']
       : (outfitF['CDN URL'] || outfitF.Image?.[0]?.url || null)
-    if (!outfitUrl) {
+    if (!rawOutfitUrl) {
       return NextResponse.json({ error: 'Outfit photo has no flatlay, CDN URL, or original image' }, { status: 400 })
     }
+    const outfitUrl = cdnUrlAtSize(rawOutfitUrl, 2048) || rawOutfitUrl
     const outfitVariant = flatlayReady ? 'flatlay' : (outfitF['CDN URL'] ? 'cdn' : 'attachment')
+
+    // dryRun = preview the URLs without actually firing Wan. The modal
+    // calls this whenever the outfit selection changes so the "Images
+    // sent to Wan" preview stays in sync — same code path guarantees
+    // what the preview shows is exactly what would go to Wan.
+    if (body.dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        inputs: { subjectUrl, roomUrl, roomName, outfitUrl, outfitVariant },
+      })
+    }
 
     const prompt = buildPoseAltPrompt(poseDirection)
 
     // Submit to Wan 2.7 image-edit-pro with the three reference images
     // in [identity, room, outfit] order. Wan's prompt references them as
-    // Figure 1, 2, 3 in the same order.
+    // Figure 1, 2, 3 in the same order. Output is 4:5 (1080x1350) since
+    // these renders are destined for Instagram feed posts via Post Prep,
+    // not reels — 4:5 is IG's tallest post format.
     let task
     try {
       task = await submitWaveSpeedTask('alibaba/wan-2.7/image-edit-pro', {
         images: [subjectUrl, roomUrl, outfitUrl],
         prompt,
-        size: '1080*1920',
+        size: '1080*1350',
       })
     } catch (e) {
       return NextResponse.json({ error: `WaveSpeed submit failed: ${e.message}` }, { status: 502 })

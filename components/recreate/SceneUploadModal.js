@@ -108,10 +108,12 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [posePhotosLoading, setPosePhotosLoading] = useState(false)
   const [poseAnalyzing, setPoseAnalyzing] = useState(false)
   const [selectedPoseRefId, setSelectedPoseRefId] = useState(null) // for the highlight in the grid
-  // Echo of the last generation's inputs (the 3 image URLs Wan saw). Shown
-  // in the preview panel for debugging — easy to see "oh, the outfit ref
-  // was the original Pinterest photo, not the flatlay" when something drifts.
-  const [lastInputs, setLastInputs] = useState(null)
+  // The 3 image URLs that would be (or were) sent to Wan. Lives whether
+  // we've actually generated or not — refreshed via a dryRun fetch each
+  // time the outfit selection changes, so the preview panel is always
+  // showing exactly what Wan would receive on the next Generate click.
+  const [currentInputs, setCurrentInputs] = useState(null)
+  const [inputsLoading, setInputsLoading] = useState(false)
   const videoFileRef = useRef(null)
   const thumbnailFileRef = useRef(null)
   const reelId = scene?.reel?.id
@@ -259,7 +261,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
       const url = parsed.data?.cdnUrl || parsed.data?.imageUrl
       if (!url) throw new Error('No image URL returned')
       setAltPoseCdnUrl(url)
-      setLastInputs(parsed.data?.inputs || null)
+      if (parsed.data?.inputs) setCurrentInputs(parsed.data.inputs)
       // Keep the panel open so the editor sees the "inputs Wan used" debug
       // preview without having to re-open. They can click Cancel/Reset to
       // collapse it.
@@ -272,8 +274,36 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
 
   const clearAltPose = () => {
     setAltPoseCdnUrl(null)
-    setLastInputs(null)
+    setCurrentInputs(null)
   }
+
+  // Dry-run the pose-alt endpoint to fetch the exact URLs Wan would
+  // receive for the current scene + outfit combo. Triggered whenever
+  // the outfit selection changes; the response populates currentInputs
+  // which drives the "Images sent to Wan" preview panel.
+  // Same code path the real Generate uses, just with dryRun:true so it
+  // returns the URLs without firing a Wan job — guarantees the preview
+  // is what'll actually be sent.
+  useEffect(() => {
+    if (!altPosePanelOpen || !scene?.id || !selectedOutfitId) return
+    let cancelled = false
+    setInputsLoading(true)
+    fetch('/api/admin/recreate-rooms/stage-b/pose-alt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sceneId: scene.id, outfitPhotoId: selectedOutfitId, dryRun: true }),
+    })
+      .then(safeJson)
+      .then(parsed => {
+        if (cancelled) return
+        if (parsed.ok && parsed.data?.inputs) {
+          setCurrentInputs(parsed.data.inputs)
+        }
+      })
+      .catch(e => console.warn('[scene-upload] inputs dry-run failed:', e.message))
+      .finally(() => { if (!cancelled) setInputsLoading(false) })
+    return () => { cancelled = true }
+  }, [altPosePanelOpen, scene?.id, selectedOutfitId])
 
   // Resolve which image to show as the thumbnail preview.
   // Priority: manual upload > AI-generated alt-pose > scene still.
@@ -696,33 +726,39 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                     )}
                   </div>
 
-                  {/* ─── INPUTS PREVIEW (post-generation, debug) ───── */}
-                  {lastInputs && (
+                  {/* ─── INPUTS PREVIEW ─────────────────────────────────
+                      Live — refreshes via dryRun whenever scene+outfit
+                      changes, so the editor sees EXACTLY what Wan will
+                      receive before clicking Generate. Each thumb opens
+                      the full-res source in a new tab. */}
+                  {(currentInputs || inputsLoading) && (
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                        Images sent to Wan
+                        Images Wan will receive {inputsLoading && <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>· loading…</span>}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                        {[
-                          { url: lastInputs.subjectUrl, label: 'Fig 1 · subject' },
-                          { url: lastInputs.roomUrl, label: `Fig 2 · room${lastInputs.roomName ? ` (${lastInputs.roomName})` : ''}` },
-                          { url: lastInputs.outfitUrl, label: `Fig 3 · outfit (${lastInputs.outfitVariant || '?'})` },
-                        ].map((it, i) => (
-                          <a key={i} href={it.url} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'block', position: 'relative', aspectRatio: '1/1', borderRadius: 4, overflow: 'hidden', background: '#000', textDecoration: 'none' }}>
-                            <img src={it.url} alt="" loading="lazy"
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '3px 4px', fontSize: 8, fontWeight: 700, color: '#fff', background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {it.label}
-                            </div>
-                          </a>
-                        ))}
-                      </div>
+                      {currentInputs ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                          {[
+                            { url: currentInputs.subjectUrl, label: 'Fig 1 · subject (full-res)' },
+                            { url: currentInputs.roomUrl, label: `Fig 2 · room${currentInputs.roomName ? ` (${currentInputs.roomName})` : ''}` },
+                            { url: currentInputs.outfitUrl, label: `Fig 3 · outfit (${currentInputs.outfitVariant || '?'}, 2K)` },
+                          ].map((it, i) => (
+                            <a key={i} href={it.url} target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'block', position: 'relative', aspectRatio: '1/1', borderRadius: 4, overflow: 'hidden', background: '#000', textDecoration: 'none' }}>
+                              <img src={it.url} alt="" loading="lazy"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '3px 4px', fontSize: 8, fontWeight: 700, color: '#fff', background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {it.label}
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
                   <div style={{ fontSize: 10, color: 'var(--foreground-muted)', lineHeight: 1.4 }}>
-                    Wan gets 3 refs: scene render + empty bedroom + outfit flatlay. Click to regenerate if the result drifts.
+                    Wan gets 3 refs at full-res: scene render + empty bedroom + outfit flatlay (CF /w=2048). Output is 4:5 (1080×1350) for IG feed.
                   </div>
 
                   {altPoseError && (
