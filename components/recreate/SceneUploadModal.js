@@ -93,6 +93,16 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [altPosePrompt, setAltPosePrompt] = useState('')
   const [altPoseLoading, setAltPoseLoading] = useState(false)
   const [altPoseError, setAltPoseError] = useState('')
+  // Outfit picker state. Fetched lazily when the panel opens (avoids one
+  // extra fetch for editors who never use alt-pose). The selected outfit
+  // feeds into the Wan call as Figure 3.
+  const [reelOutfits, setReelOutfits] = useState([])
+  const [outfitsLoading, setOutfitsLoading] = useState(false)
+  const [selectedOutfitId, setSelectedOutfitId] = useState(null)
+  // Echo of the last generation's inputs (the 3 image URLs Wan saw). Shown
+  // in the preview panel for debugging — easy to see "oh, the outfit ref
+  // was the original Pinterest photo, not the flatlay" when something drifts.
+  const [lastInputs, setLastInputs] = useState(null)
   const videoFileRef = useRef(null)
   const thumbnailFileRef = useRef(null)
   const reelId = scene?.reel?.id
@@ -129,26 +139,65 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     if (thumbnailFileRef.current) thumbnailFileRef.current.value = ''
   }
 
-  // Fire Wan 2.7 alt-pose generation. Server returns a CDN URL — we
-  // store it as the active "AI thumbnail" without touching thumbnailFile,
-  // so the editor can still drop a custom file to override. Generation
-  // takes ~30-60s; UI shows a progress overlay over the thumbnail box.
+  // Lazy-fetch this reel's Selected Outfits when the alt-pose panel
+  // opens. Idempotent — only runs the first time. Hits the existing
+  // reel-outfits endpoint which hydrates Photo records with flatlay URLs.
+  const ensureOutfitsLoaded = async () => {
+    if (reelOutfits.length || outfitsLoading || !reelId) return
+    setOutfitsLoading(true)
+    try {
+      const res = await fetch(`/api/admin/recreate-rooms/stage-b/reel-outfits?reelId=${reelId}`)
+      const parsed = await safeJson(res)
+      if (parsed.ok && Array.isArray(parsed.data?.outfits)) {
+        setReelOutfits(parsed.data.outfits)
+        // Auto-pick the first outfit if exactly one is attached — saves a
+        // click. Otherwise leave nothing selected so the editor sees the
+        // grid and intentionally chooses.
+        if (parsed.data.outfits.length === 1) setSelectedOutfitId(parsed.data.outfits[0].id)
+      }
+    } catch (e) {
+      // Non-fatal — picker just shows empty + an error hint.
+      console.warn('[scene-upload] reel outfits fetch failed:', e.message)
+    } finally {
+      setOutfitsLoading(false)
+    }
+  }
+
+  const openAltPosePanel = () => {
+    setAltPosePanelOpen(true)
+    setAltPoseError('')
+    ensureOutfitsLoaded()
+  }
+
+  // Fire Wan 2.7 alt-pose generation. Sends sceneId + outfitPhotoId +
+  // pose direction. Server fetches the 3 reference images (subject,
+  // room, outfit) and passes them to Wan as Figure 1/2/3. Server returns
+  // a CDN URL + the inputs it used (so we can show the preview panel of
+  // what was sent). Generation takes ~30-60s; UI shows progress overlay.
   const generateAltPose = async () => {
     if (!scene?.id) { setAltPoseError('Scene id missing — cannot generate'); return }
+    if (!selectedOutfitId) { setAltPoseError('Pick an outfit first — Wan needs an outfit reference'); return }
     setAltPoseLoading(true)
     setAltPoseError('')
     try {
       const res = await fetch('/api/admin/recreate-rooms/stage-b/pose-alt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sceneId: scene.id, poseDirection: altPosePrompt }),
+        body: JSON.stringify({
+          sceneId: scene.id,
+          outfitPhotoId: selectedOutfitId,
+          poseDirection: altPosePrompt,
+        }),
       })
       const parsed = await safeJson(res)
       if (!parsed.ok) throw new Error(parsed.error || parsed.data?.error || 'Generation failed')
       const url = parsed.data?.cdnUrl || parsed.data?.imageUrl
       if (!url) throw new Error('No image URL returned')
       setAltPoseCdnUrl(url)
-      setAltPosePanelOpen(false)  // collapse the panel, the preview now shows the result
+      setLastInputs(parsed.data?.inputs || null)
+      // Keep the panel open so the editor sees the "inputs Wan used" debug
+      // preview without having to re-open. They can click Cancel/Reset to
+      // collapse it.
     } catch (e) {
       setAltPoseError(e.message)
     } finally {
@@ -156,7 +205,10 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     }
   }
 
-  const clearAltPose = () => setAltPoseCdnUrl(null)
+  const clearAltPose = () => {
+    setAltPoseCdnUrl(null)
+    setLastInputs(null)
+  }
 
   // Resolve which image to show as the thumbnail preview.
   // Priority: manual upload > AI-generated alt-pose > scene still.
@@ -406,15 +458,14 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                 style={{ display: 'none' }}
               />
 
-              {/* Alt-pose generator. Folded down by default so the modal
-                  stays simple for editors who just want to upload; click
-                  the button to expand the pose-direction textarea + Generate
-                  button. Errors and the textarea live below the thumbnail
-                  box (not inside it) so we don't disrupt the preview. */}
+              {/* Alt-pose generator. Folded down by default; click to
+                  expand. Inside: outfit picker (this reel's Selected
+                  Outfits), pose direction textarea, optional preview of
+                  the inputs Wan saw last gen, Generate button. */}
               {!altPosePanelOpen ? (
                 <button
                   type="button"
-                  onClick={() => !uploading && !altPoseLoading && setAltPosePanelOpen(true)}
+                  onClick={() => !uploading && !altPoseLoading && openAltPosePanel()}
                   disabled={uploading || altPoseLoading}
                   style={{
                     display: 'block', width: '100%', marginTop: 8,
@@ -428,29 +479,108 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                   ✨ Generate alt pose with Wan 2.7
                 </button>
               ) : (
-                <div style={{ marginTop: 8, padding: 10, background: 'rgba(200,168,255,0.05)', border: '1px solid rgba(200,168,255,0.20)', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Pose direction <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+                <div style={{ marginTop: 8, padding: 10, background: 'rgba(200,168,255,0.05)', border: '1px solid rgba(200,168,255,0.20)', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                  {/* ─── OUTFIT PICKER ─────────────────────────────── */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                      Pick the outfit for this scene
+                    </div>
+                    {outfitsLoading ? (
+                      <div style={{ fontSize: 11, color: 'var(--foreground-muted)', padding: '8px 0' }}>Loading reel outfits…</div>
+                    ) : reelOutfits.length === 0 ? (
+                      <div style={{ fontSize: 11, color: '#E87878', padding: '8px 10px', background: 'rgba(232,120,120,0.08)', borderRadius: 4 }}>
+                        No outfits attached to this reel yet. Attach outfits in the workflow first, then come back.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(48px, 1fr))', gap: 6 }}>
+                        {reelOutfits.map(o => {
+                          const isSelected = o.id === selectedOutfitId
+                          return (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => setSelectedOutfitId(o.id)}
+                              disabled={altPoseLoading}
+                              title={o.hasFlatlay ? 'Will use flatlay reference' : 'Will use original (no flatlay generated)'}
+                              style={{
+                                position: 'relative',
+                                aspectRatio: '1/1',
+                                borderRadius: 5,
+                                border: `2px solid ${isSelected ? '#C8A8FF' : 'rgba(255,255,255,0.10)'}`,
+                                background: '#000',
+                                cursor: altPoseLoading ? 'wait' : 'pointer',
+                                overflow: 'hidden',
+                                padding: 0,
+                              }}>
+                              {o.image && (
+                                <img src={o.image} alt="" loading="lazy"
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              )}
+                              {/* Flatlay-ready badge so the editor sees
+                                  which outfits have the clean reference */}
+                              {!o.hasFlatlay && (
+                                <div style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(232,160,160,0.85)', color: '#fff', fontSize: 8, fontWeight: 700, padding: '1px 3px', borderRadius: 2 }}>!</div>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <textarea
-                    value={altPosePrompt}
-                    onChange={(e) => setAltPosePrompt(e.target.value)}
-                    placeholder="e.g. weight on one hip, hand at waist, body angled, full body framed so legs are visible — leave blank for the default."
-                    rows={4}
-                    disabled={altPoseLoading}
-                    style={{
-                      width: '100%', resize: 'vertical', minHeight: 70,
-                      padding: '6px 8px', fontSize: 11, lineHeight: 1.4,
-                      color: 'var(--foreground)',
-                      background: 'rgba(0,0,0,0.35)',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: 4,
-                      fontFamily: 'inherit',
-                    }}
-                  />
+
+                  {/* ─── POSE DIRECTION ─────────────────────────────── */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                      Pose direction <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+                    </div>
+                    <textarea
+                      value={altPosePrompt}
+                      onChange={(e) => setAltPosePrompt(e.target.value)}
+                      placeholder="e.g. weight on one hip, hand at waist, body angled, full body framed so legs are visible — leave blank for the default."
+                      rows={3}
+                      disabled={altPoseLoading}
+                      style={{
+                        width: '100%', resize: 'vertical', minHeight: 60,
+                        padding: '6px 8px', fontSize: 11, lineHeight: 1.4,
+                        color: 'var(--foreground)',
+                        background: 'rgba(0,0,0,0.35)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 4,
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+
+                  {/* ─── INPUTS PREVIEW (post-generation, debug) ───── */}
+                  {lastInputs && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                        Images sent to Wan
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                        {[
+                          { url: lastInputs.subjectUrl, label: 'Fig 1 · subject' },
+                          { url: lastInputs.roomUrl, label: `Fig 2 · room${lastInputs.roomName ? ` (${lastInputs.roomName})` : ''}` },
+                          { url: lastInputs.outfitUrl, label: `Fig 3 · outfit (${lastInputs.outfitVariant || '?'})` },
+                        ].map((it, i) => (
+                          <a key={i} href={it.url} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'block', position: 'relative', aspectRatio: '1/1', borderRadius: 4, overflow: 'hidden', background: '#000', textDecoration: 'none' }}>
+                            <img src={it.url} alt="" loading="lazy"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '3px 4px', fontSize: 8, fontWeight: 700, color: '#fff', background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {it.label}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ fontSize: 10, color: 'var(--foreground-muted)', lineHeight: 1.4 }}>
-                    Bedroom + outfit + identity are locked. Only her pose changes.
+                    Wan gets 3 refs: scene render + empty bedroom + outfit flatlay. Click to regenerate if the result drifts.
                   </div>
+
                   {altPoseError && (
                     <div style={{ fontSize: 11, color: '#E87878', padding: '4px 6px', background: 'rgba(232,120,120,0.10)', borderRadius: 4 }}>
                       {altPoseError}
@@ -467,9 +597,10 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                     <button
                       type="button"
                       onClick={generateAltPose}
-                      disabled={altPoseLoading || uploading}
-                      style={{ flex: 2, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#C8A8FF', background: altPoseLoading ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.18)', border: '1px solid rgba(200,168,255,0.40)', borderRadius: 5, cursor: altPoseLoading ? 'wait' : 'pointer' }}>
-                      {altPoseLoading ? '✨ Generating…' : '✨ Generate'}
+                      disabled={altPoseLoading || uploading || !selectedOutfitId}
+                      title={!selectedOutfitId ? 'Pick an outfit first' : ''}
+                      style={{ flex: 2, padding: '6px 10px', fontSize: 11, fontWeight: 700, color: '#C8A8FF', background: altPoseLoading ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.18)', border: '1px solid rgba(200,168,255,0.40)', borderRadius: 5, cursor: (altPoseLoading || !selectedOutfitId) ? 'not-allowed' : 'pointer', opacity: !selectedOutfitId ? 0.55 : 1 }}>
+                      {altPoseLoading ? '✨ Generating…' : altPoseCdnUrl ? '✨ Regenerate' : '✨ Generate'}
                     </button>
                   </div>
                 </div>
