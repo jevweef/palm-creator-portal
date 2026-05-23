@@ -194,19 +194,30 @@ export async function PATCH(request) {
     const f = (await recRes.json()).fields || {}
 
     if (action === 'regenerate') {
+      // Generate via t2i → push to Dropbox → store path/link only.
+      // No Airtable attachment write (Dropbox is canonical source).
       const url = await genBaseImage(f['Base Prompt'] || '')
-      await patchAirtableRecord(ROOMS, roomId, { 'Base Image': [{ url }], Status: 'Draft' })
-      return NextResponse.json({ ok: true, baseImage: url })
+      const safe = String(f['Room Name'] || 'room').trim().replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'room'
+      const m = await masterToDropbox(url, `/Palm Ops/Recreate Rooms/${safe}/_base/${safe}-${Date.now()}.jpg`)
+      if (!m) {
+        return NextResponse.json({ error: 'Generated base image but Dropbox push failed — try again' }, { status: 502 })
+      }
+      await patchAirtableRecord(ROOMS, roomId, {
+        'Base Dropbox Path': m.path,
+        ...(m.link ? { 'Base Dropbox Link': m.link } : {}),
+        Status: 'Draft',
+      })
+      return NextResponse.json({ ok: true, baseImage: m.link ? rawDbx(m.link) : url })
     }
     if (action === 'replaceImage') {
       // Full-res replacement already uploaded to Dropbox via upload-token.
+      // Mint a shared link and store path-only on Airtable (no attachment).
       if (!baseDropboxPath) return NextResponse.json({ error: 'baseDropboxPath required' }, { status: 400 })
       const tok = await getDropboxAccessToken()
       const ns = await getDropboxRootNamespaceId(tok)
       let link = ''
       try { link = await createDropboxSharedLink(tok, ns, baseDropboxPath) } catch {}
       await patchAirtableRecord(ROOMS, roomId, {
-        'Base Image': link ? [{ url: rawDbx(link) }] : [],
         'Base Dropbox Path': baseDropboxPath,
         ...(link ? { 'Base Dropbox Link': link } : {}),
         Status: 'Draft',

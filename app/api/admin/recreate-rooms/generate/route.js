@@ -240,7 +240,7 @@ export async function POST(request) {
           Room: [roomId],
           Recipe: name,
           'Prompt Used': prompt,
-          Image: [{ url }],
+          // No 'Image' attachment — Dropbox is canonical source.
           ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
           ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
           Status: 'Pending',

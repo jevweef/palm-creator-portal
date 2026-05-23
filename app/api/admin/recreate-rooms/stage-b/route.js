@@ -373,11 +373,9 @@ export async function POST(request) {
       const stillNum = (baseStillNum || 1) + i
       const slug = stageBSlug({ aka, reelNum: baseReelNum || 1, stillNum })
 
-      const attachments = {}
-      if (rawScreenshotUrl) attachments['Raw Screenshot'] = [{ url: rawScreenshotUrl, filename: `${slug}_raw.jpg` }]
-      if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug}_upscaled.jpg` }]
-      attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug}_tjp_output.jpg` }]
-
+      // Path-only writes — no Airtable attachments. Dropbox is the
+      // canonical source of truth for all subject / raw / upscaled
+      // images; consumers read via Dropbox link or proxy URL.
       const recordFields = {
         Name: slug,
         Creator: [creatorId],
@@ -394,7 +392,6 @@ export async function POST(request) {
         ...(subjectDropboxPath ? { 'TJP Output Path': subjectDropboxPath } : {}),
         ...(rawScreenshotPath ? { 'Raw Screenshot Path': rawScreenshotPath } : {}),
         ...(upscaledScreenshotPath ? { 'Upscaled Screenshot Path': upscaledScreenshotPath } : {}),
-        ...attachments,
         Status: 'Generating',
       }
 

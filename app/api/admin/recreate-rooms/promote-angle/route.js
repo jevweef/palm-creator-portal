@@ -55,7 +55,7 @@ export async function POST(request) {
     // the staging candidate can be removed without breaking it and the
     // two never share a file. Falls back to the shared path if the copy
     // fails (non-fatal).
-    let baseDbxPath = dbxPath, baseDbxLink = dbxLink, baseImg = imgUrl
+    let baseDbxPath = dbxPath, baseDbxLink = dbxLink
     try {
       const imgRes = await fetch(imgUrl)
       if (imgRes.ok) {
@@ -67,7 +67,7 @@ export async function POST(request) {
         let link = ''
         try { link = await createDropboxSharedLink(tok, ns, newPath) } catch {}
         baseDbxPath = newPath
-        if (link) { baseDbxLink = link; baseImg = rawDbx(link) }
+        if (link) baseDbxLink = link
       }
     } catch (e) {
       console.warn(`[promote-angle] independent copy failed, sharing source path: ${e.message}`)
@@ -79,7 +79,9 @@ export async function POST(request) {
       Angle: `Angle ${angleN}`,
       'Base Prompt': '',
       Status: 'Locked',
-      'Base Image': [{ url: baseImg }],
+      // No 'Base Image' attachment — Dropbox is canonical source.
+      // baseDbxPath / baseDbxLink were resolved upstream (either via
+      // the variation's Dropbox path, or a copy that was just minted).
       ...(baseDbxPath ? { 'Base Dropbox Path': baseDbxPath } : {}),
       ...(baseDbxLink ? { 'Base Dropbox Link': baseDbxLink } : {}),
     }

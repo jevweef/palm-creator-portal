@@ -73,7 +73,7 @@ export async function POST() {
           } catch (e) { console.warn(`[stage-b/resolve] dropbox ${r.id}: ${e.message}`) }
         }
         await patchAirtableRecord(OUTPUTS, r.id, {
-          Image: [{ url: outUrl }],
+          // No 'Image' attachment — Dropbox is canonical source.
           ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
           ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
           Status: 'Pending',
