@@ -155,12 +155,11 @@ export async function POST(request) {
     // existing) Dropbox shared link, convert to ?raw=1 URL for Wan.
 
     // ── Figure 1: Stage B Image (subject + room composited, pre-TJP).
-    // Also pull Time of Day + Room Framing — needed to pick the matching
-    // room variation as Figure 2 (the Room link points to the PARENT
-    // room, not the specific time-of-day variation that was actually
-    // rendered for this scene).
+    // Also pull Source Variation (preferred — explicit link to the
+    // exact variation rendered) and Time of Day (fallback TOD-matching
+    // path for older scenes that pre-date the Source Variation field).
     const sceneRows = await fetchAirtableRecords(STAGE_B_TABLE, {
-      fields: ['Dropbox Path', 'Dropbox Link', 'Room', 'Slug', 'Name', 'Time of Day', 'Room Framing'],
+      fields: ['Dropbox Path', 'Dropbox Link', 'Room', 'Source Variation', 'Slug', 'Name', 'Time of Day', 'Room Framing'],
       filterByFormula: `RECORD_ID() = '${sceneId}'`,
     })
     if (!sceneRows.length) return NextResponse.json({ error: 'Scene not found' }, { status: 404 })
@@ -171,63 +170,78 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Scene has no Dropbox Path or Link — regenerate via the workflow to populate it' }, { status: 400 })
     }
     const sceneTimeOfDay = (sceneF['Time of Day']?.name || sceneF['Time of Day'] || null)
+    const sourceVariationId = (sceneF['Source Variation'] || [])[0] || null
 
-    // ── Figure 2: the specific room VARIATION that matches the scene's
-    // Time of Day. The Stage B Output's Room link points at the parent
-    // Recreate Room (which has a generic Base Image — usually daytime).
-    // The Stage B render itself used one of the room's Recreate Room
-    // Variations (a specific TOD render). To lock the right look, we
-    // need the variation, not the parent base.
+    // ── Figure 2: the exact Recreate Room Variation that was rendered.
     //
-    // Lookup chain:
-    //   1. Load parent Room (for Recreate Room Variations link + name)
-    //   2. If parent has variations, fetch them and find one matching
-    //      sceneTimeOfDay + Status=Approved
-    //   3. If a match is found → use its Dropbox Path/Link
-    //   4. If no match (or no TOD on the scene) → fall back to Base Image
+    // Resolution order (best → worst):
+    //   1. Source Variation link on the scene (explicit, set at Stage B
+    //      generation time — zero ambiguity, this is the proper answer)
+    //   2. TOD match: find a variation under the parent Room with
+    //      Time of Day = scene's TOD and Status = Approved
+    //      (legacy fallback for scenes generated before Source Variation
+    //      existed — picks the first match if multiple)
+    //   3. Parent Room's Base Image (last resort — usually daytime, may
+    //      not match the scene's actual lighting)
     const roomId = (sceneF.Room || [])[0]
     if (!roomId) {
       return NextResponse.json({ error: 'Scene is not linked to a Recreate Room — cannot lock the bedroom' }, { status: 400 })
     }
+
+    let roomPath = ''
+    let roomExistingLink = ''
+    let roomSourceLabel = 'base'
+    let roomName = ''
+
+    // Step 1: explicit Source Variation link (preferred)
+    if (sourceVariationId) {
+      const variationRows = await fetchAirtableRecords(VARIATIONS_TABLE, {
+        fields: ['Time of Day', 'Status', 'Dropbox Path', 'Dropbox Link', 'Variation'],
+        filterByFormula: `RECORD_ID() = '${sourceVariationId}'`,
+      })
+      const v = variationRows[0]?.fields
+      if (v && (v['Dropbox Path'] || v['Dropbox Link'])) {
+        roomPath = v['Dropbox Path'] || ''
+        roomExistingLink = v['Dropbox Link'] || ''
+        roomSourceLabel = `variation (${v['Time of Day']?.name || v['Time of Day'] || 'unknown TOD'})`
+      }
+    }
+
+    // Always load the parent Room — for the room name + Step 2/3 fallback.
     const roomRows = await fetchAirtableRecords(ROOMS_TABLE, {
       fields: ['Base Dropbox Path', 'Base Dropbox Link', 'Room Name', 'Recreate Room Variations'],
       filterByFormula: `RECORD_ID() = '${roomId}'`,
     })
     const roomF = roomRows[0]?.fields || {}
-    const roomName = roomF['Room Name'] || ''
+    roomName = roomF['Room Name'] || ''
 
-    let roomPath = ''
-    let roomExistingLink = ''
-    let roomSourceLabel = 'base'  // for the debug preview label
-
-    const variationIds = roomF['Recreate Room Variations'] || []
-    if (sceneTimeOfDay && variationIds.length) {
-      const orExpr = variationIds.map(id => `RECORD_ID()='${id}'`).join(',')
-      const varRows = await fetchAirtableRecords(VARIATIONS_TABLE, {
-        fields: ['Time of Day', 'Status', 'Dropbox Path', 'Dropbox Link', 'Variation'],
-        filterByFormula: `OR(${orExpr})`,
-      })
-      // Match: TOD equals + Status Approved. If multiple match (Golden
-      // Hour often has multiple shuffle variants), pick the first one
-      // deterministically. Future work: store the SPECIFIC variation ID
-      // on Stage B Output at generation time to remove ambiguity.
-      const match = varRows.find(v => {
-        const vTod = (v.fields?.['Time of Day']?.name || v.fields?.['Time of Day'] || null)
-        const vStatus = (v.fields?.Status?.name || v.fields?.Status || null)
-        return vTod === sceneTimeOfDay && vStatus === 'Approved'
-      })
-      if (match) {
-        roomPath = match.fields?.['Dropbox Path'] || ''
-        roomExistingLink = match.fields?.['Dropbox Link'] || ''
-        roomSourceLabel = `variation (${sceneTimeOfDay})`
+    // Step 2: TOD match (legacy fallback for scenes without Source Variation)
+    if (!roomPath && !roomExistingLink && sceneTimeOfDay) {
+      const variationIds = roomF['Recreate Room Variations'] || []
+      if (variationIds.length) {
+        const orExpr = variationIds.map(id => `RECORD_ID()='${id}'`).join(',')
+        const varRows = await fetchAirtableRecords(VARIATIONS_TABLE, {
+          fields: ['Time of Day', 'Status', 'Dropbox Path', 'Dropbox Link', 'Variation'],
+          filterByFormula: `OR(${orExpr})`,
+        })
+        const match = varRows.find(v => {
+          const vTod = (v.fields?.['Time of Day']?.name || v.fields?.['Time of Day'] || null)
+          const vStatus = (v.fields?.Status?.name || v.fields?.Status || null)
+          return vTod === sceneTimeOfDay && vStatus === 'Approved'
+        })
+        if (match) {
+          roomPath = match.fields?.['Dropbox Path'] || ''
+          roomExistingLink = match.fields?.['Dropbox Link'] || ''
+          roomSourceLabel = `variation (TOD-matched, ${sceneTimeOfDay})`
+        }
       }
     }
 
-    // Fallback to parent Room's Base Image if no variation matched.
+    // Step 3: parent Room's Base Image (last resort)
     if (!roomPath && !roomExistingLink) {
       roomPath = roomF['Base Dropbox Path'] || ''
       roomExistingLink = roomF['Base Dropbox Link'] || ''
-      roomSourceLabel = sceneTimeOfDay ? `base (no '${sceneTimeOfDay}' variation found)` : 'base'
+      roomSourceLabel = sceneTimeOfDay ? `base (no variation matched '${sceneTimeOfDay}')` : 'base'
     }
     if (!roomPath && !roomExistingLink) {
       return NextResponse.json({ error: 'Linked Room has no Base Dropbox Path / Link AND no matching variation' }, { status: 400 })

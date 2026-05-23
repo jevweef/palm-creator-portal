@@ -304,7 +304,10 @@ export async function POST(request) {
       const roomName = myRooms.find(r => r.id === rid)?.fields?.['Room Name'] || 'Room'
       const framing = framingOf(v) || 'unclassified'
       const timeOfDay = todOf(v)
-      return { url, roomId: rid, roomName, framing, timeOfDay }
+      // Capture the variation's own ID so downstream consumers (pose-alt,
+      // outfit swap, etc.) can resolve the EXACT image that was rendered,
+      // not just the parent room's generic base.
+      return { url, variationId: v.id, roomId: rid, roomName, framing, timeOfDay }
     })
     for (const s of sampled) {
       if (!s.url) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
@@ -381,6 +384,10 @@ export async function POST(request) {
         Creator: [creatorId],
         ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
         ...(s.roomId ? { Room: [s.roomId] } : {}),
+        // Source Variation = the specific Recreate Room Variation actually
+        // rendered (TOD shuffle + framing). Resolves pose-alt's "which
+        // variation should Fig 2 be?" ambiguity without TOD matching.
+        ...(s.variationId ? { 'Source Variation': [s.variationId] } : {}),
         'Prediction ID': predictionId,
         ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
         ...(s.framing !== 'unclassified' ? { 'Room Framing': s.framing } : {}),
