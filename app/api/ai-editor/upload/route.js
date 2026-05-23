@@ -114,32 +114,55 @@ export async function POST(request) {
     // Airtable downloads the already-optimized image, not the 25MB original).
     if (isCloudflareImagesConfigured() && (thumbnailBase64 || thumbnailSourceUrl)) {
       try {
-        let cfResult
-        if (thumbnailBase64) {
+        let imageId
+        // If the source URL is ALREADY a Cloudflare Images delivery URL
+        // (e.g. an alt-pose generation that was already uploaded to CF),
+        // reuse its image ID directly. Trying to re-upload it via
+        // uploadImageByUrl fails because CF's Images API can't reliably
+        // fetch its own URLs — and would create a duplicate even if it
+        // did. Parsing the ID out of the URL achieves dedup naturally.
+        const CF_HASH = process.env.CLOUDFLARE_IMAGES_HASH
+        const cfPattern = CF_HASH ? new RegExp(`imagedelivery\\.net/${CF_HASH}/([^/]+)/`) : null
+        const existingCfId = (cfPattern && thumbnailSourceUrl)
+          ? thumbnailSourceUrl.match(cfPattern)?.[1] || null
+          : null
+
+        if (existingCfId) {
+          imageId = existingCfId
+          console.log(`[ai-editor upload] reusing existing CF image ${imageId} (source was a CF URL)`)
+        } else if (thumbnailBase64) {
           const bytes = Buffer.from(thumbnailBase64, 'base64')
-          cfResult = await uploadImageBytes(bytes, assetId, 'image/jpeg')
-        } else {
-          cfResult = await uploadImageByUrl(thumbnailSourceUrl, assetId)
+          const result = await uploadImageBytes(bytes, assetId, 'image/jpeg')
+          imageId = result.id
+        } else if (thumbnailSourceUrl) {
+          const result = await uploadImageByUrl(thumbnailSourceUrl, assetId)
+          imageId = result.id
         }
-        const cdnUrl = buildDeliveryUrl(cfResult.id, 'public')
-        // One PATCH for CDN fields + Thumbnail attachment so the For
-        // Review card has everything it needs the first time it loads.
-        const patchRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              'CDN URL': cdnUrl,
-              'CDN Image ID': cfResult.id,
-              'Thumbnail': [{ url: cdnUrl }],
-            },
-          }),
-        })
-        if (!patchRes.ok) {
-          console.warn('[ai-editor upload] CDN/Thumbnail PATCH failed:', await patchRes.text())
+
+        if (imageId) {
+          const cdnUrl = buildDeliveryUrl(imageId, 'public')
+          // One PATCH for CDN fields + Thumbnail attachment so the For
+          // Review card has everything it needs the first time it loads.
+          const patchRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                'CDN URL': cdnUrl,
+                'CDN Image ID': imageId,
+                'Thumbnail': [{ url: cdnUrl }],
+              },
+            }),
+          })
+          if (!patchRes.ok) {
+            console.warn('[ai-editor upload] CDN/Thumbnail PATCH failed:', await patchRes.text())
+          }
         }
       } catch (e) {
-        console.warn('[ai-editor upload] CF Images upload failed:', e.message)
+        // Log with the stack so the actual failure surfaces in Vercel logs
+        // instead of a generic 'CF Images upload failed' that hides which
+        // step blew up (URL fetch vs. CF response vs. Airtable PATCH).
+        console.warn('[ai-editor upload] CF Images thumbnail flow failed:', e.message, e.stack?.split('\n')[1])
       }
     }
 
