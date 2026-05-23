@@ -168,6 +168,31 @@ export async function POST(request) {
     }
     await patchProducedFor()
 
+    // Stamp the matching Stage B Output with Uploaded At so the
+    // workflow gallery can show "✓ Uploaded" badges + the "project
+    // complete" indicator when every scene under a reel has been
+    // uploaded. Matched by Slug since that's the canonical bridge.
+    if (slug) {
+      try {
+        const sbList = await fetch(
+          `https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs?filterByFormula=${encodeURIComponent(`{Slug} = '${slug.replace(/'/g, "\\'")}'`)}&maxRecords=1`,
+          { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
+        )
+        if (sbList.ok) {
+          const sbId = (await sbList.json()).records?.[0]?.id
+          if (sbId) {
+            await fetch(`https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs/${sbId}`, {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ typecast: true, fields: { 'Uploaded At': new Date().toISOString() } }),
+            })
+          }
+        }
+      } catch (e) {
+        console.warn('[ai-editor upload] Uploaded At stamp failed:', e.message)
+      }
+    }
+
     triggerAssetMirror(assetId)
 
     return NextResponse.json({ status: 'success', assetId, taskCreated, slug: slug || null })

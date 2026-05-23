@@ -19,7 +19,7 @@ export async function GET(request) {
       fetchAirtableRecords(OUTPUTS, {
         fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
           'Pose Time', 'Screenshot Framing', 'Room Framing', 'Time of Day', 'Status', 'Reject Reason',
-          'Reel #', 'Still #', 'Slug',
+          'Reel #', 'Still #', 'Slug', 'Uploaded At',
           'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
           'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
       }),
@@ -86,6 +86,7 @@ export async function GET(request) {
           timeOfDay: sel(f['Time of Day']),
           status: sel(f.Status) || 'Pending',
           rejectReason: f['Reject Reason'] || '',
+          uploadedAt: f['Uploaded At'] || null,
           room: roomId ? roomById[roomId] || '' : '',
           reel: reel ? {
             id: reelId,
