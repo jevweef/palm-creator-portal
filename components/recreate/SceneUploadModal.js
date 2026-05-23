@@ -99,6 +99,15 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [reelOutfits, setReelOutfits] = useState([])
   const [outfitsLoading, setOutfitsLoading] = useState(false)
   const [selectedOutfitId, setSelectedOutfitId] = useState(null)
+  // Pose reference picker. Pulls Pinterest-source photos from the global
+  // library; clicking one fires Claude vision to extract a pose
+  // description and drops it straight into the pose textarea. Editor
+  // can still edit the description before generating.
+  const [posePickerOpen, setPosePickerOpen] = useState(false)
+  const [posePhotos, setPosePhotos] = useState([])
+  const [posePhotosLoading, setPosePhotosLoading] = useState(false)
+  const [poseAnalyzing, setPoseAnalyzing] = useState(false)
+  const [selectedPoseRefId, setSelectedPoseRefId] = useState(null) // for the highlight in the grid
   // Echo of the last generation's inputs (the 3 image URLs Wan saw). Shown
   // in the preview panel for debugging — easy to see "oh, the outfit ref
   // was the original Pinterest photo, not the flatlay" when something drifts.
@@ -167,6 +176,62 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     setAltPosePanelOpen(true)
     setAltPoseError('')
     ensureOutfitsLoaded()
+  }
+
+  // Lazy-load Pinterest photos for the pose picker. Fetched once per
+  // modal mount on first open, cached in state. Filtered client-side
+  // to sourceType=Pinterest since that's where pose-reference photos
+  // live for carousel-recreation work.
+  const ensurePosePhotosLoaded = async () => {
+    if (posePhotos.length || posePhotosLoading) return
+    setPosePhotosLoading(true)
+    try {
+      const res = await fetch('/api/admin/photos/library')
+      const parsed = await safeJson(res)
+      if (parsed.ok && Array.isArray(parsed.data?.photos)) {
+        const pinterest = parsed.data.photos.filter(p => p.sourceType === 'Pinterest' && p.image)
+        setPosePhotos(pinterest)
+      }
+    } catch (e) {
+      console.warn('[scene-upload] pose library fetch failed:', e.message)
+    } finally {
+      setPosePhotosLoading(false)
+    }
+  }
+
+  const openPosePicker = () => {
+    setPosePickerOpen(true)
+    ensurePosePhotosLoaded()
+  }
+
+  // Pick a photo → server calls Claude vision → result fills the pose
+  // textarea. Editor sees what Claude wrote and can edit before firing
+  // Generate. We do NOT auto-fire generation because:
+  //   - Wan gen takes another 30-60s — chain would be 40-70s of waiting
+  //   - The Claude description may need a tweak before it's right
+  //   - "Pick + edit + generate" is one clear sequence with editor agency
+  const pickPoseRef = async (photo) => {
+    setSelectedPoseRefId(photo.id)
+    setPoseAnalyzing(true)
+    setAltPoseError('')
+    try {
+      const res = await fetch('/api/admin/recreate-rooms/stage-b/pose-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId: photo.id }),
+      })
+      const parsed = await safeJson(res)
+      if (!parsed.ok) throw new Error(parsed.error || parsed.data?.error || 'Pose analysis failed')
+      const desc = parsed.data?.poseDescription || ''
+      if (!desc) throw new Error('No pose description returned')
+      setAltPosePrompt(desc)
+      setPosePickerOpen(false)  // collapse picker, editor sees the filled textarea
+    } catch (e) {
+      setAltPoseError(e.message)
+      setSelectedPoseRefId(null)
+    } finally {
+      setPoseAnalyzing(false)
+    }
   }
 
   // Fire Wan 2.7 alt-pose generation. Sends sceneId + outfitPhotoId +
@@ -531,15 +596,28 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
 
                   {/* ─── POSE DIRECTION ─────────────────────────────── */}
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                      Pose direction <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Pose direction <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => posePickerOpen ? setPosePickerOpen(false) : openPosePicker()}
+                        disabled={altPoseLoading || poseAnalyzing}
+                        title="Pick a pose from the photo library — Claude analyzes it and writes the prompt"
+                        style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', background: posePickerOpen ? 'rgba(200,168,255,0.20)' : 'rgba(200,168,255,0.08)', border: '1px solid rgba(200,168,255,0.30)', borderRadius: 4, padding: '3px 8px', cursor: (altPoseLoading || poseAnalyzing) ? 'wait' : 'pointer' }}>
+                        📸 {posePickerOpen ? 'Hide library' : 'Pick from library'}
+                      </button>
                     </div>
                     <textarea
                       value={altPosePrompt}
                       onChange={(e) => setAltPosePrompt(e.target.value)}
-                      placeholder="e.g. weight on one hip, hand at waist, body angled, full body framed so legs are visible — leave blank for the default."
-                      rows={3}
-                      disabled={altPoseLoading}
+                      placeholder={poseAnalyzing
+                        ? 'Claude is analyzing the picked pose…'
+                        : 'e.g. weight on one hip, hand at waist, body angled, full body framed so legs are visible — leave blank for the default, or pick a reference photo above.'
+                      }
+                      rows={4}
+                      disabled={altPoseLoading || poseAnalyzing}
                       style={{
                         width: '100%', resize: 'vertical', minHeight: 60,
                         padding: '6px 8px', fontSize: 11, lineHeight: 1.4,
@@ -548,8 +626,74 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                         border: '1px solid rgba(255,255,255,0.12)',
                         borderRadius: 4,
                         fontFamily: 'inherit',
+                        opacity: poseAnalyzing ? 0.6 : 1,
                       }}
                     />
+                    {/* Pose reference picker — Pinterest library grid.
+                        Click a photo → Claude vision describes the pose
+                        → textarea fills with the description. Editor can
+                        edit before firing the Wan gen. */}
+                    {posePickerOpen && (
+                      <div style={{ marginTop: 8, padding: 8, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 5 }}>
+                        {posePhotosLoading ? (
+                          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textAlign: 'center', padding: '12px 0' }}>
+                            Loading Pinterest library…
+                          </div>
+                        ) : posePhotos.length === 0 ? (
+                          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', textAlign: 'center', padding: '12px 0' }}>
+                            No Pinterest photos in the library yet. Upload some on the Pinterest tab in Photos.
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: 9, color: 'var(--foreground-muted)', marginBottom: 6, lineHeight: 1.4 }}>
+                              {posePhotos.length} Pinterest photo{posePhotos.length === 1 ? '' : 's'} · click to analyze pose
+                            </div>
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(54px, 1fr))',
+                                gap: 4,
+                                maxHeight: 220,
+                                overflowY: 'auto',
+                                paddingRight: 4,
+                              }}>
+                              {posePhotos.map(p => {
+                                const isSelected = p.id === selectedPoseRefId
+                                const isAnalyzingThis = poseAnalyzing && isSelected
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => !poseAnalyzing && pickPoseRef(p)}
+                                    disabled={poseAnalyzing}
+                                    title={p.handle || ''}
+                                    style={{
+                                      position: 'relative',
+                                      aspectRatio: '3/4',
+                                      borderRadius: 4,
+                                      border: `2px solid ${isSelected ? '#C8A8FF' : 'rgba(255,255,255,0.08)'}`,
+                                      background: '#000',
+                                      cursor: poseAnalyzing ? 'wait' : 'pointer',
+                                      overflow: 'hidden',
+                                      padding: 0,
+                                    }}>
+                                    {p.image && (
+                                      <img src={p.image} alt="" loading="lazy"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: isAnalyzingThis ? 0.4 : 1 }} />
+                                    )}
+                                    {isAnalyzingThis && (
+                                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>
+                                        ⏳
+                                      </div>
+                                    )}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* ─── INPUTS PREVIEW (post-generation, debug) ───── */}
