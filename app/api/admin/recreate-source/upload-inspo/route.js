@@ -44,7 +44,11 @@ function rawDbx(url) {
 // workflow, not just the admin.
 export async function POST(request) {
   try {
-    await requireAdminOrAiEditor()
+    // Grab the user identity so we can stamp Added By on the new reel —
+    // lets the library filter by "reels Yassine added" vs "reels Josh
+    // added" when multiple editors are uploading.
+    const user = await requireAdminOrAiEditor()
+    const userEmail = (user?.emailAddresses?.[0]?.emailAddress || user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
     if (!APIFY_TOKEN) {
       return NextResponse.json({ error: 'APIFY_TOKEN not configured' }, { status: 500 })
     }
@@ -177,6 +181,10 @@ export async function POST(request) {
     try { sharedLink = await createDropboxSharedLink(accessToken, rootNs, dropboxPath) } catch {}
 
     // Create the Recreate Reel record via upsert (idempotent on Reel ID).
+    // Field set matches the admin scrape callback so editor-uploaded reels
+    // operate identically in the library (same display, same Stage B usage,
+    // same playback). Added Via + Added By distinguish the source for
+    // filtering — there's no behavioral difference between the two paths.
     const fields = {
       'Reel ID': shortcode,
       'Source Handle': handle,
@@ -185,9 +193,20 @@ export async function POST(request) {
       'Dropbox Video Path': dropboxPath,
       'Dropbox Video Link': sharedLink,
       Status: 'Available',
+      'Added Via': 'Editor Upload',
+      ...(userEmail ? { 'Added By': userEmail } : {}),
     }
-    if (item.likesCount != null) fields.Views = item.likesCount  // ish
-    if (item.timestamp) {
+    // Match the admin callback's field naming exactly so the same Apify
+    // payload populates the same downstream columns regardless of path.
+    if (item.views != null) fields.Views = item.views
+    if (item.postedAt) {
+      const ts = item.postedAt
+      const iso = typeof ts === 'number'
+        ? new Date((ts > 1e12 ? ts : ts * 1000)).toISOString()
+        : String(ts)
+      fields['Posted At'] = iso
+    } else if (item.timestamp) {
+      // Some Apify schema versions emit timestamp instead of postedAt.
       const ts = item.timestamp
       const iso = typeof ts === 'number'
         ? new Date((ts > 1e12 ? ts : ts * 1000)).toISOString()

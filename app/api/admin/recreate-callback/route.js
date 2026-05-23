@@ -299,6 +299,10 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
         'Dropbox Video Path': dropboxPath,
         'Dropbox Video Link': sharedLink,
         Status: 'Available',
+        // Classify the path the reel arrived via — pairs with 'Editor Upload'
+        // on the upload-inspo route. Lets the library filter "admin vs
+        // editor added" cleanly without inferring from the Source link.
+        'Added Via': 'Admin Scrape',
       }
       if (item.views != null) fields.Views = item.views
       if (item.postedAt) fields['Posted At'] = item.postedAt
