@@ -304,7 +304,10 @@ export async function POST(request) {
       const roomName = myRooms.find(r => r.id === rid)?.fields?.['Room Name'] || 'Room'
       const framing = framingOf(v) || 'unclassified'
       const timeOfDay = todOf(v)
-      return { url, roomId: rid, roomName, framing, timeOfDay }
+      // Capture the variation's own ID so downstream consumers (pose-alt,
+      // outfit swap, etc.) can resolve the EXACT image that was rendered,
+      // not just the parent room's generic base.
+      return { url, variationId: v.id, roomId: rid, roomName, framing, timeOfDay }
     })
     for (const s of sampled) {
       if (!s.url) return NextResponse.json({ error: 'Picked variation has no image' }, { status: 400 })
@@ -373,16 +376,18 @@ export async function POST(request) {
       const stillNum = (baseStillNum || 1) + i
       const slug = stageBSlug({ aka, reelNum: baseReelNum || 1, stillNum })
 
-      const attachments = {}
-      if (rawScreenshotUrl) attachments['Raw Screenshot'] = [{ url: rawScreenshotUrl, filename: `${slug}_raw.jpg` }]
-      if (upscaledScreenshotUrl) attachments['Upscaled Screenshot'] = [{ url: upscaledScreenshotUrl, filename: `${slug}_upscaled.jpg` }]
-      attachments['TJP Output'] = [{ url: subjectUrl, filename: `${slug}_tjp_output.jpg` }]
-
+      // Path-only writes — no Airtable attachments. Dropbox is the
+      // canonical source of truth for all subject / raw / upscaled
+      // images; consumers read via Dropbox link or proxy URL.
       const recordFields = {
         Name: slug,
         Creator: [creatorId],
         ...(reelShort ? { 'Source Reel': [reelShort] } : {}),
         ...(s.roomId ? { Room: [s.roomId] } : {}),
+        // Source Variation = the specific Recreate Room Variation actually
+        // rendered (TOD shuffle + framing). Resolves pose-alt's "which
+        // variation should Fig 2 be?" ambiguity without TOD matching.
+        ...(s.variationId ? { 'Source Variation': [s.variationId] } : {}),
         'Prediction ID': predictionId,
         ...(shotFraming ? { 'Screenshot Framing': shotFraming } : {}),
         ...(s.framing !== 'unclassified' ? { 'Room Framing': s.framing } : {}),
@@ -394,7 +399,6 @@ export async function POST(request) {
         ...(subjectDropboxPath ? { 'TJP Output Path': subjectDropboxPath } : {}),
         ...(rawScreenshotPath ? { 'Raw Screenshot Path': rawScreenshotPath } : {}),
         ...(upscaledScreenshotPath ? { 'Upscaled Screenshot Path': upscaledScreenshotPath } : {}),
-        ...attachments,
         Status: 'Generating',
       }
 

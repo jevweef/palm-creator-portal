@@ -176,8 +176,17 @@ export async function POST(request) {
     if ((rf.Status?.name || rf.Status) !== 'Locked') {
       return NextResponse.json({ error: 'Lock the room before generating variations' }, { status: 400 })
     }
-    const baseUrl = Array.isArray(rf['Base Image']) && rf['Base Image'][0]?.url
-    if (!baseUrl) return NextResponse.json({ error: 'Room has no base image' }, { status: 400 })
+    // Prefer the Dropbox raw URL (canonical full-res source). Falls back
+    // to the legacy Airtable attachment for any room that hasn't been
+    // migrated yet — backfill before Phase 4 mass-clear or those rooms
+    // lose their base image source.
+    const rawDbxLink = (u) => u
+      ? String(u).replace(/[?&]dl=[01]/g, '').replace(/[?&]raw=1/g, '').replace(/\?$/, '')
+        + (String(u).includes('?') ? '&raw=1' : '?raw=1')
+      : null
+    const baseUrl = rawDbxLink(rf['Base Dropbox Link'])
+      || (Array.isArray(rf['Base Image']) && rf['Base Image'][0]?.url)
+    if (!baseUrl) return NextResponse.json({ error: 'Room has no base image (no Dropbox link, no attachment)' }, { status: 400 })
     const lock = rf['Lock Inventory'] || ''
     const roomName = rf['Room Name'] || 'Room'
 
@@ -231,7 +240,7 @@ export async function POST(request) {
           Room: [roomId],
           Recipe: name,
           'Prompt Used': prompt,
-          Image: [{ url }],
+          // No 'Image' attachment — Dropbox is canonical source.
           ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
           ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
           Status: 'Pending',

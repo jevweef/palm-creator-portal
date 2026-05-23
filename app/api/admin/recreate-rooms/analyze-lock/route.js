@@ -48,8 +48,14 @@ export async function POST(request) {
       { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' })
     if (!rRes.ok) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     const f = (await rRes.json()).fields || {}
-    const imgUrl = Array.isArray(f['Base Image']) && f['Base Image'][0]?.url
-    if (!imgUrl) return NextResponse.json({ error: 'Room has no base image' }, { status: 400 })
+    // Dropbox-first; Airtable attachment is legacy fallback during transition.
+    const rawDbxLink = (u) => u
+      ? String(u).replace(/[?&]dl=[01]/g, '').replace(/[?&]raw=1/g, '').replace(/\?$/, '')
+        + (String(u).includes('?') ? '&raw=1' : '?raw=1')
+      : null
+    const imgUrl = rawDbxLink(f['Base Dropbox Link'])
+      || (Array.isArray(f['Base Image']) && f['Base Image'][0]?.url)
+    if (!imgUrl) return NextResponse.json({ error: 'Room has no base image (no Dropbox link, no attachment)' }, { status: 400 })
 
     // Anthropic's URL fetcher respects robots.txt (Airtable/Dropbox block
     // bots) → always pass base64.

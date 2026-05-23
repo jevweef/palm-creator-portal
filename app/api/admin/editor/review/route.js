@@ -47,6 +47,24 @@ export async function GET() {
     const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
+    // AI Generated assets don't link to an Inspiration record — instead they
+    // carry the original Instagram reel URL in `Reference Source URL`. Join
+    // back to Recreate Reels by URL match so the review card can show the
+    // original side-by-side as a playable Stream video (not just a text link).
+    const aiUrls = [...new Set(assetRecords
+      .filter(r => r.fields?.['Source Type'] === 'AI Generated' && r.fields?.['Reference Source URL'])
+      .map(r => r.fields['Reference Source URL']))]
+    let reelByUrl = {}
+    if (aiUrls.length) {
+      const escape = u => String(u).replace(/'/g, "\\'")
+      const reelFormula = `OR(${aiUrls.map(u => `{Reel URL}='${escape(u)}'`).join(',')})`
+      const reelRecords = await fetchAirtableRecords('Recreate Reels', {
+        filterByFormula: reelFormula,
+        fields: ['Reel URL', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'],
+      })
+      reelByUrl = Object.fromEntries(reelRecords.map(r => [r.fields?.['Reel URL'], r.fields]))
+    }
+
     const result = tasks.map(t => {
       const f = t.fields || {}
       const assetId = (f.Asset || [])[0] || null
@@ -85,6 +103,18 @@ export async function GET() {
           streamRawId: asset['Stream Raw ID'] || null,
           sourceType: asset['Source Type'] || '',
           referenceSourceUrl: asset['Reference Source URL'] || '',
+          // Only populated for AI Generated assets where we found a matching
+          // Recreate Reel by URL. Used to render the original IG reel as the
+          // side-by-side playable reference (instead of a text-only link).
+          sourceReel: (asset['Source Type'] === 'AI Generated' && asset['Reference Source URL'] && reelByUrl[asset['Reference Source URL']])
+            ? {
+                streamUid: reelByUrl[asset['Reference Source URL']]['Stream UID'] || null,
+                thumbnail: reelByUrl[asset['Reference Source URL']].Thumbnail?.[0]?.thumbnails?.large?.url
+                  || reelByUrl[asset['Reference Source URL']].Thumbnail?.[0]?.url
+                  || null,
+                dropboxVideoLink: reelByUrl[asset['Reference Source URL']]['Dropbox Video Link'] || null,
+              }
+            : null,
         },
         inspo: {
           id: inspoId,

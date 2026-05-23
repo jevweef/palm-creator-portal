@@ -56,7 +56,8 @@ export async function POST(request) {
             try { bl = await createDropboxSharedLink(tok, ns, baseTo) } catch {}
             await patchAirtableRecord(ROOMS, roomId, {
               'Base Dropbox Path': baseTo,
-              ...(bl ? { 'Base Dropbox Link': bl, 'Base Image': [{ url: bl.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') }] } : {}),
+              ...(bl ? { 'Base Dropbox Link': bl } : {}),
+              // No 'Base Image' attachment — Dropbox is the canonical source.
             })
             baseMoved = true
           } catch (e) { baseError = e?.message || String(e) }

@@ -1814,11 +1814,37 @@ function RevisionModal({ task, onClose, onSubmit }) {
  * Click the cell → opens VideoModal with audio + controls. We pointer-
  * events:none the iframe so the wrapper button captures the click.
  */
-function ReviewClipCell({ streamUid, posterCdnUrl, fallbackUrl, onOpenModal, label, labelColor, accentBg }) {
+function ReviewClipCell({ streamUid, posterCdnUrl, posterUrl, fallbackUrl, onOpenModal, label, labelColor, accentBg }) {
   const playable = streamUid || fallbackUrl
+  // CF Images URL gets the size transform; a plain poster URL (Airtable
+  // attachment) is used as-is.
+  const posterSrc = posterCdnUrl ? cdnUrlAtSize(posterCdnUrl, 400) : (posterUrl || null)
+  // External (Instagram) URLs can't open in our VideoModal — Instagram blocks
+  // iframes via X-Frame-Options. Open in a new tab instead.
+  const isExternalLink = fallbackUrl && /^https?:\/\/(www\.)?instagram\.com\//i.test(fallbackUrl)
+  // When Stream hasn't mirrored yet, fall back to autoplaying the raw Dropbox
+  // MP4 directly via <video>. Matches the Stream-iframe behavior visually so
+  // the card looks alive whether or not mirroring has caught up.
+  // - dl=0/dl=1 → raw=1 (Dropbox's "stream the file" mode)
+  // - bare dropbox.com URL with no params → append ?raw=1
+  // - skip for Instagram or other non-dropbox URLs (no direct video stream)
+  const isDropbox = fallbackUrl && /(^|\/\/)(www\.)?dropbox\.com\//i.test(fallbackUrl)
+  const rawVideoUrl = !streamUid && isDropbox
+    ? (() => {
+        let u = fallbackUrl.replace(/([?&])dl=[01]/, '$1raw=1')
+        if (!/[?&]raw=1/.test(u)) u += (u.includes('?') ? '&' : '?') + 'raw=1'
+        return u
+      })()
+    : null
   const handleClick = () => {
     if (!playable) return
-    onOpenModal(streamUid ? { streamUid } : { url: fallbackUrl })
+    if (streamUid) {
+      onOpenModal({ streamUid })
+    } else if (isExternalLink) {
+      window.open(fallbackUrl, '_blank', 'noopener,noreferrer')
+    } else {
+      onOpenModal({ url: fallbackUrl })
+    }
   }
   return (
     <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
@@ -1834,12 +1860,28 @@ function ReviewClipCell({ streamUid, posterCdnUrl, fallbackUrl, onOpenModal, lab
               allow="autoplay"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
             />
-          ) : posterCdnUrl ? (
-            <img src={cdnUrlAtSize(posterCdnUrl, 400)} alt="" loading="lazy" decoding="async"
+          ) : rawVideoUrl ? (
+            // Direct Dropbox autoplay-while-Stream-mirroring-catches-up.
+            // preload=metadata keeps the grid light — browsers will fetch
+            // enough to start playback once the cell is in view.
+            <video
+              src={rawVideoUrl}
+              poster={posterSrc || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', background: '#000' }}
+            />
+          ) : posterSrc ? (
+            <img src={posterSrc} alt="" loading="lazy" decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
           ) : null}
-          {/* Play badge only shown when not autoplaying — autoplay needs no hint */}
-          {!streamUid && (
+          {/* Play badge only shown when nothing is autoplaying (i.e. static
+              poster + click-to-modal). Stream iframe + direct <video> both
+              autoplay, so the badge would just be noise. */}
+          {!streamUid && !rawVideoUrl && (
             <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
           )}
         </button>
@@ -1886,6 +1928,11 @@ function ForReview({ showToast }) {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
   const [videoModal, setVideoModal] = useState(null)
+  // Lightbox for the "🖼 Thumbnail" peek button on AI Generated cards.
+  // The editor curates this in the upload modal and it lands as the
+  // post's thumbnail in Post Prep — this lets the reviewer verify it
+  // without it cluttering the autoplay strip.
+  const [imageModal, setImageModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
   const [page, setPage] = useState(0)
@@ -2011,79 +2058,105 @@ function ForReview({ showToast }) {
             const editUrl = task.asset.editedFileLink ? task.asset.editedFileLink.replace(/([?&])dl=[01]/, '$1raw=1') : ''
             const inspoVideoUrl = task.inspo.dbShareLink ? toRawUrl(task.inspo.dbShareLink) : ''
             const hasInspo = !!(inspoVideoUrl || task.inspo.cdnUrl || task.inspo.thumbnail)
+            const isAiGenerated = task.asset.sourceType === 'AI Generated'
 
             return (
               <div key={task.id} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
-                {/* Video strip — RAW | EDIT | INSPO */}
+                {/* Video strip
+                    - Regular tasks: RAW | EDIT | INSPO (3 cells)
+                    - AI Generated tasks: ORIGINAL | OUTPUT (2 cells, same per-cell
+                      sizing — they just fill 50/50 instead of thirds). The AI
+                      pipeline has no separate raw/edit pair (the AI editor
+                      produces one finished video), and no Inspiration record,
+                      so the strip simplifies to source reel vs. uploaded output. */}
                 <div style={{ display: 'flex', background: 'var(--background)', gap: '2px' }}>
+                  {isAiGenerated ? (
+                    <>
+                      {/* ORIGINAL — source IG reel, joined from Recreate Reels
+                          by URL. Plays from CF Stream when mirrored, else
+                          poster-only with an Instagram fallback link. */}
+                      <ReviewClipCell
+                        streamUid={task.asset.sourceReel?.streamUid}
+                        posterCdnUrl={null}
+                        posterUrl={task.asset.sourceReel?.thumbnail}
+                        fallbackUrl={task.asset.sourceReel?.dropboxVideoLink || task.asset.referenceSourceUrl}
+                        onOpenModal={(payload) => setVideoModal(payload)}
+                        label="ORIGINAL"
+                        labelColor="var(--palm-pink)"
+                        accentBg="linear-gradient(135deg, rgba(232, 160, 160, 0.06), rgba(232, 160, 160, 0.02))"
+                      />
+                      {/* OUTPUT — the AI editor's uploaded finished video.
+                          Stream Edit ID is populated once the asset finishes
+                          mirroring; Dropbox link is the always-available
+                          fallback. NO posterUrl on this cell intentionally —
+                          the editor's curated thumbnail is reserved for the
+                          Post Prep stage (it auto-applies there), and we
+                          don't want it flashing here before the video plays.
+                          A peek button under the card lets you view it on
+                          demand. */}
+                      <ReviewClipCell
+                        streamUid={task.asset.streamEditId}
+                        posterCdnUrl={task.asset.cdnUrl}
+                        fallbackUrl={task.asset.dropboxLink ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
+                        onOpenModal={(payload) => setVideoModal(payload)}
+                        label="OUTPUT"
+                        labelColor="#7DD3A4"
+                        accentBg="linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {/* RAW clip — autoplays muted from CF Stream, click for audio modal */}
+                      <ReviewClipCell
+                        streamUid={task.asset.streamRawId}
+                        posterCdnUrl={task.asset.cdnUrl}
+                        fallbackUrl={rawClipUrl ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
+                        onOpenModal={(payload) => setVideoModal(payload)}
+                        label="RAW"
+                        labelColor="#78B4E8"
+                        accentBg="linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))"
+                      />
 
-                  {/* RAW clip — autoplays muted from CF Stream, click for audio modal */}
-                  <ReviewClipCell
-                    streamUid={task.asset.streamRawId}
-                    posterCdnUrl={task.asset.cdnUrl}
-                    fallbackUrl={rawClipUrl ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
-                    onOpenModal={(payload) => setVideoModal(payload)}
-                    label="RAW"
-                    labelColor="#78B4E8"
-                    accentBg="linear-gradient(135deg, rgba(120, 180, 232, 0.06), rgba(120, 180, 232, 0.02))"
-                  />
+                      {/* EDIT clip — autoplays muted from CF Stream, click for audio modal */}
+                      <ReviewClipCell
+                        streamUid={task.asset.streamEditId}
+                        posterCdnUrl={task.asset.cdnUrl}
+                        fallbackUrl={editUrl ? task.asset.editedFileLink : null}
+                        onOpenModal={(payload) => setVideoModal(payload)}
+                        label="EDIT"
+                        labelColor="#7DD3A4"
+                        accentBg="linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))"
+                      />
 
-                  {/* EDIT clip — autoplays muted from CF Stream, click for audio modal */}
-                  <ReviewClipCell
-                    streamUid={task.asset.streamEditId}
-                    posterCdnUrl={task.asset.cdnUrl}
-                    fallbackUrl={editUrl ? task.asset.editedFileLink : null}
-                    onOpenModal={(payload) => setVideoModal(payload)}
-                    label="EDIT"
-                    labelColor="#7DD3A4"
-                    accentBg="linear-gradient(135deg, rgba(125, 211, 164, 0.06), rgba(125, 211, 164, 0.02))"
-                  />
-
-                  {/* INSPO clip — autoplay-mute Stream iframe when mirrored,
-                      else click-to-modal play button on the thumbnail. */}
-                  {hasInspo && (
-                    <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
-                      {task.inspo.streamUid ? (
-                        <button onClick={() => setVideoModal({ streamUid: task.inspo.streamUid })}
-                          style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                          title="Play inspo">
-                          <iframe src={buildStreamIframeUrl(task.inspo.streamUid, { autoplay: true, muted: true, loop: true, controls: false, preload: 'metadata' })}
-                            allow="autoplay"
-                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} />
-                        </button>
-                      ) : inspoVideoUrl ? (
-                        <button onClick={() => setVideoModal({ url: task.inspo.dbShareLink })}
-                          style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Play inspo">
-                          {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-                            <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async"
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                      {/* INSPO clip — autoplay-mute Stream iframe when mirrored,
+                          else click-to-modal play button on the thumbnail. */}
+                      {hasInspo && (
+                        <div style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)' }}>
+                          {task.inspo.streamUid ? (
+                            <button onClick={() => setVideoModal({ streamUid: task.inspo.streamUid })}
+                              style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                              title="Play inspo">
+                              <iframe src={buildStreamIframeUrl(task.inspo.streamUid, { autoplay: true, muted: true, loop: true, controls: false, preload: 'metadata' })}
+                                allow="autoplay"
+                                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} />
+                            </button>
+                          ) : inspoVideoUrl ? (
+                            <button onClick={() => setVideoModal({ url: task.inspo.dbShareLink })}
+                              style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Play inspo">
+                              {(task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+                                <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async"
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                              ) : null}
+                              <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
+                            </button>
+                          ) : (task.inspo.cdnUrl || task.inspo.thumbnail) ? (
+                            <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                           ) : null}
-                          <span style={{ position: 'relative', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.95)', fontSize: '15px', paddingLeft: '3px' }}>▶</span>
-                        </button>
-                      ) : (task.inspo.cdnUrl || task.inspo.thumbnail) ? (
-                        <img src={cdnUrlAtSize(task.inspo.cdnUrl, 400) || task.inspo.thumbnail} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                      ) : null}
-                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
-                    </div>
-                  )}
-
-                  {/* AI-Generated assets carry no Inspo link — instead show
-                      the original scraped reel as the side-by-side reference
-                      so the reviewer can judge the AI recreation's fidelity. */}
-                  {!hasInspo && task.asset.sourceType === 'AI Generated' && task.asset.referenceSourceUrl && (
-                    <a
-                      href={task.asset.referenceSourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ flex: 1, position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'rgba(255,255,255,0.8)' }}
-                      title="Open original reel on Instagram"
-                    >
-                      <span style={{ fontSize: '12px', textAlign: 'center', padding: '0 12px' }}>
-                        ↗ Original reel<br /><span style={{ opacity: 0.6 }}>(open on Instagram)</span>
-                      </span>
-                      <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600 }}>ORIGINAL</div>
-                    </a>
+                          <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(0,0,0,0.75)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 600, pointerEvents: 'none' }}>INSPO</div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -2110,6 +2183,17 @@ function ForReview({ showToast }) {
                         style={{ fontSize: '11px', color: 'var(--palm-pink)', textDecoration: 'none', padding: '3px 8px', background: 'rgba(232, 160, 160, 0.04)', borderRadius: '4px', border: '1px solid transparent' }}>
                         Original Reel ↗
                       </a>
+                    )}
+                    {/* Peek at the editor's curated thumbnail. Hidden on
+                        non-AI tasks where the thumbnail is usually just an
+                        auto-poster (so the button would be noise). */}
+                    {isAiGenerated && task.asset.thumbnail && (
+                      <button
+                        type="button"
+                        onClick={() => setImageModal({ src: task.asset.thumbnail, label: 'Post thumbnail' })}
+                        style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: '4px', cursor: 'pointer' }}>
+                        🖼 Thumbnail
+                      </button>
                     )}
                   </div>
 
@@ -2229,6 +2313,31 @@ function ForReview({ showToast }) {
       {videoModal && (
         <VideoModal streamUid={videoModal.streamUid} url={videoModal.url} onClose={() => setVideoModal(null)} />
       )}
+
+      {imageModal && (
+        <ImageLightbox src={imageModal.src} label={imageModal.label} onClose={() => setImageModal(null)} />
+      )}
+    </div>
+  )
+}
+
+// Simple image lightbox — used for the "🖼 Thumbnail" peek button on AI
+// Generated review cards. Click outside or the × to dismiss. Aspect-fit so
+// any size works (the editor might upload landscape or portrait).
+function ImageLightbox({ src, label, onClose }) {
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+      <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+        {label && (
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        )}
+        <img src={src} alt={label || ''} style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain', display: 'block' }} />
+        <button onClick={onClose}
+          style={{ position: 'absolute', top: '-14px', right: '-14px', background: 'rgba(0,0,0,0.85)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '50%', width: '36px', height: '36px', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          ×
+        </button>
+      </div>
     </div>
   )
 }

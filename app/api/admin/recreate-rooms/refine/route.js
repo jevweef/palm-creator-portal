@@ -93,7 +93,7 @@ export async function POST(request) {
         console.warn(`[recreate-rooms/refine] base Dropbox save failed: ${e.message}`)
       }
       await patchAirtableRecord(ROOMS, bodyRoomId, {
-        'Base Image': [{ url: bLink ? rawDbx(bLink) : newUrl }],
+        // No 'Base Image' attachment — Dropbox is canonical source.
         ...(bPath ? { 'Base Dropbox Path': bPath } : {}),
         ...(bLink ? { 'Base Dropbox Link': bLink } : {}),
       })
@@ -142,7 +142,7 @@ export async function POST(request) {
       Room: [roomId],
       Recipe: name,
       'Prompt Used': prompt,
-      Image: [{ url }],
+      // No 'Image' attachment — Dropbox is canonical source.
       ...(dbxPath ? { 'Dropbox Path': dbxPath } : {}),
       ...(dbxLink ? { 'Dropbox Link': dbxLink } : {}),
       Status: 'Pending',

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import { triggerAssetMirror } from '@/lib/triggerMirror'
+import { uploadImageBytes, uploadImageByUrl, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -26,7 +27,12 @@ function getWeekStart() {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64, slug } = await request.json()
+    // thumbnailBase64 = compressed JPEG from a custom upload (~500KB)
+    // thumbnailSourceUrl = URL the server passes to CF directly (no bytes
+    //   through Vercel — used for the scene-still default path).
+    // Only one of the two is expected to be non-null; both may be null
+    // (in which case we still create the Asset, just without a CF mirror).
+    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64, thumbnailSourceUrl, slug } = await request.json()
 
     if (!reelRecordId || !/^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) {
       return NextResponse.json({ error: 'Valid reelRecordId required' }, { status: 400 })
@@ -34,8 +40,8 @@ export async function POST(request) {
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    if (!dropboxPath || !thumbnailBase64) {
-      return NextResponse.json({ error: 'dropboxPath and thumbnailBase64 required' }, { status: 400 })
+    if (!dropboxPath) {
+      return NextResponse.json({ error: 'dropboxPath required' }, { status: 400 })
     }
 
     // Load the pool reel
@@ -94,21 +100,76 @@ export async function POST(request) {
     }
     const assetId = (await assetRes.json()).records[0].id
 
-    // Attach thumbnail
-    try {
-      await fetch(
-        `https://content.airtable.com/v0/${OPS_BASE}/${assetId}/Thumbnail/uploadAttachment`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contentType: 'image/jpeg', filename: 'ai-thumbnail.jpg', file: thumbnailBase64 }),
+    // Thumbnail flow: route through Cloudflare Images so the For Review
+    // card + Post Prep can use the CDN-optimized variant (auto WebP/AVIF
+    // + inline /w=X resizing) instead of a 25MB Airtable attachment.
+    //
+    // - Custom uploads come in as base64 (already compressed client-side
+    //   to ~500KB, well under Vercel's 4.5MB body limit)
+    // - Scene-still default comes in as a URL — server passes it straight
+    //   to CF's "upload by URL" so no image bytes touch our function.
+    //
+    // After the CF upload, we PATCH the Asset with both the CDN URL/ID
+    // and the Thumbnail attachment (sourced from the same CF URL so
+    // Airtable downloads the already-optimized image, not the 25MB original).
+    if (isCloudflareImagesConfigured() && (thumbnailBase64 || thumbnailSourceUrl)) {
+      try {
+        let imageId
+        // If the source URL is ALREADY a Cloudflare Images delivery URL
+        // (e.g. an alt-pose generation that was already uploaded to CF),
+        // reuse its image ID directly. Trying to re-upload it via
+        // uploadImageByUrl fails because CF's Images API can't reliably
+        // fetch its own URLs — and would create a duplicate even if it
+        // did. Parsing the ID out of the URL achieves dedup naturally.
+        const CF_HASH = process.env.CLOUDFLARE_IMAGES_HASH
+        const cfPattern = CF_HASH ? new RegExp(`imagedelivery\\.net/${CF_HASH}/([^/]+)/`) : null
+        const existingCfId = (cfPattern && thumbnailSourceUrl)
+          ? thumbnailSourceUrl.match(cfPattern)?.[1] || null
+          : null
+
+        if (existingCfId) {
+          imageId = existingCfId
+          console.log(`[ai-editor upload] reusing existing CF image ${imageId} (source was a CF URL)`)
+        } else if (thumbnailBase64) {
+          const bytes = Buffer.from(thumbnailBase64, 'base64')
+          const result = await uploadImageBytes(bytes, assetId, 'image/jpeg')
+          imageId = result.id
+        } else if (thumbnailSourceUrl) {
+          const result = await uploadImageByUrl(thumbnailSourceUrl, assetId)
+          imageId = result.id
         }
-      )
-    } catch (e) {
-      console.warn('[ai-editor upload] thumbnail attach failed:', e.message)
+
+        if (imageId) {
+          const cdnUrl = buildDeliveryUrl(imageId, 'public')
+          // One PATCH for CDN fields + Thumbnail attachment so the For
+          // Review card has everything it needs the first time it loads.
+          const patchRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                'CDN URL': cdnUrl,
+                'CDN Image ID': imageId,
+                'Thumbnail': [{ url: cdnUrl }],
+              },
+            }),
+          })
+          if (!patchRes.ok) {
+            console.warn('[ai-editor upload] CDN/Thumbnail PATCH failed:', await patchRes.text())
+          }
+        }
+      } catch (e) {
+        // Log with the stack so the actual failure surfaces in Vercel logs
+        // instead of a generic 'CF Images upload failed' that hides which
+        // step blew up (URL fetch vs. CF response vs. Airtable PATCH).
+        console.warn('[ai-editor upload] CF Images thumbnail flow failed:', e.message, e.stack?.split('\n')[1])
+      }
     }
 
-    // Create the review Task — Done (producer = AI editor), Pending Review
+    // Create the review Task — Done (producer = AI editor), Pending Review.
+    // Stamp Completed At = now so the admin's For Review card renders
+    // the "Submitted {date}" timestamp the same way regular editor
+    // submissions do (driven by task.completedAt in the review route).
     const taskRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${TASKS_TABLE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
@@ -121,6 +182,7 @@ export async function POST(request) {
             'Admin Review Status': 'Pending Review',
             'Asset': [assetId],
             'Creator': [creatorId],
+            'Completed At': new Date().toISOString(),
           },
         }],
       }),

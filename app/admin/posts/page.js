@@ -17,6 +17,11 @@ const STATUS_COLORS = {
 
 function rawDropboxUrl(url) {
   if (!url) return ''
+  // Only transform actual Dropbox URLs. Airtable attachment URLs are
+  // signed (the hash in the path validates query params + path) — appending
+  // ?raw=1 to one would break the signature and Airtable would refuse to
+  // re-ingest it. Pass non-Dropbox URLs through unchanged.
+  if (!/^https?:\/\/(www\.)?dropbox\.com\//i.test(url)) return url
   return url.replace(/[?&]dl=0/, '').replace(/([?&]raw=1)?$/, '') + (url.includes('?') ? '&raw=1' : '?raw=1')
 }
 
@@ -645,12 +650,24 @@ function PostCard({ post, onRefresh, onSend }) {
   const [scheduledDate, setScheduledDate] = useState(utcToETLocal(post.scheduledDate))
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
+  // Default thumbnail seed:
+  //   1. The Post's own Thumbnail attachment if it's already set (manual
+  //      pick on a previous visit, or written by a prior auto-promote).
+  //   2. Otherwise the Asset's Thumbnail — the editor curated this in the
+  //      SceneUploadModal (or it's the auto-still from the source scene),
+  //      so it's a sensible default and means the admin doesn't have to
+  //      pick a frame manually for most AI Generated posts.
+  // On first save, the auto-seeded URL is promoted into the Post's own
+  // Thumbnail field (savedThumbnailUrl is empty → the !== check below
+  // writes it through and stamps the Source).
+  const [thumbnailUrl, setThumbnailUrl] = useState(post.thumbnail?.[0]?.url || post.asset?.thumbnail || '')
   const [videoModal, setVideoModal] = useState(null)
   // Track the ORIGINAL URL that came from the saved Post record — so we can
   // detect whether the user actually changed the thumbnail this session, and
   // skip rewriting Airtable's own attachment URL back to itself (which corrupts
-  // the attachment and causes the "broken image" after refresh).
+  // the attachment and causes the "broken image" after refresh). Asset
+  // fallback is NOT included here — only the Post's own attachment counts as
+  // "already saved" for the change-detection logic.
   const [savedThumbnailUrl] = useState(post.thumbnail?.[0]?.url || '')
   const [showPhotoPicker, setShowPhotoPicker] = useState(false)
   const [showFramePicker, setShowFramePicker] = useState(false)

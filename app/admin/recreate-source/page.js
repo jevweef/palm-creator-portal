@@ -78,6 +78,12 @@ export default function RecreateLibraryPage() {
   const [msg, setMsg] = useState('')
   const [filter, setFilter] = useState('')
   const [posterBusy, setPosterBusy] = useState(false)
+  // "Upload inspo" modal state — editor pastes an IG reel URL, we scrape
+  // that specific URL (not the whole handle's recent reels).
+  const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
+  const [uploadInspoUrl, setUploadInspoUrl] = useState('')
+  const [uploadInspoBusy, setUploadInspoBusy] = useState(false)
+  const [uploadInspoError, setUploadInspoError] = useState('')
   // Tab persists in the URL (?tab=rooms) so a refresh stays put.
   const sp = useSearchParams()
   const router = useRouter()
@@ -87,6 +93,7 @@ export default function RecreateLibraryPage() {
     : tabParam === 'stageb' ? 'stageb'
     : tabParam === 'avatar' ? 'avatar'
     : tabParam === 'photos' ? 'photos'
+    : tabParam === 'freeform' ? 'freeform'
     : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
@@ -184,6 +191,36 @@ export default function RecreateLibraryPage() {
     catch (e) { setMsg(e.message) }
   }
 
+  // Editor submits a single IG reel URL → server triggers Apify with
+  // directUrls, polls for completion, lands the reel in the library
+  // the same as a scraped one. Sync flow — takes 20-60s, the modal
+  // shows progress, library auto-reloads on success.
+  const submitUploadInspo = async () => {
+    const url = uploadInspoUrl.trim()
+    if (!url) { setUploadInspoError('Paste an Instagram reel URL first'); return }
+    setUploadInspoBusy(true); setUploadInspoError('')
+    try {
+      const res = await fetch('/api/admin/recreate-source/upload-inspo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instagramUrl: url }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
+      // Success — close modal, reload library so the new reel shows up
+      setUploadInspoOpen(false)
+      setUploadInspoUrl('')
+      setMsg(data.alreadyExisted
+        ? `Reel already in the library (@${data.handle || '?'} · ${data.shortcode})`
+        : `Added @${data.handle || '?'} · ${data.shortcode} → scroll to find it`)
+      load()
+    } catch (e) {
+      setUploadInspoError(e.message)
+    } finally {
+      setUploadInspoBusy(false)
+    }
+  }
+
   const queuedCount = sources.filter(s => s.status === 'Queued').length
   const shownReels = filter ? reels.filter(r => r.handle.toLowerCase().includes(filter.toLowerCase())) : reels
 
@@ -219,6 +256,15 @@ export default function RecreateLibraryPage() {
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TabBar tab={tab} setTab={setTab} />
         <StageBPanel />
+        <ModalHost />
+      </div>
+    )
+  }
+  if (tab === 'freeform') {
+    return (
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <TabBar tab={tab} setTab={setTab} />
+        <FreeformGenPanel />
         <ModalHost />
       </div>
     )
@@ -285,12 +331,61 @@ export default function RecreateLibraryPage() {
             style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: posterBusy ? 'default' : 'pointer' }}>
             {posterBusy ? 'Optimizing…' : 'Optimize (Cloudflare)'}
           </button>
+          <button onClick={() => { setUploadInspoOpen(true); setUploadInspoError('') }}
+            style={{ padding: '8px 14px', background: 'rgba(200,168,255,0.10)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.35)', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            title="Paste an Instagram reel URL — we scrape just that reel and add it to the library.">
+            ↑ Upload inspo
+          </button>
           <button onClick={scrapeQueued} disabled={busy || queuedCount === 0}
             style={{ padding: '8px 16px', background: queuedCount ? 'rgba(106,198,138,0.15)' : 'transparent', color: queuedCount ? '#6AC68A' : '#666', border: `1px solid ${queuedCount ? 'rgba(106,198,138,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: queuedCount && !busy ? 'pointer' : 'default' }}>
             Scrape {queuedCount} Queued →
           </button>
         </div>
       </div>
+
+      {/* Upload inspo modal — sync single-URL Apify scrape */}
+      {uploadInspoOpen && (
+        <div onClick={() => !uploadInspoBusy && setUploadInspoOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: 'min(560px, 95vw)', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from Instagram URL</div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                Paste a public Instagram reel link. We&apos;ll scrape just that reel and add it to the library so you can use it as a project source — no need to add the whole account.
+              </div>
+            </div>
+            <input
+              type="url"
+              value={uploadInspoUrl}
+              onChange={e => setUploadInspoUrl(e.target.value)}
+              placeholder="https://www.instagram.com/reel/DXXXXXXXXXX/"
+              disabled={uploadInspoBusy}
+              autoFocus
+              style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' }}
+              onKeyDown={e => { if (e.key === 'Enter' && !uploadInspoBusy) submitUploadInspo() }}
+            />
+            {uploadInspoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{uploadInspoError}</div>
+            )}
+            {uploadInspoBusy && (
+              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>
+                Scraping via Apify… usually 20-60s for a single reel. Don&apos;t close this window.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setUploadInspoOpen(false)} disabled={uploadInspoBusy}
+                style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={submitUploadInspo} disabled={uploadInspoBusy || !uploadInspoUrl.trim()}
+                style={{ padding: '8px 16px', background: uploadInspoBusy ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.25)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.45)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
+                {uploadInspoBusy ? '⏳ Scraping…' : '↑ Add to library'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {msg && <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 12 }}>{msg}</div>}
 
@@ -325,6 +420,231 @@ function TabBar({ tab, setTab }) {
       {t('avatar', 'Creator Avatar')}
       {t('photos', 'Photos')}
       {t('stageb', 'Create Scene')}
+      {t('freeform', '✨ Free-form')}
+    </div>
+  )
+}
+
+// ─── Free-form image generation ─────────────────────────────────────────
+//
+// Playground for the AI editor: pick a model, type any prompt, optionally
+// drop reference images, get a result saved to Dropbox + CF Images + the
+// Photos table. Lets them iterate ideas without going through Stage B /
+// flatlay / room-variation flows.
+function FreeformGenPanel() {
+  const [model, setModel] = useState('nano')
+  const [prompt, setPrompt] = useState('')
+  const [aspect, setAspect] = useState('1:1')
+  const [refUrls, setRefUrls] = useState([])  // public URLs of reference images
+  const [refUploading, setRefUploading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState(null)  // { cdnUrl, prompt, model, ... }
+  const [history, setHistory] = useState([])
+  const refInputRef = useRef(null)
+
+  // Load recent generations on mount for the history sidebar.
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/ai-gen')
+      const d = await res.json()
+      if (res.ok && Array.isArray(d.items)) setHistory(d.items)
+    } catch {}
+  }, [])
+  useEffect(() => { loadHistory() }, [loadHistory])
+
+  // Upload a reference image to Dropbox via the photos upload endpoint
+  // so it has a public-fetchable URL for the WaveSpeed call. Reuses the
+  // existing pinterest-upload route since that's the simplest way to get
+  // a public CF URL back for an arbitrary uploaded image.
+  const acceptReferenceFile = async (file) => {
+    if (!file) return
+    if (!file.type?.startsWith('image/')) { setError('Reference must be an image'); return }
+    if (refUrls.length >= 3) { setError('Max 3 reference images'); return }
+    setRefUploading(true); setError('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/photos/upload-pinterest', { method: 'POST', body: fd })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Reference upload failed')
+      // The route returns a photoId; we want a fetchable URL. CDN URL or
+      // Dropbox raw link both work as a WaveSpeed input.
+      const url = d.cdnUrl || d.dropboxLink
+      if (!url) throw new Error('Reference uploaded but no URL returned')
+      setRefUrls(prev => [...prev, url])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setRefUploading(false)
+    }
+  }
+
+  const removeRef = (i) => setRefUrls(prev => prev.filter((_, idx) => idx !== i))
+
+  const generate = async () => {
+    if (!prompt.trim()) { setError('Type a prompt first'); return }
+    setBusy(true); setError(''); setResult(null)
+    try {
+      const res = await fetch('/api/admin/ai-gen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt, aspect, referenceUrls: refUrls }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || `Generation failed (${res.status})`)
+      setResult({
+        cdnUrl: d.cdnUrl,
+        dropboxLink: d.dropboxLink,
+        model: d.modelLabel || d.model,
+        prompt,
+        aspect,
+      })
+      loadHistory()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const ASPECTS = ['1:1', '9:16', '16:9', '4:5', '5:4', '3:4', '4:3']
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>✨ Free-form Image Generator</h1>
+      <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 20 }}>
+        Iterate freely with Nano-Banana, Wan, or GPT. Optional reference images. Results land in the Photos library tagged as AI Generated so you can re-use them.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 18 }}>
+        {/* Main column — inputs + result */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Model + aspect row */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model</label>
+              <select value={model} onChange={e => setModel(e.target.value)} disabled={busy}
+                style={{ width: '100%', marginTop: 6, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }}>
+                <option value="nano">Nano-Banana 2 (default · cheap, fast)</option>
+                <option value="wan">Wan 2.7 image-edit-pro (best with refs)</option>
+                <option value="gpt">GPT-Image-2 (highest quality · slow)</option>
+              </select>
+            </div>
+            <div style={{ width: 160 }}>
+              <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aspect</label>
+              <select value={aspect} onChange={e => setAspect(e.target.value)} disabled={busy}
+                style={{ width: '100%', marginTop: 6, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13 }}>
+                {ASPECTS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Prompt */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prompt</label>
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder="Describe what you want. Be specific about subject, framing, lighting, mood. E.g. 'A confident woman standing in a sunset bedroom, wearing white t-shirt and blue striped shorts, full body, vertical 9:16 framing, golden hour, hyper-realistic raw iPhone photo.'"
+              rows={6}
+              disabled={busy}
+              style={{ width: '100%', marginTop: 6, padding: '10px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', lineHeight: 1.5, resize: 'vertical', minHeight: 100 }}
+            />
+            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 4 }}>
+              {prompt.length} chars · max 4000
+            </div>
+          </div>
+
+          {/* Reference images (optional) */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Reference images <span style={{ color: 'rgba(255,255,255,0.35)', textTransform: 'none', letterSpacing: 0 }}>(optional · up to 3)</span>
+            </label>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {refUrls.map((u, i) => (
+                <div key={i} style={{ position: 'relative', width: 80, aspectRatio: '1/1', borderRadius: 6, overflow: 'hidden', background: '#000', border: '1px solid rgba(255,255,255,0.10)' }}>
+                  <img src={u} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <button onClick={() => removeRef(i)} disabled={busy}
+                    style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, padding: 0, background: 'rgba(0,0,0,0.75)', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 12, cursor: 'pointer' }}>×</button>
+                </div>
+              ))}
+              {refUrls.length < 3 && (
+                <button onClick={() => refInputRef.current?.click()} disabled={busy || refUploading}
+                  style={{ width: 80, aspectRatio: '1/1', background: 'rgba(255,255,255,0.04)', border: '2px dashed rgba(255,255,255,0.18)', borderRadius: 6, color: 'var(--foreground-muted)', fontSize: 11, cursor: busy || refUploading ? 'wait' : 'pointer' }}>
+                  {refUploading ? '⏳' : '+ Add'}
+                </button>
+              )}
+              <input ref={refInputRef} type="file" accept="image/*"
+                onChange={e => acceptReferenceFile(e.target.files?.[0])}
+                style={{ display: 'none' }} />
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.4 }}>
+              Refs unlock edit mode (model conditions on the image). Skip refs for pure text-to-image. Wan needs at least one ref for best results.
+            </div>
+          </div>
+
+          {/* Error + Generate */}
+          {error && (
+            <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{error}</div>
+          )}
+          <button onClick={generate} disabled={busy || !prompt.trim()}
+            style={{ padding: '12px 20px', background: busy ? 'rgba(200,168,255,0.15)' : 'rgba(200,168,255,0.28)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.45)', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: busy ? 'wait' : 'pointer' }}>
+            {busy ? '✨ Generating… (30-60s)' : '✨ Generate'}
+          </button>
+
+          {/* Result */}
+          {result && (
+            <div style={{ background: 'rgba(106,198,138,0.06)', border: '1px solid rgba(106,198,138,0.25)', borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 11, color: '#6AC68A', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                ✓ Generated · {result.model} · {result.aspect}
+              </div>
+              {result.cdnUrl && (
+                <img src={result.cdnUrl} alt="Generated"
+                  style={{ maxWidth: '100%', maxHeight: 600, borderRadius: 8, background: '#000', display: 'block' }} />
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                {result.cdnUrl && (
+                  <a href={result.cdnUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: '#6AC68A', textDecoration: 'none', padding: '4px 10px', background: 'rgba(106,198,138,0.10)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 4 }}>
+                    Full size ↗
+                  </a>
+                )}
+                {result.dropboxLink && (
+                  <a href={result.dropboxLink} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: 'var(--foreground-muted)', textDecoration: 'none', padding: '4px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 4 }}>
+                    Dropbox ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar — history */}
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent generations</label>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 700, overflowY: 'auto' }}>
+            {history.length === 0 && <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>No generations yet.</div>}
+            {history.map(h => (
+              <a key={h.id} href={h.cdnUrl || '#'} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', gap: 8, padding: 6, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, textDecoration: 'none', color: 'inherit' }}>
+                {h.cdnUrl && (
+                  <img src={h.cdnUrl + (h.cdnUrl.endsWith('/public') ? '' : '')} alt=""
+                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, background: '#000', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--foreground-muted)', overflow: 'hidden' }}>
+                  <div style={{ color: '#C8A8FF', fontWeight: 700, fontSize: 10 }}>{h.model}</div>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.3 }}>
+                    {h.prompt}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
+import { recreateImageUrl } from '@/lib/recreateImageUrl'
 
 export const maxDuration = 300
 
@@ -72,13 +73,15 @@ export async function GET() {
         filterByFormula: '{TJP Enabled} = 1',
       }),
       fetchAirtableRecords(ROOMS, {
-        fields: ['Room Name', 'Creator', 'Angle', 'Base Prompt', 'Lock Inventory', 'Base Image', 'Status', 'Framing'],
+        fields: ['Room Name', 'Creator', 'Angle', 'Base Prompt', 'Lock Inventory', 'Base Image', 'Base Dropbox Link', 'Status', 'Framing'],
       }),
       fetchAirtableRecords(VARS, {
         fields: ['Variation', 'Room', 'Recipe', 'Image', 'Status', 'Dropbox Link'],
       }),
     ])
-    const att = a => (Array.isArray(a) && a[0] ? (a[0].thumbnails?.large?.url || a[0].url) : null)
+    // Dropbox-first image resolver (recreateImageUrl imported at top).
+    // Rooms use 'Base Dropbox Link' + 'Base Image'; Variations use the
+    // default 'Dropbox Link' + 'Image'.
     return NextResponse.json({
       creators: creators
         .map(c => ({ id: c.id, name: c.fields?.AKA || c.fields?.Creator || 'Unknown' }))
@@ -92,7 +95,7 @@ export async function GET() {
           angle: f.Angle || '',
           basePrompt: f['Base Prompt'] || '',
           lockInventory: f['Lock Inventory'] || DEFAULT_LOCK,
-          baseImage: att(f['Base Image']),
+          baseImage: recreateImageUrl(f, { linkField: 'Base Dropbox Link', attField: 'Base Image' }),
           status: f.Status?.name || f.Status || 'Draft',
           framing: f.Framing?.name || f.Framing || null,
         }
@@ -103,7 +106,7 @@ export async function GET() {
           id: v.id,
           roomId: Array.isArray(f.Room) ? f.Room[0] : null,
           recipe: f.Recipe || '',
-          image: att(f.Image),
+          image: recreateImageUrl(f),
           dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
           status: f.Status?.name || f.Status || 'Pending',
         }
@@ -144,23 +147,29 @@ export async function POST(request) {
 
     const safe = roomName.trim().replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'room'
     if (baseDropboxPath) {
-      // Full-res master is already in Dropbox. Make a shared link;
-      // Airtable ingests its own display copy from the raw URL.
+      // Full-res master is already in Dropbox. Mint a shared link so the
+      // UI + downstream consumers can fetch it. No Airtable attachment —
+      // Dropbox is the only source of truth (per architecture policy).
       const tok = await getDropboxAccessToken()
       const ns = await getDropboxRootNamespaceId(tok)
       let link = ''
       try { link = await createDropboxSharedLink(tok, ns, baseDropboxPath) } catch {}
       fields['Base Dropbox Path'] = baseDropboxPath
-      if (link) {
-        fields['Base Dropbox Link'] = link
-        fields['Base Image'] = [{ url: rawDbx(link) }]
-      }
+      if (link) fields['Base Dropbox Link'] = link
     } else {
-      // t2i — also push the full-res model output to Dropbox as master.
+      // t2i — push the full-res model output to Dropbox as master, then
+      // store ONLY the Dropbox path/link on the Airtable record. If the
+      // upload fails we keep the record minimal; user can re-run.
       const baseUrl = await genBaseImage(basePrompt)
-      fields['Base Image'] = [{ url: baseUrl }]
       const m = await masterToDropbox(baseUrl, `/Palm Ops/Recreate Rooms/${safe}/_base/${safe}-${Date.now()}.jpg`)
-      if (m) { fields['Base Dropbox Path'] = m.path; if (m.link) fields['Base Dropbox Link'] = m.link }
+      if (m) {
+        fields['Base Dropbox Path'] = m.path
+        if (m.link) fields['Base Dropbox Link'] = m.link
+      } else {
+        // Dropbox push failed — record gets created without a base image
+        // reference. Surface clearly so the user knows to re-run.
+        console.warn('[recreate-rooms POST] t2i image generated but Dropbox push failed; room created without Base Dropbox Path')
+      }
     }
     const created = await createAirtableRecord(ROOMS, fields)
     const roomId = created?.records?.[0]?.id || created?.id
@@ -185,19 +194,30 @@ export async function PATCH(request) {
     const f = (await recRes.json()).fields || {}
 
     if (action === 'regenerate') {
+      // Generate via t2i → push to Dropbox → store path/link only.
+      // No Airtable attachment write (Dropbox is canonical source).
       const url = await genBaseImage(f['Base Prompt'] || '')
-      await patchAirtableRecord(ROOMS, roomId, { 'Base Image': [{ url }], Status: 'Draft' })
-      return NextResponse.json({ ok: true, baseImage: url })
+      const safe = String(f['Room Name'] || 'room').trim().replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'room'
+      const m = await masterToDropbox(url, `/Palm Ops/Recreate Rooms/${safe}/_base/${safe}-${Date.now()}.jpg`)
+      if (!m) {
+        return NextResponse.json({ error: 'Generated base image but Dropbox push failed — try again' }, { status: 502 })
+      }
+      await patchAirtableRecord(ROOMS, roomId, {
+        'Base Dropbox Path': m.path,
+        ...(m.link ? { 'Base Dropbox Link': m.link } : {}),
+        Status: 'Draft',
+      })
+      return NextResponse.json({ ok: true, baseImage: m.link ? rawDbx(m.link) : url })
     }
     if (action === 'replaceImage') {
       // Full-res replacement already uploaded to Dropbox via upload-token.
+      // Mint a shared link and store path-only on Airtable (no attachment).
       if (!baseDropboxPath) return NextResponse.json({ error: 'baseDropboxPath required' }, { status: 400 })
       const tok = await getDropboxAccessToken()
       const ns = await getDropboxRootNamespaceId(tok)
       let link = ''
       try { link = await createDropboxSharedLink(tok, ns, baseDropboxPath) } catch {}
       await patchAirtableRecord(ROOMS, roomId, {
-        'Base Image': link ? [{ url: rawDbx(link) }] : [],
         'Base Dropbox Path': baseDropboxPath,
         ...(link ? { 'Base Dropbox Link': link } : {}),
         Status: 'Draft',
