@@ -9,7 +9,7 @@
 // can match the new Asset to the right Stage B record. Auto-uses the
 // scene's still as the thumbnail (no second file picker).
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const fileToBase64 = (file) => new Promise((res, rej) => {
   const r = new FileReader()
@@ -156,11 +156,21 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     }
   }
 
+  // Blob URL for the picked video — used to show the first frame in the
+  // video drop box. Revoke on file change / unmount so we don't leak.
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
+  useEffect(() => {
+    if (!selectedFile) { setVideoPreviewUrl(null); return }
+    const url = URL.createObjectURL(selectedFile)
+    setVideoPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [selectedFile])
+
   return (
     <div onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ width: 'min(640px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        style={{ width: 'min(720px, 95vw)', maxHeight: '92vh', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload finished video</div>
@@ -170,150 +180,189 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
             style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, padding: '6px 12px', fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
-        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* ─── THUMBNAIL BOX ─────────────────────────────────────────
-              Same shape + drag-drop affordance as the video box below.
-              Defaults to the scene's still (shows it as a small preview
-              chip in the drop zone) so the editor never has to upload
-              one unless they want to override. */}
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Thumbnail <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional — defaults to scene still)</span>
-            </label>
-            <div
-              onClick={() => !uploading && thumbnailFileRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOverThumbnail(true) }}
-              onDragLeave={() => setDragOverThumbnail(false)}
-              onDrop={(e) => {
-                e.preventDefault(); setDragOverThumbnail(false)
-                if (uploading) return
-                const file = e.dataTransfer?.files?.[0]
-                if (file) acceptThumbnail(file)
-              }}
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                border: `2px dashed ${dragOverThumbnail ? '#6AC68A' : thumbnailFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
-                background: dragOverThumbnail ? 'rgba(106,198,138,0.10)' : thumbnailFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
-                cursor: uploading ? 'wait' : 'pointer',
-                transition: 'all 0.15s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-              }}>
-              {/* Tiny preview of the current thumbnail (scene still by
-                  default, custom file when picked). Anchors the box
-                  visually so it never looks empty. */}
-              <div style={{ flexShrink: 0, width: 56, aspectRatio: '9/16', borderRadius: 6, overflow: 'hidden', background: '#000' }}>
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+          {/* Side-by-side drop zones — both pieces of media are 9:16 vertical
+              so identical portrait boxes make the relationship obvious and
+              the previews look natural. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+            {/* ─── THUMBNAIL BOX ─────────────────────────────────────────
+                Defaults to scene still (filled preview), or shows custom
+                upload if user picked one. Drop / click anywhere to swap. */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Thumbnail <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>(optional)</span>
+              </label>
+              <div
+                onClick={() => !uploading && thumbnailFileRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOverThumbnail(true) }}
+                onDragLeave={() => setDragOverThumbnail(false)}
+                onDrop={(e) => {
+                  e.preventDefault(); setDragOverThumbnail(false)
+                  if (uploading) return
+                  const file = e.dataTransfer?.files?.[0]
+                  if (file) acceptThumbnail(file)
+                }}
+                style={{
+                  position: 'relative',
+                  aspectRatio: '9/16',
+                  borderRadius: 10,
+                  border: `2px dashed ${dragOverThumbnail ? '#6AC68A' : thumbnailFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                  background: dragOverThumbnail ? 'rgba(106,198,138,0.10)' : '#000',
+                  cursor: uploading ? 'wait' : 'pointer',
+                  transition: 'all 0.15s',
+                  overflow: 'hidden',
+                }}>
+                {/* Preview fills the whole drop zone so the editor sees
+                    exactly what will be used as the For Review / Post
+                    thumbnail. */}
                 {(thumbnailPreview || scene?.image) && (
                   <img src={thumbnailPreview || scene.image} alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: dragOverThumbnail ? 0.45 : 1, transition: 'opacity 0.15s' }} />
+                )}
+                {/* Bottom overlay with state-aware drop hint */}
+                <div style={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0,
+                  padding: '10px 12px 12px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0))',
+                  color: '#fff',
+                  pointerEvents: 'none',
+                }}>
+                  {thumbnailFile ? (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#6AC68A', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        🖼 {thumbnailFile.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)' }}>
+                        Custom · click to swap
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>
+                        Drop a custom thumbnail
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+                        or click to pick · skip to use scene still
+                      </div>
+                    </>
+                  )}
+                </div>
+                {/* Reset link (only when custom). stopPropagation so the
+                    click doesn't re-open the file picker. */}
+                {thumbnailFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); resetThumbnail() }}
+                    disabled={uploading}
+                    title="Use scene still instead"
+                    style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 5, padding: '4px 8px', cursor: uploading ? 'wait' : 'pointer' }}>
+                    ↺ Reset
+                  </button>
                 )}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {thumbnailFile ? (
-                  <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      🖼 {thumbnailFile.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
-                      Custom thumbnail · drop another or click to swap
-                    </div>
-                  </>
+              <input
+                ref={thumbnailFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                onChange={(e) => acceptThumbnail(e.target.files?.[0])}
+                style={{ display: 'none' }}
+              />
+            </div>
+
+            {/* ─── FINISHED VIDEO BOX ────────────────────────────────────
+                Same 9:16 portrait shape. Once a file is picked, shows the
+                video's first frame inline so the editor can confirm it's
+                the right cut before submitting. */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Finished video
+              </label>
+              <div
+                onClick={() => !uploading && videoFileRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault(); setDragOver(false)
+                  if (uploading) return
+                  const file = e.dataTransfer?.files?.[0]
+                  if (file) acceptFile(file)
+                }}
+                style={{
+                  position: 'relative',
+                  aspectRatio: '9/16',
+                  borderRadius: 10,
+                  border: `2px dashed ${dragOver ? '#6AC68A' : selectedFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                  background: dragOver ? 'rgba(106,198,138,0.10)' : '#000',
+                  cursor: uploading ? 'wait' : 'pointer',
+                  transition: 'all 0.15s',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                {/* First-frame preview when a file is picked. preload=metadata
+                    keeps it light — we only need the first frame, not the
+                    full file decoded. muted+playsInline needed for Safari
+                    to actually render the poster frame. */}
+                {videoPreviewUrl ? (
+                  <video
+                    src={videoPreviewUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', opacity: dragOver ? 0.45 : 1, transition: 'opacity 0.15s' }}
+                  />
                 ) : (
-                  <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
-                      Drop a custom thumbnail here
+                  <div style={{ textAlign: 'center', padding: '0 16px', color: 'rgba(255,255,255,0.85)' }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🎬</div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>
+                      Drop the finished video
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
-                      or click to pick · skip to use the scene&apos;s still ←
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+                      or click to pick from Finder
                     </div>
-                  </>
+                  </div>
+                )}
+                {/* Bottom overlay with filename / size once picked. */}
+                {selectedFile && (
+                  <div style={{
+                    position: 'absolute', left: 0, right: 0, bottom: 0,
+                    padding: '10px 12px 12px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0))',
+                    color: '#fff',
+                    pointerEvents: 'none',
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#6AC68A', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      🎬 {selectedFile.name}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)' }}>
+                      {(selectedFile.size / 1024 / 1024).toFixed(1)} MB · click to swap
+                    </div>
+                  </div>
                 )}
               </div>
-              {thumbnailFile && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); resetThumbnail() }}
-                  disabled={uploading}
-                  title="Use scene still instead"
-                  style={{ flexShrink: 0, fontSize: 11, color: 'var(--foreground-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 5, padding: '5px 9px', cursor: uploading ? 'wait' : 'pointer' }}>
-                  ↺ Reset
-                </button>
-              )}
+              <input ref={videoFileRef} type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/*"
+                onChange={(e) => acceptFile(e.target.files?.[0])}
+                style={{ display: 'none' }} />
             </div>
-            <input
-              ref={thumbnailFileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/*"
-              onChange={(e) => acceptThumbnail(e.target.files?.[0])}
-              style={{ display: 'none' }}
-            />
           </div>
 
-          {/* ─── FINISHED VIDEO BOX ────────────────────────────────────
-              Required. Same shape as the thumbnail box above for visual
-              parity — both look obviously droppable. */}
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished video</label>
-            <div
-              onClick={() => !uploading && videoFileRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault(); setDragOver(false)
-                if (uploading) return
-                const file = e.dataTransfer?.files?.[0]
-                if (file) acceptFile(file)
-              }}
-              style={{
-                padding: selectedFile ? '14px 16px' : '24px 16px',
-                borderRadius: 10,
-                border: `2px dashed ${dragOver ? '#6AC68A' : selectedFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
-                background: dragOver ? 'rgba(106,198,138,0.10)' : selectedFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
-                cursor: uploading ? 'wait' : 'pointer',
-                transition: 'all 0.15s',
-                textAlign: 'center',
-              }}>
-              {selectedFile ? (
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>
-                    🎬 {selectedFile.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
-                    {(selectedFile.size / 1024 / 1024).toFixed(1)} MB · click to pick a different file
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize: 22, marginBottom: 6 }}>🎬</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
-                    Drop the finished video here
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>
-                    or click to pick from Finder
-                  </div>
-                </div>
-              )}
+          {/* Helper text + status messages live below the grid so they
+              don't compete for space inside either box. */}
+          {slug && (
+            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
+              Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
             </div>
-            <input ref={videoFileRef} type="file"
-              accept="video/mp4,video/quicktime,video/webm,video/*"
-              onChange={(e) => acceptFile(e.target.files?.[0])}
-              style={{ display: 'none' }} />
+          )}
 
-            {slug && (
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5, marginTop: 8 }}>
-                Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
-              </div>
-            )}
-
-            {err && (
-              <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{err}</div>
-            )}
-            {progress && !err && (
-              <div style={{ marginTop: 12, padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>{progress}</div>
-            )}
-          </div>
+          {err && (
+            <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{err}</div>
+          )}
+          {progress && !err && (
+            <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>{progress}</div>
+          )}
         </div>
 
         <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
