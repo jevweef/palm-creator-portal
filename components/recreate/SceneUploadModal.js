@@ -11,26 +11,64 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-const fileToBase64 = (file) => new Promise((res, rej) => {
-  const r = new FileReader()
-  r.onload = () => res(String(r.result).split(',')[1])
-  r.onerror = rej
-  r.readAsDataURL(file)
-})
-
-// Fetch the scene's still URL, convert to base64. The thumbnail field
-// on the Asset is what shows up in the editor's For Review list — the
-// scene's still IS the perfect thumbnail for this video.
-const urlToBase64 = async (url) => {
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`thumbnail fetch ${r.status}`)
-  const blob = await r.blob()
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result).split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
+// Resize + JPEG-encode the source image (File or URL) entirely in the
+// browser, return raw base64. Two reasons we have to compress:
+//   1. The Wan AI scene stills are 20+MB PNGs — the finalize POST that
+//      carries the base64 in its body would blow past Vercel's 4.5MB
+//      serverless request limit, returning a "Request Entity Too Large"
+//      HTML page that the client then tried to JSON.parse (the confusing
+//      "Unexpected token 'R'" error).
+//   2. We attach this directly to Airtable's Thumbnail field — a 500KB
+//      JPEG renders just as well as a 25MB PNG for a card-size preview.
+// Max 1080px on the long edge, JPEG quality 0.85 — keeps most outputs
+// well under 500KB.
+const compressImageToBase64 = async (source, maxDim = 1080, quality = 0.85) => {
+  // Load into an Image element via Blob URL (works for both File and URL).
+  const img = await new Promise((resolve, reject) => {
+    const url = typeof source === 'string'
+      ? source
+      : URL.createObjectURL(source)
+    const el = new Image()
+    el.crossOrigin = 'anonymous'  // for URL sources from Airtable/Dropbox
+    el.onload = () => resolve({ el, blobUrl: typeof source === 'string' ? null : url })
+    el.onerror = () => reject(new Error(`image load failed: ${typeof source === 'string' ? source.slice(0, 80) : source.name}`))
+    el.src = url
   })
+  try {
+    // Scale to maxDim on the long edge, preserving aspect.
+    const { width: w0, height: h0 } = img.el
+    const scale = Math.min(1, maxDim / Math.max(w0, h0))
+    const w = Math.round(w0 * scale)
+    const h = Math.round(h0 * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    // Black fill — JPEGs don't have alpha, so a transparent PNG would
+    // otherwise composite onto unpredictable background.
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(img.el, 0, 0, w, h)
+    const dataUrl = canvas.toDataURL('image/jpeg', quality)
+    return dataUrl.split(',')[1]
+  } finally {
+    if (img.blobUrl) URL.revokeObjectURL(img.blobUrl)
+  }
+}
+
+// Best-effort JSON parse — if the response was actually HTML (e.g. a
+// Vercel 413 / 504 page), surface a clean message instead of letting
+// JSON.parse throw "Unexpected token". Returns { ok, data, error }.
+const safeJson = async (res) => {
+  const text = await res.text()
+  if (!text) return { ok: res.ok, data: null, error: res.ok ? null : `HTTP ${res.status}` }
+  try {
+    return { ok: res.ok, data: JSON.parse(text), error: null }
+  } catch {
+    // Not JSON — pull the first meaningful line for the message.
+    const snippet = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140)
+    return { ok: false, data: null, error: `HTTP ${res.status}: ${snippet || res.statusText}` }
+  }
 }
 
 export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess }) {
@@ -94,10 +132,11 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reelRecordId: reelId, slug }),
       })
-      const tok = await tokRes.json()
-      if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
+      const tokParsed = await safeJson(tokRes)
+      if (!tokParsed.ok) throw new Error(tokParsed.error || tokParsed.data?.error || 'Could not get upload token')
+      const tok = tokParsed.data
 
-      // 2. Direct-to-Dropbox upload (skips Vercel body limit).
+      // 2. Direct-to-Dropbox upload for the video (skips Vercel body limit).
       setProgress(`Uploading ${(vf.size / 1024 / 1024).toFixed(1)} MB to Dropbox…`)
       const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
         method: 'POST',
@@ -111,27 +150,30 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
       })
       if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
 
-      // 3. Encode the thumbnail. Order of preference:
-      //    a. Custom thumbnail the user picked in the modal (overrides)
-      //    b. Scene's still image fetched + encoded (the default)
-      //    c. 1x1 transparent PNG (keeps Asset creation happy if both fail)
-      setProgress('Encoding thumbnail…')
-      let thumbnailBase64 = ''
+      // 3. Resolve the thumbnail. Two paths so we never blow Vercel's
+      //    body limit, and both end up in Cloudflare Images (so the For
+      //    Review card + Post Prep load the CDN-optimized version):
+      //    a. Custom upload: compress to ~500KB JPEG client-side, send
+      //       base64 → server uploads bytes to CF Images.
+      //    b. Scene still (default): send just the URL — the server
+      //       passes it straight to CF's "upload by URL" endpoint, so
+      //       no image bytes ever transit Vercel.
+      setProgress(thumbnailFile ? 'Compressing thumbnail…' : 'Preparing thumbnail…')
+      let thumbnailBase64 = null
+      let thumbnailSourceUrl = null
       try {
         if (thumbnailFile) {
-          thumbnailBase64 = await fileToBase64(thumbnailFile)
+          thumbnailBase64 = await compressImageToBase64(thumbnailFile)
         } else if (scene.image) {
-          thumbnailBase64 = await urlToBase64(scene.image)
+          thumbnailSourceUrl = scene.image
         }
       } catch (e) {
-        console.warn('[scene-upload] thumbnail encode failed:', e.message)
-      }
-      if (!thumbnailBase64) {
-        // 1x1 transparent PNG — keeps the Asset creation happy.
-        thumbnailBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        // Non-fatal — the Asset still gets created without a thumbnail.
+        console.warn('[scene-upload] thumbnail prep failed:', e.message)
       }
 
-      // 4. Finalize — creates Asset + Task, marks pool reel Produced.
+      // 4. Finalize — creates Asset + Task, uploads thumbnail to CF
+      //    Images (server-side), marks pool reel Produced.
       setProgress('Finalizing…')
       const finRes = await fetch('/api/ai-editor/upload', {
         method: 'POST',
@@ -140,15 +182,16 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
           reelRecordId: reelId,
           creatorId,
           dropboxPath: tok.path,
-          thumbnailBase64,
+          thumbnailBase64,        // null when using URL
+          thumbnailSourceUrl,     // null when using base64
           slug,
         }),
       })
-      const data = await finRes.json()
-      if (!finRes.ok) throw new Error(data.error || 'Finalize failed')
+      const fin = await safeJson(finRes)
+      if (!fin.ok) throw new Error(fin.error || fin.data?.error || 'Finalize failed')
 
       setProgress('✓ Done — landed in admin For Review.')
-      setTimeout(() => onSuccess?.(data), 600)
+      setTimeout(() => onSuccess?.(fin.data), 600)
     } catch (e) {
       setErr(e.message)
     } finally {

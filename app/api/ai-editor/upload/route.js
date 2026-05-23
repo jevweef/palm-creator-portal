@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import { triggerAssetMirror } from '@/lib/triggerMirror'
+import { uploadImageBytes, uploadImageByUrl, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -26,7 +27,12 @@ function getWeekStart() {
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64, slug } = await request.json()
+    // thumbnailBase64 = compressed JPEG from a custom upload (~500KB)
+    // thumbnailSourceUrl = URL the server passes to CF directly (no bytes
+    //   through Vercel — used for the scene-still default path).
+    // Only one of the two is expected to be non-null; both may be null
+    // (in which case we still create the Asset, just without a CF mirror).
+    const { reelRecordId, creatorId, dropboxPath, thumbnailBase64, thumbnailSourceUrl, slug } = await request.json()
 
     if (!reelRecordId || !/^rec[A-Za-z0-9]{14}$/.test(reelRecordId)) {
       return NextResponse.json({ error: 'Valid reelRecordId required' }, { status: 400 })
@@ -34,8 +40,8 @@ export async function POST(request) {
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
-    if (!dropboxPath || !thumbnailBase64) {
-      return NextResponse.json({ error: 'dropboxPath and thumbnailBase64 required' }, { status: 400 })
+    if (!dropboxPath) {
+      return NextResponse.json({ error: 'dropboxPath required' }, { status: 400 })
     }
 
     // Load the pool reel
@@ -94,18 +100,47 @@ export async function POST(request) {
     }
     const assetId = (await assetRes.json()).records[0].id
 
-    // Attach thumbnail
-    try {
-      await fetch(
-        `https://content.airtable.com/v0/${OPS_BASE}/${assetId}/Thumbnail/uploadAttachment`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contentType: 'image/jpeg', filename: 'ai-thumbnail.jpg', file: thumbnailBase64 }),
+    // Thumbnail flow: route through Cloudflare Images so the For Review
+    // card + Post Prep can use the CDN-optimized variant (auto WebP/AVIF
+    // + inline /w=X resizing) instead of a 25MB Airtable attachment.
+    //
+    // - Custom uploads come in as base64 (already compressed client-side
+    //   to ~500KB, well under Vercel's 4.5MB body limit)
+    // - Scene-still default comes in as a URL — server passes it straight
+    //   to CF's "upload by URL" so no image bytes touch our function.
+    //
+    // After the CF upload, we PATCH the Asset with both the CDN URL/ID
+    // and the Thumbnail attachment (sourced from the same CF URL so
+    // Airtable downloads the already-optimized image, not the 25MB original).
+    if (isCloudflareImagesConfigured() && (thumbnailBase64 || thumbnailSourceUrl)) {
+      try {
+        let cfResult
+        if (thumbnailBase64) {
+          const bytes = Buffer.from(thumbnailBase64, 'base64')
+          cfResult = await uploadImageBytes(bytes, assetId, 'image/jpeg')
+        } else {
+          cfResult = await uploadImageByUrl(thumbnailSourceUrl, assetId)
         }
-      )
-    } catch (e) {
-      console.warn('[ai-editor upload] thumbnail attach failed:', e.message)
+        const cdnUrl = buildDeliveryUrl(cfResult.id, 'public')
+        // One PATCH for CDN fields + Thumbnail attachment so the For
+        // Review card has everything it needs the first time it loads.
+        const patchRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${ASSETS_TABLE}/${assetId}`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              'CDN URL': cdnUrl,
+              'CDN Image ID': cfResult.id,
+              'Thumbnail': [{ url: cdnUrl }],
+            },
+          }),
+        })
+        if (!patchRes.ok) {
+          console.warn('[ai-editor upload] CDN/Thumbnail PATCH failed:', await patchRes.text())
+        }
+      } catch (e) {
+        console.warn('[ai-editor upload] CF Images upload failed:', e.message)
+      }
     }
 
     // Create the review Task — Done (producer = AI editor), Pending Review
