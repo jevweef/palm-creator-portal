@@ -740,7 +740,13 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                           {[
                             { url: currentInputs.subjectUrl, label: 'Fig 1 · subject' },
-                            { url: currentInputs.roomUrl, label: `Fig 2 · room${currentInputs.roomName ? ` (${currentInputs.roomName})` : ''}` },
+                            {
+                              url: currentInputs.roomUrl,
+                              // Surface both the room name AND which source
+                              // we used (variation matched by TOD vs. parent
+                              // base) so drift cases are debuggable in-place.
+                              label: `Fig 2 · ${currentInputs.roomName || 'room'}${currentInputs.roomSourceLabel ? ` · ${currentInputs.roomSourceLabel}` : ''}`,
+                            },
                             { url: currentInputs.outfitUrl, label: `Fig 3 · outfit (${currentInputs.outfitVariant || '?'})` },
                           ].map((it, i) => (
                             <a key={i} href={it.url} target="_blank" rel="noopener noreferrer"
