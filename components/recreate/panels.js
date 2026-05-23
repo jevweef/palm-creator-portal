@@ -943,6 +943,13 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
         const pending = scenes.filter(o => o.status === 'Pending').length
         const approved = scenes.filter(o => o.status === 'Approved').length
         const rejected = scenes.filter(o => o.status === 'Rejected').length
+        const uploaded = scenes.filter(o => o.uploadedAt).length
+        // "Project complete" = every Approved scene under this reel has
+        // a finished video uploaded. Rejected scenes don't count toward
+        // the denominator (they're explicitly out of the pipeline).
+        // Only signal when we're scoped to a single reel.
+        const approvedScenes = scenes.filter(o => o.status === 'Approved')
+        const allApprovedUploaded = !!reel?.id && approvedScenes.length > 0 && approvedScenes.every(o => o.uploadedAt)
         return (
         <div style={{ ...card, marginTop: 16 }} id="stageb-outputs">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -959,7 +966,19 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 {pending > 0 && <span><b style={{ color: '#e8b878' }}>{pending}</b> Pending review</span>}
                 {approved > 0 && <span><b style={{ color: '#6AC68A' }}>{approved}</b> Approved</span>}
                 {rejected > 0 && <span><b style={{ color: '#E87878' }}>{rejected}</b> Rejected</span>}
+                {uploaded > 0 && <span><b style={{ color: '#6AC68A' }}>{uploaded}</b> ✓ Uploaded</span>}
               </div>
+              {allApprovedUploaded && (
+                // Big green banner when every approved scene in this
+                // reel has a finished video uploaded. The editor's
+                // signal that the project is done — admin review takes
+                // over from here.
+                <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(106,198,138,0.14)', border: '1px solid rgba(106,198,138,0.4)', borderRadius: 8, color: '#6AC68A', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🎉</span>
+                  Project complete — all {approvedScenes.length} approved scene{approvedScenes.length === 1 ? '' : 's'} uploaded.
+                  <span style={{ fontWeight: 500, color: 'var(--foreground-muted)', marginLeft: 4 }}>Admin can now review.</span>
+                </div>
+              )}
             </div>
             {/* Reel-scoped flat stills ZIP — the common case, since the
                 editor is usually in a single project (one reel). No
@@ -994,11 +1013,20 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
               // download button, raw=1 for the inline image source.
               const dlUrl = o.dropbox ? String(o.dropbox).replace('dl=0', 'dl=1').replace('raw=1', 'dl=1') : null
               return (
-                <div key={o.id} style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
+                // Solid green border + tint when uploaded — at-a-glance
+                // "this one is done" signal across the row.
+                <div key={o.id} style={{ position: 'relative', border: `${o.uploadedAt ? '2' : '1'}px solid ${o.uploadedAt ? 'rgba(106,198,138,0.7)' : sc + '40'}`, borderRadius: 8, overflow: 'hidden', background: o.uploadedAt ? 'rgba(106,198,138,0.06)' : 'rgba(0,0,0,0.25)' }}>
                   {showImage
                     ? <img src={o.image} alt="" loading="lazy" onClick={() => setSelectedOutput(o)}
                         style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
                     : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
+                  {o.uploadedAt && (
+                    // Corner badge overlaid on the image so it's
+                    // visible without reading the action row.
+                    <div style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 4, background: 'rgba(106,198,138,0.92)', color: '#0a1a10', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em' }}>
+                      ✓ UPLOADED
+                    </div>
+                  )}
                   <div style={{ padding: 8, fontSize: 11 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#ddd', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, monospace' }}>{o.slug || `${sel?.name} · Reel ${o.index ?? '?'}`}</span>
@@ -1022,11 +1050,20 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                       // Opens an inline modal scoped to this scene
                       // (creates Asset + Task via the same /upload
                       // route, just without navigating away from the
-                      // workflow).
-                      <button onClick={() => setUploadingScene(o)}
-                        style={{ display: 'block', width: '100%', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.16)', color: '#6AC68A', borderRadius: 5, border: 'none', cursor: 'pointer' }}>
-                        ↑ Upload finished video(s)
-                      </button>
+                      // workflow). After upload, button flips to a
+                      // ✓ Uploaded badge with a "Re-upload" affordance.
+                      o.uploadedAt ? (
+                        <button onClick={() => setUploadingScene(o)}
+                          title={`Uploaded ${new Date(o.uploadedAt).toLocaleString()} — click to re-upload`}
+                          style={{ display: 'block', width: '100%', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.22)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.5)', borderRadius: 5, cursor: 'pointer' }}>
+                          ✓ Uploaded
+                        </button>
+                      ) : (
+                        <button onClick={() => setUploadingScene(o)}
+                          style={{ display: 'block', width: '100%', marginTop: 6, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: 'rgba(106,198,138,0.16)', color: '#6AC68A', borderRadius: 5, border: 'none', cursor: 'pointer' }}>
+                          ↑ Upload finished video
+                        </button>
+                      )
                     )}
 
                     <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
