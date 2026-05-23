@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { recreateImageUrl, toDropboxRaw } from '@/lib/recreateImageUrl'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OUTPUTS = 'Stage B Outputs'
 const REELS = 'Recreate Reels'
 const ROOMS = 'Recreate Rooms'
 
+// Legacy attachment-only helper, kept for the few fields that DON'T have
+// Dropbox-path twins yet (the upload-artifact wrappers carry filename so
+// we can't just use the URL). New consumers should use recreateImageUrl().
 const att = a => (Array.isArray(a) && a[0] ? (a[0].thumbnails?.large?.url || a[0].url) : null)
 const sel = v => (v?.name || v || null)
 
@@ -40,7 +44,10 @@ export async function GET(request) {
         variantNum: v.fields?.['Variant #'] || null,
         slug: v.fields?.Slug || '',
         outfit: v.fields?.Outfit || '',
-        image: v.fields?.Image?.[0]?.thumbnails?.large?.url || v.fields?.Image?.[0]?.url || null,
+        // Dropbox-first per the canonical-source policy. recreateImageUrl
+        // returns the raw Dropbox URL when Dropbox Link is set, falling
+        // back to the legacy Airtable attachment only for old rows.
+        image: recreateImageUrl(v.fields),
         dropbox: v.fields?.['Dropbox Link'] ? String(v.fields['Dropbox Link']).replace('dl=0', 'dl=1') : null,
         status: v.fields?.Status?.name || v.fields?.Status || 'Pending',
       })
@@ -78,7 +85,8 @@ export async function GET(request) {
           reelNum: f['Reel #'] || null,
           stillNum: f['Still #'] || null,
           dropboxPath: f['Dropbox Path'] || '',
-          image: att(f.Image),
+          // Dropbox-first; attachment fallback is transitional until Phase 4.
+          image: recreateImageUrl(f),
           dropbox: f['Dropbox Link'] ? String(f['Dropbox Link']).replace('dl=0', 'dl=1') : null,
           poseTime: f['Pose Time'] ?? null,
           screenshotFraming: sel(f['Screenshot Framing']),
@@ -99,15 +107,33 @@ export async function GET(request) {
             selectedOutfits: Array.isArray(reel['Selected Outfits']) ? reel['Selected Outfits'] : [],
           } : null,
           variants: variantsByParent[o.id] || [],
-          // Eager-uploaded artifacts. Each has an Airtable thumbnail
-          // URL (for preview) and a Dropbox path (for re-use at
-          // Generate time). The panel restores its file slots from
-          // these on mount, so refreshing mid-flow doesn't lose work.
-          uploads: {
-            rawScreenshot: f['Raw Screenshot Path'] ? { path: f['Raw Screenshot Path'], url: f['Raw Screenshot']?.[0]?.thumbnails?.large?.url || f['Raw Screenshot']?.[0]?.url || null, filename: f['Raw Screenshot']?.[0]?.filename || '' } : null,
-            upscaledScreenshot: f['Upscaled Screenshot Path'] ? { path: f['Upscaled Screenshot Path'], url: f['Upscaled Screenshot']?.[0]?.thumbnails?.large?.url || f['Upscaled Screenshot']?.[0]?.url || null, filename: f['Upscaled Screenshot']?.[0]?.filename || '' } : null,
-            tjpOutput: f['TJP Output Path'] ? { path: f['TJP Output Path'], url: f['TJP Output']?.[0]?.thumbnails?.large?.url || f['TJP Output']?.[0]?.url || null, filename: f['TJP Output']?.[0]?.filename || '' } : null,
-          },
+          // Eager-uploaded artifacts. The panel restores its file slots
+          // from these on mount so refreshing mid-flow doesn't lose work.
+          // Preview URL preference: legacy attachment (if still present)
+          // → in-app Dropbox proxy (works for authenticated admin views,
+          // which is the only context where this UI renders). These
+          // sub-fields don't have their own Dropbox Link columns, just
+          // paths, so the proxy is the only public-ish fallback.
+          uploads: (() => {
+            const proxyUrl = (path) => path ? `/api/admin/photos/image?path=${encodeURIComponent(path)}` : null
+            return {
+              rawScreenshot: f['Raw Screenshot Path'] ? {
+                path: f['Raw Screenshot Path'],
+                url: att(f['Raw Screenshot']) || proxyUrl(f['Raw Screenshot Path']),
+                filename: f['Raw Screenshot']?.[0]?.filename || '',
+              } : null,
+              upscaledScreenshot: f['Upscaled Screenshot Path'] ? {
+                path: f['Upscaled Screenshot Path'],
+                url: att(f['Upscaled Screenshot']) || proxyUrl(f['Upscaled Screenshot Path']),
+                filename: f['Upscaled Screenshot']?.[0]?.filename || '',
+              } : null,
+              tjpOutput: f['TJP Output Path'] ? {
+                path: f['TJP Output Path'],
+                url: att(f['TJP Output']) || proxyUrl(f['TJP Output Path']),
+                filename: f['TJP Output']?.[0]?.filename || '',
+              } : null,
+            }
+          })(),
           createdTime: o.createdTime,
         }
       })
