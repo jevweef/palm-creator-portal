@@ -37,13 +37,25 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
   const [progress, setProgress] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
   const videoFileRef = useRef(null)
   const reelId = scene?.reel?.id
   const slug = scene?.slug || null
 
+  const acceptFile = (file) => {
+    if (!file) return
+    if (!file.type?.startsWith('video/')) {
+      setErr('Need a video file (mp4, mov, webm)')
+      return
+    }
+    setErr('')
+    setSelectedFile(file)
+  }
+
   const submitUpload = async () => {
-    const vf = videoFileRef.current?.files?.[0]
-    if (!vf) { setErr('Pick the finished video file (.mp4)'); return }
+    const vf = selectedFile || videoFileRef.current?.files?.[0]
+    if (!vf) { setErr('Drop the finished video here or click to pick one'); return }
     if (!reelId) { setErr('Scene is missing its source reel — cannot finalize'); return }
     setUploading(true); setErr(''); setProgress('Preparing upload…')
     try {
@@ -135,15 +147,61 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
           )}
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finished video</label>
-            <input ref={videoFileRef} type="file" accept="video/mp4,video/quicktime,video/*"
-              disabled={uploading}
-              style={{ display: 'block', fontSize: 13, color: 'var(--foreground)', marginBottom: 12 }} />
-            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
-              The scene&apos;s still image is auto-used as the thumbnail — you don&apos;t need to pick one.
+
+            {/* Big drag-drop zone — clicking it fires the hidden native
+                file input, dragging from Finder also works. Once a file
+                is picked the zone replaces itself with a confirmation
+                card showing filename + size + a "swap" link. */}
+            <div
+              onClick={() => !uploading && videoFileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setDragOver(false)
+                if (uploading) return
+                const file = e.dataTransfer?.files?.[0]
+                if (file) acceptFile(file)
+              }}
+              style={{
+                padding: selectedFile ? '14px 16px' : '24px 16px',
+                borderRadius: 10,
+                border: `2px dashed ${dragOver ? '#6AC68A' : selectedFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                background: dragOver ? 'rgba(106,198,138,0.10)' : selectedFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
+                cursor: uploading ? 'wait' : 'pointer',
+                transition: 'all 0.15s',
+                textAlign: 'center',
+              }}>
+              {selectedFile ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>
+                    🎬 {selectedFile.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+                    {(selectedFile.size / 1024 / 1024).toFixed(1)} MB · click to pick a different file
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>🎬</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                    Drop the finished video here
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>
+                    or click to pick from Finder
+                  </div>
+                </div>
+              )}
+            </div>
+            <input ref={videoFileRef} type="file"
+              accept="video/mp4,video/quicktime,video/webm,video/*"
+              onChange={(e) => acceptFile(e.target.files?.[0])}
+              style={{ display: 'none' }} />
+
+            <div style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.5, marginTop: 10 }}>
+              The scene&apos;s still image is auto-used as the thumbnail.
               {slug && (
                 <>
-                  <br />
-                  Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> will be auto-matched to this scene.
+                  {' '}Files named <code style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: 3 }}>{slug}.mp4</code> auto-match.
                 </>
               )}
             </div>
