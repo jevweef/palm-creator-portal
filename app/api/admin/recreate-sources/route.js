@@ -117,12 +117,22 @@ export async function POST(request) {
 // DELETE — remove a source account (?id=) OR a single library reel
 // (?reelId=). Removing a reel also deletes its Dropbox file so denied
 // junk doesn't sit in storage.
+//
+// Auth split: deleting a reel is open to ai_editor too (they need to
+// clean up their own upload-inspo mistakes). Deleting a Source row
+// stays admin-only — that affects the whole pool, not just one reel.
 export async function DELETE(request) {
   try {
-    await requireAdmin()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const reelId = searchParams.get('reelId')
+
+    // Reel delete = trusted role gate. Source delete = admin only.
+    if (reelId) {
+      await requireAdminOrAiEditor()
+    } else {
+      await requireAdmin()
+    }
 
     if (reelId) {
       if (!/^rec[A-Za-z0-9]{14}$/.test(reelId)) {
