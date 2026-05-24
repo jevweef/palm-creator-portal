@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    await requireAdmin()
+    // Read-only counts/status of the inspo pipeline. Safe to expose to
+    // ai_editor — they need this so the Inspo Board's default tab
+    // (Pipeline) renders data when they visit. Mutating actions on the
+    // Inspo Board (scrape, promote, trigger-analysis) stay admin-only.
+    await requireAdminOrAiEditor()
 
     // Fetch all data in parallel
     const [inspoRecords, sourceReels, inspoSources] = await Promise.all([
