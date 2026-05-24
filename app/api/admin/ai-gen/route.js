@@ -90,7 +90,7 @@ export async function POST(request) {
 
     const aspect = SUPPORTED_ASPECTS.includes(body.aspect) ? body.aspect : '1:1'
     const referenceUrls = Array.isArray(body.referenceUrls)
-      ? body.referenceUrls.filter(u => typeof u === 'string' && u).slice(0, 3)
+      ? body.referenceUrls.filter(u => typeof u === 'string' && u).slice(0, 5)
       : []
 
     // Pick path: edit (if refs) vs t2i (if none). Wan uses the same path
@@ -158,7 +158,11 @@ export async function POST(request) {
     let dbxLink = ''
     try { dbxLink = await createDropboxSharedLink(tok, ns, dropboxPath) } catch {}
 
-    // Mirror to CF Images for fast delivery.
+    // Mirror to CF Images for fast delivery. Use a Flexible Variant that
+    // forces format=jpeg — CF's default /public variant auto-serves AVIF
+    // or WebP based on browser Accept headers, which breaks TJP (it can't
+    // ingest AVIF). format=jpeg guarantees the editor gets JPEG bytes
+    // when they click the result link, regardless of browser support.
     let cdnUrl = null
     let cdnImageId = null
     if (isCloudflareImagesConfigured()) {
@@ -166,7 +170,11 @@ export async function POST(request) {
         const cfId = `ai-gen-${modelKey}-${date}-${shortid}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
         const r = await uploadImageBytes(buf, cfId)
         cdnImageId = r.id
-        cdnUrl = buildDeliveryUrl(r.id, 'public')
+        // format=jpeg,quality=92 — explicit JPEG no matter what the
+        // browser claims to support. Tradeoff: marginally larger than
+        // AVIF for the same quality, but downloadable + compatible.
+        const CF_HASH = process.env.CLOUDFLARE_IMAGES_HASH
+        cdnUrl = `https://imagedelivery.net/${CF_HASH}/${r.id}/format=jpeg,quality=92`
       } catch (e) {
         console.warn('[ai-gen] CF Images upload failed:', e.message)
       }

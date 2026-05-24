@@ -73,10 +73,14 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
   const isChatManager = role === 'chat_manager'
-  // AI editor gets scoped access — only /admin/recreate-source (the
-  // Outfit Library). Everything else under /admin/* is admin-only.
+  // AI editor gets scoped access — /admin/recreate-source (Outfit
+  // Library + Free-form Gen) and /admin/inspo (so they can browse the
+  // inspo pipeline for ideas). Everything else under /admin/* is
+  // admin-only.
   const isAiEditor = role === 'ai_editor'
-  const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
+  const aiEditorAllowedPath =
+       pathname?.startsWith('/admin/recreate-source')
+    || pathname?.startsWith('/admin/inspo')
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -139,7 +143,7 @@ export default function AdminLayout({ children }) {
   const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
   const isInboxOwner = OWNER_ONLY_EMAILS.includes(userEmail)
   const NAV_ITEMS = (isAiEditor
-      ? ADMIN_NAV.filter(item => item.href === '/admin/recreate-source')
+      ? ADMIN_NAV.filter(item => item.href === '/admin/recreate-source' || item.href === '/admin/inspo')
       : isAdmin ? ADMIN_NAV : EDITOR_NAV)
     .filter(item => {
       if (item.ownerOnly && !isInboxOwner) return false
