@@ -478,13 +478,36 @@ function FreeformGenPanel() {
   const [model, setModel] = useState('nano')
   const [prompt, setPrompt] = useState('')
   const [aspect, setAspect] = useState('1:1')
-  const [refUrls, setRefUrls] = useState([])  // public URLs of reference images
-  const [refUploading, setRefUploading] = useState(false)
+  // Fixed 5-slot reference grid (vs. an append-only list). Each slot is
+  // independent: drop a file directly onto any slot to upload to that
+  // position, drag between filled slots to reorder. null = empty.
+  const [refSlots, setRefSlots] = useState([null, null, null, null, null])
+  // Per-slot uploading state so the right slot shows ⏳ when in flight
+  // (vs. blocking the whole grid behind one boolean).
+  const [slotUploading, setSlotUploading] = useState([false, false, false, false, false])
+  // Drag-and-drop reorder state. dragSourceIdx = which slot is being
+  // dragged (set on dragStart of a filled slot). dragOverIdx = which slot
+  // the cursor is currently over (drives the green-border highlight).
+  const [dragSourceIdx, setDragSourceIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)  // { cdnUrl, prompt, model, ... }
   const [history, setHistory] = useState([])
-  const refInputRef = useRef(null)
+  // One hidden <input> per slot — easier than tracking "which slot to
+  // assign the next picked file to" in state.
+  const perSlotInputRefs = useRef([null, null, null, null, null])
+  // Free-form video upload modal — separate from image gen. Editor wants
+  // to drop a finished video to Dropbox without tying it to a Stage B
+  // scene (general bucket for AI-edited deliverables, drafts, etc.).
+  const [videoUploadOpen, setVideoUploadOpen] = useState(false)
+  const [videoFile, setVideoFile] = useState(null)
+  const [videoBusy, setVideoBusy] = useState(false)
+  const [videoProgress, setVideoProgress] = useState('')
+  const [videoError, setVideoError] = useState('')
+  const [videoResult, setVideoResult] = useState(null)  // { sharedLink, rawUrl, dropboxPath }
+  const [videoDragOver, setVideoDragOver] = useState(false)
+  const videoInputRef = useRef(null)
 
   // Load recent generations on mount for the history sidebar.
   const loadHistory = useCallback(async () => {
@@ -496,16 +519,14 @@ function FreeformGenPanel() {
   }, [])
   useEffect(() => { loadHistory() }, [loadHistory])
 
-  // Upload a reference image via the ai-gen dedicated reference route.
-  // This is editor-accessible (requireAdminOrAiEditor) and lands the file
-  // at /Palm Ops/AI Generations/_references/ — separate from the Photos
-  // library so the picker doesn't pollute the outfit/Pinterest tables.
-  // Returns a public CF Images URL (or Dropbox raw fallback) for WaveSpeed.
-  const acceptReferenceFile = async (file) => {
+  // Upload a single file to a SPECIFIC slot (replacing whatever was
+  // there). Per-slot uploading state lets multiple slots upload in
+  // parallel if the editor drops multiple files at once across slots.
+  const uploadToSlot = async (file, slotIndex) => {
     if (!file) return
     if (!file.type?.startsWith('image/')) { setError('Reference must be an image'); return }
-    if (refUrls.length >= 3) { setError('Max 3 reference images'); return }
-    setRefUploading(true); setError('')
+    setSlotUploading(prev => { const n = [...prev]; n[slotIndex] = true; return n })
+    setError('')
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -514,24 +535,139 @@ function FreeformGenPanel() {
       if (!res.ok) throw new Error(d.error || 'Reference upload failed')
       const url = d.referenceUrl || d.cdnUrl || d.dropboxLink
       if (!url) throw new Error('Reference uploaded but no URL returned')
-      setRefUrls(prev => [...prev, url])
+      setRefSlots(prev => { const n = [...prev]; n[slotIndex] = url; return n })
     } catch (e) {
       setError(e.message)
     } finally {
-      setRefUploading(false)
+      setSlotUploading(prev => { const n = [...prev]; n[slotIndex] = false; return n })
     }
   }
 
-  const removeRef = (i) => setRefUrls(prev => prev.filter((_, idx) => idx !== i))
+  const clearSlot = (slotIndex) => setRefSlots(prev => {
+    const n = [...prev]; n[slotIndex] = null; return n
+  })
+
+  // ── HTML5 drag-and-drop handlers ─────────────────────────────────
+  // Two drop semantics on each slot:
+  //   1. A FILE dropped from the desktop → upload to that slot
+  //   2. ANOTHER SLOT dropped onto this one (drag-reorder) → swap them
+  // We differentiate by checking dataTransfer.files vs the custom
+  // 'application/x-slot-idx' type we set on slot dragStart.
+  const handleSlotDragStart = (e, idx) => {
+    if (refSlots[idx] == null) { e.preventDefault(); return }
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-slot-idx', String(idx))
+    setDragSourceIdx(idx)
+  }
+  const handleSlotDragOver = (e, idx) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIdx !== idx) setDragOverIdx(idx)
+  }
+  const handleSlotDragLeave = (idx) => {
+    setDragOverIdx(prev => prev === idx ? null : prev)
+  }
+  const handleSlotDrop = (e, idx) => {
+    e.preventDefault()
+    setDragOverIdx(null)
+    // File-from-desktop drop wins over slot reorder if both are present.
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadToSlot(e.dataTransfer.files[0], idx)
+    } else {
+      const src = e.dataTransfer.getData('application/x-slot-idx')
+      if (src !== '' && src !== String(idx)) {
+        const sourceIdx = parseInt(src, 10)
+        setRefSlots(prev => {
+          const n = [...prev]
+          ;[n[sourceIdx], n[idx]] = [n[idx], n[sourceIdx]]
+          return n
+        })
+      }
+    }
+    setDragSourceIdx(null)
+  }
+  const handleSlotDragEnd = () => {
+    setDragSourceIdx(null)
+    setDragOverIdx(null)
+  }
+
+  // ── Free-form video upload ──────────────────────────────────────
+  // Direct-to-Dropbox via the existing token pattern. Two-step:
+  //   1. POST to /api/admin/ai-editor/free-video-token → get token + path
+  //   2. PUT bytes to content.dropboxapi.com/.../files/upload (no Vercel
+  //      body limit on this hop — that's the whole point of the pattern)
+  //   3. POST to /api/admin/ai-editor/free-video-finalize → mint shared link
+  const acceptVideoFile = (file) => {
+    if (!file) return
+    if (!file.type?.startsWith('video/')) { setVideoError('Need a video file (mp4, mov, webm)'); return }
+    setVideoError('')
+    setVideoFile(file)
+  }
+  const submitVideoUpload = async () => {
+    if (!videoFile) { setVideoError('Drop a video file first'); return }
+    setVideoBusy(true); setVideoError(''); setVideoProgress('Getting upload token…')
+    try {
+      const tokRes = await fetch('/api/admin/ai-editor/free-video-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: videoFile.name }),
+      })
+      const tok = await tokRes.json()
+      if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
+
+      setVideoProgress(`Uploading ${(videoFile.size / 1024 / 1024).toFixed(1)} MB to Dropbox…`)
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tok.accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: await videoFile.arrayBuffer(),
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
+
+      setVideoProgress('Minting share link…')
+      const finRes = await fetch('/api/admin/ai-editor/free-video-finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dropboxPath: tok.path }),
+      })
+      const fin = await finRes.json()
+      if (!finRes.ok) throw new Error(fin.error || 'Finalize failed')
+
+      setVideoResult(fin)
+      setVideoProgress('✓ Done — link below. Copy or click to open.')
+    } catch (e) {
+      setVideoError(e.message)
+    } finally {
+      setVideoBusy(false)
+    }
+  }
+  const resetVideoUpload = () => {
+    setVideoFile(null); setVideoError(''); setVideoProgress(''); setVideoResult(null)
+    if (videoInputRef.current) videoInputRef.current.value = ''
+  }
+  const copyVideoLink = async () => {
+    if (!videoResult?.sharedLink) return
+    try { await navigator.clipboard.writeText(videoResult.sharedLink) }
+    catch {}
+  }
 
   const generate = async () => {
     if (!prompt.trim()) { setError('Type a prompt first'); return }
     setBusy(true); setError(''); setResult(null)
     try {
+      // Only filled slots make it to the server. The slot order matters
+      // (Wan/Nano/GPT treat the first ref as the primary subject, the
+      // rest as supporting context), so we preserve user-controlled
+      // ordering via the drag-reorder UI.
+      const filledRefs = refSlots.filter(Boolean)
       const res = await fetch('/api/admin/ai-gen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt, aspect, referenceUrls: refUrls }),
+        body: JSON.stringify({ model, prompt, aspect, referenceUrls: filledRefs }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || `Generation failed (${res.status})`)
@@ -554,10 +690,115 @@ function FreeformGenPanel() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>✨ Free-form Image Generator</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 12, flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>✨ Free-form Image Generator</h1>
+        {/* Separate utility — upload an arbitrary finished video to
+            Dropbox without going through the Stage B scene workflow. */}
+        <button onClick={() => { setVideoUploadOpen(true); resetVideoUpload() }}
+          title="Upload a finished video to Dropbox (not tied to any Stage B scene)"
+          style={{ padding: '8px 14px', background: 'rgba(120,180,232,0.10)', color: '#78B4E8', border: '1px solid rgba(120,180,232,0.35)', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          ↑ Upload video to Dropbox
+        </button>
+      </div>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginBottom: 20 }}>
         Iterate freely with Nano-Banana, Wan, or GPT. Optional reference images. Results land in the Photos library tagged as AI Generated so you can re-use them.
       </p>
+
+      {/* Free-form video upload modal */}
+      {videoUploadOpen && (
+        <div onClick={() => !videoBusy && setVideoUploadOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: 'min(560px, 95vw)', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload video to Dropbox</div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                Drop any finished video. It lands at <code style={{ background: 'rgba(255,255,255,0.06)', padding: '0 4px', borderRadius: 3, fontSize: 11 }}>/Palm Ops/AI Editor Uploads/{`{date}`}/...</code> and you get a shareable Dropbox link back.
+              </div>
+            </div>
+
+            <div
+              onClick={() => !videoBusy && videoInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); if (!videoBusy) setVideoDragOver(true) }}
+              onDragLeave={() => setVideoDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setVideoDragOver(false)
+                if (videoBusy) return
+                const f = e.dataTransfer?.files?.[0]
+                if (f) acceptVideoFile(f)
+              }}
+              style={{
+                padding: videoFile ? '14px 16px' : '32px 16px',
+                borderRadius: 10,
+                border: `2px dashed ${videoDragOver ? '#6AC68A' : videoFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                background: videoDragOver ? 'rgba(106,198,138,0.10)' : videoFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
+                cursor: videoBusy ? 'wait' : 'pointer',
+                textAlign: 'center',
+              }}>
+              {videoFile ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>🎬 {videoFile.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+                    {(videoFile.size / 1024 / 1024).toFixed(1)} MB · click to pick another
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>🎬</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Drop your video here</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to pick from Finder</div>
+                </div>
+              )}
+            </div>
+            <input ref={videoInputRef} type="file"
+              accept="video/mp4,video/quicktime,video/webm,video/*"
+              onChange={(e) => acceptVideoFile(e.target.files?.[0])}
+              style={{ display: 'none' }} />
+
+            {videoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{videoError}</div>
+            )}
+            {videoProgress && !videoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>{videoProgress}</div>
+            )}
+
+            {videoResult && (
+              <div style={{ padding: 12, background: 'rgba(106,198,138,0.08)', border: '1px solid rgba(106,198,138,0.30)', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#6AC68A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dropbox link</div>
+                <div style={{ fontSize: 11, color: 'var(--foreground)', wordBreak: 'break-all', fontFamily: 'monospace' }}>{videoResult.sharedLink}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <button onClick={copyVideoLink}
+                    style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, color: '#6AC68A', background: 'rgba(106,198,138,0.10)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 5, cursor: 'pointer' }}>
+                    📋 Copy link
+                  </button>
+                  <a href={videoResult.sharedLink} target="_blank" rel="noopener noreferrer"
+                    style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, color: '#6AC68A', background: 'rgba(106,198,138,0.10)', border: '1px solid rgba(106,198,138,0.35)', borderRadius: 5, textDecoration: 'none' }}>
+                    Open ↗
+                  </a>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setVideoUploadOpen(false)} disabled={videoBusy}
+                style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: videoBusy ? 'wait' : 'pointer' }}>
+                {videoResult ? 'Close' : 'Cancel'}
+              </button>
+              {videoResult ? (
+                <button onClick={resetVideoUpload}
+                  style={{ padding: '8px 14px', background: 'rgba(120,180,232,0.15)', color: '#78B4E8', border: '1px solid rgba(120,180,232,0.40)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Upload another
+                </button>
+              ) : (
+                <button onClick={submitVideoUpload} disabled={videoBusy || !videoFile}
+                  style={{ padding: '8px 16px', background: videoBusy ? 'rgba(106,198,138,0.15)' : 'rgba(106,198,138,0.28)', color: '#6AC68A', border: '1px solid rgba(106,198,138,0.45)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: videoBusy ? 'wait' : 'pointer' }}>
+                  {videoBusy ? '⏳ Uploading…' : '↑ Upload'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 18 }}>
         {/* Main column — inputs + result */}
@@ -599,31 +840,76 @@ function FreeformGenPanel() {
             </div>
           </div>
 
-          {/* Reference images (optional) */}
+          {/* Reference images — fixed 5-slot grid with drag-drop + reorder.
+              Each slot is independently droppable + clickable. Filled
+              slots are draggable to swap positions with other slots. */}
           <div>
             <label style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Reference images <span style={{ color: 'rgba(255,255,255,0.35)', textTransform: 'none', letterSpacing: 0 }}>(optional · up to 3)</span>
+              Reference images <span style={{ color: 'rgba(255,255,255,0.35)', textTransform: 'none', letterSpacing: 0 }}>(optional · up to 5 · drag to reorder)</span>
             </label>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              {refUrls.map((u, i) => (
-                <div key={i} style={{ position: 'relative', width: 80, aspectRatio: '1/1', borderRadius: 6, overflow: 'hidden', background: '#000', border: '1px solid rgba(255,255,255,0.10)' }}>
-                  <img src={u} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  <button onClick={() => removeRef(i)} disabled={busy}
-                    style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, padding: 0, background: 'rgba(0,0,0,0.75)', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 12, cursor: 'pointer' }}>×</button>
-                </div>
-              ))}
-              {refUrls.length < 3 && (
-                <button onClick={() => refInputRef.current?.click()} disabled={busy || refUploading}
-                  style={{ width: 80, aspectRatio: '1/1', background: 'rgba(255,255,255,0.04)', border: '2px dashed rgba(255,255,255,0.18)', borderRadius: 6, color: 'var(--foreground-muted)', fontSize: 11, cursor: busy || refUploading ? 'wait' : 'pointer' }}>
-                  {refUploading ? '⏳' : '+ Add'}
-                </button>
-              )}
-              <input ref={refInputRef} type="file" accept="image/*"
-                onChange={e => acceptReferenceFile(e.target.files?.[0])}
-                style={{ display: 'none' }} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+              {refSlots.map((url, idx) => {
+                const isUploading = slotUploading[idx]
+                const isDragSource = dragSourceIdx === idx
+                const isDragOver = dragOverIdx === idx
+                const filled = !!url
+                return (
+                  <div
+                    key={idx}
+                    draggable={filled && !busy && !isUploading}
+                    onDragStart={(e) => handleSlotDragStart(e, idx)}
+                    onDragOver={(e) => handleSlotDragOver(e, idx)}
+                    onDragLeave={() => handleSlotDragLeave(idx)}
+                    onDrop={(e) => handleSlotDrop(e, idx)}
+                    onDragEnd={handleSlotDragEnd}
+                    onClick={() => !filled && !busy && !isUploading && perSlotInputRefs.current[idx]?.click()}
+                    style={{
+                      position: 'relative',
+                      width: 100,
+                      aspectRatio: '1/1',
+                      borderRadius: 6,
+                      overflow: 'hidden',
+                      background: filled ? '#000' : 'rgba(255,255,255,0.04)',
+                      border: isDragOver ? '2px solid #6AC68A' : filled ? '1px solid rgba(255,255,255,0.10)' : '2px dashed rgba(255,255,255,0.18)',
+                      opacity: isDragSource ? 0.35 : 1,
+                      cursor: busy || isUploading ? 'wait' : (filled ? 'grab' : 'pointer'),
+                      transition: 'border-color 0.12s, opacity 0.12s',
+                    }}
+                  >
+                    {isUploading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#888', fontSize: 16 }}>⏳</div>
+                    ) : filled ? (
+                      <>
+                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+                        {/* Position number — communicates the order the
+                            model will see the refs in (slot 1 = primary). */}
+                        <div style={{ position: 'absolute', top: 3, left: 3, fontSize: 9, color: '#fff', background: 'rgba(0,0,0,0.7)', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>
+                          #{idx + 1}
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); clearSlot(idx) }} disabled={busy}
+                          title="Remove reference"
+                          style={{ position: 'absolute', top: 3, right: 3, width: 22, height: 22, padding: 0, background: 'rgba(0,0,0,0.78)', color: '#fff', border: 'none', borderRadius: '50%', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--foreground-muted)', fontSize: 10, gap: 2, pointerEvents: 'none' }}>
+                        <div style={{ fontSize: 22, lineHeight: 1, color: 'rgba(255,255,255,0.35)' }}>+</div>
+                        <div style={{ fontWeight: 700 }}>Slot {idx + 1}</div>
+                        <div style={{ fontSize: 9, opacity: 0.5 }}>drop or click</div>
+                      </div>
+                    )}
+                    <input
+                      ref={(el) => { perSlotInputRefs.current[idx] = el }}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => uploadToSlot(e.target.files?.[0], idx)}
+                    />
+                  </div>
+                )
+              })}
             </div>
-            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 6, lineHeight: 1.4 }}>
-              Refs unlock edit mode (model conditions on the image). Skip refs for pure text-to-image. Wan needs at least one ref for best results.
+            <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginTop: 8, lineHeight: 1.4 }}>
+              Refs unlock edit mode (model conditions on the images). Skip refs for pure text-to-image. Wan needs at least one ref for best results. <strong style={{ color: 'rgba(255,255,255,0.65)' }}>Drag a filled slot onto another to reorder</strong> — slot 1 is the primary subject.
             </div>
           </div>
 

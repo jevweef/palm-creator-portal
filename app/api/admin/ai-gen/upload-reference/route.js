@@ -65,7 +65,10 @@ export async function POST(request) {
 
     // Mirror to CF Images — that's what we hand back to the client as
     // the "reference URL" for Wan, since CF serves faster than Dropbox
-    // raw under load. Falls through to Dropbox raw if CF isn't ready.
+    // raw under load. format=jpeg variant is forced (vs /public's auto
+    // AVIF) so any downstream consumer that downloads or re-uses the
+    // URL gets compatible JPEG bytes. Falls through to Dropbox raw if
+    // CF Images isn't configured.
     let cdnUrl = null
     let cdnImageId = null
     if (isCloudflareImagesConfigured()) {
@@ -73,7 +76,8 @@ export async function POST(request) {
         const cfId = `ai-gen-ref-${date}-${shortid}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
         const r = await uploadImageBytes(buf, cfId, contentType)
         cdnImageId = r.id
-        cdnUrl = buildDeliveryUrl(r.id, 'public')
+        const CF_HASH = process.env.CLOUDFLARE_IMAGES_HASH
+        cdnUrl = `https://imagedelivery.net/${CF_HASH}/${r.id}/format=jpeg,quality=92`
       } catch (e) {
         console.warn('[ai-gen/upload-reference] CF Images upload failed:', e.message)
       }
