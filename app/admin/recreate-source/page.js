@@ -496,10 +496,11 @@ function FreeformGenPanel() {
   }, [])
   useEffect(() => { loadHistory() }, [loadHistory])
 
-  // Upload a reference image to Dropbox via the photos upload endpoint
-  // so it has a public-fetchable URL for the WaveSpeed call. Reuses the
-  // existing pinterest-upload route since that's the simplest way to get
-  // a public CF URL back for an arbitrary uploaded image.
+  // Upload a reference image via the ai-gen dedicated reference route.
+  // This is editor-accessible (requireAdminOrAiEditor) and lands the file
+  // at /Palm Ops/AI Generations/_references/ — separate from the Photos
+  // library so the picker doesn't pollute the outfit/Pinterest tables.
+  // Returns a public CF Images URL (or Dropbox raw fallback) for WaveSpeed.
   const acceptReferenceFile = async (file) => {
     if (!file) return
     if (!file.type?.startsWith('image/')) { setError('Reference must be an image'); return }
@@ -508,12 +509,10 @@ function FreeformGenPanel() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch('/api/admin/photos/upload-pinterest', { method: 'POST', body: fd })
+      const res = await fetch('/api/admin/ai-gen/upload-reference', { method: 'POST', body: fd })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Reference upload failed')
-      // The route returns a photoId; we want a fetchable URL. CDN URL or
-      // Dropbox raw link both work as a WaveSpeed input.
-      const url = d.cdnUrl || d.dropboxLink
+      const url = d.referenceUrl || d.cdnUrl || d.dropboxLink
       if (!url) throw new Error('Reference uploaded but no URL returned')
       setRefUrls(prev => [...prev, url])
     } catch (e) {
