@@ -794,6 +794,15 @@ export default function AiEditorPage() {
   const [revisions, setRevisions] = useState([])
   const [projects, setProjects] = useState([])
   const [batchOpen, setBatchOpen] = useState(false)
+  // "Upload inspo" modal state — editor pastes an IG reel URL right
+  // from the pool view (vs. having to switch to /admin/recreate-source).
+  // The reel lands in the same Recreate Reels table admins scrape into,
+  // so it appears in this Fresh Inspo grid on the next reload.
+  const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
+  const [uploadInspoUrl, setUploadInspoUrl] = useState('')
+  const [uploadInspoBusy, setUploadInspoBusy] = useState(false)
+  const [uploadInspoError, setUploadInspoError] = useState('')
+  const [uploadInspoMsg, setUploadInspoMsg] = useState('')
 
   const loadCreators = useCallback(async () => {
     const res = await fetch('/api/ai-editor/pool')
@@ -825,6 +834,37 @@ export default function AiEditorPage() {
       if (r.ok) setRevisions(d.revisions || [])
     } catch {}
   }, [])
+
+  // Editor submits a single IG reel URL → scrape that reel directly →
+  // reel lands in Recreate Reels (Status='Available'), shows up in this
+  // creator's Fresh Inspo grid on the next loadReels(). Sync flow,
+  // 20-60s. Reuses /api/admin/recreate-source/upload-inspo which is
+  // already ai_editor-friendly.
+  const submitUploadInspo = async () => {
+    const url = uploadInspoUrl.trim()
+    if (!url) { setUploadInspoError('Paste an Instagram reel URL first'); return }
+    setUploadInspoBusy(true); setUploadInspoError(''); setUploadInspoMsg('')
+    try {
+      const res = await fetch('/api/admin/recreate-source/upload-inspo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instagramUrl: url }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
+      setUploadInspoOpen(false)
+      setUploadInspoUrl('')
+      setUploadInspoMsg(data.alreadyExisted
+        ? `Reel was already in the library (@${data.handle || '?'} · ${data.shortcode})`
+        : `Added @${data.handle || '?'} · ${data.shortcode} — pulling fresh inspo…`)
+      // Refresh the pool so the new reel appears.
+      loadReels(creatorId)
+    } catch (e) {
+      setUploadInspoError(e.message)
+    } finally {
+      setUploadInspoBusy(false)
+    }
+  }
 
   // In-flight projects (Stage B Outputs in any non-terminal state) for
   // the current creator. Each is a project card on the page; also used
@@ -993,8 +1033,20 @@ export default function AiEditorPage() {
         )
         return (
           <>
-            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-              Fresh inspo · {freshReels.length}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Fresh inspo · {freshReels.length}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {uploadInspoMsg && (
+                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{uploadInspoMsg}</span>
+                )}
+                <button onClick={() => { setUploadInspoOpen(true); setUploadInspoError(''); setUploadInspoMsg('') }}
+                  title="Paste an Instagram reel URL — we scrape just that reel and add it to your pool."
+                  style={{ padding: '6px 12px', background: 'rgba(200,168,255,0.10)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.35)', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  ↑ Upload inspo
+                </button>
+              </div>
             </div>
             <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
               {freshReels.map(r => (
@@ -1006,6 +1058,53 @@ export default function AiEditorPage() {
       })()}
       </>
       )}
+
+      {/* Editor's Upload Inspo modal — sync single-URL Apify scrape.
+          Reel lands in the global Recreate Reels table → next pool
+          reload includes it in this creator's Fresh Inspo grid. */}
+      {uploadInspoOpen && (
+        <div onClick={() => !uploadInspoBusy && setUploadInspoOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: 'min(560px, 95vw)', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from Instagram URL</div>
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
+                Paste a public Instagram reel link. We&apos;ll scrape just that reel and add it to your Fresh Inspo grid — no need to wait for an admin to add the account.
+              </div>
+            </div>
+            <input
+              type="url"
+              value={uploadInspoUrl}
+              onChange={e => setUploadInspoUrl(e.target.value)}
+              placeholder="https://www.instagram.com/reel/DXXXXXXXXXX/"
+              disabled={uploadInspoBusy}
+              autoFocus
+              style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' }}
+              onKeyDown={e => { if (e.key === 'Enter' && !uploadInspoBusy) submitUploadInspo() }}
+            />
+            {uploadInspoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{uploadInspoError}</div>
+            )}
+            {uploadInspoBusy && (
+              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>
+                Scraping via Apify… usually 20-60s for a single reel. Don&apos;t close this window.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setUploadInspoOpen(false)} disabled={uploadInspoBusy}
+                style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={submitUploadInspo} disabled={uploadInspoBusy || !uploadInspoUrl.trim()}
+                style={{ padding: '8px 16px', background: uploadInspoBusy ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.25)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.45)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
+                {uploadInspoBusy ? '⏳ Scraping…' : '↑ Add to pool'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ModalHost />
       <GuidedTour steps={POOL_TOUR_STEPS} storageKey="ai-editor-pool-v7" />
     </div>
