@@ -1,54 +1,15 @@
-'use client'
+import { validateOnboardingToken } from '@/lib/onboardingToken'
+import SignUpCta from './_components/SignUpCta'
 
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useUser, SignUpButton } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
+// Server component — token validation happens during render, so the user
+// sees the welcome screen (or the invalid-link screen) immediately instead
+// of a "Validating..." flash. Auth-aware redirect is delegated to a small
+// client island, SignUpCta.
+export default async function OnboardingLanding({ searchParams }) {
+  const token = searchParams?.token
+  const creatorInfo = await validateOnboardingToken(token)
 
-export default function OnboardingLanding() {
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token')
-  const { user, isLoaded } = useUser()
-  const router = useRouter()
-
-  const [status, setStatus] = useState('loading') // loading, valid, invalid, already-signed-up
-  const [creatorInfo, setCreatorInfo] = useState(null)
-
-  useEffect(() => {
-    if (!token) {
-      setStatus('invalid')
-      return
-    }
-
-    fetch(`/api/onboarding/validate-token?token=${token}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.valid) {
-          setCreatorInfo(data)
-          setStatus('valid')
-        } else {
-          setStatus('invalid')
-        }
-      })
-      .catch(() => setStatus('invalid'))
-  }, [token])
-
-  // If user is already signed in, redirect to the form
-  useEffect(() => {
-    if (isLoaded && user && status === 'valid') {
-      router.push('/onboarding/form')
-    }
-  }, [isLoaded, user, status, router])
-
-  if (status === 'loading') {
-    return (
-      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: 'var(--foreground-muted)', fontSize: '14px' }}>Validating your link...</div>
-      </div>
-    )
-  }
-
-  if (status === 'invalid') {
+  if (!creatorInfo.valid) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
@@ -87,40 +48,14 @@ export default function OnboardingLanding() {
           style={{ height: '32px', marginBottom: '24px' }}
         />
         <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '8px' }}>
-          Welcome{creatorInfo?.name ? `, ${creatorInfo.name}` : ''}!
+          Welcome{creatorInfo.name ? `, ${creatorInfo.name}` : ''}!
         </h1>
         <p style={{ fontSize: '14px', color: 'rgba(240, 236, 232, 0.75)', marginBottom: '28px', lineHeight: '1.5' }}>
           Let&apos;s get you set up. This onboarding takes about an hour and covers everything we need —
           your info, a quick survey, your contract, and a voice memo about your brand.
         </p>
 
-        <SignUpButton
-          mode="redirect"
-          afterSignUpUrl="/onboarding/form"
-          initialValues={{ emailAddress: creatorInfo?.email || '' }}
-        >
-          <button style={{
-            width: '100%',
-            padding: '12px',
-            background: 'var(--palm-pink)',
-            color: '#060606',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '15px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}>
-            Create Your Account
-          </button>
-        </SignUpButton>
-
-        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '16px' }}>
-          Already have an account?{' '}
-          <a href="/sign-in?redirect_url=/onboarding/form" style={{ color: 'var(--palm-pink)', textDecoration: 'none', fontWeight: 500 }}>
-            Sign in
-          </a>
-        </p>
+        <SignUpCta email={creatorInfo.email} />
       </div>
     </div>
   )
