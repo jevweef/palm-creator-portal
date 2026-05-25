@@ -64,14 +64,26 @@ const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 // Selectable models — all take images[] + prompt; param schemas differ
 // (verified against WaveSpeed docs). Decoupled submit/resolve is
 // model-agnostic (poll by prediction id), so any of these "just works".
+//
+// Aspect ratio is now per-call (editor picks from a dropdown). Wan
+// wants explicit pixel dimensions; Nano/GPT take 'X:Y' strings.
+// Default remains '9:16' to preserve the prior behavior for any caller
+// that doesn't pass an aspect.
 const STAGE_B_SEED = 77777
+const ASPECT_TO_WAN_SIZE = {
+  '1:1':  '1080*1080',
+  '3:4':  '1080*1440',
+  '4:5':  '1080*1350',
+  '9:16': '1080*1920',
+}
+const SUPPORTED_ASPECTS = Object.keys(ASPECT_TO_WAN_SIZE)
 const MODELS = {
   wan: { label: 'Wan 2.7 image-edit-pro', path: WAN_MODEL,
-    body: (images, prompt) => ({ images, prompt, size: '1080*1920', seed: STAGE_B_SEED }) },
+    body: (images, prompt, aspect) => ({ images, prompt, size: ASPECT_TO_WAN_SIZE[aspect] || ASPECT_TO_WAN_SIZE['9:16'], seed: STAGE_B_SEED }) },
   nano: { label: 'Nano-Banana 2', path: 'google/nano-banana-2/edit',
-    body: (images, prompt) => ({ images, prompt, aspect_ratio: '9:16', resolution: '2k', output_format: 'jpeg' }) },
+    body: (images, prompt, aspect) => ({ images, prompt, aspect_ratio: aspect, resolution: '2k', output_format: 'jpeg' }) },
   gpt: { label: 'GPT-Image-2', path: 'openai/gpt-image-2/edit',
-    body: (images, prompt) => ({ images, prompt, aspect_ratio: '9:16', resolution: '2k', quality: 'high' }) },
+    body: (images, prompt, aspect) => ({ images, prompt, aspect_ratio: aspect, resolution: '2k', quality: 'high' }) },
 }
 
 const rawDbx = (u) => u ? String(u).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
@@ -161,6 +173,10 @@ export async function POST(request) {
     const { creatorId, reelRecordId, model, projectId } = body
     let { subjectDropboxPath, rawScreenshotPath, upscaledScreenshotPath } = body
     const mdl = MODELS[model] || MODELS.wan
+    // Aspect ratio: editor picks from a dropdown in the Create Scene
+    // panel. Default 9:16 (vertical reel) preserves prior behavior for
+    // anything that doesn't pass an aspect.
+    const aspect = SUPPORTED_ASPECTS.includes(body.aspect) ? body.aspect : '9:16'
 
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
@@ -352,7 +368,7 @@ export async function POST(request) {
     // all later, in any order, regardless of how long each one takes.
     const prompt = buildScenePrompt()
     const taskResults = await Promise.allSettled(
-      sampled.map(s => submitWaveSpeedTask(mdl.path, mdl.body([subjectUrl, s.url], prompt)))
+      sampled.map(s => submitWaveSpeedTask(mdl.path, mdl.body([subjectUrl, s.url], prompt, aspect)))
     )
     const failedSubmits = taskResults
       .map((r, i) => ({ r, i })).filter(({ r }) => r.status === 'rejected')

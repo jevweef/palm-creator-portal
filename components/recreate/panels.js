@@ -144,6 +144,9 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
   const [reelPlaying, setReelPlaying] = useState(false) // Click-to-play the selected reel inline
   const [model, setModel] = useState('wan') // 'wan' | 'nano' | 'gpt' — Wan tends to zoom out, alternatives may respect framing better
   const [count, setCount] = useState(1) // 1 | 2 | 4 — fan-out N variations into DIFFERENT rooms in parallel
+  // Output aspect ratio. 9:16 = reel/story, 4:5 = IG feed post,
+  // 3:4 = portrait crop, 1:1 = square. Editor picks per generation.
+  const [aspect, setAspect] = useState('9:16')
   const [selectedOutput, setSelectedOutput] = useState(null) // Click-to-expand detail modal for a Stage B Output card
   const [armedDeleteId, setArmedDeleteId] = useState(null) // Two-click confirm for 🗑 — avoids a full-screen modal far from the button
   const [uploadingScene, setUploadingScene] = useState(null) // Scene-scoped upload modal — opens in-place instead of routing back to /ai-editor
@@ -456,6 +459,7 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
           rawScreenshotPath: rawSlot.path || undefined,
           upscaledScreenshotPath: upscaledSlot.path || undefined,
           model,
+          aspect, // 1:1 | 3:4 | 4:5 | 9:16 — picker in this panel
           count, // server fans out N parallel jobs, each into a different room variation
           // If we came from a Started project card, reuse its record
           // so the slug + Reel # assigned at download time persist.
@@ -735,6 +739,28 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                         borderRadius: 5,
                         cursor: 'pointer',
                       }}>{m.label}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Aspect ratio — 9:16 reels, 4:5 feed posts, 3:4 portrait,
+                  1:1 square. Default 9:16 because that's what most
+                  scenes target. */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Aspect</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {['1:1', '3:4', '4:5', '9:16'].map(a => (
+                    <button key={a} onClick={() => setAspect(a)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 6px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: aspect === a ? 'rgba(232,168,120,0.25)' : 'rgba(255,255,255,0.04)',
+                        color: aspect === a ? '#e8b878' : 'var(--foreground-muted)',
+                        border: `1px solid ${aspect === a ? 'rgba(232,168,120,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                      }}>{a}</button>
                   ))}
                 </div>
               </div>
