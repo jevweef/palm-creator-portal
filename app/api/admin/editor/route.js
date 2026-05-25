@@ -370,9 +370,10 @@ export async function PATCH(request) {
           ...(creatorId ? { 'Creator': [creatorId] } : {}),
           ...(assetId ? { 'Asset': [assetId] } : {}),
           'Task': [taskId],
-          'Status': 'Prepping',
+          'Type': 'Reel',
+          'Status': 'Ready to Go',
           ...(scheduledDate ? { 'Scheduled Date': scheduledDate.toISOString() } : {}),
-        })
+        }, { typecast: true })
         console.log(`[Editor] Post record created for task ${taskId}`)
       } catch (postErr) {
         console.error('[Editor] Failed to create Post record:', postErr.message)
