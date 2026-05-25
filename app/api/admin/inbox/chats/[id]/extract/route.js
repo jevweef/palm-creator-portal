@@ -11,6 +11,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 import { extractForChat } from '@/app/api/cron/extract-tasks/route'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -25,7 +26,7 @@ export async function POST(_request, { params }) {
 
   try {
     const records = await fetchAirtableRecords(CHATS_TABLE, {
-      filterByFormula: `RECORD_ID() = '${id}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(id)}`,
       maxRecords: 1,
     })
     const chat = records[0]

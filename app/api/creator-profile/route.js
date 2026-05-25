@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
+import { assertRecordId, quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,9 @@ export async function GET(request) {
     if (!hqId) {
       return NextResponse.json({ error: 'hqId is required' }, { status: 400 })
     }
+    try { assertRecordId(hqId, 'hqId') } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
 
     if (!isAdmin && user?.publicMetadata?.airtableHqId !== hqId) {
       return NextResponse.json({ error: 'Forbidden — you can only access your own profile' }, { status: 403 })
@@ -51,7 +55,7 @@ export async function GET(request) {
     const creatorName = creatorData.fields?.['Creator'] || ''
 
     // Step 2: Use creator name to filter onboarding + invoices in parallel
-    const nameFilter = encodeURIComponent(`FIND("${creatorName}", {Creator})`)
+    const nameFilter = encodeURIComponent(`FIND(${quoteAirtableString(creatorName)}, {Creator})`)
     const [onboardingData, invoicesData] = await Promise.all([
       fetchAirtable(HQ_BASE, HQ_ONBOARDING, `?filterByFormula=${nameFilter}&maxRecords=1`),
       fetchAirtable(HQ_BASE, HQ_INVOICES, `?filterByFormula=${nameFilter}&sort%5B0%5D%5Bfield%5D=Period+End&sort%5B0%5D%5Bdirection%5D=desc`),

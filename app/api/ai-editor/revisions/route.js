@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export async function GET(request) {
     const assetIds = [...new Set(tasks.flatMap(t => (t.fields?.Asset || [])))]
     const assets = assetIds.length
       ? await fetchAirtableRecords('Assets', {
-          filterByFormula: `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+          filterByFormula: `OR(${assetIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
           fields: ['Asset Name', 'Source Type', 'Reference Source URL',
             'Dropbox Shared Link', 'Dropbox Path (Current)', 'Thumbnail', 'Pipeline Status'],
         })

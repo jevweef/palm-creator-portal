@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { embedText, cosineSimilarity, buildReelEmbeddingText } from '@/lib/embeddings'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 /**
  * POST /api/admin/embeddings/compute-reel
@@ -32,7 +33,7 @@ export async function POST(request) {
 
     // Fetch the reel record
     const reelRecords = await fetchAirtableRecords('Inspiration', {
-      filterByFormula: `RECORD_ID() = '${reelId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(reelId)}`,
       fields: ['Title', 'Notes', 'On-Screen Text'],
     })
 

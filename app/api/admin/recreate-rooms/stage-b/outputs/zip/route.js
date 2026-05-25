@@ -25,6 +25,7 @@ import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const OUTPUTS = 'Stage B Outputs'
 const OUTFIT_SWAP_OUTPUTS = 'Outfit Swap Outputs'
@@ -57,7 +58,7 @@ export async function GET(request) {
       let aka = 'Creator', idx = 1
       if (creatorId) {
         const [cRecs, allOut] = await Promise.all([
-          fetchAirtableRecords(PALM_CREATORS, { fields: ['AKA', 'Creator'], filterByFormula: `RECORD_ID()='${creatorId}'`, maxRecords: 1 }),
+          fetchAirtableRecords(PALM_CREATORS, { fields: ['AKA', 'Creator'], filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`, maxRecords: 1 }),
           fetchAirtableRecords(OUTPUTS, { fields: ['Creator'] }),
         ])
         aka = cRecs[0]?.fields?.AKA || cRecs[0]?.fields?.Creator || 'Creator'

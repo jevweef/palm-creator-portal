@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
-  return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
 // Convert a UTC ISO string to its Eastern Time calendar date (YYYY-MM-DD)

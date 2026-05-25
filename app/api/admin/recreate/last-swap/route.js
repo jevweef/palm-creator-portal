@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, listDropboxFolder, createDropboxSharedLink } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET(request) {
     }
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA'],
       maxRecords: 1,
     })

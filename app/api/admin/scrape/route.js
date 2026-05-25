@@ -53,7 +53,10 @@ export async function POST(request) {
     const now = new Date()
 
     // Determine the callback URL
-    const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const callbackSecret = process.env.APIFY_CALLBACK_SECRET
+    if (!callbackSecret) {
+      throw new Error('APIFY_CALLBACK_SECRET is not configured')
+    }
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
 
     for (const source of enabled) {

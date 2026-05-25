@@ -26,6 +26,7 @@
 
 import { fetchHqRecords, createHqRecord } from '@/lib/hqAirtable'
 import { requireAdmin } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 const HQ_REVENUE_ACCOUNTS = 'tblQqPWlsjiyJA0ba'
@@ -82,7 +83,7 @@ async function generateInvoicesForPeriod({ start, end, dryRun = false }) {
   }
   const creatorInfo = new Map() // id → { commission, managementStartDate }
   if (creatorIds.size > 0) {
-    const filter = `OR(${[...creatorIds].map(id => `RECORD_ID()='${id}'`).join(',')})`
+    const filter = `OR(${[...creatorIds].map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
     const creators = await fetchHqRecords(HQ_CREATORS, {
       filterByFormula: filter,
       fields: ['Commission %', 'Management Start Date'],

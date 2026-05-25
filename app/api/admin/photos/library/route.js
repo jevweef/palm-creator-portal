@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
 import { deleteImage as deleteCfImage, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 const TABLE = 'Photos'
@@ -135,7 +136,7 @@ export async function DELETE(request) {
     // Look up the row first so we know which files to clean up.
     const rows = await fetchAirtableRecords(TABLE, {
       fields: ['Dropbox Path', 'CDN Image ID', 'Flatlay Dropbox Path', 'CDN URL', 'Flatlay CDN URL'],
-      filterByFormula: `RECORD_ID() = '${id}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(id)}`,
     })
     const f = rows[0]?.fields || {}
     const dropboxPath = f['Dropbox Path'] || ''

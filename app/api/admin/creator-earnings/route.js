@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { google } from 'googleapis'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 30
 
@@ -716,7 +717,7 @@ export async function GET(request) {
         const cooldownCutoff = new Date(now)
         cooldownCutoff.setDate(cooldownCutoff.getDate() - COOLDOWN_DAYS)
         // Formula: usernames in this creator's going-cold list AND (active status OR recent alert)
-        const usernameClauses = alertUsernames.map(u => `{OF Username} = "${u.replace(/"/g, '\\"')}"`).join(', ')
+        const usernameClauses = alertUsernames.map(u => `{OF Username} = ${quoteAirtableString(u)}`).join(', ')
         const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Fan Tracker')}?filterByFormula=${encodeURIComponent(`OR(${usernameClauses})`)}`, {
           headers: AIRTABLE_HEADERS, cache: 'no-store',
         })

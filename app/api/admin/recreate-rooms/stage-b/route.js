@@ -4,6 +4,7 @@ import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import Anthropic from '@anthropic-ai/sdk'
 import { nextStageBSequence, stageBSlug } from '@/lib/recreateSlug'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 300
 
@@ -205,7 +206,7 @@ export async function POST(request) {
     }
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA'],
       maxRecords: 1,
     })

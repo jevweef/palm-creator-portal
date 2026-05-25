@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -28,7 +29,7 @@ export async function GET(request) {
     // ones in the preview grid. Cheap — one Airtable call, all clientside.
     const existing = await fetchAirtableRecords('Source Reels', {
       fields: ['Reel URL'],
-      filterByFormula: `{Source Handle} = "${handle}"`,
+      filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
     })
     const existingCodes = new Set()
     for (const r of existing) {

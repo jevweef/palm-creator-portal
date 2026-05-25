@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const HQ_BASE = 'appL7c4Wtotpz07KS'
@@ -69,7 +70,7 @@ export async function GET() {
       // Fetch in batches of 10 (Airtable formula limit)
       for (let i = 0; i < ids.length; i += 10) {
         const batch = ids.slice(i, i + 10)
-        const formula = `OR(${batch.map(id => `RECORD_ID()="${id}"`).join(',')})`
+        const formula = `OR(${batch.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
         const crParams = new URLSearchParams()
         crParams.append('fields[]', CREATOR_FIELDS.aka)
         crParams.append('fields[]', CREATOR_FIELDS.managementStart)

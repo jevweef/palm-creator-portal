@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 import { fetchDaemonMessages } from '@/lib/inboxDaemon'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
@@ -71,7 +72,7 @@ export async function GET(request, { params }) {
     try {
       const safeId = chatId.replace(/'/g, "\\'")
       const existing = await fetchAirtableRecords(CHATS_TABLE, {
-        filterByFormula: `AND({Chat ID} = '${safeId}', {Source} = 'imessage')`,
+        filterByFormula: `AND({Chat ID} = ${quoteAirtableString(safeId)}, {Source} = 'imessage')`,
         maxRecords: 1,
       })
       const existingStatus = existing[0]?.fields?.Status
@@ -102,7 +103,7 @@ export async function GET(request, { params }) {
   let chatRecord
   try {
     const records = await fetchAirtableRecords(CHATS_TABLE, {
-      filterByFormula: `RECORD_ID() = '${id}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(id)}`,
       maxRecords: 1,
     })
     chatRecord = records[0]

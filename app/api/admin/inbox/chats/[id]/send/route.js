@@ -13,6 +13,7 @@ import {
   patchAirtableRecord,
 } from '@/lib/adminAuth'
 import { sendDaemonMessage } from '@/lib/inboxDaemon'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const TASKS_TABLE = 'Inbox Tasks'
@@ -55,7 +56,7 @@ export async function POST(request, { params }) {
   if (chatRecordId) {
     try {
       const records = await fetchAirtableRecords(CHATS_TABLE, {
-        filterByFormula: `RECORD_ID() = '${chatRecordId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(chatRecordId)}`,
         maxRecords: 1,
       })
       chatRecord = records[0]

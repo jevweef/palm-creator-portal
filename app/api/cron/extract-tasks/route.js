@@ -38,6 +38,7 @@ import {
 } from '@/lib/adminAuth'
 import { fetchHqRecords } from '@/lib/hqAirtable'
 import { fetchDaemonMessages, isDaemonConfigured } from '@/lib/inboxDaemon'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
@@ -504,7 +505,7 @@ async function loadMessagesForChat(chat) {
 
   // Telegram → Airtable
   const records = await fetchAirtableRecords(MESSAGES_TABLE, {
-    filterByFormula: `{Chat} = '${String(chatId).replace(/'/g, "\\'")}'`,
+    filterByFormula: `{Chat} = ${quoteAirtableString(String(chatId))}`,
     sort: [{ field: 'Sent At', direction: 'desc' }],
     maxRecords: MESSAGES_PER_CHAT,
   })

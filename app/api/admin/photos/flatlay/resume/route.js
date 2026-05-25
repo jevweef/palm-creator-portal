@@ -4,6 +4,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 import { pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -34,7 +35,7 @@ export async function POST(request) {
 
     const rows = await fetchAirtableRecords('Photos', {
       fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Flatlay Status', 'Flatlay Prediction ID', 'Flatlay Model', 'Flatlay Locked', 'Flatlay Variants'],
-      filterByFormula: `RECORD_ID() = '${photoId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(photoId)}`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
     const f = rows[0].fields || {}

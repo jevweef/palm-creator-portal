@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -17,7 +18,7 @@ export async function GET(request) {
   // Status + date can filter via formula. Creator filter done client-side because
   // ARRAYJOIN on linked records returns names not IDs.
   const formulaParts = []
-  if (status) formulaParts.push(`{Status} = '${status.replace(/'/g, "\\'")}'`)
+  if (status) formulaParts.push(`{Status} = ${quoteAirtableString(status)}`)
   if (sinceDays > 0) {
     formulaParts.push(`IS_AFTER({Created At}, DATEADD(NOW(), -${sinceDays}, 'days'))`)
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const SURVEY_TABLE = 'Onboarding Survey Responses'
 
@@ -26,7 +27,7 @@ export async function GET(request) {
 
   try {
     const records = await fetchAirtableRecords(SURVEY_TABLE, {
-      filterByFormula: `{HQ Creator ID}="${hqId}"`,
+      filterByFormula: `{HQ Creator ID} = ${quoteAirtableString(hqId)}`,
     })
 
     const answers = {}

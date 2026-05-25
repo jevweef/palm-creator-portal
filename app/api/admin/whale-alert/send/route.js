@@ -6,6 +6,7 @@ import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtable
 import { generateWhaleAlertPdf } from '@/lib/generateWhaleAlertPdf'
 import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink, createDropboxFolder } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const FAN_TRACKER_TABLE = 'Fan Tracker'
 
@@ -169,9 +170,9 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
   // Find existing fan record — match by OF Username or Fan Name (simpler than ARRAYJOIN on linked records)
   let formula
   if (ofUsername) {
-    formula = `{OF Username} = "${ofUsername}"`
+    formula = `{OF Username} = ${quoteAirtableString(ofUsername)}`
   } else {
-    formula = `{Fan Name} = "${fanName}"`
+    formula = `{Fan Name} = ${quoteAirtableString(fanName)}`
   }
 
   console.log('[Whale Alert] Tracker lookup formula:', formula)
@@ -205,7 +206,7 @@ async function logAlertToFanTracker({ fanName, ofUsername, creatorRecordId, crea
     // If Airtable silently ignored the write (shouldn't, but we've seen cases where it
     // did), throw so the caller surfaces the trackerError to the UI.
     const verify = await fetchAirtableRecords(FAN_TRACKER_TABLE, {
-      filterByFormula: `RECORD_ID() = "${record.id}"`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(record.id)}`,
       maxRecords: 1,
     })
     const verifiedStatus = verify[0]?.fields?.['Status']

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const BASE_ID = 'applLIT2t83plMqNx'
 const SOURCES_TABLE = 'tblH0K1xMsBonqmMx'
@@ -17,7 +18,7 @@ export async function POST(request) {
 
     // Check if already exists
     const checkRes = await fetch(
-      `https://api.airtable.com/v0/${BASE_ID}/${SOURCES_TABLE}?filterByFormula=${encodeURIComponent(`{Handle}='${clean}'`)}`,
+      `https://api.airtable.com/v0/${BASE_ID}/${SOURCES_TABLE}?filterByFormula=${encodeURIComponent(`{Handle} = ${quoteAirtableString(clean)}`)}`,
       { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` } }
     )
     const checkData = await checkRes.json()

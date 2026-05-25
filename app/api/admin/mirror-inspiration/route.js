@@ -13,6 +13,7 @@ import {
   mirrorInspirationToCloudflareStream,
   isCloudflareStreamConfigured,
 } from '@/lib/cloudflareStream'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const OPS_BASE = 'applLIT2t83plMqNx'
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
@@ -56,7 +57,7 @@ export async function POST(request) {
   // Pull the Inspiration record once with every field either helper might
   // need so neither has to re-fetch.
   const records = await fetchAirtableRecords(INSPIRATION_TABLE, {
-    filterByFormula: `RECORD_ID()='${recordId}'`,
+    filterByFormula: `RECORD_ID() = ${quoteAirtableString(recordId)}`,
     fields: [
       'Title',
       'Thumbnail',

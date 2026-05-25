@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
-  return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
 // GET — fetch tasks awaiting admin review (Done + Pending Review)
@@ -57,7 +58,7 @@ export async function GET() {
     let reelByUrl = {}
     if (aiUrls.length) {
       const escape = u => String(u).replace(/'/g, "\\'")
-      const reelFormula = `OR(${aiUrls.map(u => `{Reel URL}='${escape(u)}'`).join(',')})`
+      const reelFormula = `OR(${aiUrls.map(u => `{Reel URL} = ${quoteAirtableString(escape(u))}`).join(',')})`
       const reelRecords = await fetchAirtableRecords('Recreate Reels', {
         filterByFormula: reelFormula,
         fields: ['Reel URL', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'],

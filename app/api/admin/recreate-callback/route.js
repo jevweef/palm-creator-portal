@@ -3,6 +3,7 @@ import { fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/admin
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadVideoByUrl } from '@/lib/cloudflareStream'
 import { waitUntil } from '@vercel/functions'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function rawDbx(url) {
   if (!url) return ''
@@ -119,7 +120,10 @@ export async function POST(request) {
     const fwdProto = request.headers.get('x-forwarded-proto') || 'https'
     const selfBaseUrl = fwdHost ? `${fwdProto}://${fwdHost}` : null
     const secret = searchParams.get('secret')
-    const expectedSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const expectedSecret = process.env.APIFY_CALLBACK_SECRET
+    if (!expectedSecret) {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 503 })
+    }
     if (secret !== expectedSecret) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 403 })
     }
@@ -247,7 +251,7 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
   // re-scrape only stores genuinely new reels.
   const existing = await fetchAirtableRecords('Recreate Reels', {
     fields: ['Reel ID'],
-    filterByFormula: `{Source Handle} = "${handle}"`,
+    filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
   })
   const existingIds = new Set(existing.map(r => r.fields?.['Reel ID']).filter(Boolean))
 
@@ -381,7 +385,13 @@ async function processBatch({ selfBaseUrl, sourceId, handle, reels, offset, stor
     return NextResponse.json({ handled: true, done: true, handle, stored })
   }
 
-  const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+  const callbackSecret = process.env.APIFY_CALLBACK_SECRET
+
+  if (!callbackSecret) {
+
+    throw new Error('APIFY_CALLBACK_SECRET is not configured')
+
+  }
   // Re-invoke on the SAME deployment that received this webhook (preview
   // or prod), not a hardcoded env — see recreate-scrape for rationale.
   const baseUrl = selfBaseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
 import { nextStageBSequence, stageBSlug } from '@/lib/recreateSlug'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -41,7 +42,7 @@ export async function POST(request) {
 
     // Resolve creator AKA for the slug.
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA'],
       maxRecords: 1,
     })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { POSES } from '@/lib/aiCloneConfig'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export async function POST(request) {
     const n = Math.max(1, Math.min(4, parseInt(count, 10) || 1))
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AI Ref Inputs', 'AKA'],
       maxRecords: 1,
     })

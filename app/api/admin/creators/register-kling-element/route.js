@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -19,7 +20,7 @@ export async function POST(request) {
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
 
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA', 'AI Ref Front', 'AI Ref Back', 'AI Ref Face', 'AI Ref Inputs'],
       maxRecords: 1,
     })

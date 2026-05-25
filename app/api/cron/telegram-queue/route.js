@@ -12,6 +12,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, patchAirtableRecord, requireAdminOrSocialMedia } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // IMPORTANT: never use VERCEL_URL here. That's the per-deployment hash
 // URL (palm-creator-portal-abc123.vercel.app) which has Deployment
@@ -43,7 +44,7 @@ async function processOnePost(postId) {
   // Post.Channel. Fetch fresh so any caption/hashtag edits made in
   // Post Prep land in this send.
   const postList = await fetchAirtableRecords('Posts', {
-    filterByFormula: `RECORD_ID()='${postId}'`,
+    filterByFormula: `RECORD_ID() = ${quoteAirtableString(postId)}`,
     fields: [
       'Post Name', 'Status', 'Caption', 'Hashtags', 'Platform', 'Channel',
       'Thumbnail', 'Thumbnail Asset', 'Scheduled Date', 'Creator', 'Asset',
@@ -95,11 +96,11 @@ async function processOnePost(postId) {
 
   const [creatorList, assetList] = await Promise.all([
     fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `RECORD_ID()='${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
     }),
     fetchAirtableRecords('Assets', {
-      filterByFormula: `RECORD_ID()='${assetId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
       fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
   ])

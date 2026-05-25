@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchCreateRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
@@ -163,7 +164,7 @@ export async function PATCH(request) {
 
     // 1. Read full Source Reel record
     const srRecords = await fetchAirtableRecords('Source Reels', {
-      filterByFormula: `RECORD_ID()='${recordId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(recordId)}`,
     })
     if (!srRecords.length) return NextResponse.json({ error: 'Record not found' }, { status: 404 })
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchHqRecords } from '@/lib/hqAirtable'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
@@ -13,7 +14,7 @@ export async function GET(request) {
 
   try {
     const records = await fetchHqRecords(HQ_CREATORS, {
-      filterByFormula: `{Onboarding Token}="${token}"`,
+      filterByFormula: `{Onboarding Token} = ${quoteAirtableString(token)}`,
       maxRecords: 1,
       fields: ['Creator', 'Communication Email', 'Onboarding Status'],
     })

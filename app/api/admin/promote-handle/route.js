@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, batchCreateRecords, batchUpdateRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const GITHUB_PAT = process.env.GITHUB_PAT
 const GITHUB_REPO = 'jevweef/inspo-pipeline'
@@ -38,8 +39,11 @@ export async function POST(request) {
   try {
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
-    const expectedSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const expectedSecret = process.env.APIFY_CALLBACK_SECRET
 
+    if (!expectedSecret) {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 503 })
+    }
     if (secret !== expectedSecret) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 403 })
     }
@@ -59,11 +63,11 @@ export async function POST(request) {
     // Fetch only this handle's Source Reels, only this handle's Inspo Source, and existing Inspiration URLs for this username
     const [sourceReels, inspoRecords, inspoSources] = await Promise.all([
       fetchAirtableRecords('Source Reels', {
-        filterByFormula: `{Source Handle} = "${handle}"`,
+        filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
       }),
       fetchAirtableRecords('Inspiration', {
         fields: ['Content link'],
-        filterByFormula: `{Username} = "${handle}"`,
+        filterByFormula: `{Username} = ${quoteAirtableString(handle)}`,
       }),
       fetchAirtableRecords('Inspo Sources', {
         fields: ['Handle', 'Palm Creators', 'Follower Count', 'Age Restricted'],

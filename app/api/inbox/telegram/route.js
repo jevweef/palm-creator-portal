@@ -30,6 +30,7 @@ import {
   createAirtableRecord,
 } from '@/lib/adminAuth'
 import { fetchHqRecords } from '@/lib/hqAirtable'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
@@ -129,7 +130,7 @@ function msgKey(chat, message) {
 
 async function findChatRecord(chatIdStr) {
   // Filter by Chat ID (primary field). One record per chat.
-  const formula = `{Chat ID} = '${chatIdStr.replace(/'/g, "\\'")}'`
+  const formula = `{Chat ID} = ${quoteAirtableString(chatIdStr)}`
   const records = await fetchAirtableRecords(CHATS_TABLE, {
     filterByFormula: formula,
     maxRecords: 1,
@@ -138,7 +139,7 @@ async function findChatRecord(chatIdStr) {
 }
 
 async function findMessageRecord(key) {
-  const formula = `{Telegram Msg Key} = '${key.replace(/'/g, "\\'")}'`
+  const formula = `{Telegram Msg Key} = ${quoteAirtableString(key)}`
   const records = await fetchAirtableRecords(MESSAGES_TABLE, {
     filterByFormula: formula,
     maxRecords: 1,

@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { POSES } from '@/lib/aiCloneConfig'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -60,7 +61,7 @@ export async function POST(request) {
 
     // Fetch creator AKA + AI Ref Inputs
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA', 'AI Ref Inputs'],
       maxRecords: 1,
     })

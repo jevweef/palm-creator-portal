@@ -6,6 +6,7 @@ import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 import { fetchPostHdUrls } from '@/lib/instagramHd'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 // Nano Banana edits typically finish in 10–30s. 90s leaves comfortable
@@ -156,7 +157,7 @@ export async function POST(request) {
     // to Dropbox-proxied bytes if the row hasn't been CF-mirrored yet.
     const rows = await fetchAirtableRecords(PHOTOS, {
       fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'CDN URL', 'Dropbox Path', 'Is Outfit', 'Flatlay Locked', 'Flatlay Variants'],
-      filterByFormula: `RECORD_ID() = '${photoId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(photoId)}`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
     const f = rows[0].fields || {}

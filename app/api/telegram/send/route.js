@@ -15,6 +15,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 ffmpeg.setFfmpegPath(ffmpegStatic)
 const execFilePromise = promisify(execFile)
@@ -245,7 +246,7 @@ async function getDropboxCredentials() {
 // Move edited file to next pipeline stage and update Airtable asset record
 async function moveToNextStage(assetId, targetFolder) {
   const records = await fetchAirtableRecords('Assets', {
-    filterByFormula: `RECORD_ID()='${assetId}'`,
+    filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
     fields: ['Edited File Path', 'Edited File Link'],
   })
   const asset = records[0]
@@ -619,7 +620,7 @@ async function doSend(params) {
     try {
       if (thumbnailAssetId) {
         const recs = await fetchAirtableRecords('Assets', {
-          filterByFormula: `RECORD_ID()='${thumbnailAssetId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(thumbnailAssetId)}`,
           fields: ['Used As Reel Thumbnail', 'Approved Thumbnail'],
         })
         const a = recs[0]

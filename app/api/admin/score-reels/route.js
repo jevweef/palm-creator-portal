@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, batchUpdateRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function engagementScore(f) {
   const views = f.Views || 0
@@ -16,9 +17,13 @@ export const maxDuration = 60
 // Public endpoint — secured by secret param
 export async function POST(request) {
   try {
+    const expectedSecret = process.env.APIFY_CALLBACK_SECRET
+    if (!expectedSecret) {
+      console.error('[Score-Reels] APIFY_CALLBACK_SECRET is not configured')
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 503 })
+    }
     const { searchParams } = new URL(request.url)
     const secret = searchParams.get('secret')
-    const expectedSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
     if (secret !== expectedSecret) {
       return NextResponse.json({ error: 'Invalid secret' }, { status: 403 })
     }
@@ -33,7 +38,7 @@ export async function POST(request) {
 
     // Fetch this handle's Source Reels that are missing scores
     const reels = await fetchAirtableRecords('Source Reels', {
-      filterByFormula: `AND({Source Handle} = "${handle}", {Views} > 0, {Performance Score} = BLANK())`,
+      filterByFormula: `AND({Source Handle} = ${quoteAirtableString(handle)}, {Views} > 0, {Performance Score} = BLANK())`,
     })
 
     console.log(`[Score-Reels] Found ${reels.length} unscored reels for @${handle}`)
@@ -93,7 +98,7 @@ export async function POST(request) {
     console.log(`[Score-Reels] Scored ${updates.length} reels for @${handle}. Grades: ${scored.map(s => s.update.Grade).join(', ')}`)
 
     // Trigger promote as a separate function (don't await — let it run independently)
-    const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const callbackSecret = expectedSecret
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
     try {
       const promoteRes = await fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {

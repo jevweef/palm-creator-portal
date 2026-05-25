@@ -4,6 +4,7 @@ import { pollWaveSpeedTask } from '@/lib/wavespeed'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { POSES, AI_REF_FOLDER, candidateFilename } from '@/lib/aiCloneConfig'
 import { stripImageMetadata } from '@/lib/stripImageMetadata'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -66,7 +67,7 @@ export async function POST(request) {
 
     // Save the candidate to Dropbox + Airtable so it persists
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA', poseConfig.airtableCandidatesField],
       maxRecords: 1,
     })

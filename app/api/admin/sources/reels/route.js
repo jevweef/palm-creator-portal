@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export async function GET(request) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request) {
     const username = handle.replace(/^@/, '')
 
     const records = await fetchAirtableRecords('Inspiration', {
-      filterByFormula: `{Username} = "${username}"`,
+      filterByFormula: `{Username} = ${quoteAirtableString(username)}`,
       fields: [
         'Title', 'Username', 'Content link', 'Thumbnail',
         'Tags', 'Suggested Tags', 'Film Format',

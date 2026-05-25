@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -31,7 +32,7 @@ async function findCreatorByEmail(email) {
 
   let opsRecord = null
   if (creatorName) {
-    const opsUrl = `https://api.airtable.com/v0/${OPS_BASE}/${OPS_CREATORS_TABLE}?filterByFormula=OR({Creator}="${creatorName}",{AKA}="${aka}")&maxRecords=1`
+    const opsUrl = `https://api.airtable.com/v0/${OPS_BASE}/${OPS_CREATORS_TABLE}?filterByFormula=OR({Creator} = ${quoteAirtableString(creatorName)},{AKA} = ${quoteAirtableString(aka)})&maxRecords=1`
     const opsRes = await fetch(opsUrl, { headers: atHeaders })
     const opsData = await opsRes.json()
     opsRecord = opsData.records?.[0]

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // GET — fetch unreviewed library assets (clips dumped into 00_INCOMING_FILE_REQUEST)
 // These are Assets with Source Type != 'Inspo Upload' and Pipeline Status = 'Uploaded'
@@ -35,7 +36,7 @@ export async function GET() {
     let creatorMap = {}
     if (creatorIds.length) {
       const creatorRecords = await fetchAirtableRecords('Palm Creators', {
-        filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+        filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
         fields: ['Creator', 'AKA'],
       })
       creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))

@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
-  return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
 // GET — list posts in active states (Prepping, Sent to Telegram, Ready to Post)
@@ -165,7 +166,7 @@ export async function PATCH(request) {
     const shouldFanout = Object.keys(update).some(k => FANOUT_FIELDS.has(k))
     if (shouldFanout) {
       const sourceList = await fetchAirtableRecords('Posts', {
-        filterByFormula: `RECORD_ID()='${postId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(postId)}`,
         fields: ['Task', 'Asset'],
       })
       const source = sourceList[0]?.fields || {}
@@ -178,14 +179,14 @@ export async function PATCH(request) {
         // their record IDs, so FIND silently matches zero and fan-out becomes
         // a single-record no-op. See feedback_airtable_arrayjoin_linked_records.
         const taskList = await fetchAirtableRecords('Tasks', {
-          filterByFormula: `RECORD_ID()='${taskId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(taskId)}`,
           fields: ['Posts'],
         })
         const allSiblingIds = (taskList[0]?.fields?.Posts || []).filter(id => id !== postId)
         let siblings = []
         if (allSiblingIds.length) {
           siblings = await fetchAirtableRecords('Posts', {
-            filterByFormula: `OR(${allSiblingIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            filterByFormula: `OR(${allSiblingIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
             fields: ['Task', 'Telegram Sent At', 'Posted At'],
           })
         }
