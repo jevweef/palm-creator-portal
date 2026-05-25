@@ -7392,3 +7392,153 @@ After doing this, you may fix the identity used for this commit with:
 
  1 file changed, 15 insertions(+)
 fatal: could not read Username for 'https://github.com': Device not configured
+[dev 678b2884] Auto-save: 2026-05-24 16:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 23fe21aa] Auto-save: 2026-05-24 17:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev b2da6e5c] Auto-save: 2026-05-24 17:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev fb95f07f] Auto-save: 2026-05-24 18:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 21873027] Auto-save: 2026-05-24 18:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 2d0ab201] Auto-save: 2026-05-24 19:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 124a903c] Auto-save: 2026-05-24 19:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 3e580830] Auto-save: 2026-05-24 20:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev 6a497275] Auto-save: 2026-05-24 20:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured
+[dev ae0c3a97] Auto-save: 2026-05-24 21:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 15 insertions(+)
+fatal: could not read Username for 'https://github.com': Device not configured

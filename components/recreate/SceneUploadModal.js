@@ -89,6 +89,10 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
   // The URL points at a Cloudflare Images delivery URL, so we hand it to
   // the upload finalize as `thumbnailSourceUrl` (no bytes needed client-side).
   const [altPoseCdnUrl, setAltPoseCdnUrl] = useState(null)
+  // Output aspect ratio for the alt-pose render. Default 4:5 (IG feed
+  // post format — what these thumbnails are usually destined for via
+  // Post Prep). Editor can switch to 1:1 / 3:4 / 9:16 per generation.
+  const [altPoseAspect, setAltPoseAspect] = useState('4:5')
   const [altPosePanelOpen, setAltPosePanelOpen] = useState(false)
   const [altPosePrompt, setAltPosePrompt] = useState('')
   const [altPoseLoading, setAltPoseLoading] = useState(false)
@@ -254,6 +258,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
           sceneId: scene.id,
           outfitPhotoId: selectedOutfitId,
           poseDirection: altPosePrompt,
+          aspect: altPoseAspect,
         }),
       })
       const parsed = await safeJson(res)
@@ -291,7 +296,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
     fetch('/api/admin/recreate-rooms/stage-b/pose-alt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sceneId: scene.id, outfitPhotoId: selectedOutfitId, dryRun: true }),
+      body: JSON.stringify({ sceneId: scene.id, outfitPhotoId: selectedOutfitId, aspect: altPoseAspect, dryRun: true }),
     })
       .then(safeJson)
       .then(parsed => {
@@ -303,7 +308,7 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
       .catch(e => console.warn('[scene-upload] inputs dry-run failed:', e.message))
       .finally(() => { if (!cancelled) setInputsLoading(false) })
     return () => { cancelled = true }
-  }, [altPosePanelOpen, scene?.id, selectedOutfitId])
+  }, [altPosePanelOpen, scene?.id, selectedOutfitId, altPoseAspect])
 
   // Resolve which image to show as the thumbnail preview.
   // Priority: manual upload > AI-generated alt-pose > scene still.
@@ -622,6 +627,36 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
                         })}
                       </div>
                     )}
+                  </div>
+
+                  {/* ─── ASPECT RATIO ───────────────────────────────────
+                      4:5 (default) for IG feed posts, 9:16 for reel /
+                      story thumbnails, 3:4 for vertical feed crop,
+                      1:1 square. Auto-fires a fresh dryRun on change
+                      so the inputs preview reflects what'll be sent. */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#C8A8FF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                      Output aspect
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['1:1', '3:4', '4:5', '9:16'].map(a => (
+                        <button key={a}
+                          type="button"
+                          onClick={() => setAltPoseAspect(a)}
+                          disabled={altPoseLoading}
+                          style={{
+                            flex: 1,
+                            padding: '5px 6px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: altPoseAspect === a ? 'rgba(200,168,255,0.25)' : 'rgba(255,255,255,0.04)',
+                            color: altPoseAspect === a ? '#C8A8FF' : 'var(--foreground-muted)',
+                            border: `1px solid ${altPoseAspect === a ? 'rgba(200,168,255,0.45)' : 'rgba(255,255,255,0.10)'}`,
+                            borderRadius: 4,
+                            cursor: altPoseLoading ? 'wait' : 'pointer',
+                          }}>{a}</button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* ─── POSE DIRECTION ─────────────────────────────── */}

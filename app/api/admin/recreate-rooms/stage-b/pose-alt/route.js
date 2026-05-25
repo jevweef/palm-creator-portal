@@ -36,6 +36,17 @@ const ROOMS_TABLE = 'Recreate Rooms'
 const VARIATIONS_TABLE = 'Recreate Room Variations'
 const PHOTOS_TABLE = 'Photos'
 
+// Aspect ratio → Wan pixel-dimension map. Wan 2.7 wants explicit W*H
+// (it ignores aspect_ratio strings). 4:5 is the IG feed default; 9:16
+// for reels; 3:4 for vertical posts; 1:1 for square.
+const ASPECT_TO_WAN_SIZE = {
+  '1:1':  '1080*1080',
+  '3:4':  '1080*1440',
+  '4:5':  '1080*1350',
+  '9:16': '1080*1920',
+}
+const SUPPORTED_ASPECTS = Object.keys(ASPECT_TO_WAN_SIZE)
+
 // Default pose direction. Surfaced as the textarea's prefill in the modal
 // so the editor can edit it per-scene without having to type the whole
 // thing every time. Tuned for: body-conscious standing pose that proves
@@ -144,6 +155,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Valid outfitPhotoId required — pick an outfit from the reel\'s Selected Outfits' }, { status: 400 })
     }
     const poseDirection = (body.poseDirection || '').trim() || DEFAULT_POSE_DIRECTION
+    // Aspect ratio: editor picks per-generation. Default 4:5 (IG feed
+    // post format) preserves the prior hardcoded behavior.
+    const aspect = SUPPORTED_ASPECTS.includes(body.aspect) ? body.aspect : '4:5'
+    const wanSize = ASPECT_TO_WAN_SIZE[aspect]
 
     // Resolve all three inputs from DROPBOX — the canonical source of
     // truth, full resolution, no re-encoding. Architecturally we don't
@@ -285,6 +300,8 @@ export async function POST(request) {
       return NextResponse.json({
         ok: true,
         dryRun: true,
+        aspect,
+        wanSize,
         inputs: { subjectUrl, roomUrl, roomName, roomSourceLabel, outfitUrl, outfitVariant },
       })
     }
@@ -293,15 +310,14 @@ export async function POST(request) {
 
     // Submit to Wan 2.7 image-edit-pro with the three reference images
     // in [identity, room, outfit] order. Wan's prompt references them as
-    // Figure 1, 2, 3 in the same order. Output is 4:5 (1080x1350) since
-    // these renders are destined for Instagram feed posts via Post Prep,
-    // not reels — 4:5 is IG's tallest post format.
+    // Figure 1, 2, 3 in the same order. Output size comes from the
+    // aspect picker (default 4:5 for IG feed posts via Post Prep).
     let task
     try {
       task = await submitWaveSpeedTask('alibaba/wan-2.7/image-edit-pro', {
         images: [subjectUrl, roomUrl, outfitUrl],
         prompt,
-        size: '1080*1350',
+        size: wanSize,
       })
     } catch (e) {
       return NextResponse.json({ error: `WaveSpeed submit failed: ${e.message}` }, { status: 502 })
