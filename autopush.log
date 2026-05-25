@@ -8100,3 +8100,20 @@ After doing this, you may fix the identity used for this commit with:
  create mode 100644 app/admin/creators/_lib/parsers.js
  create mode 100644 lib/airtableFormula.js
 fatal: could not read Username for 'https://github.com': Device not configured
+[dev aa1755a8] Auto-save: 2026-05-25 16:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 6 files changed, 133 insertions(+), 112 deletions(-)
+ create mode 100644 app/onboarding/_components/SignUpCta.js
+ create mode 100644 lib/onboardingToken.js
+fatal: could not read Username for 'https://github.com': Device not configured
