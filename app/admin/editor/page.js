@@ -9,6 +9,7 @@ import LongFormUpload from '@/components/LongFormUpload'
 import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
+import CarouselsTab from '@/app/admin/editor/CarouselsTab'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
@@ -2630,6 +2631,7 @@ export default function EditorQueue() {
     { key: 'review', label: '👁 For Review' },
     { key: 'submissions', label: '📨 Submissions' },
     { key: 'postprep', label: '✈️ Post Prep' },
+    { key: 'carousels', label: '📸 Carousels' },
     { key: 'grid', label: '▦ Grid Planner' },
     { key: 'library', label: '📁 Creator Library' },
     { key: 'oftv', label: '🎬 OFTV Projects' },
@@ -2702,6 +2704,7 @@ export default function EditorQueue() {
       {activeSection === 'review' && <ForReview showToast={showToast} />}
       {activeSection === 'submissions' && <SubmissionsFeed showToast={showToast} />}
       {activeSection === 'postprep' && <PostsPage />}
+      {activeSection === 'carousels' && <CarouselsTab showToast={showToast} />}
       {activeSection === 'grid' && <GridPlanner />}
       {activeSection === 'library' && <UnreviewedLibrary showToast={showToast} />}
       {activeSection === 'oftv' && <OftvProjectsQueue showToast={showToast} role="admin" />}
