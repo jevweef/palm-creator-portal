@@ -794,15 +794,20 @@ export default function AiEditorPage() {
   const [revisions, setRevisions] = useState([])
   const [projects, setProjects] = useState([])
   const [batchOpen, setBatchOpen] = useState(false)
-  // "Upload inspo" modal state — editor pastes an IG reel URL right
-  // from the pool view (vs. having to switch to /admin/recreate-source).
-  // The reel lands in the same Recreate Reels table admins scrape into,
-  // so it appears in this Fresh Inspo grid on the next reload.
+  // "Upload inspo" modal state — editor drops a local video file
+  // (mp4/mov/webm), we direct-upload to Dropbox + create a Recreate
+  // Reel record so the file appears in the Fresh Inspo grid. NOT an
+  // IG URL flow — admins still drive IG scraping via /admin/recreate-
+  // source; the editor uploads their own local files.
   const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
-  const [uploadInspoUrl, setUploadInspoUrl] = useState('')
+  const [uploadInspoFile, setUploadInspoFile] = useState(null)
+  const [uploadInspoCaption, setUploadInspoCaption] = useState('')
+  const [uploadInspoDragOver, setUploadInspoDragOver] = useState(false)
   const [uploadInspoBusy, setUploadInspoBusy] = useState(false)
+  const [uploadInspoProgress, setUploadInspoProgress] = useState('')
   const [uploadInspoError, setUploadInspoError] = useState('')
   const [uploadInspoMsg, setUploadInspoMsg] = useState('')
+  const uploadInspoFileRef = useRef(null)
 
   const loadCreators = useCallback(async () => {
     const res = await fetch('/api/ai-editor/pool')
@@ -835,29 +840,64 @@ export default function AiEditorPage() {
     } catch {}
   }, [])
 
-  // Editor submits a single IG reel URL → scrape that reel directly →
-  // reel lands in Recreate Reels (Status='Available'), shows up in this
-  // creator's Fresh Inspo grid on the next loadReels(). Sync flow,
-  // 20-60s. Reuses /api/admin/recreate-source/upload-inspo which is
-  // already ai_editor-friendly.
+  // Editor uploads a local video file → 3-step direct-to-Dropbox flow
+  // (token → PUT bytes → finalize) → new Recreate Reel record lands in
+  // the global pool with Status='Available'. Reel shows up in every
+  // creator's Fresh Inspo grid on the next loadReels().
+  const acceptUploadInspoFile = (file) => {
+    if (!file) return
+    if (!file.type?.startsWith('video/')) { setUploadInspoError('Need a video file (mp4, mov, webm)'); return }
+    setUploadInspoError('')
+    setUploadInspoFile(file)
+  }
   const submitUploadInspo = async () => {
-    const url = uploadInspoUrl.trim()
-    if (!url) { setUploadInspoError('Paste an Instagram reel URL first'); return }
-    setUploadInspoBusy(true); setUploadInspoError(''); setUploadInspoMsg('')
+    const vf = uploadInspoFile
+    if (!vf) { setUploadInspoError('Drop a video file first'); return }
+    setUploadInspoBusy(true); setUploadInspoError(''); setUploadInspoMsg(''); setUploadInspoProgress('Getting upload token…')
     try {
-      const res = await fetch('/api/admin/recreate-source/upload-inspo', {
+      // 1. Get Dropbox token + path (sized for this filename).
+      const tokRes = await fetch('/api/ai-editor/upload-local-reel/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instagramUrl: url }),
+        body: JSON.stringify({ filename: vf.name }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`)
+      const tok = await tokRes.json()
+      if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
+
+      // 2. Direct-to-Dropbox upload (bypasses Vercel body limit).
+      setUploadInspoProgress(`Uploading ${(vf.size / 1024 / 1024).toFixed(1)} MB to Dropbox…`)
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tok.accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: await vf.arrayBuffer(),
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
+
+      // 3. Finalize — mints shared link, creates Recreate Reel record,
+      //    kicks off Stream mirror in the background.
+      setUploadInspoProgress('Creating reel record…')
+      const finRes = await fetch('/api/ai-editor/upload-local-reel/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dropboxPath: tok.path,
+          shortid: tok.shortid,
+          caption: uploadInspoCaption,
+        }),
+      })
+      const fin = await finRes.json()
+      if (!finRes.ok) throw new Error(fin.error || 'Finalize failed')
+
       setUploadInspoOpen(false)
-      setUploadInspoUrl('')
-      setUploadInspoMsg(data.alreadyExisted
-        ? `Reel was already in the library (@${data.handle || '?'} · ${data.shortcode})`
-        : `Added @${data.handle || '?'} · ${data.shortcode} — pulling fresh inspo…`)
-      // Refresh the pool so the new reel appears.
+      setUploadInspoFile(null)
+      setUploadInspoCaption('')
+      setUploadInspoProgress('')
+      setUploadInspoMsg(`Added · ${fin.reelId} — appears below`)
       loadReels(creatorId)
     } catch (e) {
       setUploadInspoError(e.message)
@@ -1059,46 +1099,85 @@ export default function AiEditorPage() {
       </>
       )}
 
-      {/* Editor's Upload Inspo modal — sync single-URL Apify scrape.
-          Reel lands in the global Recreate Reels table → next pool
-          reload includes it in this creator's Fresh Inspo grid. */}
+      {/* Editor's Upload Inspo modal — local video file drop, direct-
+          to-Dropbox upload, new Recreate Reel record lands in the
+          global pool tagged Added Via='Editor Upload'. */}
       {uploadInspoOpen && (
         <div onClick={() => !uploadInspoBusy && setUploadInspoOpen(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ width: 'min(560px, 95vw)', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from Instagram URL</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from your machine</div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                Paste a public Instagram reel link. We&apos;ll scrape just that reel and add it to your Fresh Inspo grid — no need to wait for an admin to add the account.
+                Drop a video file (mp4, mov, webm). It lands in your Fresh Inspo grid and you can Create Scene from it just like any scraped reel.
               </div>
             </div>
+
+            <div
+              onClick={() => !uploadInspoBusy && uploadInspoFileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); if (!uploadInspoBusy) setUploadInspoDragOver(true) }}
+              onDragLeave={() => setUploadInspoDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setUploadInspoDragOver(false)
+                if (uploadInspoBusy) return
+                const f = e.dataTransfer?.files?.[0]
+                if (f) acceptUploadInspoFile(f)
+              }}
+              style={{
+                padding: uploadInspoFile ? '14px 16px' : '28px 16px',
+                borderRadius: 10,
+                border: `2px dashed ${uploadInspoDragOver ? '#6AC68A' : uploadInspoFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                background: uploadInspoDragOver ? 'rgba(106,198,138,0.10)' : uploadInspoFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
+                cursor: uploadInspoBusy ? 'wait' : 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.15s',
+              }}>
+              {uploadInspoFile ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>🎬 {uploadInspoFile.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+                    {(uploadInspoFile.size / 1024 / 1024).toFixed(1)} MB · click to pick another
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>🎬</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Drop a video here</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to pick from Finder</div>
+                </div>
+              )}
+            </div>
+            <input ref={uploadInspoFileRef} type="file"
+              accept="video/mp4,video/quicktime,video/webm,video/*"
+              onChange={(e) => acceptUploadInspoFile(e.target.files?.[0])}
+              style={{ display: 'none' }} />
+
             <input
-              type="url"
-              value={uploadInspoUrl}
-              onChange={e => setUploadInspoUrl(e.target.value)}
-              placeholder="https://www.instagram.com/reel/DXXXXXXXXXX/"
+              type="text"
+              value={uploadInspoCaption}
+              onChange={e => setUploadInspoCaption(e.target.value)}
+              placeholder="Caption / note (optional) — shows on the reel card"
               disabled={uploadInspoBusy}
-              autoFocus
-              style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13, fontFamily: 'inherit' }}
-              onKeyDown={e => { if (e.key === 'Enter' && !uploadInspoBusy) submitUploadInspo() }}
+              maxLength={500}
+              style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit' }}
             />
+
             {uploadInspoError && (
               <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{uploadInspoError}</div>
             )}
-            {uploadInspoBusy && (
-              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>
-                Scraping via Apify… usually 20-60s for a single reel. Don&apos;t close this window.
-              </div>
+            {uploadInspoProgress && !uploadInspoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>{uploadInspoProgress}</div>
             )}
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setUploadInspoOpen(false)} disabled={uploadInspoBusy}
                 style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={submitUploadInspo} disabled={uploadInspoBusy || !uploadInspoUrl.trim()}
+              <button onClick={submitUploadInspo} disabled={uploadInspoBusy || !uploadInspoFile}
                 style={{ padding: '8px 16px', background: uploadInspoBusy ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.25)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.45)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
-                {uploadInspoBusy ? '⏳ Scraping…' : '↑ Add to pool'}
+                {uploadInspoBusy ? '⏳ Uploading…' : '↑ Add to pool'}
               </button>
             </div>
           </div>
