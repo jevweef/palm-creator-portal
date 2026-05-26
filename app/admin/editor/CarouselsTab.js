@@ -1,6 +1,35 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 
+// Retry on Airtable 429 rate-limit. Server route surfaces it as a 500 with
+// "Airtable 429" in the body. Airtable's docs say 30s, but in practice a
+// short backoff usually clears (the rate limiter is sliding-window). Retry
+// up to twice with increasing waits before giving up.
+async function fetchWithRetry(url, init, { maxRetries = 2 } = {}) {
+  let lastErr = null
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, init)
+      if (res.status >= 500 || res.status === 429) {
+        const text = await res.clone().text()
+        if (text.includes('429') || text.includes('RATE_LIMIT')) {
+          if (attempt < maxRetries) {
+            const wait = (attempt + 1) * 5000  // 5s, then 10s
+            await new Promise(r => setTimeout(r, wait))
+            continue
+          }
+        }
+      }
+      return res
+    } catch (e) {
+      lastErr = e
+      if (attempt < maxRetries) await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
+    }
+  }
+  if (lastErr) throw lastErr
+  return fetch(url, init)
+}
+
 // Carousels tab — assemble carousel posts from Photos table records and push
 // them to the Ready-to-Go queue. UI fetches photos linked to the selected
 // creator, lets admin multi-select 1-10 in order, optionally caption, and
@@ -29,7 +58,11 @@ export default function CarouselsTab({ showToast }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/grid-planner')
+    // Lighter than /api/admin/grid-planner (which fans out to Posts, Assets,
+    // Thumbnail Pool, scraped IG feed). creators/pipeline only hits Palm
+    // Creators + IG accounts — way fewer Airtable calls so we don't compete
+    // with the rest of the editor surface for the per-base rate limit.
+    fetchWithRetry('/api/admin/creators/pipeline')
       .then(r => r.json())
       .then(d => {
         const list = (d.creators || []).filter(c => c.id)
@@ -43,7 +76,7 @@ export default function CarouselsTab({ showToast }) {
   useEffect(() => {
     if (!creatorId) return
     setLoadingPhotos(true)
-    fetch('/api/admin/photos/library')
+    fetchWithRetry('/api/admin/photos/library')
       .then(r => r.json())
       .then(d => {
         const all = d.photos || []
@@ -122,7 +155,8 @@ export default function CarouselsTab({ showToast }) {
 
   const creatorOptions = useMemo(() =>
     creators
-      .map(c => ({ id: c.id, name: c.aka || c.name || c.id }))
+      // creators/pipeline shape: { id, name (AKA||Creator), status, ... }
+      .map(c => ({ id: c.id, name: c.name || c.aka || c.id }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     [creators]
   )
