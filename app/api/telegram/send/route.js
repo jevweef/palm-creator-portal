@@ -401,7 +401,94 @@ function buildDatePrefix(iso) {
 // The actual send work: download from Dropbox → remux/compress if needed →
 // upload to Telegram → stamp Post record. Runs entirely in the background
 // via waitUntil() so the admin's click returns in ~1s instead of 60-90s.
+// Carousel send: multi-photo sendMediaGroup. Each photo is downloaded
+// (parallel) from its CDN/Dropbox URL and uploaded to Telegram as part of
+// a single album. Caption rides on the first photo only — Telegram shows
+// it under the swipeable group. No video compression, no thumbnail asset
+// cleanup (carousels don't use the reel thumbnail pool).
+async function doCarouselSend(params) {
+  const { photos, threadId, smmTopicId, caption: rawIncomingCaption, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+  const caption = rawIncomingCaption || undefined
+
+  try {
+    const useSmm = !!smmTopicId
+    const chatId = useSmm ? parseInt(TELEGRAM_SMM_GROUP_CHAT_ID) : parseInt(TELEGRAM_CHAT_ID)
+    const messageThreadId = useSmm ? smmTopicId : threadId
+
+    console.log(`[Telegram Send] Carousel: downloading ${photos.length} photo${photos.length === 1 ? '' : 's'}...`)
+    const dlStart = Date.now()
+    const downloads = await Promise.all(photos.map(async (p, idx) => {
+      const url = p.cdnUrl || (p.dropboxLink ? rawDropboxUrl(p.dropboxLink) : null)
+      if (!url) throw new Error(`Photo ${idx + 1} (id=${p.id}) has no CDN URL or Dropbox link`)
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Photo ${idx + 1} download failed: ${res.status}`)
+      const buf = await res.arrayBuffer()
+      // Resize/orient via sharp for Telegram (max 1280px, strips EXIF rotation
+      // so portrait shots from creator uploads don't show sideways).
+      const filename = (p.name || `photo_${idx + 1}.jpg`).replace(/[^\w.\-]+/g, '_')
+      const resized = await resizeImage(buf, filename)
+      return { buffer: resized, filename: `slide_${idx + 1}.jpg`, mime: 'image/jpeg' }
+    }))
+    console.log(`[Telegram Send] Carousel: ${photos.length} photos ready in ${((Date.now() - dlStart) / 1000).toFixed(1)}s`)
+
+    const form = new FormData()
+    form.append('chat_id', String(chatId))
+    form.append('message_thread_id', String(messageThreadId))
+
+    const mediaGroup = downloads.map((d, idx) => ({
+      type: 'photo',
+      media: `attach://photo_${idx}`,
+      ...(idx === 0 && caption ? { caption } : {}),
+    }))
+    form.append('media', JSON.stringify(mediaGroup))
+    for (let i = 0; i < downloads.length; i++) {
+      const d = downloads[i]
+      form.append(`photo_${i}`, new Blob([d.buffer], { type: d.mime }), d.filename)
+    }
+
+    const result = await telegramUpload('sendMediaGroup', form)
+
+    // sendMediaGroup returns an array of messages, one per photo. Store all
+    // IDs comma-separated so bulk-unsend can delete every slide, not just
+    // the first.
+    const messageIds = Array.isArray(result.result)
+      ? result.result.map(m => m?.message_id).filter(Boolean).join(',')
+      : (result.result?.message_id ? String(result.result.message_id) : '')
+
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Sent to Telegram',
+        'Telegram Sent At': new Date().toISOString(),
+        ...(messageIds ? { 'Telegram Message ID': messageIds } : {}),
+        ...(rawCaption ? { 'Caption': rawCaption } : {}),
+        ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
+        ...(platform?.length ? { 'Platform': platform } : {}),
+        ...(scheduledDate ? { 'Scheduled Date': scheduledDate } : {}),
+      }).catch(err => console.error('[Telegram Send] Failed to update carousel Post:', err.message))
+    }
+
+    console.log(`[Telegram Send] ✓ Carousel complete for post ${postId} (${photos.length} slides, ${messageIds.split(',').length} TG messages)`)
+  } catch (err) {
+    console.error('[Telegram Send] Carousel send failed:', err.message)
+    if (postId) {
+      await patchAirtableRecord('Posts', postId, {
+        'Status': 'Send Failed',
+        'Admin Notes': `[Carousel Send Error @ ${new Date().toISOString()}] ${err.message}`,
+      }).catch(() => {})
+    }
+    throw err
+  }
+}
+
 async function doSend(params) {
+  // Branch by post type. Carousels need a completely different upload path
+  // (sendMediaGroup with N photos, no video / no compression / no thumbnail
+  // asset cleanup) so route them through doCarouselSend instead of trying
+  // to shoehorn the reel happy-path.
+  if (params.type === 'Carousel') {
+    return doCarouselSend(params)
+  }
+
   const { editedFileLink, threadId, smmTopicId, caption: rawIncomingCaption, taskName, postId, thumbnailUrl, thumbnailAssetId, assetId, rawCaption, rawHashtags, platform, scheduledDate } = params
   // Caption is just the user caption + hashtags (joined client-side into the
   // incoming caption). No date prefix — post-calendar architecture means
@@ -697,9 +784,19 @@ export async function POST(request) {
 
   try {
     const params = await request.json()
-    const { editedFileLink, threadId, smmTopicId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
+    const { type, photos, editedFileLink, threadId, smmTopicId, postId, rawCaption, rawHashtags, platform, scheduledDate } = params
 
-    if (!editedFileLink) return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
+    const isCarousel = type === 'Carousel'
+    if (isCarousel) {
+      if (!Array.isArray(photos) || photos.length < 1) {
+        return NextResponse.json({ error: 'Carousel send requires photos[] with at least one item' }, { status: 400 })
+      }
+      if (photos.length > 10) {
+        return NextResponse.json({ error: 'Carousel max 10 photos' }, { status: 400 })
+      }
+    } else if (!editedFileLink) {
+      return NextResponse.json({ error: 'No edited file link' }, { status: 400 })
+    }
     if (!threadId && !smmTopicId) return NextResponse.json({ error: 'No threadId or smmTopicId provided' }, { status: 400 })
     if (!TELEGRAM_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN not set' }, { status: 500 })
     if (smmTopicId && !TELEGRAM_SMM_GROUP_CHAT_ID) {

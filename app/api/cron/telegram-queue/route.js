@@ -46,7 +46,7 @@ async function processOnePost(postId) {
   const postList = await fetchAirtableRecords('Posts', {
     filterByFormula: `RECORD_ID() = ${quoteAirtableString(postId)}`,
     fields: [
-      'Post Name', 'Status', 'Caption', 'Hashtags', 'Platform', 'Channel',
+      'Post Name', 'Status', 'Type', 'Caption', 'Hashtags', 'Platform', 'Channel',
       'Thumbnail', 'Thumbnail Asset', 'Scheduled Date', 'Creator', 'Asset',
     ],
   })
@@ -88,25 +88,33 @@ async function processOnePost(postId) {
   }
 
   const creatorId = (f.Creator || [])[0]
-  const assetId = (f.Asset || [])[0]
+  const linkedAssetIds = f.Asset || []
+  const assetId = linkedAssetIds[0]
   const channel = f.Channel  // 'IG' or 'FB' (singleSelect value)
-  if (!assetId) throw new Error('Post has no Asset link')
+  const postType = (typeof f.Type === 'string' ? f.Type : f.Type?.name) || 'Reel'
+  const isCarousel = postType === 'Carousel'
+  if (!linkedAssetIds.length) throw new Error('Post has no Asset link')
   if (!creatorId) throw new Error('Post has no Creator link')
   if (!channel) throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
 
+  // Carousel posts link N photo Assets; reels link one video Asset. Pull all
+  // linked records in a single roundtrip and key the downstream branch on
+  // postType so we send the right kind to Telegram.
+  const assetFilter = `OR(${linkedAssetIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
   const [creatorList, assetList] = await Promise.all([
     fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
     }),
     fetchAirtableRecords('Assets', {
-      filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
-      fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
+      filterByFormula: assetFilter,
+      fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
   ])
 
   const creator = creatorList[0]?.fields || {}
-  const asset = assetList[0]?.fields || {}
+  const assetById = Object.fromEntries(assetList.map(a => [a.id, a.fields || {}]))
+  const asset = assetById[assetId] || {}
 
   // Resolve the per-channel Telegram topic for this creator.
   // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID.
@@ -118,13 +126,32 @@ async function processOnePost(postId) {
     throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
   }
 
-  // Prefer the pre-compressed file when available — that's the whole point
-  // of the compress-pending-assets cron. Falls back to the raw Edited File
-  // Link only when compression hasn't run yet (the send route handles
-  // ffmpeg inline as a last resort, but that's the slow/flaky path).
-  const compressedLink = asset['Compressed File Link']
-  const editedFileLink = compressedLink || asset['Edited File Link'] || asset['Dropbox Shared Link']
-  if (!editedFileLink) throw new Error('Asset has no file link')
+  // For reels: prefer the pre-compressed file (compress-pending-assets cron),
+  // fall back to raw Edited File Link, then Dropbox Shared Link. The send
+  // route handles ffmpeg inline as a last resort but that's the slow path.
+  // For carousels: build an ordered photos[] of {cdnUrl, dropboxLink, name}
+  // — send route uses sendMediaGroup with all N photos.
+  let editedFileLink = ''
+  let photos = []
+  if (isCarousel) {
+    photos = linkedAssetIds
+      .map(aid => {
+        const a = assetById[aid]
+        if (!a) return null
+        return {
+          id: aid,
+          cdnUrl: a['CDN URL'] || '',
+          dropboxLink: a['Dropbox Shared Link'] || '',
+          name: a['Asset Name'] || '',
+        }
+      })
+      .filter(p => p && (p.cdnUrl || p.dropboxLink))
+    if (!photos.length) throw new Error('Carousel has no photos with a CDN URL or Dropbox link')
+  } else {
+    const compressedLink = asset['Compressed File Link']
+    editedFileLink = compressedLink || asset['Edited File Link'] || asset['Dropbox Shared Link']
+    if (!editedFileLink) throw new Error('Asset has no file link')
+  }
 
   const thumbAttachment = (f.Thumbnail || [])[0]
   const thumbnailUrl = thumbAttachment?.url || ''
@@ -145,6 +172,8 @@ async function processOnePost(postId) {
     },
     body: JSON.stringify({
       postId,
+      type: postType,
+      // Reel fields — empty for carousels but harmless to include.
       assetId,
       editedFileLink,
       thumbnailUrl,
@@ -152,6 +181,8 @@ async function processOnePost(postId) {
       // route uses this to deterministically flip Approved Thumbnail /
       // Used As Reel Thumbnail on the right asset post-send.
       thumbnailAssetId: f['Thumbnail Asset'] || null,
+      // Carousel fields — ordered photos array (empty for reels).
+      photos: isCarousel ? photos : undefined,
       caption: f.Caption || '',
       hashtags: f.Hashtags || '',
       platform: f.Platform || ['Instagram Reel'],
