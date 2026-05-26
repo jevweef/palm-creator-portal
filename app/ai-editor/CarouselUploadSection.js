@@ -72,6 +72,47 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedProjectId])
 
+  // Persist variation results across refresh. The Wan-hosted source URL
+  // and the variation output URLs both live in `varResults`, so saving
+  // that one blob is enough to restore the section's full state. Keyed by
+  // (creator, project) so switching between projects swaps the cache and
+  // refreshing within a project restores it. No server round-trip — these
+  // are not yet stored on the Carousel Projects record itself.
+  const varStorageKey = creatorId
+    ? `carouselVar:${creatorId}:${linkedProjectId || 'unlinked'}`
+    : null
+  useEffect(() => {
+    if (!varStorageKey || typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(varStorageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && Array.isArray(parsed.results)) setVarResults(parsed)
+        else setVarResults(null)
+      } else {
+        setVarResults(null)
+      }
+    } catch { setVarResults(null) }
+    // Source File can't be persisted; clear local picker so the user
+    // sees the hosted source URL inside varResults instead.
+    setVarSource(null)
+    setVarError('')
+  }, [varStorageKey])
+  useEffect(() => {
+    if (!varStorageKey || typeof window === 'undefined') return
+    try {
+      if (varResults) window.localStorage.setItem(varStorageKey, JSON.stringify(varResults))
+    } catch {}
+  }, [varStorageKey, varResults])
+  const clearVariations = () => {
+    setVarResults(null)
+    setVarSource(null)
+    setVarError('')
+    if (varStorageKey && typeof window !== 'undefined') {
+      try { window.localStorage.removeItem(varStorageKey) } catch {}
+    }
+  }
+
   const acceptFiles = (incoming) => {
     const list = Array.from(incoming || []).filter(f => f.type?.startsWith('image/'))
     const rejected = (incoming?.length || 0) - list.length
@@ -387,40 +428,51 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {/* Source picker */}
-          <div
-            onClick={() => varInputRef.current?.click()}
-            style={{
-              width: 120, height: 160, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
-              cursor: 'pointer', position: 'relative',
-              border: `2px dashed ${varSource ? 'transparent' : 'rgba(168,132,232,0.4)'}`,
-              background: varSource ? '#000' : 'rgba(168,132,232,0.04)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <input
-              ref={varInputRef}
-              type="file"
-              accept="image/*"
-              onChange={e => { pickVarSource(e.target.files?.[0] || null); e.target.value = '' }}
-              style={{ display: 'none' }}
-            />
-            {varSource ? (
-              <>
-                <img src={varSource.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <div style={{
-                  position: 'absolute', bottom: 4, left: 4, right: 4,
-                  padding: '2px 6px', fontSize: 9, fontWeight: 700,
-                  background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
-                  textAlign: 'center',
-                }}>SOURCE</div>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', color: 'rgba(168,132,232,0.7)', fontSize: 11, padding: 8 }}>
-                Click<br />or drop<br />source image
+          {/* Source picker. If the user has restored cached results from a
+              previous session, the local File is gone but the hosted source
+              URL lives on varResults.sourceCdnUrl — fall back to that so
+              they still see what their last variations were generated from. */}
+          {(() => {
+            const cachedSourceUrl = !varSource && varResults
+              ? (varResults.sourceCdnUrl || varResults.sourceUrl || '')
+              : ''
+            const hasAnySource = !!varSource || !!cachedSourceUrl
+            return (
+              <div
+                onClick={() => varInputRef.current?.click()}
+                style={{
+                  width: 120, height: 160, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+                  cursor: 'pointer', position: 'relative',
+                  border: `2px dashed ${hasAnySource ? 'transparent' : 'rgba(168,132,232,0.4)'}`,
+                  background: hasAnySource ? '#000' : 'rgba(168,132,232,0.04)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <input
+                  ref={varInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => { pickVarSource(e.target.files?.[0] || null); e.target.value = '' }}
+                  style={{ display: 'none' }}
+                />
+                {hasAnySource ? (
+                  <>
+                    <img src={varSource?.previewUrl || cachedSourceUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{
+                      position: 'absolute', bottom: 4, left: 4, right: 4,
+                      padding: '2px 6px', fontSize: 9, fontWeight: 700,
+                      background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
+                      textAlign: 'center',
+                    }}>SOURCE{!varSource && cachedSourceUrl ? ' (cached)' : ''}</div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', color: 'rgba(168,132,232,0.7)', fontSize: 11, padding: 8 }}>
+                    Click<br />or drop<br />source image
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()}
 
           {/* Controls + status */}
           <div style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -470,9 +522,14 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
               <div style={{ fontSize: 12, color: '#E87878' }}>{varError}</div>
             )}
             {varResults && !varGenerating && (
-              <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {varResults.sceneDescription && <em>{varResults.sceneDescription}</em>}
-                {' · '}{varResults.succeeded}/{varResults.requested} succeeded
+                <span>· {varResults.succeeded}/{varResults.requested} succeeded</span>
+                <button
+                  onClick={clearVariations}
+                  title="Wipe the cached variations for this creator/project so the next Generate starts fresh"
+                  style={{ background: 'none', border: 'none', color: 'rgba(232,120,120,0.85)', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                >Clear cached variations</button>
               </div>
             )}
           </div>
