@@ -1,10 +1,26 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 
-// Retry on Airtable 429 rate-limit. Server route surfaces it as a 500 with
-// "Airtable 429" in the body. Airtable's docs say 30s, but in practice a
-// short backoff usually clears (the rate limiter is sliding-window). Retry
-// up to twice with increasing waits before giving up.
+// Carousels tab — assemble carousel posts from two postable sources:
+//   1. AI Generated photos (Photos table, Source Type='AI Generated') —
+//      content WE generated through TJP Studio / the AI editor workflow.
+//      Eventually AI carousel recreations will land here too.
+//   2. Creator Upload photos (Assets table, Asset Type=Photo with a
+//      Dropbox Shared Link) — photos the creator uploaded to their own
+//      Dropbox folder (synced into Assets via the existing chat-wall /
+//      thumbnail-pool pipeline).
+//
+// Explicitly NOT postable from this picker: scraped Instagram photos
+// (those are other creators' content — need AI recreation in TJP Studio
+// first) and Pinterest uploads.
+//
+// Submit payload mixes both: photo records become photoIds (server
+// mirrors them into Assets); asset records become assetIds (server uses
+// them directly).
+
+// Retry on Airtable 429 rate-limit. The server route surfaces it as a 500
+// with "Airtable 429" / "RATE_LIMIT" in the body. Retry up to twice with
+// growing waits before surfacing the error.
 async function fetchWithRetry(url, init, { maxRetries = 2 } = {}) {
   let lastErr = null
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -14,7 +30,7 @@ async function fetchWithRetry(url, init, { maxRetries = 2 } = {}) {
         const text = await res.clone().text()
         if (text.includes('429') || text.includes('RATE_LIMIT')) {
           if (attempt < maxRetries) {
-            const wait = (attempt + 1) * 5000  // 5s, then 10s
+            const wait = (attempt + 1) * 5000
             await new Promise(r => setTimeout(r, wait))
             continue
           }
@@ -30,26 +46,16 @@ async function fetchWithRetry(url, init, { maxRetries = 2 } = {}) {
   return fetch(url, init)
 }
 
-// Carousels tab — assemble carousel posts from Photos table records and push
-// them to the Ready-to-Go queue. UI fetches photos linked to the selected
-// creator, lets admin multi-select 1-10 in order, optionally caption, and
-// submit. POST /api/admin/posts/carousel mirrors each selected Photo into a
-// new Asset record (Asset Type=Photo) and creates one Post per creator with
-// Type=Carousel, Status=Ready to Go.
-//
-// Filter pills map to Photos.Source Type singleSelect values.
 const SOURCE_FILTERS = [
   { key: 'all', label: 'All', match: null },
   { key: 'ai', label: 'AI Generated', match: 'AI Generated' },
   { key: 'creator', label: 'Creator Upload', match: 'Creator Upload' },
-  { key: 'instagram', label: 'Scraped IG', match: 'Instagram' },
-  { key: 'pinterest', label: 'Pinterest', match: 'Pinterest' },
 ]
 
 export default function CarouselsTab({ showToast }) {
   const [creators, setCreators] = useState([])
   const [creatorId, setCreatorId] = useState(null)
-  const [photos, setPhotos] = useState([])
+  const [items, setItems] = useState([])  // unified list of postable photo items
   const [loadingPhotos, setLoadingPhotos] = useState(false)
   const [sourceFilter, setSourceFilter] = useState('all')
   const [searchQ, setSearchQ] = useState('')
@@ -58,10 +64,6 @@ export default function CarouselsTab({ showToast }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    // Lighter than /api/admin/grid-planner (which fans out to Posts, Assets,
-    // Thumbnail Pool, scraped IG feed). creators/pipeline only hits Palm
-    // Creators + IG accounts — way fewer Airtable calls so we don't compete
-    // with the rest of the editor surface for the per-base rate limit.
     fetchWithRetry('/api/admin/creators/pipeline')
       .then(r => r.json())
       .then(d => {
@@ -76,24 +78,62 @@ export default function CarouselsTab({ showToast }) {
   useEffect(() => {
     if (!creatorId) return
     setLoadingPhotos(true)
-    fetchWithRetry('/api/admin/photos/library')
-      .then(r => r.json())
-      .then(d => {
-        const all = d.photos || []
-        // Photos linked to this creator. Scraped IG photos may not have a
-        // Creator link (they link to Source Handle, not our creator) — they
-        // pass through the "Scraped IG" filter only when chosen explicitly.
-        const ours = all.filter(p => (p.creatorIds || []).includes(creatorId))
-        const scrapedShared = all.filter(p => p.sourceType === 'Instagram' && !(p.creatorIds || []).length)
-        setPhotos([...ours, ...scrapedShared])
-        setTray([])
+    setTray([])
+
+    // Two independent sources fetched in parallel.
+    //   - Photos library: AI-generated images we control (Photos table).
+    //   - Asset photo library: creator-uploaded photos from their Dropbox
+    //     folder (Assets table, paginated — request the largest page so
+    //     we usually get everything in one call).
+    Promise.all([
+      fetchWithRetry('/api/admin/photos/library').then(r => r.json()).catch(() => ({ photos: [] })),
+      fetchWithRetry(`/api/photo-library/photos?creatorId=${encodeURIComponent(creatorId)}&view=available&pageSize=200`)
+        .then(r => r.json())
+        .catch(() => ({ photos: [] })),
+    ])
+      .then(([photosResp, assetsResp]) => {
+        // AI Generated photos linked to this creator. We deliberately
+        // ignore other Source Types here — scraped IG / Pinterest are
+        // not postable as-is per the carousel feature contract.
+        const aiPhotos = (photosResp.photos || [])
+          .filter(p =>
+            p.sourceType === 'AI Generated' &&
+            (p.creatorIds || []).includes(creatorId)
+          )
+          .map(p => ({
+            _source: 'photo', // submit as photoId (server mirrors to Asset)
+            id: p.id,
+            image: p.image,
+            imageFallback: p.imageFallback,
+            sourceType: 'AI Generated',
+            caption: p.caption || '',
+            handle: p.handle || '',
+            createdTime: p.createdTime,
+          }))
+
+        // Creator Upload photos from the Assets-table photo library.
+        const creatorPhotos = (assetsResp.photos || []).map(a => ({
+          _source: 'asset', // submit as assetId (already an Asset record)
+          id: a.id,
+          image: a.cdnUrl || a.thumbLarge || a.thumbSmall || a.dropboxLink || '',
+          imageFallback: a.thumbFull || a.dropboxLink || '',
+          sourceType: 'Creator Upload',
+          caption: '',
+          handle: a.name || '',
+          createdTime: a.createdTime,
+        }))
+
+        // Newest first across both sources.
+        const combined = [...aiPhotos, ...creatorPhotos]
+          .sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
+        setItems(combined)
       })
       .catch(e => showToast?.(`Couldn't load photos: ${e.message}`, true))
       .finally(() => setLoadingPhotos(false))
   }, [creatorId, showToast])
 
   const visible = useMemo(() => {
-    let view = photos
+    let view = items
     const f = SOURCE_FILTERS.find(s => s.key === sourceFilter)
     if (f?.match) view = view.filter(p => p.sourceType === f.match)
     if (searchQ) {
@@ -104,7 +144,7 @@ export default function CarouselsTab({ showToast }) {
       )
     }
     return view
-  }, [photos, sourceFilter, searchQ])
+  }, [items, sourceFilter, searchQ])
 
   const trayIds = useMemo(() => new Set(tray.map(p => p.id)), [tray])
 
@@ -131,12 +171,23 @@ export default function CarouselsTab({ showToast }) {
     if (!tray.length) { showToast?.('Add at least one photo', true); return }
     setSubmitting(true)
     try {
+      // Split tray by source — server mirrors photoIds to new Assets but
+      // can use assetIds directly. Order preserved within each list, and
+      // server concatenates [...mirroredAssetIds, ...assetIds] in that
+      // order, so we keep tray order coherent by routing all items
+      // through the right bucket but maintaining insertion order across.
+      // For mixed trays this means AI-photo slides come before Asset
+      // slides regardless of click order — flag if that matters.
+      const photoIds = tray.filter(p => p._source === 'photo').map(p => p.id)
+      const assetIds = tray.filter(p => p._source === 'asset').map(p => p.id)
+
       const res = await fetch('/api/admin/posts/carousel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorIds: [creatorId],
-          photoIds: tray.map(p => p.id),
+          ...(photoIds.length ? { photoIds } : {}),
+          ...(assetIds.length ? { assetIds } : {}),
           caption: caption.trim() || undefined,
         }),
       })
@@ -155,7 +206,6 @@ export default function CarouselsTab({ showToast }) {
 
   const creatorOptions = useMemo(() =>
     creators
-      // creators/pipeline shape: { id, name (AKA||Creator), status, ... }
       .map(c => ({ id: c.id, name: c.name || c.aka || c.id }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     [creators]
@@ -214,8 +264,12 @@ export default function CarouselsTab({ showToast }) {
         <div>
           {loadingPhotos && <div style={{ color: '#888', fontSize: 13, padding: 12 }}>Loading photos…</div>}
           {!loadingPhotos && !visible.length && (
-            <div style={{ color: '#888', fontSize: 13, padding: 12 }}>
-              No photos match this filter. Try a different source or creator.
+            <div style={{ color: '#888', fontSize: 13, padding: 12, lineHeight: 1.5 }}>
+              {sourceFilter === 'creator'
+                ? `No photos in this creator's Dropbox folder yet. Creator uploads sync through the chat-wall pipeline.`
+                : sourceFilter === 'ai'
+                ? `No AI-generated photos linked to this creator yet. Generate some in TJP Studio or the AI editor workflow.`
+                : `No postable photos for this creator yet. Either generate them via TJP Studio (AI Generated) or wait for creator uploads (Creator Upload). Scraped Instagram and Pinterest photos are intentionally not postable from this picker — they need AI recreation first.`}
             </div>
           )}
           <div style={{
