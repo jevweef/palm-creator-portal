@@ -845,6 +845,27 @@ export default function AISuperClonePanel({ creatorId }) {
     finally { setToggling(false) }
   }
 
+  // TJP Enabled gates whether this creator shows up in /admin/recreate-source
+  // and the AI editor's creator pool. Separate from AI Conversions because a
+  // creator can have AI refs uploaded but not yet be cleared for the TJP
+  // workflow (or vice versa for legacy creators).
+  const [togglingTjp, setTogglingTjp] = useState(false)
+  const handleToggleTjp = async () => {
+    if (!state) return
+    setTogglingTjp(true)
+    try {
+      const res = await fetch('/api/admin/creator-ai-clone', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, tjpEnabled: !state.tjpEnabled }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Toggle failed')
+      setState(prev => ({ ...prev, tjpEnabled: data.tjpEnabled }))
+    } catch (e) { setError(e.message) }
+    finally { setTogglingTjp(false) }
+  }
+
   if (loading) return <div style={{ padding: '20px', color: 'var(--foreground-muted)', fontSize: '13px' }}>Loading…</div>
   if (!state) return <div style={{ padding: '20px', color: '#E87878', fontSize: '13px' }}>{error || 'No state'}</div>
 
@@ -872,6 +893,36 @@ export default function AISuperClonePanel({ creatorId }) {
         >
           <div style={{
             position: 'absolute', top: '3px', left: state.enabled ? '21px' : '3px',
+            width: '16px', height: '16px', borderRadius: '50%',
+            background: 'white', transition: 'left 0.15s',
+          }} />
+        </button>
+      </div>
+
+      {/* TJP Enabled toggle — controls visibility in /admin/recreate-source
+          and the AI editor's creator pool. Lives next to AI Conversions so
+          both creator-level AI flags are in one place. */}
+      <div style={{ background: 'var(--card-bg-solid)', borderRadius: '14px', padding: '14px 18px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>TJP / Recreate Source</div>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+            {state.tjpEnabled
+              ? 'Enabled — appears in /admin/recreate-source and the AI editor creator pool.'
+              : 'Disabled — toggle on to surface this creator in the TJP / Recreate workflow.'}
+          </div>
+        </div>
+        <button
+          onClick={handleToggleTjp}
+          disabled={togglingTjp}
+          style={{
+            position: 'relative', width: '40px', height: '22px',
+            background: state.tjpEnabled ? '#7DD3A4' : 'rgba(255,255,255,0.1)',
+            borderRadius: '11px', border: 'none', cursor: togglingTjp ? 'wait' : 'pointer',
+            transition: 'background 0.15s', flexShrink: 0,
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: '3px', left: state.tjpEnabled ? '21px' : '3px',
             width: '16px', height: '16px', borderRadius: '50%',
             background: 'white', transition: 'left 0.15s',
           }} />

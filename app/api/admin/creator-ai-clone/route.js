@@ -10,6 +10,7 @@ const PALM_CREATORS = 'Palm Creators'
 const FIELDS = [
   'Creator', 'AKA', 'Status', 'Kling Element ID',
   'AI Conversions Enabled',
+  'TJP Enabled',
   'AI Ref Inputs',
   'AI Ref Front', 'AI Ref Back', 'AI Ref Face',
   'AI Ref Front Candidates', 'AI Ref Back Candidates', 'AI Ref Face Candidates',
@@ -59,6 +60,7 @@ function buildState(record) {
     creator: f['Creator'] || '',
     aka: f['AKA'] || '',
     enabled: !!f['AI Conversions Enabled'],
+    tjpEnabled: !!f['TJP Enabled'],
     klingElementId: f['Kling Element ID'] || '',
     inputs,
     inputsByPose,
@@ -100,17 +102,29 @@ export async function GET(request) {
   }
 }
 
-// PATCH — flip the AI Conversions Enabled toggle.
-// Body: { creatorId, enabled }
+// PATCH — flip the AI Conversions Enabled and/or TJP Enabled toggles.
+// Body: { creatorId, enabled?, tjpEnabled? } — pass whichever toggle you
+// want to change; the other field is left untouched.
 export async function PATCH(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId, enabled } = await request.json()
+    const { creatorId, enabled, tjpEnabled } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
 
-    await patchAirtableRecord(PALM_CREATORS, creatorId, { 'AI Conversions Enabled': !!enabled })
-    return NextResponse.json({ ok: true, enabled: !!enabled })
+    const patch = {}
+    if (enabled !== undefined) patch['AI Conversions Enabled'] = !!enabled
+    if (tjpEnabled !== undefined) patch['TJP Enabled'] = !!tjpEnabled
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: 'No toggle specified (enabled or tjpEnabled)' }, { status: 400 })
+    }
+
+    await patchAirtableRecord(PALM_CREATORS, creatorId, patch)
+    return NextResponse.json({
+      ok: true,
+      ...(enabled !== undefined ? { enabled: !!enabled } : {}),
+      ...(tjpEnabled !== undefined ? { tjpEnabled: !!tjpEnabled } : {}),
+    })
   } catch (err) {
     console.error('[creator-ai-clone] PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
