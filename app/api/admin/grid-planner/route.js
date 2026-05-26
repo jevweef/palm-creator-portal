@@ -273,7 +273,7 @@ export async function GET(request) {
       filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
       fields: [
         'Post Name', 'Creator', 'Channel', 'Asset', 'Task',
-        'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
+        'Status', 'Type', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
         'SMM Scheduled', 'SMM Scheduled At',
       ],
@@ -356,7 +356,7 @@ export async function GET(request) {
     if (assetIds.length) {
       const assets = await fetchAirtableRecords('Assets', {
         filterByFormula: `OR(${assetIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
-        fields: ['Asset Name', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
+        fields: ['Asset Name', 'Asset Type', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
       })
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
@@ -459,9 +459,30 @@ export async function GET(request) {
 
     const normalized = posts.map(p => {
       const f = p.fields || {}
-      const assetId = (f.Asset || [])[0]
+      const linkedAssetIds = f.Asset || []
+      const assetId = linkedAssetIds[0]
       const taskId = (f.Task || [])[0] || null
       const asset = assetId ? (assetMap[assetId] || {}) : {}
+      // Type drives whether this is a single-video reel or an N-photo carousel.
+      // Legacy posts without Type default to Reel — they predate the carousel
+      // build and the cron/send path still expects them.
+      const postType = statusName(f.Type) || 'Reel'
+      // For carousels, build an ordered list of all linked photo assets with
+      // their CDN/Dropbox URLs so the client + send route can iterate them.
+      const photos = postType === 'Carousel'
+        ? linkedAssetIds
+            .map(aid => {
+              const a = assetMap[aid]
+              if (!a) return null
+              return {
+                id: aid,
+                cdnUrl: a['CDN URL'] || '',
+                dropboxLink: a['Dropbox Shared Link'] || '',
+                name: a['Asset Name'] || '',
+              }
+            })
+            .filter(Boolean)
+        : []
       // Pick the first attachment whose type is actually an image. Some Make.com
       // uploads land in Airtable with type=text/html (URL ingest returned HTML
       // instead of image bytes) — those serve broken icons in the browser. Skip
@@ -523,6 +544,8 @@ export async function GET(request) {
         id: p.id,
         name: f['Post Name'] || '',
         status: statusName(f.Status),
+        type: postType,
+        photos, // ordered Photo-type Assets for carousel posts ([] for reels)
         accountId,
         channel: ch,
         taskId, // for grouping sibling instances in the Unassigned tray
