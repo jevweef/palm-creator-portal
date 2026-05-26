@@ -2236,6 +2236,34 @@ export default function GridPlanner({ smmMode = false } = {}) {
               loadCreator(selectedCreatorId)
             }
           }}
+          onDiscardCarousel={() => {
+            const postId = detailPost.post.id
+            // Styled confirm — never the native window.confirm (project
+            // rule). Source photos un-mark themselves; mirror Assets are
+            // left orphaned but invisible (no Palm Creators link, marked
+            // Used In Carousel).
+            setConfirmDialog({
+              title: 'Discard carousel',
+              message: 'The selected photos become available again. The carousel post is permanently deleted.',
+              confirmLabel: 'Discard',
+              onConfirm: async () => {
+                setPosts(ps => ps.filter(p => p.id !== postId))
+                setDetailPost(null)
+                try {
+                  const res = await fetch(`/api/admin/posts/carousel?postId=${encodeURIComponent(postId)}`, {
+                    method: 'DELETE',
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (!res.ok) throw new Error(data.error || `Discard failed (${res.status})`)
+                  showToast(`Carousel discarded · ${data.unmarkedPhotos || 0} photo${data.unmarkedPhotos === 1 ? '' : 's'} freed`)
+                  setTimeout(() => loadCreator(selectedCreatorId), 1500)
+                } catch (e) {
+                  showToast(`Discard failed: ${e.message}`, true)
+                  loadCreator(selectedCreatorId)
+                }
+              },
+            })
+          }}
           onThumbnailReplaced={(postId, newUrl, allUpdatedIds) => {
             // Optimistic: drop the new URL on EVERY sibling Post (not just
             // the one in the open modal). The (3) badge on a card means the
@@ -2410,7 +2438,7 @@ const smmBtn = {
   cursor: 'pointer',
 }
 
-function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, onSendBackToPrepping, smmMode = false, onMarkScheduled }) {
+function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend, onUnassign, onThumbnailReplaced, onSendBackToPrepping, onDiscardCarousel, smmMode = false, onMarkScheduled }) {
   const [copiedKey, setCopiedKey] = useState(null)
   const [uploadingThumb, setUploadingThumb] = useState(false)
   const [localThumb, setLocalThumb] = useState(null) // optimistic preview after upload
@@ -2769,10 +2797,27 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           )}
           {/* "To Prepping" removed — "Edit in Post Prep" below is a strict
               superset (flips status AND opens the full Post Prep UI). */}
+          {/* Discard button — carousel posts only. Post Prep doesn't help
+              with carousels (no thumbnail to swap, no video to re-encode).
+              Discard nukes the post and frees the source photos to be
+              picked again from the Carousels tab. */}
+          {!isScraped && isCarousel && onDiscardCarousel && !post.telegramSentAt && !post.postedAt && (
+            <button
+              onClick={onDiscardCarousel}
+              title="Delete this carousel post and free the photos for re-use"
+              style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600,
+                background: 'rgba(232, 120, 120, 0.06)', color: '#E87878',
+                border: '1px solid rgba(232, 120, 120, 0.25)', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              🗑 Discard
+            </button>
+          )}
           {/* Always-available escape hatch: open this exact post in Post Prep
               to edit thumbnail / caption / etc in the full Post Prep UI.
-              Flips status to Prepping if needed, then navigates. */}
-          {!isScraped && post.id?.startsWith('rec') && !post.telegramSentAt && !post.postedAt && (
+              Flips status to Prepping if needed, then navigates. Hidden for
+              carousels — Post Prep has no view for them; use Discard + remake
+              from the Carousels tab instead. */}
+          {!isScraped && !isCarousel && post.id?.startsWith('rec') && !post.telegramSentAt && !post.postedAt && (
             <button
               onClick={async () => {
                 try {

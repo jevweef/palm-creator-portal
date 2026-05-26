@@ -62,6 +62,7 @@ export default function CarouselsTab({ showToast }) {
   const [tray, setTray] = useState([])
   const [caption, setCaption] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [lightbox, setLightbox] = useState(null)  // {photo} when open
 
   useEffect(() => {
     fetchWithRetry('/api/admin/creators/pipeline')
@@ -110,11 +111,14 @@ export default function CarouselsTab({ showToast }) {
       .then(([photosResp, assetsResp]) => {
         // AI Generated photos linked to this creator. We deliberately
         // ignore other Source Types here — scraped IG / Pinterest are
-        // not postable as-is per the carousel feature contract.
+        // not postable as-is per the carousel feature contract. Also
+        // hide anything already submitted into a carousel — those come
+        // back available only if the carousel is discarded.
         const aiPhotos = (photosResp.photos || [])
           .filter(p =>
             p.sourceType === 'AI Generated' &&
-            (p.creatorIds || []).includes(creatorId)
+            (p.creatorIds || []).includes(creatorId) &&
+            !p.usedInCarousel
           )
           .map(p => ({
             _source: 'photo', // submit as photoId (server mirrors to Asset)
@@ -128,7 +132,10 @@ export default function CarouselsTab({ showToast }) {
           }))
 
         // Creator Upload photos from the Assets-table photo library.
-        const creatorPhotos = (assetsResp.photos || []).map(a => ({
+        // Skip ones already in a carousel post.
+        const creatorPhotos = (assetsResp.photos || [])
+          .filter(a => !a.usedInCarousel)
+          .map(a => ({
           _source: 'asset', // submit as assetId (already an Asset record)
           id: a.id,
           image: a.cdnUrl || a.thumbLarge || a.thumbSmall || a.dropboxLink || '',
@@ -300,14 +307,17 @@ export default function CarouselsTab({ showToast }) {
             {visible.map(p => {
               const selected = trayIds.has(p.id)
               return (
-                <button
+                <div
                   key={p.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleTray(p)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTray(p) } }}
                   title={selected ? 'Click to remove from carousel' : (p.caption || p.handle || 'Click to add')}
                   style={{
                     position: 'relative', aspectRatio: '1 / 1', overflow: 'hidden',
                     background: '#111', border: `2px solid ${selected ? 'var(--palm-pink)' : 'transparent'}`,
-                    borderRadius: 6, cursor: 'pointer', padding: 0,
+                    borderRadius: 6, cursor: 'pointer',
                   }}
                 >
                   {p.image && (
@@ -325,14 +335,35 @@ export default function CarouselsTab({ showToast }) {
                   }}>
                     {p.sourceType}
                   </div>
+                  {/* Expand-to-lightbox button (top-right). Stops propagation so
+                      clicking it doesn't also toggle the tray selection. */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setLightbox({ photo: p }) }}
+                    title="View full size"
+                    style={{
+                      position: 'absolute', top: 4, right: 4,
+                      width: 24, height: 24, padding: 0, borderRadius: 4,
+                      background: 'rgba(0,0,0,0.65)', border: 'none', color: '#ddd',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="15 3 21 3 21 9"/>
+                      <polyline points="9 21 3 21 3 15"/>
+                      <line x1="21" y1="3" x2="14" y2="10"/>
+                      <line x1="3" y1="21" x2="10" y2="14"/>
+                    </svg>
+                  </button>
                   {selected && (
                     <div style={{
                       position: 'absolute', inset: 0, background: 'rgba(232,160,160,0.25)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: '#fff', fontSize: 24, fontWeight: 700, textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                      pointerEvents: 'none',
                     }}>✓</div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
@@ -418,6 +449,65 @@ export default function CarouselsTab({ showToast }) {
           </button>
         </div>
       </div>
+
+      {/* Lightbox — full-size preview with add/remove action. Click backdrop
+          or Escape to close. */}
+      {lightbox && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setLightbox(null) }}
+          onKeyDown={e => { if (e.key === 'Escape') setLightbox(null) }}
+          tabIndex={-1}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }}
+        >
+          <div style={{
+            maxWidth: '90vw', maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column', gap: 12,
+            alignItems: 'center',
+          }}>
+            <img
+              src={lightbox.photo.image}
+              onError={e => { if (lightbox.photo.imageFallback) e.currentTarget.src = lightbox.photo.imageFallback }}
+              alt=""
+              style={{
+                maxWidth: '90vw', maxHeight: '78vh', objectFit: 'contain',
+                background: '#000', borderRadius: 8,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(() => {
+                const inTray = trayIds.has(lightbox.photo.id)
+                return (
+                  <button
+                    onClick={() => { toggleTray(lightbox.photo); setLightbox(null) }}
+                    style={{
+                      padding: '10px 18px', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      background: inTray ? 'rgba(255,255,255,0.06)' : 'var(--palm-pink)',
+                      color: inTray ? 'var(--foreground)' : '#1a1a1a',
+                      border: 'none', borderRadius: 6, cursor: 'pointer',
+                    }}
+                  >
+                    {inTray ? 'Remove from carousel' : 'Add to carousel'}
+                  </button>
+                )
+              })()}
+              <button
+                onClick={() => setLightbox(null)}
+                style={{
+                  padding: '10px 18px', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  background: 'transparent', color: '#aaa',
+                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

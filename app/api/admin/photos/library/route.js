@@ -19,7 +19,7 @@ export async function GET(request) {
     await requireAdminOrAiEditor()
     const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type', 'Flatlay Variants'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type', 'Flatlay Variants', 'Used In Carousel'],
       ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
@@ -85,6 +85,10 @@ export async function GET(request) {
         // Source Type defaults to "Instagram" semantically — legacy
         // rows lack the field but they all came from the IG scraper.
         sourceType: f['Source Type']?.name || f['Source Type'] || 'Instagram',
+        // Marked true after the photo is submitted into a carousel post.
+        // Carousels tab filters these out of the picker so the same image
+        // isn't reused; un-marked when the carousel is discarded.
+        usedInCarousel: !!f['Used In Carousel'],
         createdTime: r.createdTime,
       }
     }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
