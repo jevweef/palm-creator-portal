@@ -113,12 +113,15 @@ export default function CarouselsTab({ showToast }) {
         // ignore other Source Types here — scraped IG / Pinterest are
         // not postable as-is per the carousel feature contract. Also
         // hide anything already submitted into a carousel — those come
-        // back available only if the carousel is discarded.
+        // back available only if the carousel is discarded. AI carousel
+        // submissions must be admin-approved (Review Status=Approved) to
+        // surface here; legacy AI gens with no Review Status pass through.
         const aiPhotos = (photosResp.photos || [])
           .filter(p =>
             p.sourceType === 'AI Generated' &&
             (p.creatorIds || []).includes(creatorId) &&
-            !p.usedInCarousel
+            !p.usedInCarousel &&
+            (p.reviewStatus === 'Approved' || !p.reviewStatus)
           )
           .map(p => ({
             _source: 'photo', // submit as photoId (server mirrors to Asset)

@@ -5,6 +5,8 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 import { ModalHost, uiConfirm, StageBPanel } from '@/components/recreate/panels'
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
+import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
+import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
 // missing elements degrade to a center modal (so a step about Needs
@@ -774,7 +776,8 @@ export default function AiEditorPage() {
   const urlUpload = sp.get('upload') || ''
   const urlReel = sp.get('reel') || undefined
   const urlProject = sp.get('project') || undefined
-  const tab = sp.get('tab') === 'create' ? 'create' : 'workspace'
+  const tabParam = sp.get('tab')
+  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : 'workspace'
   const setTab = (k, extra = {}) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'workspace') params.delete('tab')
@@ -1019,7 +1022,18 @@ export default function AiEditorPage() {
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
           🎨 Create Scene
         </button>
+        <button onClick={() => setTab('carousel')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          📸 Carousel Upload
+        </button>
       </div>
+
+      {tab === 'carousel' && (
+        <>
+          <CarouselReferenceLibrary />
+          <CarouselUploadSection creatorId={creatorId} creators={creators} />
+        </>
+      )}
 
       {tab === 'create' && (
         <>

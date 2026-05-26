@@ -19,7 +19,7 @@ export async function GET(request) {
     await requireAdminOrAiEditor()
     const outfitsOnly = new URL(request.url).searchParams.get('outfitsOnly') === '1'
     const rows = await fetchAirtableRecords(TABLE, {
-      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type', 'Flatlay Variants', 'Used In Carousel'],
+      fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'Image', 'Dropbox Link', 'Dropbox Path', 'Posted At', 'Caption', 'Status', 'Outfit Type', 'Creator', 'Is Outfit', 'Outfit Reviewed', 'CDN URL', 'Flatlay Status', 'Flatlay CDN URL', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Locked', 'Source Type', 'Flatlay Variants', 'Used In Carousel', 'Review Status', 'Submission Batch ID'],
       ...(outfitsOnly ? { filterByFormula: `{Is Outfit} = TRUE()` } : {}),
     })
     const photos = rows.map(r => {
@@ -89,6 +89,12 @@ export async function GET(request) {
         // Carousels tab filters these out of the picker so the same image
         // isn't reused; un-marked when the carousel is discarded.
         usedInCarousel: !!f['Used In Carousel'],
+        // AI carousel submissions land as Pending and only become picker-
+        // eligible after an admin approves them in the For Review tab.
+        // Legacy AI gens that pre-date this field have no Review Status
+        // and pass the filter unchanged.
+        reviewStatus: f['Review Status']?.name || f['Review Status'] || null,
+        submissionBatchId: f['Submission Batch ID'] || null,
         createdTime: r.createdTime,
       }
     }).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
