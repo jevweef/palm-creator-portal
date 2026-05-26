@@ -17,6 +17,7 @@ export async function GET() {
         filterByFormula: `OR({Status}='Active',{Status}='Onboarding')`,
         fields: [
           'Creator', 'AKA', 'Status', 'Social Media Editing',
+          'TJP Enabled',
           'Weekly Reel Quota', 'Telegram Thread ID',
           'Profile Summary', 'Music DNA Processed',
           'Communication Chat',
@@ -47,6 +48,10 @@ export async function GET() {
         name: f.AKA || f.Creator || '(unnamed)',
         status: f.Status || '',
         socialMediaEditing: !!f['Social Media Editing'],
+        // TJP Enabled — distinct from Social Media Editing. Gates this
+        // creator's visibility in /admin/recreate-source and the AI editor
+        // creator pool. The dashboard surfaces it as the "AI" column.
+        tjpEnabled: !!f['TJP Enabled'],
         hasProfile: !!(f['Profile Summary'] && f['Profile Summary'].trim()),
         hasMusicDna: !!f['Music DNA Processed'],
         telegramThreadId: f['Telegram Thread ID'] || '',
@@ -70,20 +75,36 @@ export async function GET() {
   }
 }
 
-// PATCH — flip Social Media Editing on/off for a creator
+// PATCH — flip Social Media Editing and/or TJP Enabled for a creator.
+// Body: { creatorId, socialMediaEditing?, tjpEnabled? } — pass whichever
+// toggle you want to change. These are two separate Airtable booleans:
+//   - Social Media Editing → gates the editor pipeline
+//   - TJP Enabled → gates the AI / Recreate-Source workflow
 export async function PATCH(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorId, socialMediaEditing } = await request.json()
+    const { creatorId, socialMediaEditing, tjpEnabled } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
-    if (typeof socialMediaEditing !== 'boolean') {
-      return NextResponse.json({ error: 'socialMediaEditing must be boolean' }, { status: 400 })
+
+    const patch = {}
+    if (socialMediaEditing !== undefined) {
+      if (typeof socialMediaEditing !== 'boolean') {
+        return NextResponse.json({ error: 'socialMediaEditing must be boolean' }, { status: 400 })
+      }
+      patch['Social Media Editing'] = socialMediaEditing
+    }
+    if (tjpEnabled !== undefined) {
+      if (typeof tjpEnabled !== 'boolean') {
+        return NextResponse.json({ error: 'tjpEnabled must be boolean' }, { status: 400 })
+      }
+      patch['TJP Enabled'] = tjpEnabled
+    }
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: 'No toggle specified (socialMediaEditing or tjpEnabled)' }, { status: 400 })
     }
 
-    await patchAirtableRecord('Palm Creators', creatorId, {
-      'Social Media Editing': socialMediaEditing,
-    })
+    await patchAirtableRecord('Palm Creators', creatorId, patch)
 
     return NextResponse.json({ ok: true })
   } catch (err) {
