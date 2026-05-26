@@ -23,36 +23,26 @@ const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 // `AI Ref Inputs` photos per call. Critical: scene-agnostic language; the
 // model decides what's appropriate for the actual source image, not us
 // from a hardcoded pool.
-const SONNET_SYSTEM = `You plan pose variations for AI image generation. Given an AI-generated portrait of a creator, your job is to write 3 short Wan 2.7 image-edit prompts that produce natural pose variations of the same scene — like the next few shots in a candid photo session.
+const SONNET_SYSTEM = `You plan pose variations for AI image generation. Given a photo of a creator, write N short pose-adjustment instructions that produce natural variations — like the next few frames in a candid photo session.
 
-CORE PRINCIPLE: The output must look like the same photo session, taken seconds apart. The world stays still. Only the subject's pose, expression, gaze, hand placement, and tiny camera reframes change.
+YOUR JOB: write ONLY the pose delta — what changes from one frame to the next. The scene-lock framing and identity-preservation framing are added automatically around your text; do NOT repeat them.
 
-LOCKED CONSTANTS (every variation must preserve these from the source image — phrase your prompts in a way that makes Wan treat these as do-not-touch):
-- Subject identity: face shape, hair color, hair style, body proportions, skin tone
-- Outfit: every garment, every fabric detail (lace trim, fringe, scalloped hem, ruching, stitching, prints), every accessory, every piece of jewelry — DO NOT redesign the dress, do not alter the silhouette, do not change the hem shape, do not move buttons or straps
-- Location: every architectural detail, every piece of furniture, every fixture, every plant, every decor item, every distant building or skyline element
-- Props in frame: any objects visible or being held — exact shape, color, placement
-- Lighting: color, direction, intensity, shadows
-- Time of day, weather, atmosphere
-- Camera viewpoint: same approximate distance and angle, max 6-12 inch shift, 5-10° rotation
+CORE PRINCIPLE: Same photo session, taken seconds apart. Subtle, natural human motion — gaze shifts, soft expression changes, hand repositions, weight shifts. Holistic descriptions ("she shifts her weight onto her right leg and looks slightly off-camera") work far better than itemized lists of constraints. Wan has trained understanding of natural pose — trust it.
 
-VARIATION DIMENSIONS (each call samples ~2-3 of these to actually change):
-- Gaze direction (at-camera / off-frame-left / off-frame-right / slightly-down / slightly-up)
-- Facial expression (neutral / soft closed-mouth smile / parted lips / mid-laugh / contemplative / playful)
-- Head rotation (unchanged or 10-25° turn left/right, slight up/down tilt)
-- Body orientation (slight 3/4 turn, square-up, weight shift between legs, hip pop, slight torso twist)
-- Hand placement (one hand near hair/face, one hand at torso/hip, hands on opposite hips, both hands relaxed at sides, engaged with a prop already visible)
-- Foot/leg placement (weight on one foot with the other relaxed, slight forward step, crossed-ankle stance, slight foot reposition — REQUIRED for at least one variation when framingType is "full-body" or "three-quarter")
-- Camera framing (unchanged or slight zoom in/out, slight L-R drift)
+WHAT TO VARY (sample 2-3 per variation, never repeat the exact same combination):
+- Gaze: at-camera, off-frame-left, off-frame-right, slightly down, slightly up
+- Expression: neutral, soft closed-mouth smile, parted lips, mid-laugh, contemplative, playful
+- Head: subtle turn left/right, slight up/down tilt
+- Torso: subtle 3/4 turn, square-up, slight twist, hip pop
+- Weight/legs: weight on left leg vs right, slight forward step, crossed-ankle stance, slight foot reposition
+- Hands: near hair/face, at hip/torso, relaxed at sides, engaged with a prop already visible
+- Camera framing: subtle zoom or L/R drift
 
-CRITICAL RULES:
-- Never name specific objects that may not be in the scene ("railing", "menu", "drink") — use "a prop already visible" or describe by general type only if you can see it.
-- Never invent gestures the source can't support — if the source is a close-up portrait, don't ask for "weight shift to other foot" (no legs visible).
-- For full-body or three-quarter framing, AT LEAST ONE of the N variations MUST include a foot/weight/leg change — never return a set where every variation has identical foot placement. A photo session has the subject naturally shifting their stance.
-- Each prompt must be 2-4 short sentences, change/keep style, optimized for Wan 2.7 image-edit.
-- Each prompt must include an explicit "do not change" clause naming the outfit details (fabric texture, hem shape, accessories) and the background — say "preserve the white lace dress including its scalloped hem and lace trim exactly, do not redesign any garment detail" type wording matched to whatever you see.
-- Prompts MUST reference "image 1" as the canonical source.
-- If you include creator face/body reference images, refer to them as "additional images of the same subject for identity preservation."
+HARD RULES:
+- For "full-body" or "three-quarter" framing, AT LEAST ONE variation MUST include a weight shift / foot reposition / leg change. Never return a set where every variation has identical foot placement — that's not how real photo sessions look.
+- Each prompt must be 2 short sentences max. Plain natural language. No itemized "do not change X" clauses — those overwhelm the model. The scene lock is handled in the system wrapper.
+- Never invent gestures the framing can't support (no foot shift if it's a close-up portrait).
+- Never name specific objects unless you can see them in the source — "a prop already visible" or general type only.
 
 REFERENCE POSE SELECTION per variation:
 - "front": needed if the variation involves any front-facing pose adjustments (most variations)
@@ -81,18 +71,28 @@ const SONNET_USER_TEMPLATE = (n) => `Analyze the attached image and produce exac
 // Sonnet writes the variation-specific instruction; we wrap it with the
 // "image 1 = source, images 2-N = identity references" framing so Wan
 // gets the same structure used in /recreate/swap-creator.
+// Holistic Wan 2.7 image-edit wrapper. Mirrors the proven pattern from
+// /api/admin/recreate/swap-creator (Figure 1 = canonical canvas, Figures
+// 2-N = identity refs, short 2-3 sentence structure). The consultant
+// note in swap-creator's source is the authority here:
+//   "Itemized feature lists were overwhelming Wan and producing worse
+//    swaps. Holistic match-references / match-image-1 works better —
+//    Wan uses its trained identity understanding instead of trying to
+//    balance 45 individual feature attributes."
+// Style anchors ("raw iPhone photo, slight handheld feel") are borrowed
+// from swap-creator + pose-alt — those consistently produce naturalistic
+// candid-feel output instead of glossy studio-look.
 function buildWanPrompt(variationPrompt, refCount) {
   const refRange = refCount === 0
     ? ''
     : refCount === 1
-    ? ' Additional image (image 2) is a reference photo of the same subject for identity preservation — match her face, body proportions, and skin tone exactly.'
-    : ` Additional images (images 2 to ${1 + refCount}) are reference photos of the same subject for identity preservation — match her face, body proportions, and skin tone exactly.`
+    ? 'Image 2 is a reference photo of the same woman — match her face, skin tone, hair, and body proportions to that reference. Same person.\n\n'
+    : `Images 2 to ${1 + refCount} are reference photos of the same woman — match her face, skin tone, hair, and body proportions to those references. Same person.\n\n`
   return (
-    `Image 1 is the canonical source. Recreate the SAME scene, lighting, outfit, props, background, and camera viewpoint exactly as image 1.${refRange}\n\n` +
-    `DO NOT redesign any garment detail — the dress, fabric texture, hem shape (including any scallops, fringe, or lace trim), accessories, and jewelry must look identical to image 1.\n` +
-    `DO NOT alter the background — every architectural element, distant building, plant, furniture piece, and lighting source must remain pixel-for-pixel as in image 1.\n\n` +
-    `${variationPrompt}\n\n` +
-    `Hyper realistic, natural skin texture, candid photo session feel, no posed-model stiffness, no text overlay, no watermark.`
+    `Use image 1 as the primary reference and recreate the scene exactly: same outfit, same location, same lighting, same camera angle and framing, same composition. Match image 1 precisely for everything except the pose adjustment described below.\n\n` +
+    refRange +
+    `Pose change: ${variationPrompt}\n\n` +
+    `Hyper realistic raw iPhone photo, natural skin texture, candid photo-session feel like the next frame seconds later, slight handheld feel, true-to-life colors, no posed-model stiffness, no text overlay, no watermark.`
   )
 }
 

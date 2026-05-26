@@ -54,6 +54,13 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
   const [search, setSearch] = useState('')
   const [openPostUrl, setOpenPostUrl] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  // Filter posts to a single IG handle (or 'all'). Lets the editor zero in
+  // on one source account at a time instead of scrolling 187 random posts.
+  const [selectedHandle, setSelectedHandle] = useState('all')
+  // Pagination — grid view shows PAGE_SIZE posts per page (~4 rows at
+  // typical desktop column count); expanded view paginates by slide.
+  const PAGE_SIZE = 24
+  const [page, setPage] = useState(0)
   // Projects for the currently-selected creator — drives the ✓ Done /
   // 🔧 In Progress badges on each post and prevents duplicate project
   // starts. Re-fetched whenever the parent's creatorId changes.
@@ -177,20 +184,51 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
     )
   }, [photos])
 
+  // Unique handles with post counts — drives the filter pill row.
+  // Sorted by post count desc so the most-scraped accounts surface first.
+  const handles = useMemo(() => {
+    const counts = new Map()
+    for (const p of posts) {
+      const h = p.handle || ''
+      if (!h) continue
+      counts.set(h, (counts.get(h) || 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([handle, count]) => ({ handle, count }))
+      .sort((a, b) => b.count - a.count || a.handle.localeCompare(b.handle))
+  }, [posts])
+
   const visible = useMemo(() => {
-    if (!search.trim()) return posts
-    const q = search.toLowerCase()
-    return posts.filter(p =>
-      (p.handle || '').toLowerCase().includes(q) ||
-      p.slides.some(s => (s.caption || '').toLowerCase().includes(q))
-    )
-  }, [posts, search])
+    let list = posts
+    if (selectedHandle !== 'all') {
+      list = list.filter(p => p.handle === selectedHandle)
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(p =>
+        (p.handle || '').toLowerCase().includes(q) ||
+        p.slides.some(s => (s.caption || '').toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [posts, search, selectedHandle])
+
+  // Reset to page 0 whenever filter or search changes so we don't land on
+  // a now-empty page after narrowing the result set.
+  useEffect(() => { setPage(0) }, [selectedHandle, search, viewMode])
 
   // For Expanded view we list every slide as its own card.
   const visibleSlides = useMemo(() => {
     if (viewMode !== 'expanded') return []
     return visible.flatMap(p => p.slides)
   }, [visible, viewMode])
+
+  // Page slices — grid paginates posts, expanded paginates slides.
+  const pagedPosts = useMemo(() => visible.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [visible, page])
+  const pagedSlides = useMemo(() => visibleSlides.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [visibleSlides, page])
+  const totalPages = viewMode === 'grid'
+    ? Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+    : Math.max(1, Math.ceil(visibleSlides.length / PAGE_SIZE))
 
   return (
     <div style={{ marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -254,6 +292,41 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
         </div>
       </div>
 
+      {/* Handle filter — horizontally scrollable pill row. Lets the editor
+          drill into one IG account at a time instead of staring at the full
+          firehose. "All" pill resets to the unfiltered view. */}
+      {handles.length > 1 && (
+        <div style={{
+          display: 'flex', gap: 6, overflowX: 'auto', flexWrap: 'nowrap',
+          paddingBottom: 4, WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+        }}>
+          <button
+            onClick={() => setSelectedHandle('all')}
+            style={{
+              flexShrink: 0, padding: '5px 12px', fontSize: 11, fontWeight: 600,
+              background: selectedHandle === 'all' ? 'rgba(232,160,160,0.18)' : 'rgba(255,255,255,0.04)',
+              color: selectedHandle === 'all' ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+              border: `1px solid ${selectedHandle === 'all' ? 'rgba(232,160,160,0.5)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >All <span style={{ opacity: 0.6, marginLeft: 4 }}>{posts.length}</span></button>
+          {handles.map(({ handle, count }) => (
+            <button
+              key={handle}
+              onClick={() => setSelectedHandle(handle)}
+              style={{
+                flexShrink: 0, padding: '5px 12px', fontSize: 11, fontWeight: 600,
+                background: selectedHandle === handle ? 'rgba(232,160,160,0.18)' : 'rgba(255,255,255,0.04)',
+                color: selectedHandle === handle ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                border: `1px solid ${selectedHandle === handle ? 'rgba(232,160,160,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >@{handle} <span style={{ opacity: 0.6, marginLeft: 4 }}>{count}</span></button>
+          ))}
+        </div>
+      )}
+
       {loading && <div style={{ color: '#888', fontSize: 13, padding: 14 }}>Loading reference library…</div>}
       {!loading && !visible.length && (
         <div style={{ color: '#888', fontSize: 13, padding: 14 }}>
@@ -261,14 +334,16 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
         </div>
       )}
 
-      {/* GRID view — one card per carousel post, cover-only. Click to expand. */}
+      {/* GRID view — one card per carousel post, cover-only. Click to expand.
+          Paginated to PAGE_SIZE posts per page so the editor isn't staring
+          at hundreds of cards at once. */}
       {viewMode === 'grid' && visible.length > 0 && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
           gap: 10,
         }}>
-          {visible.map(post => {
+          {pagedPosts.map(post => {
             const cover = post.slides[0]
             const expanded = openPostUrl === post.postUrl
             const project = post.postUrl ? projectByPostUrl.get(post.postUrl) : null
@@ -427,14 +502,16 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
         </div>
       )}
 
-      {/* EXPANDED view — every slide is its own card, no grouping. */}
+      {/* EXPANDED view — every slide is its own card, no grouping. Paginated
+          identically to grid view so the page doesn't bloat to hundreds of
+          slide thumbnails. */}
       {viewMode === 'expanded' && visibleSlides.length > 0 && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
           gap: 8,
         }}>
-          {visibleSlides.map(s => (
+          {pagedSlides.map(s => (
             <div
               key={s.id}
               className="ref-slide"
@@ -502,6 +579,41 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName, onPro
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Paginator — visible whenever there's more than one page in the
+          current view (grid or expanded). Prev / page indicator / Next. */}
+      {!loading && visible.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, marginTop: 4, padding: '4px 0',
+        }}>
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            style={{
+              padding: '6px 14px', fontSize: 12, fontWeight: 600,
+              background: page === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(232,160,160,0.12)',
+              color: page === 0 ? '#555' : 'var(--palm-pink)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+              cursor: page === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >← Prev</button>
+          <span style={{ fontSize: 12, color: 'var(--foreground-muted)', minWidth: 80, textAlign: 'center' }}>
+            Page {page + 1} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            style={{
+              padding: '6px 14px', fontSize: 12, fontWeight: 600,
+              background: page >= totalPages - 1 ? 'rgba(255,255,255,0.03)' : 'rgba(232,160,160,0.12)',
+              color: page >= totalPages - 1 ? '#555' : 'var(--palm-pink)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
+              cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
+            }}
+          >Next →</button>
         </div>
       )}
 
