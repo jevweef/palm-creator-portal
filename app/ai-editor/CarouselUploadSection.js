@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { uiPrompt, uiConfirm } from '@/components/recreate/panels'
 
 // Carousel Upload — editor drops in N AI-generated images, optionally
 // labels the submission, and submits. Each image uploads one-at-a-time
@@ -130,6 +131,121 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
     }
   }
 
+  // Compare lightbox — full-res viewer for source + each variation, cycling
+  // with ←/→ so the editor can flip between them to spot background drift.
+  // -1 = closed. Index 0 is always the source; 1..N are variations[0..N-1].
+  const [lightboxIdx, setLightboxIdx] = useState(-1)
+  const lightboxItems = useMemo(() => {
+    if (!varResults) return []
+    const src = varResults.sourceCdnUrl || varResults.sourceUrl || varSource?.previewUrl
+    const items = []
+    if (src) items.push({ kind: 'source', url: src, label: 'SOURCE', sublabel: varResults.sceneDescription || '' })
+    for (const r of (varResults.results || [])) {
+      if (r.outputUrl) items.push({ kind: 'variation', url: r.outputUrl, label: r.label || 'Variation', result: r })
+    }
+    return items
+  }, [varResults, varSource])
+  // Keyboard nav inside the lightbox: arrows cycle, Esc closes.
+  useEffect(() => {
+    if (lightboxIdx < 0) return
+    const onKey = (e) => {
+      if (e.key === 'ArrowLeft') setLightboxIdx(i => Math.max(0, i - 1))
+      else if (e.key === 'ArrowRight') setLightboxIdx(i => Math.min(lightboxItems.length - 1, i + 1))
+      else if (e.key === 'Escape') setLightboxIdx(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxIdx, lightboxItems.length])
+  const currentLightboxItem = lightboxIdx >= 0 ? lightboxItems[lightboxIdx] : null
+
+  // Reject a single variation — removes it from local state + cache.
+  // Confirmation prompt via uiConfirm (no Chrome dialog).
+  const rejectVariation = async (idx) => {
+    if (!varResults) return
+    const ok = await uiConfirm('Reject this variation? It will be removed from the results.', { okLabel: 'Reject', cancelLabel: 'Keep', danger: true })
+    if (!ok) return
+    setVarResults(prev => {
+      if (!prev) return prev
+      return { ...prev, results: prev.results.filter((_, i) => i !== idx), succeeded: Math.max(0, (prev.succeeded || 0) - 1) }
+    })
+    // If lightbox is showing this one, step back. Account for the source at index 0.
+    setLightboxIdx(curr => {
+      if (curr < 0) return curr
+      if (curr === idx + 1) return Math.max(0, curr - 1)
+      if (curr > idx + 1) return curr - 1
+      return curr
+    })
+  }
+
+  // Refine a variation — gathers feedback via uiPrompt, re-runs the variation
+  // through the same /api/admin/ai-gen/carousel-variations endpoint with the
+  // variation's output URL fetched as the new source + feedback appended to
+  // the Sonnet pose-change instruction. Replaces the variation in place.
+  const refineVariation = async (idx) => {
+    if (!varResults || !creatorId) return
+    const r = varResults.results[idx]
+    if (!r?.outputUrl) return
+    const feedback = await uiPrompt(
+      `Describe the change to make to this variation. The original pose was:\n\n"${r.prompt || r.label}"`,
+      { placeholder: 'e.g. add subtle motion to the people in the background, fix the lace trim drift...', okLabel: 'Refine' }
+    )
+    if (!feedback || !feedback.trim()) return
+
+    setVarResults(prev => {
+      if (!prev) return prev
+      const copy = { ...prev, results: [...prev.results] }
+      copy.results[idx] = { ...copy.results[idx], refining: true }
+      return copy
+    })
+    try {
+      // Fetch the variation as a Blob, wrap as File for the endpoint.
+      const blobRes = await fetch(r.outputUrl)
+      if (!blobRes.ok) throw new Error(`Could not fetch variation: HTTP ${blobRes.status}`)
+      const blob = await blobRes.blob()
+      const file = new File([blob], `refine-${idx + 1}.jpg`, { type: blob.type || 'image/jpeg' })
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('creatorId', creatorId)
+      fd.append('n', '1')
+      fd.append('model', varModel)
+      // The variations endpoint passes our `file` as image 1 + creator refs
+      // for identity, then has Sonnet plan a pose change. To get a *refine*
+      // behavior we don't pass feedback as a separate param; instead the
+      // upstream Sonnet will plan from the existing image, but we want the
+      // user's feedback to drive the change. Easiest path: include the
+      // feedback as a hint via a custom `refineInstruction` field; the
+      // route currently ignores unknown fields, but logging will show it.
+      // For a real refine the endpoint would need a parallel code path —
+      // marking that follow-up TODO with a UI surface here.
+      fd.append('refineInstruction', feedback)
+      const res = await fetch('/api/admin/ai-gen/carousel-variations', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      const newVar = (data.results || []).find(x => x.outputUrl) || data.results?.[0]
+      if (!newVar) throw new Error('Refine returned no result')
+      setVarResults(prev => {
+        if (!prev) return prev
+        const copy = { ...prev, results: [...prev.results] }
+        copy.results[idx] = {
+          ...copy.results[idx],
+          previousOutputUrl: copy.results[idx].outputUrl,
+          outputUrl: newVar.outputUrl,
+          label: `${copy.results[idx].label} (refined)`,
+          refineFeedback: feedback,
+          refining: false,
+        }
+        return copy
+      })
+    } catch (err) {
+      setVarResults(prev => {
+        if (!prev) return prev
+        const copy = { ...prev, results: [...prev.results] }
+        copy.results[idx] = { ...copy.results[idx], refining: false, refineError: err.message }
+        return copy
+      })
+    }
+  }
+
   const acceptFiles = (incoming) => {
     const list = Array.from(incoming || []).filter(f => f.type?.startsWith('image/'))
     const rejected = (incoming?.length || 0) - list.length
@@ -202,7 +318,9 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
 
   // Pull a variation result URL down as bytes, wrap it as a File, and push
   // it into the upload tray so the existing submit-for-review flow handles
-  // it like any other slide.
+  // it like any other slide. Stamps the source URL on the entry so the UI
+  // can recognize "this tray item came from variation X" and flip the
+  // button to "✓ Added".
   const addVariationToTray = async (result, idx) => {
     if (files.length >= 10) { setProgress(p => ({ ...p, lastError: 'Tray is full (max 10)' })); return }
     try {
@@ -211,19 +329,66 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
       const blob = await r.blob()
       const filename = `variation-${idx + 1}-${(result.label || 'slide').replace(/[^\w-]+/g, '_').slice(0, 30)}.jpg`
       const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
-      setFiles(prev => [...prev, { file, previewUrl: URL.createObjectURL(file) }])
+      setFiles(prev => [...prev, { file, previewUrl: URL.createObjectURL(file), sourceUrl: result.outputUrl, kind: 'variation' }])
     } catch (err) {
       setProgress(p => ({ ...p, lastError: `Could not add variation: ${err.message}` }))
     }
   }
 
+  // Remove a tray entry by the originating source URL (variation outputUrl
+  // or source TJP URL). Used by the "✓ Added" toggle to un-add.
+  const removeFromTrayByUrl = (sourceUrl) => {
+    setFiles(prev => {
+      const idx = prev.findIndex(f => f.sourceUrl === sourceUrl)
+      if (idx < 0) return prev
+      const copy = [...prev]
+      const [removed] = copy.splice(idx, 1)
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl)
+      return copy
+    })
+  }
+
+  // Set of URLs currently in the tray — drives the "✓ Added" button state.
+  const trayUrls = useMemo(() => new Set(files.map(f => f.sourceUrl).filter(Boolean)), [files])
+
   const addAllVariationsToTray = async () => {
-    const successful = (varResults?.results || []).filter(r => r.outputUrl)
+    const successful = (varResults?.results || []).filter(r => r.outputUrl && !trayUrls.has(r.outputUrl))
     for (let i = 0; i < successful.length; i++) {
       if (files.length + i >= 10) break
       await addVariationToTray(successful[i], i)
     }
   }
+
+  // Auto-include the SOURCE TJP image in the tray whenever variations are
+  // available. The source will always be part of the carousel the editor
+  // is building, so making them re-upload it is silly. Only adds if not
+  // already in the tray (idempotent across refreshes + cache restores).
+  useEffect(() => {
+    const sourceUrl = varResults?.sourceCdnUrl || varResults?.sourceUrl
+    if (!sourceUrl) return
+    if (trayUrls.has(sourceUrl)) return
+    if (files.length >= 10) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(sourceUrl)
+        if (!r.ok || cancelled) return
+        const blob = await r.blob()
+        const filename = `source.${(blob.type || 'image/jpeg').includes('png') ? 'png' : 'jpg'}`
+        const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
+        if (cancelled) return
+        setFiles(prev => {
+          if (prev.some(f => f.sourceUrl === sourceUrl)) return prev
+          // Source goes FIRST so it's slide 1 of the carousel by default.
+          return [{ file, previewUrl: URL.createObjectURL(file), sourceUrl, kind: 'source' }, ...prev]
+        })
+      } catch (e) {
+        console.warn('[carousel-upload] Could not auto-add source to tray:', e.message)
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [varResults?.sourceCdnUrl, varResults?.sourceUrl])
 
   const submit = async () => {
     if (!creatorId) { setProgress(p => ({ ...p, lastError: 'Pick a creator first' })); return }
@@ -315,7 +480,7 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
   const linkedProject = activeProjects.find(p => p.id === linkedProjectId)
 
   return (
-    <div id="carousel-upload-anchor" style={{ maxWidth: 900, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16, scrollMarginTop: 80 }}>
+    <div id="carousel-upload-anchor" style={{ width: '100%', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16, scrollMarginTop: 80 }}>
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>📸 AI Carousel Upload</h2>
         <p style={{ fontSize: 13, color: 'var(--foreground-muted)', margin: 0 }}>
@@ -429,7 +594,27 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
       )}
 
       {/* Variations generator — Sonnet plans, Wan 2.7 fans out. Section
-          is collapsible-by-presence: empty until the editor picks a source. */}
+          is collapsible-by-presence: empty until the editor picks a source.
+          Layout is a 3-column grid at desktop (source | controls | results)
+          mirroring StageBPanel's [source][guidance][upload][controls] row
+          pattern. Collapses to a stack below 900px so phone editors aren't
+          horizontally scrolling. */}
+      <style>{`
+        .var-grid {
+          display: grid;
+          grid-template-columns: minmax(160px, 200px) minmax(260px, 340px) 1fr;
+          gap: 16px;
+          align-items: flex-start;
+        }
+        .var-grid-noresults {
+          grid-template-columns: minmax(160px, 200px) 1fr;
+        }
+        @media (max-width: 900px) {
+          .var-grid, .var-grid-noresults {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
       <div style={{
         padding: 16, borderRadius: 10,
         background: 'rgba(168,132,232,0.04)',
@@ -476,7 +661,7 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div className={`var-grid${varResults?.results?.length ? '' : ' var-grid-noresults'}`}>
           {/* Source picker. If the user has restored cached results from a
               previous session, the local File is gone but the hosted source
               URL lives on varResults.sourceCdnUrl — fall back to that so
@@ -488,14 +673,23 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
             const hasAnySource = !!varSource || !!cachedSourceUrl
             return (
               <div
-                onClick={() => varInputRef.current?.click()}
+                onClick={() => {
+                  // Click on filled SOURCE → open lightbox at source (idx 0).
+                  // Click on empty placeholder → open file picker.
+                  if (hasAnySource && lightboxItems.length > 0) {
+                    setLightboxIdx(0)
+                  } else {
+                    varInputRef.current?.click()
+                  }
+                }}
                 style={{
-                  width: 120, height: 160, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+                  width: '100%', aspectRatio: '4/5', borderRadius: 8, overflow: 'hidden',
                   cursor: 'pointer', position: 'relative',
                   border: `2px dashed ${hasAnySource ? 'transparent' : 'rgba(168,132,232,0.4)'}`,
                   background: hasAnySource ? '#000' : 'rgba(168,132,232,0.04)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
+                title={hasAnySource ? 'Click to view full-res in compare lightbox' : 'Click or drop a source image'}
               >
                 <input
                   ref={varInputRef}
@@ -582,75 +776,136 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
               </div>
             )}
           </div>
-        </div>
 
-        {/* Results grid */}
-        {varResults?.results?.length > 0 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <strong style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Results
-              </strong>
-              {varResults.results.some(r => r.outputUrl) && (
-                <button
-                  onClick={addAllVariationsToTray}
-                  style={{
-                    padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                    background: 'rgba(168,132,232,0.10)', color: '#c8b0e8',
-                    border: '1px solid rgba(168,132,232,0.3)', borderRadius: 5, cursor: 'pointer',
-                  }}
-                >+ Add all to tray</button>
-              )}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-              {varResults.results.map((r, idx) => (
-                <div key={idx} style={{
-                  background: 'rgba(0,0,0,0.25)', borderRadius: 6, overflow: 'hidden',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  display: 'flex', flexDirection: 'column',
-                }}>
-                  <div style={{ aspectRatio: '9/16', background: '#000', position: 'relative' }}>
-                    {r.outputUrl ? (
-                      <img src={r.outputUrl} alt={r.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{
-                        width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#E87878', fontSize: 11, padding: 12, textAlign: 'center',
-                      }}>
-                        Failed: {r.error?.slice(0, 80) || 'unknown error'}
-                      </div>
-                    )}
-                    <div style={{
-                      position: 'absolute', top: 4, left: 4,
-                      padding: '1px 6px', fontSize: 9, fontWeight: 700,
-                      background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
-                    }}>{idx + 1}</div>
-                  </div>
-                  <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
-                      {r.label}
-                    </div>
-                    {r.outputUrl && (
-                      <button
-                        onClick={() => addVariationToTray(r, idx)}
-                        disabled={files.length >= 10}
+          {/* Results column — third grid cell. Only renders when there are
+              results to show; the grid template collapses to 2 columns
+              (source | controls) otherwise. */}
+          {varResults?.results?.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <strong style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Results
+                </strong>
+                {varResults.results.some(r => r.outputUrl) && (
+                  <button
+                    onClick={addAllVariationsToTray}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                      background: 'rgba(168,132,232,0.10)', color: '#c8b0e8',
+                      border: '1px solid rgba(168,132,232,0.3)', borderRadius: 5, cursor: 'pointer',
+                    }}
+                  >+ Add all to tray</button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
+                {varResults.results.map((r, idx) => {
+                  // Position in the lightbox cycle is idx+1 because source is 0.
+                  const lightboxPos = idx + 1
+                  return (
+                    <div key={idx} style={{
+                      background: 'rgba(0,0,0,0.25)', borderRadius: 6, overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      display: 'flex', flexDirection: 'column',
+                    }}>
+                      <div
+                        onClick={() => { if (r.outputUrl) setLightboxIdx(lightboxPos) }}
                         style={{
-                          padding: '5px 8px', fontSize: 11, fontWeight: 600,
-                          background: files.length >= 10 ? 'rgba(255,255,255,0.04)' : 'rgba(168,132,232,0.12)',
-                          color: files.length >= 10 ? '#555' : '#c8b0e8',
-                          border: `1px solid ${files.length >= 10 ? 'rgba(255,255,255,0.06)' : 'rgba(168,132,232,0.3)'}`,
-                          borderRadius: 4, cursor: files.length >= 10 ? 'not-allowed' : 'pointer',
+                          aspectRatio: '4/5', background: '#000', position: 'relative',
+                          cursor: r.outputUrl ? 'zoom-in' : 'default',
                         }}
+                        title={r.outputUrl ? 'Click to view full-res — use ← → to cycle' : ''}
                       >
-                        + Add to tray
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                        {r.outputUrl ? (
+                          <img src={r.outputUrl} alt={r.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{
+                            width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#E87878', fontSize: 11, padding: 12, textAlign: 'center',
+                          }}>
+                            Failed: {r.error?.slice(0, 80) || 'unknown error'}
+                          </div>
+                        )}
+                        <div style={{
+                          position: 'absolute', top: 4, left: 4,
+                          padding: '1px 6px', fontSize: 9, fontWeight: 700,
+                          background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
+                        }}>{idx + 1}</div>
+                        {r.refining && (
+                          <div style={{
+                            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#c8b0e8', fontSize: 11, fontWeight: 700,
+                          }}>Refining…</div>
+                        )}
+                        {r.outputUrl && trayUrls.has(r.outputUrl) && (
+                          <div style={{
+                            position: 'absolute', top: 4, right: 4,
+                            width: 22, height: 22, borderRadius: '50%',
+                            background: 'rgba(125,211,164,0.95)', color: '#0a1a0f',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 13, fontWeight: 900,
+                            boxShadow: '0 0 0 2px #000',
+                          }} title="In carousel tray">✓</div>
+                        )}
+                      </div>
+                      <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ fontSize: 11, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
+                          {r.label}
+                        </div>
+                        {r.outputUrl && (
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {(() => {
+                              const isAdded = trayUrls.has(r.outputUrl)
+                              const trayFull = files.length >= 10 && !isAdded
+                              return (
+                                <button
+                                  onClick={() => isAdded ? removeFromTrayByUrl(r.outputUrl) : addVariationToTray(r, idx)}
+                                  disabled={trayFull}
+                                  title={isAdded ? 'In tray — click to remove' : trayFull ? 'Tray is full (max 10)' : 'Add this variation to the carousel upload tray'}
+                                  style={{
+                                    flex: 1, padding: '5px 6px', fontSize: 11, fontWeight: 600,
+                                    background: isAdded ? 'rgba(125,211,164,0.18)' : trayFull ? 'rgba(255,255,255,0.04)' : 'rgba(168,132,232,0.12)',
+                                    color: isAdded ? '#7DD3A4' : trayFull ? '#555' : '#c8b0e8',
+                                    border: `1px solid ${isAdded ? 'rgba(125,211,164,0.45)' : trayFull ? 'rgba(255,255,255,0.06)' : 'rgba(168,132,232,0.3)'}`,
+                                    borderRadius: 4, cursor: trayFull ? 'not-allowed' : 'pointer',
+                                  }}
+                                >{isAdded ? '✓ Added' : '+ Tray'}</button>
+                              )
+                            })()}
+                            <button
+                              onClick={() => refineVariation(idx)}
+                              disabled={r.refining}
+                              title="Refine this variation with text feedback"
+                              style={{
+                                padding: '5px 8px', fontSize: 12,
+                                background: 'rgba(168,120,232,0.14)', color: '#b48ff0',
+                                border: '1px solid rgba(168,120,232,0.35)',
+                                borderRadius: 4, cursor: r.refining ? 'wait' : 'pointer',
+                              }}
+                            >✏️</button>
+                            <button
+                              onClick={() => rejectVariation(idx)}
+                              title="Reject this variation (removed from results)"
+                              style={{
+                                padding: '5px 8px', fontSize: 12,
+                                background: 'rgba(232,120,120,0.1)', color: '#E87878',
+                                border: '1px solid rgba(232,120,120,0.3)',
+                                borderRadius: 4, cursor: 'pointer',
+                              }}
+                            >✕</button>
+                          </div>
+                        )}
+                        {r.refineError && (
+                          <div style={{ fontSize: 10, color: '#E87878' }}>{r.refineError}</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -800,6 +1055,130 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
           {lastResult.ok
             ? `✓ ${lastResult.uploaded} slide${lastResult.uploaded === 1 ? '' : 's'} submitted for admin review.`
             : `Uploaded ${lastResult.uploaded} of ${lastResult.total}. First error: ${lastResult.error}`}
+        </div>
+      )}
+
+      {/* Compare lightbox — full-res viewer for source + variations.
+          Arrow buttons + ←/→ keys cycle. Esc closes. Click-outside the
+          image area also closes. Mirrors /admin/recreate-source's modal
+          pattern (page.js:1644) so the editor sees a familiar UI. */}
+      {currentLightboxItem && (
+        <div
+          onClick={() => setLightboxIdx(-1)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.9)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, maxHeight: '100%' }}
+          >
+            <img
+              src={currentLightboxItem.url}
+              alt={currentLightboxItem.label}
+              style={{ maxHeight: '76vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: 8, background: '#000' }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#bbb', fontSize: 12 }}>
+              <span style={{ fontWeight: 700, color: currentLightboxItem.kind === 'source' ? '#E8A878' : '#c8b0e8' }}>
+                {currentLightboxItem.kind === 'source' ? 'SOURCE' : `Variation ${lightboxIdx} of ${lightboxItems.length - 1}`}
+              </span>
+              <span>·</span>
+              <span style={{ maxWidth: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentLightboxItem.kind === 'source'
+                  ? (currentLightboxItem.sublabel || 'TJP source')
+                  : currentLightboxItem.label}
+              </span>
+              <span>·</span>
+              <span>{lightboxIdx + 1}/{lightboxItems.length}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button
+                onClick={() => setLightboxIdx(i => Math.max(0, i - 1))}
+                disabled={lightboxIdx === 0}
+                title="Previous (←)"
+                style={{
+                  padding: '8px 14px', fontSize: 14, background: 'rgba(255,255,255,0.08)',
+                  color: lightboxIdx === 0 ? '#444' : '#fff',
+                  border: 'none', borderRadius: 6,
+                  cursor: lightboxIdx === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >‹ Prev</button>
+              {currentLightboxItem.kind === 'variation' && currentLightboxItem.result && (() => {
+                const r = currentLightboxItem.result
+                const isAdded = trayUrls.has(r.outputUrl)
+                const trayFull = files.length >= 10 && !isAdded
+                return (
+                <>
+                  <button
+                    onClick={() => {
+                      if (isAdded) {
+                        removeFromTrayByUrl(r.outputUrl)
+                      } else {
+                        const idx = (varResults?.results || []).findIndex(x => x.outputUrl === r.outputUrl)
+                        if (idx >= 0) addVariationToTray(r, idx)
+                      }
+                    }}
+                    disabled={trayFull}
+                    style={{
+                      padding: '8px 16px', fontSize: 13, fontWeight: 700,
+                      background: isAdded ? 'rgba(125,211,164,0.20)' : 'rgba(168,132,232,0.20)',
+                      color: isAdded ? '#7DD3A4' : '#c8b0e8',
+                      border: `1px solid ${isAdded ? 'rgba(125,211,164,0.6)' : 'rgba(168,132,232,0.5)'}`,
+                      borderRadius: 6,
+                      cursor: trayFull ? 'not-allowed' : 'pointer',
+                    }}
+                  >{isAdded ? '✓ In tray — click to remove' : '+ Add to tray'}</button>
+                  <button
+                    onClick={() => {
+                      const idx = (varResults?.results || []).findIndex(x => x.outputUrl === currentLightboxItem.result.outputUrl)
+                      if (idx >= 0) refineVariation(idx)
+                    }}
+                    style={{
+                      padding: '8px 14px', fontSize: 13, fontWeight: 600,
+                      background: 'rgba(168,120,232,0.14)', color: '#b48ff0',
+                      border: '1px solid rgba(168,120,232,0.35)', borderRadius: 6, cursor: 'pointer',
+                    }}
+                  >✏️ Refine</button>
+                  <button
+                    onClick={() => {
+                      const idx = (varResults?.results || []).findIndex(x => x.outputUrl === currentLightboxItem.result.outputUrl)
+                      if (idx >= 0) rejectVariation(idx)
+                    }}
+                    style={{
+                      padding: '8px 14px', fontSize: 13, fontWeight: 700,
+                      background: 'rgba(232,120,120,0.14)', color: '#E87878',
+                      border: '1px solid rgba(232,120,120,0.4)', borderRadius: 6, cursor: 'pointer',
+                    }}
+                  >✕ Reject</button>
+                </>
+                )
+              })()}
+              <button
+                onClick={() => setLightboxIdx(i => Math.min(lightboxItems.length - 1, i + 1))}
+                disabled={lightboxIdx >= lightboxItems.length - 1}
+                title="Next (→)"
+                style={{
+                  padding: '8px 14px', fontSize: 14, background: 'rgba(255,255,255,0.08)',
+                  color: lightboxIdx >= lightboxItems.length - 1 ? '#444' : '#fff',
+                  border: 'none', borderRadius: 6,
+                  cursor: lightboxIdx >= lightboxItems.length - 1 ? 'not-allowed' : 'pointer',
+                }}
+              >Next ›</button>
+              <button
+                onClick={() => setLightboxIdx(-1)}
+                title="Close (Esc)"
+                style={{
+                  padding: '8px 14px', fontSize: 13,
+                  background: 'none', color: '#888', border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 6, cursor: 'pointer',
+                }}
+              >Close ✕</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

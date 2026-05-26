@@ -98,16 +98,15 @@ export default function Header() {
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
             </>
           ) : isAiEditor ? (
-            // AI Editor gets a focused two-link nav. Their workflow lives
-            // at /ai-editor (the Stage B + scene pipeline) and the Outfit
-            // Library at /admin/recreate-source. Nothing else from the
-            // generic nav applies to their job.
+            // AI Editor gets a single-link nav while we relocate the
+            // Outfit Library out of /admin/* into the /ai-editor workflow.
+            // Previously this had an "Outfit Library" link to
+            // /admin/recreate-source which exposed the admin sidebar
+            // (including /admin/inspo) to the ai_editor role — a real
+            // privilege leak. Hard-blocked here AND in app/admin/layout.js.
+            // Re-introduce Outfit Library as an /ai-editor tab when ready.
             <>
               <Link href="/ai-editor" style={linkStyle(pathname?.startsWith('/ai-editor'))}>AI Editor</Link>
-              <Link href="/admin/recreate-source?tab=photos&sub=outfits"
-                style={linkStyle(pathname?.startsWith('/admin/recreate-source'))}>
-                Outfit Library
-              </Link>
             </>
           ) : isCreatorPath ? (
             <>

@@ -73,14 +73,14 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
   const isChatManager = role === 'chat_manager'
-  // AI editor gets scoped access — /admin/recreate-source (Outfit
-  // Library + Free-form Gen) and /admin/inspo (so they can browse the
-  // inspo pipeline for ideas). Everything else under /admin/* is
-  // admin-only.
+  // AI editor: HARD-BLOCKED from all /admin/* paths. Previously scoped to
+  // /admin/recreate-source + /admin/inspo, but that surfaced the full
+  // admin sidebar (pipeline controls, scrape buttons, etc.) to a role
+  // that shouldn't see any /admin URL. Outfit Library + Inspo Board are
+  // being relocated into the /ai-editor workflow; until then, ai_editor
+  // users get bounced to /ai-editor on every /admin visit.
   const isAiEditor = role === 'ai_editor'
-  const aiEditorAllowedPath =
-       pathname?.startsWith('/admin/recreate-source')
-    || pathname?.startsWith('/admin/inspo')
+  const aiEditorAllowedPath = false
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -142,8 +142,10 @@ export default function AdminLayout({ children }) {
 
   const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
   const isInboxOwner = OWNER_ONLY_EMAILS.includes(userEmail)
+  // AI editor: empty sidebar (they're being redirected anyway, but this
+  // ensures no /admin link ever renders for them).
   const NAV_ITEMS = (isAiEditor
-      ? ADMIN_NAV.filter(item => item.href === '/admin/recreate-source' || item.href === '/admin/inspo')
+      ? []
       : isAdmin ? ADMIN_NAV : EDITOR_NAV)
     .filter(item => {
       if (item.ownerOnly && !isInboxOwner) return false
