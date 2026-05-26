@@ -7,6 +7,9 @@ import { uploadImageBytes, isCloudflareImagesConfigured } from '@/lib/cloudflare
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { POSES } from '@/lib/aiCloneConfig'
+import { generateVariation, pickModelSize } from '@/lib/imageEditAdapters'
+
+const ALLOWED_MODELS = new Set(['wan', 'gpt', 'nano'])
 
 export const dynamic = 'force-dynamic'
 // Bumped to 600s. With 3 parallel Wan 2.7 image-edit-pro jobs the
@@ -291,6 +294,8 @@ export async function POST(request) {
     const creatorId = form.get('creatorId')
     const rawN = parseInt(form.get('n') || '3', 10)
     const n = Math.max(1, Math.min(5, isNaN(rawN) ? 3 : rawN))
+    const modelRaw = String(form.get('model') || 'wan').toLowerCase()
+    const model = ALLOWED_MODELS.has(modelRaw) ? modelRaw : 'wan'
 
     if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'file field required (multipart)' }, { status: 400 })
@@ -333,18 +338,25 @@ export async function POST(request) {
     if (!sourceUrl) {
       return NextResponse.json({ error: 'Failed to upload source image' }, { status: 500 })
     }
-    const wanSize = pickWanSize(srcW, srcH)
-    console.log(`[carousel-variations] source ${srcW}x${srcH} → Wan size ${wanSize}`)
+    const outputSize = pickModelSize(model, srcW, srcH)
+    console.log(`[carousel-variations] model=${model} source ${srcW}x${srcH} → output ${outputSize}`)
 
     // 3. Sonnet analyzes the source and plans N variations.
     console.log(`[carousel-variations] Sonnet planning ${n} variations for ${aka}…`)
     const plan = await planVariations(sourceUrl, n)
     console.log(`[carousel-variations] Plan: ${plan.framingType}, ${plan.variations.length} variations`)
 
-    // 4. Submit N Wan calls in parallel. Each fails independently — we
-    //    collect successes + per-variation errors rather than aborting
-    //    the whole batch.
-    const submissions = await Promise.all(plan.variations.map(async (v, i) => {
+    // 4. Generate all N variations in parallel via the chosen model. The
+    //    adapter (lib/imageEditAdapters.js) hides the model-specific
+    //    submit/poll/decode details; route just gets a Buffer back per
+    //    variation. Each variation fails independently — we collect
+    //    successes + per-variation errors rather than aborting the batch.
+    const tok = await getDropboxAccessToken()
+    const ns = await getDropboxRootNamespaceId(tok)
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const safeAka = (aka || 'unknown').replace(/[^a-zA-Z0-9_-]+/g, '_')
+
+    const results = await Promise.all(plan.variations.map(async (v, i) => {
       try {
         // Fall back to Front refs if Sonnet asked for a pose we don't have
         // (e.g., Back requested but creator only has Front + Face).
@@ -354,37 +366,61 @@ export async function POST(request) {
           refsByPose.front.length ? ['front'] : ['face']
         )
         const refUrls = pickRefs(effectivePoses, refsByPose)
-        const images = [sourceUrl, ...refUrls]
-        const promptForWan = buildWanPrompt(v.prompt, refUrls.length)
-        console.log(`[carousel-variations] Variation ${i + 1} (${v.label}) → ${images.length} images, poses: ${effectivePoses.join(',')}`)
-        const task = await submitWaveSpeedTask(WAN_MODEL, {
-          images,
-          prompt: promptForWan,
-          size: wanSize,
-          seed: -1,
+        const promptForModel = buildWanPrompt(v.prompt, refUrls.length)
+        console.log(`[carousel-variations] Variation ${i + 1} (${v.label}) → model=${model}, ${1 + refUrls.length} images, poses: ${effectivePoses.join(',')}`)
+
+        const { outputBuffer, contentType } = await generateVariation({
+          model,
+          sourceUrl,
+          refUrls,
+          prompt: promptForModel,
+          srcW,
+          srcH,
         })
+
+        // Upload the output to Dropbox + CF Images so the URL is stable
+        // (Wan's WaveSpeed URL expires; GPT/Nano return base64 only).
+        const ext = (contentType.includes('png') ? 'png' : 'jpg')
+        const shortid = Math.random().toString(36).slice(2, 10)
+        const dbxPath = `/Palm Ops/AI Carousel Variations/${safeAka}/${dateStr}/var-${i + 1}-${shortid}.${ext}`
+        await uploadToDropbox(tok, ns, dbxPath, outputBuffer, { overwrite: true })
+        let dbxLink = ''
+        try { dbxLink = await createDropboxSharedLink(tok, ns, dbxPath) } catch {}
+        const dbxRaw = dbxLink ? dbxLink.replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
+
+        // CF Images for fast UI delivery.
+        let cdnOutputUrl = null
+        if (isCloudflareImagesConfigured()) {
+          try {
+            const cfId = `carousel-var-out-${safeAka}-${dateStr}-${i + 1}-${shortid}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+            const r = await uploadImageBytes(outputBuffer, cfId, contentType)
+            const CF_HASH = process.env.CLOUDFLARE_IMAGES_HASH
+            cdnOutputUrl = `https://imagedelivery.net/${CF_HASH}/${r.id}/format=jpeg,quality=92`
+          } catch (e) {
+            console.warn(`[carousel-variations] CF Images upload variation ${i + 1} failed:`, e.message)
+          }
+        }
+
         return {
           variationIndex: i,
           label: v.label,
           prompt: v.prompt,
-          promptSent: promptForWan,
+          promptSent: promptForModel,
           posesUsed: effectivePoses,
           refCount: refUrls.length,
-          taskId: task.id,
+          modelUsed: model,
+          outputUrl: cdnOutputUrl || dbxRaw,
+          outputCdnUrl: cdnOutputUrl,
+          outputDropboxPath: dbxPath,
         }
       } catch (err) {
-        return { variationIndex: i, label: v.label, prompt: v.prompt, error: err.message }
-      }
-    }))
-
-    // 5. Poll all submitted tasks in parallel.
-    const results = await Promise.all(submissions.map(async (s) => {
-      if (s.error) return s
-      try {
-        const outputUrl = await waitForTask(s.taskId)
-        return { ...s, outputUrl }
-      } catch (err) {
-        return { ...s, error: err.message }
+        return {
+          variationIndex: i,
+          label: v.label,
+          prompt: v.prompt,
+          modelUsed: model,
+          error: err.message,
+        }
       }
     }))
 
@@ -396,6 +432,8 @@ export async function POST(request) {
       sceneDescription: plan.sceneDescription || '',
       framingType: plan.framingType || '',
       creator: { id: creator.id, aka },
+      model,
+      outputSize,
       requested: n,
       succeeded: okCount,
       results,

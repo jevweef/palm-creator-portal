@@ -37,6 +37,23 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
   const [varResults, setVarResults] = useState(null)  // API response
   const [varError, setVarError] = useState('')
   const varInputRef = useRef(null)
+  // Model selection: 'wan' (current default), 'gpt' (GPT-Image-2),
+  // 'nano' (Gemini 2.5 Flash Image / Nano Banana). Persisted per-user so
+  // the editor's choice survives refresh + tab switches.
+  const [varModel, setVarModelState] = useState('wan')
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const saved = window.localStorage.getItem('carouselVarModel')
+      if (saved === 'wan' || saved === 'gpt' || saved === 'nano') setVarModelState(saved)
+    } catch {}
+  }, [])
+  const setVarModel = (m) => {
+    setVarModelState(m)
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem('carouselVarModel', m) } catch {}
+    }
+  }
 
   // In-progress projects for the current creator (Planning/Submitted).
   // Editor optionally links a submission to one so admin review sees
@@ -170,6 +187,7 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
       fd.append('file', varSource.file)
       fd.append('creatorId', creatorId)
       fd.append('n', String(varN))
+      fd.append('model', varModel)
       const res = await fetch('/api/admin/ai-gen/carousel-variations', { method: 'POST', body: fd })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
@@ -425,6 +443,37 @@ export default function CarouselUploadSection({ creatorId, creators, linkedProje
           <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
             Drop a single TJP image. The system analyzes it, then generates 3 candid-style pose variations using the creator&apos;s Super Clone reference photos. ~60-90 sec.
           </div>
+        </div>
+
+        {/* Model selector. Different image-edit providers have different
+            quality / aspect-ratio / content-policy tradeoffs — let the
+            editor pick which one to try per generation. Choice persists
+            per-user via localStorage. */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Model:</label>
+          <div style={{ display: 'inline-flex', borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+            {[
+              { id: 'wan', label: 'Wan 2.7', hint: 'WaveSpeed · proven baseline · loose content policy' },
+              { id: 'gpt', label: 'GPT-Image-2', hint: 'WaveSpeed-routed · 2k resolution · quality: high · best prompt adherence' },
+              { id: 'nano', label: 'Nano Banana 2', hint: 'WaveSpeed-routed · 2k resolution · jpeg output · strong prompt adherence' },
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setVarModel(opt.id)}
+                disabled={varGenerating}
+                title={opt.hint}
+                style={{
+                  padding: '6px 14px', fontSize: 12, fontWeight: 700,
+                  background: varModel === opt.id ? 'rgba(168,132,232,0.22)' : 'transparent',
+                  color: varModel === opt.id ? '#c8b0e8' : '#888',
+                  border: 'none', cursor: varGenerating ? 'default' : 'pointer',
+                }}
+              >{opt.label}</button>
+            ))}
+          </div>
+          {(varModel === 'gpt' || varModel === 'nano') && (
+            <span style={{ fontSize: 11, color: '#E8B878' }}>⚠ content policy may refuse suggestive imagery (routed through WaveSpeed)</span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
