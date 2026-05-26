@@ -77,6 +77,7 @@ export async function GET(request) {
         'Used By Chat Manager At',
         'Used By Chat Manager',
         'Used By Chat Manager For',
+        'Used In Carousel',
       ],
     })
 
@@ -129,6 +130,11 @@ export async function GET(request) {
         createdTime: a.createdTime,
         usedAt: a.fields['Used By Chat Manager At'] || null,
         usedFor, // 'Wall Post' | 'Mass Message' | null
+        // Marked true when the Asset is submitted as a carousel slide.
+        // CarouselsTab filters these out of the Creator Upload picker so
+        // the same photo isn't reused. Un-marked when the carousel is
+        // discarded from the Grid Planner.
+        usedInCarousel: !!a.fields['Used In Carousel'],
       }
     })
 

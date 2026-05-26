@@ -5,6 +5,8 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 import { ModalHost, uiConfirm, StageBPanel } from '@/components/recreate/panels'
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
+import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
+import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
 // missing elements degrade to a center modal (so a step about Needs
@@ -774,7 +776,8 @@ export default function AiEditorPage() {
   const urlUpload = sp.get('upload') || ''
   const urlReel = sp.get('reel') || undefined
   const urlProject = sp.get('project') || undefined
-  const tab = sp.get('tab') === 'create' ? 'create' : 'workspace'
+  const tabParam = sp.get('tab')
+  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : 'workspace'
   const setTab = (k, extra = {}) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'workspace') params.delete('tab')
@@ -799,6 +802,11 @@ export default function AiEditorPage() {
   // Reel record so the file appears in the Fresh Inspo grid. NOT an
   // IG URL flow — admins still drive IG scraping via /admin/recreate-
   // source; the editor uploads their own local files.
+  // Carousel-tab: shared linked-project ID between Reference Library
+  // (start project → auto-link) and Upload Section (Link-to-project
+  // dropdown). Lifted here so a successful Start Project pre-selects
+  // the project in the upload form.
+  const [carouselLinkedProjectId, setCarouselLinkedProjectId] = useState('')
   const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
   const [uploadInspoFile, setUploadInspoFile] = useState(null)
   const [uploadInspoCaption, setUploadInspoCaption] = useState('')
@@ -999,7 +1007,14 @@ export default function AiEditorPage() {
           <select
             id="tour-creator-picker"
             value={creatorId}
-            onChange={e => setCreatorId(e.target.value)}
+            onChange={e => {
+              // Persist the picked creator in the URL so a refresh keeps
+              // the selection. setTab handles param merging — passing the
+              // current tab keeps us on whichever tab the user is viewing.
+              const next = e.target.value
+              setCreatorId(next)
+              setTab(tab, { creator: next || null })
+            }}
             style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}
           >
             {creators.length === 0 && <option>No TJP creators</option>}
@@ -1019,7 +1034,42 @@ export default function AiEditorPage() {
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
           🎨 Create Scene
         </button>
+        <button onClick={() => setTab('carousel')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          📸 Carousel Upload
+        </button>
       </div>
+
+      {tab === 'carousel' && (() => {
+        // Shared between Reference Library + Upload section so Start
+        // Project can auto-link the new project into the upload form
+        // and auto-scroll the editor to it. Plain function-scope vars
+        // need to live on the AiEditorPage component above; declared
+        // there as `carouselLinkedProjectId` / setter.
+        return (
+          <>
+            <CarouselReferenceLibrary
+              creatorId={creatorId}
+              creatorName={creators?.find(c => c.id === creatorId)?.name || ''}
+              onProjectStarted={(projectId) => {
+                setCarouselLinkedProjectId(projectId)
+                // Smooth-scroll to the upload section after the badge update
+                // settles. The upload section root has id="carousel-upload-anchor".
+                setTimeout(() => {
+                  document.getElementById('carousel-upload-anchor')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 100)
+              }}
+            />
+            <CarouselUploadSection
+              creatorId={creatorId}
+              creators={creators}
+              linkedProjectId={carouselLinkedProjectId}
+              onLinkedProjectIdChange={setCarouselLinkedProjectId}
+            />
+          </>
+        )
+      })()}
 
       {tab === 'create' && (
         <>

@@ -885,6 +885,41 @@ export default function AdminDashboard() {
     }
   }
 
+  // Separate toggle for TJP Enabled. Distinct from Social Media Editing —
+  // this one gates AI / Recreate-Source workflows, not the editor pipeline.
+  const [tjpSaving, setTjpSaving] = useState({}) // { creatorId: true }
+  const toggleTjp = async (creatorId, nextValue) => {
+    const creatorName = pipelineCreators?.find(c => c.id === creatorId)?.name || 'Creator'
+    setTjpSaving(prev => ({ ...prev, [creatorId]: true }))
+    setPipelineCreators(prev => prev.map(c =>
+      c.id === creatorId ? { ...c, tjpEnabled: nextValue } : c
+    ))
+    try {
+      const res = await fetch('/api/admin/creators/pipeline', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, tjpEnabled: nextValue }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      showToast(
+        nextValue
+          ? `${creatorName} enabled for AI / TJP workflow`
+          : `${creatorName} removed from AI / TJP workflow`
+      )
+    } catch (err) {
+      setPipelineCreators(prev => prev.map(c =>
+        c.id === creatorId ? { ...c, tjpEnabled: !nextValue } : c
+      ))
+      showToast(`Toggle failed: ${err.message}`, true)
+    } finally {
+      setTjpSaving(prev => {
+        const n = { ...prev }
+        delete n[creatorId]
+        return n
+      })
+    }
+  }
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
@@ -1142,7 +1177,13 @@ export default function AdminDashboard() {
       <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} managementStartByCreator={revenue.managementStartByCreator || {}} />
 
       {/* ─── KPI STRIP ─── */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .kpi-strip { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+          .kpi-strip > * { min-width: 0 !important; flex: none !important; }
+        }
+      `}</style>
+      <div className="kpi-strip" style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
         <StatCard label="Creators" value={revenue.activeCreators} sub="active" />
         <StatCard
           label={`Period Revenue · ${formatPeriodLabel(revenue.currentPeriodLabel)}`}
@@ -1173,6 +1214,44 @@ export default function AdminDashboard() {
 
       {/* ─── CREATORS TABLE (full width) ─── */}
       <div ref={creatorsCardRef} style={{ ...CARD, padding: '14px 16px', marginBottom: '12px' }}>
+          {/* Mobile-only style overrides for this card. Below 768px we
+              ditch the 11-column grid and render each creator as a stacked
+              card with inline labels. Desktop rules stay in inline styles. */}
+          <style>{`
+            .cr-mlabel { display: none; }
+            @media (max-width: 768px) {
+              .cr-header { display: none !important; }
+              .cr-row {
+                display: grid !important;
+                grid-template-columns: max-content 1fr !important;
+                column-gap: 14px;
+                row-gap: 6px;
+                padding: 12px 4px !important;
+                align-items: center;
+              }
+              .cr-row > * { grid-column: auto !important; }
+              .cr-mlabel {
+                display: inline-block;
+                font-size: 10px;
+                font-weight: 600;
+                color: var(--foreground-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+              }
+              .cr-cell-creator { grid-column: 1 / -1 !important; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+              .cr-cell-creator .cr-mlabel { display: none; }
+              .cr-cell-creator .cr-toggles { display: flex; gap: 14px; align-items: center; }
+              .cr-cell-trend { grid-column: 1 / -1 !important; }
+              .cr-cell-readiness { grid-column: 1 / -1 !important; margin-top: 4px; }
+              .cr-cell-editor, .cr-cell-ai { display: none !important; }
+              .cr-cell-revenue,
+              .cr-cell-rate,
+              .cr-cell-cut,
+              .cr-cell-rwy,
+              .cr-cell-queue,
+              .cr-cell-library { display: flex; align-items: center; gap: 8px; }
+            }
+          `}</style>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '8px' }}>
             <div style={SECTION_TITLE}>Creators</div>
             <div style={{ fontSize: '11px', color: pipelineError ? '#E87878' : 'var(--foreground-subtle)' }}>
@@ -1183,9 +1262,9 @@ export default function AdminDashboard() {
                   : 'Loading roster…'}
             </div>
           </div>
-          <div style={{
+          <div className="cr-header" style={{
             display: 'grid',
-            gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 100px 1fr',
+            gridTemplateColumns: '110px 82px 42px 78px 110px 46px 46px 48px 90px 100px 1fr',
             gap: '8px', padding: '2px 4px 6px', borderBottom: '1px solid transparent',
             alignItems: 'center',
           }}>
@@ -1195,6 +1274,7 @@ export default function AdminDashboard() {
             <span style={{ ...LABEL, fontSize: '9px' }}>Cut</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Trend</span>
             <span style={{ ...LABEL, fontSize: '9px', textAlign: 'center' }}>Editor</span>
+            <span style={{ ...LABEL, fontSize: '9px', textAlign: 'center' }} title="TJP / AI Recreate workflow — separate from Editor">AI</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Rwy</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Queue</span>
             <span style={{ ...LABEL, fontSize: '9px' }}>Library</span>
@@ -1214,16 +1294,17 @@ export default function AdminDashboard() {
             const isOnboarding = pipe?.status === 'Onboarding'
 
             return (
-              <div key={c.name} style={{
+              <div key={c.name} className="cr-row" style={{
                 display: 'grid',
-                gridTemplateColumns: '110px 82px 42px 78px 110px 46px 48px 90px 100px 1fr',
+                gridTemplateColumns: '110px 82px 42px 78px 110px 46px 46px 48px 90px 100px 1fr',
                 gap: '8px', padding: '6px 4px',
                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                 alignItems: 'center',
               }}>
-                {/* Creator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {/* Creator — on mobile this row also hosts the Editor + AI
+                    toggles (pulled into the header line via .cr-toggles). */}
+                <div className="cr-cell-creator" style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {c.name}
                   </span>
                   {isOnboarding && (
@@ -1235,23 +1316,58 @@ export default function AdminDashboard() {
                       ONB
                     </span>
                   )}
+                  {/* Mobile-only inline toggles in the header line so they're
+                      reachable without scrolling past every datum first. */}
+                  <div className="cr-toggles cr-mlabel" style={{ marginLeft: 'auto' }}>
+                    {pipe ? (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <span style={{ fontSize: 9, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Editor</span>
+                          <ToggleSwitch
+                            on={pipe.socialMediaEditing}
+                            onChange={v => togglePipeline(pipe.id, v)}
+                            disabled={isSaving}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <span style={{ fontSize: 9, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI</span>
+                          <ToggleSwitch
+                            on={!!pipe.tjpEnabled}
+                            onChange={v => toggleTjp(pipe.id, v)}
+                            disabled={!!tjpSaving[pipe.id]}
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
                 {/* Revenue */}
-                <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? 'var(--foreground)' : 'rgba(255,255,255,0.08)' }}>
-                  {rev ? fmtK(rev.currentTR) : '—'}
-                </span>
+                <div className="cr-cell-revenue">
+                  <span className="cr-mlabel">Revenue</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: rev ? 'var(--foreground)' : 'rgba(255,255,255,0.08)' }}>
+                    {rev ? fmtK(rev.currentTR) : '—'}
+                  </span>
+                </div>
                 {/* Rate */}
-                <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{rev ? pct(rev.commissionPct) : ''}</span>
+                <div className="cr-cell-rate">
+                  <span className="cr-mlabel">Rate</span>
+                  <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{rev ? pct(rev.commissionPct) : '—'}</span>
+                </div>
                 {/* Cut */}
-                <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#7DD3A4' : 'rgba(255,255,255,0.08)' }}>
-                  {rev ? fmtK(rev.palmCut) : '—'}
-                </span>
+                <div className="cr-cell-cut">
+                  <span className="cr-mlabel">Cut</span>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: rev ? '#7DD3A4' : 'rgba(255,255,255,0.08)' }}>
+                    {rev ? fmtK(rev.palmCut) : '—'}
+                  </span>
+                </div>
                 {/* Trend */}
-                <div>
+                <div className="cr-cell-trend">
+                  <span className="cr-mlabel" style={{ display: 'none' }}>Trend</span>
                   {rev ? <TrendBar values={rev.trend} delta={rev.delta} /> : null}
                 </div>
-                {/* Editor toggle — grouped with editor columns (Rwy/Queue/Library/Readiness) */}
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {/* Editor toggle — desktop column. Hidden on mobile; mobile
+                    surfaces this toggle in the creator header line. */}
+                <div className="cr-cell-editor" style={{ display: 'flex', justifyContent: 'center' }}>
                   {pipe ? (
                     <ToggleSwitch
                       on={pipe.socialMediaEditing}
@@ -1262,29 +1378,49 @@ export default function AdminDashboard() {
                     <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
                   )}
                 </div>
+                {/* AI / TJP toggle — desktop column. Hidden on mobile (see header). */}
+                <div className="cr-cell-ai" style={{ display: 'flex', justifyContent: 'center' }}>
+                  {pipe ? (
+                    <ToggleSwitch
+                      on={!!pipe.tjpEnabled}
+                      onChange={v => toggleTjp(pipe.id, v)}
+                      disabled={!!tjpSaving[pipe.id]}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.08)' }}>—</span>
+                  )}
+                </div>
                 {/* Runway */}
-                <span style={{
-                  fontSize: '10px', fontWeight: 700, color: runwayColor, background: runwayBg,
-                  padding: '1px 4px', borderRadius: '3px', textAlign: 'center',
-                }}>
-                  {bufferDays !== null ? `${bufferDays}d` : '—'}
-                </span>
+                <div className="cr-cell-rwy">
+                  <span className="cr-mlabel">Runway</span>
+                  <span style={{
+                    fontSize: '10px', fontWeight: 700, color: runwayColor, background: runwayBg,
+                    padding: '1px 4px', borderRadius: '3px', textAlign: 'center',
+                  }}>
+                    {bufferDays !== null ? `${bufferDays}d` : '—'}
+                  </span>
+                </div>
                 {/* Queue */}
-                <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)', display: 'flex', gap: '4px' }}>
-                  {rwy ? (
-                    editQueue > 0 ? (
-                      <>
-                        {rwy.toEdit > 0 && <span>{rwy.toEdit}q</span>}
-                        {rwy.inProgress > 0 && <span>{rwy.inProgress}a</span>}
-                        {rwy.needsRevision > 0 && <span style={{ color: '#E87878' }}>{rwy.needsRevision}r</span>}
-                        {rwy.inReview > 0 && <span style={{ color: '#78B4E8' }}>{rwy.inReview}rv</span>}
-                      </>
-                    ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
-                  ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
+                <div className="cr-cell-queue">
+                  <span className="cr-mlabel">Queue</span>
+                  <div style={{ fontSize: '10px', color: 'rgba(240, 236, 232, 0.75)', display: 'flex', gap: '4px' }}>
+                    {rwy ? (
+                      editQueue > 0 ? (
+                        <>
+                          {rwy.toEdit > 0 && <span>{rwy.toEdit}q</span>}
+                          {rwy.inProgress > 0 && <span>{rwy.inProgress}a</span>}
+                          {rwy.needsRevision > 0 && <span style={{ color: '#E87878' }}>{rwy.needsRevision}r</span>}
+                          {rwy.inReview > 0 && <span style={{ color: '#78B4E8' }}>{rwy.inReview}rv</span>}
+                        </>
+                      ) : <span style={{ color: 'var(--foreground-subtle)' }}>—</span>
+                    ) : <span style={{ color: 'var(--foreground)' }}>—</span>}
+                  </div>
                 </div>
                 {/* Library — unused raw clips awaiting editor pickup.
                     Top: photo/video split. Bottom: last upload time. */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', lineHeight: 1.2 }}>
+                <div className="cr-cell-library">
+                  <span className="cr-mlabel">Library</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', lineHeight: 1.2 }}>
                   {lib ? (
                     lib.total === 0 ? (
                       <span style={{ fontSize: '11px', fontWeight: 600, color: '#E87878' }}>empty</span>
@@ -1309,8 +1445,9 @@ export default function AdminDashboard() {
                     <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.08)' }}>—</span>
                   )}
                 </div>
+                </div>
                 {/* Readiness */}
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                <div className="cr-cell-readiness" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                   {pipe ? (
                     <>
                       <ReadinessBadge

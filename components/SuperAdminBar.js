@@ -153,6 +153,15 @@ export default function SuperAdminBar() {
       display: 'flex',
       alignItems: 'center',
       gap: '4px',
+      // Mobile: scroll inside the bar instead of causing the whole page to
+      // scroll horizontally. nowrap keeps tabs in a single line that the
+      // user can swipe through.
+      overflowX: 'auto',
+      flexWrap: 'nowrap',
+      whiteSpace: 'nowrap',
+      WebkitOverflowScrolling: 'touch',
+      // Hide scrollbar visually but keep functional.
+      scrollbarWidth: 'none',
     }}>
       <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--palm-pink)', textTransform: 'uppercase', letterSpacing: '0.2em', marginRight: '12px', opacity: 0.7 }}>
         View as

@@ -10,6 +10,7 @@ import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CaptionSuggestions from '@/components/CaptionSuggestions'
 import CarouselsTab from '@/app/admin/editor/CarouselsTab'
+import CarouselSubmissionsReview from '@/app/admin/editor/CarouselSubmissionsReview'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 
@@ -2729,7 +2730,12 @@ export default function EditorQueue() {
 
       {/* Section content */}
       {activeSection === 'editorview' && <EditorDashboardContent />}
-      {activeSection === 'review' && <ForReview showToast={showToast} />}
+      {activeSection === 'review' && (
+        <>
+          <CarouselSubmissionsReview showToast={showToast} />
+          <ForReview showToast={showToast} />
+        </>
+      )}
       {activeSection === 'submissions' && <SubmissionsFeed showToast={showToast} />}
       {activeSection === 'postprep' && <PostsPage />}
       {activeSection === 'carousels' && <CarouselsTab showToast={showToast} />}
