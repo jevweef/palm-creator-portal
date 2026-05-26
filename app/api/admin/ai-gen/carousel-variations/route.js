@@ -9,9 +9,11 @@ import { quoteAirtableString } from '@/lib/airtableFormula'
 import { POSES } from '@/lib/aiCloneConfig'
 
 export const dynamic = 'force-dynamic'
-// 60-90s end-to-end (Sonnet analyze ~5s + parallel Wan 2.7 image-edit-pro
-// ~30-60s + polling overhead). Bump well past Vercel's default for safety.
-export const maxDuration = 300
+// Bumped to 600s. With 3 parallel Wan 2.7 image-edit-pro jobs the
+// late-queued tasks routinely take 5-8 min; the prior 300s cap was killing
+// the request before they completed and the client saw "polling timed out".
+// 600s requires Vercel Pro tier — local dev has no cap.
+export const maxDuration = 600
 
 const WAN_MODEL = 'alibaba/wan-2.7/image-edit-pro'
 
@@ -25,11 +27,11 @@ const SONNET_SYSTEM = `You plan pose variations for AI image generation. Given a
 
 CORE PRINCIPLE: The output must look like the same photo session, taken seconds apart. The world stays still. Only the subject's pose, expression, gaze, hand placement, and tiny camera reframes change.
 
-LOCKED CONSTANTS (every variation must preserve these from the source image):
-- Subject identity: face, hair, body proportions
-- Outfit: every garment, accessory, jewelry
-- Location: every architectural detail, furniture, fixtures, plants, decor
-- Props in frame: any objects visible or being held
+LOCKED CONSTANTS (every variation must preserve these from the source image — phrase your prompts in a way that makes Wan treat these as do-not-touch):
+- Subject identity: face shape, hair color, hair style, body proportions, skin tone
+- Outfit: every garment, every fabric detail (lace trim, fringe, scalloped hem, ruching, stitching, prints), every accessory, every piece of jewelry — DO NOT redesign the dress, do not alter the silhouette, do not change the hem shape, do not move buttons or straps
+- Location: every architectural detail, every piece of furniture, every fixture, every plant, every decor item, every distant building or skyline element
+- Props in frame: any objects visible or being held — exact shape, color, placement
 - Lighting: color, direction, intensity, shadows
 - Time of day, weather, atmosphere
 - Camera viewpoint: same approximate distance and angle, max 6-12 inch shift, 5-10° rotation
@@ -38,14 +40,17 @@ VARIATION DIMENSIONS (each call samples ~2-3 of these to actually change):
 - Gaze direction (at-camera / off-frame-left / off-frame-right / slightly-down / slightly-up)
 - Facial expression (neutral / soft closed-mouth smile / parted lips / mid-laugh / contemplative / playful)
 - Head rotation (unchanged or 10-25° turn left/right, slight up/down tilt)
-- Body orientation (unchanged or slight 3/4 turn or square-up, weight shift)
-- Hand placement (unchanged or one hand near hair/face, one hand at torso/hip, engaged with a prop already visible)
+- Body orientation (slight 3/4 turn, square-up, weight shift between legs, hip pop, slight torso twist)
+- Hand placement (one hand near hair/face, one hand at torso/hip, hands on opposite hips, both hands relaxed at sides, engaged with a prop already visible)
+- Foot/leg placement (weight on one foot with the other relaxed, slight forward step, crossed-ankle stance, slight foot reposition — REQUIRED for at least one variation when framingType is "full-body" or "three-quarter")
 - Camera framing (unchanged or slight zoom in/out, slight L-R drift)
 
 CRITICAL RULES:
 - Never name specific objects that may not be in the scene ("railing", "menu", "drink") — use "a prop already visible" or describe by general type only if you can see it.
 - Never invent gestures the source can't support — if the source is a close-up portrait, don't ask for "weight shift to other foot" (no legs visible).
+- For full-body or three-quarter framing, AT LEAST ONE of the N variations MUST include a foot/weight/leg change — never return a set where every variation has identical foot placement. A photo session has the subject naturally shifting their stance.
 - Each prompt must be 2-4 short sentences, change/keep style, optimized for Wan 2.7 image-edit.
+- Each prompt must include an explicit "do not change" clause naming the outfit details (fabric texture, hem shape, accessories) and the background — say "preserve the white lace dress including its scalloped hem and lace trim exactly, do not redesign any garment detail" type wording matched to whatever you see.
 - Prompts MUST reference "image 1" as the canonical source.
 - If you include creator face/body reference images, refer to them as "additional images of the same subject for identity preservation."
 
@@ -83,9 +88,11 @@ function buildWanPrompt(variationPrompt, refCount) {
     ? ' Additional image (image 2) is a reference photo of the same subject for identity preservation — match her face, body proportions, and skin tone exactly.'
     : ` Additional images (images 2 to ${1 + refCount}) are reference photos of the same subject for identity preservation — match her face, body proportions, and skin tone exactly.`
   return (
-    `Image 1 is the canonical source. Recreate the same scene, lighting, outfit, props, and camera viewpoint exactly.${refRange}\n\n` +
+    `Image 1 is the canonical source. Recreate the SAME scene, lighting, outfit, props, background, and camera viewpoint exactly as image 1.${refRange}\n\n` +
+    `DO NOT redesign any garment detail — the dress, fabric texture, hem shape (including any scallops, fringe, or lace trim), accessories, and jewelry must look identical to image 1.\n` +
+    `DO NOT alter the background — every architectural element, distant building, plant, furniture piece, and lighting source must remain pixel-for-pixel as in image 1.\n\n` +
     `${variationPrompt}\n\n` +
-    `Hyper realistic, natural skin texture, candid photo session feel, no posed-model stiffness, no text overlay.`
+    `Hyper realistic, natural skin texture, candid photo session feel, no posed-model stiffness, no text overlay, no watermark.`
   )
 }
 
@@ -95,13 +102,21 @@ function rawDropboxUrl(url) {
 }
 
 // Upload the editor's TJP image to Dropbox + CF Images so Wan can fetch it.
+// Also returns the post-rotate intrinsic dimensions so the caller can ask
+// Wan for an output at the same aspect ratio.
 async function hostSourceImage(file, aka) {
   const rawBuf = Buffer.from(await file.arrayBuffer())
   // Normalize to JPEG via sharp — handles HEIC/PNG/WebP, EXIF orientation.
   let buf = rawBuf
   let contentType = 'image/jpeg'
+  let width = 0
+  let height = 0
   try {
-    buf = await sharp(rawBuf).rotate().jpeg({ quality: 95, mozjpeg: true }).toBuffer()
+    const pipeline = sharp(rawBuf).rotate()
+    const meta = await pipeline.metadata()
+    width = meta.width || 0
+    height = meta.height || 0
+    buf = await pipeline.jpeg({ quality: 95, mozjpeg: true }).toBuffer()
   } catch (e) {
     console.warn('[carousel-variations] sharp coerce failed, using raw:', e.message)
     contentType = file.type || 'application/octet-stream'
@@ -132,7 +147,25 @@ async function hostSourceImage(file, aka) {
     }
   }
 
-  return { sourceUrl: dropboxRaw || cdnUrl, dropboxPath, cdnUrl }
+  return { sourceUrl: dropboxRaw || cdnUrl, dropboxPath, cdnUrl, width, height }
+}
+
+// Pick a Wan-friendly output size matching the source aspect ratio.
+// Wan 2.7 image-edit-pro accepts arbitrary dimensions but performs best
+// when each side is a multiple of 64 and the longer side is ~1280-1440px.
+// Pin the LONGER side to TARGET_LONG and round the shorter to match AR.
+// Falls back to a sensible 4:5 portrait if dimensions are missing.
+function pickWanSize(w, h) {
+  const TARGET_LONG = 1440
+  const MIN_SIDE = 512
+  const round64 = (n) => Math.max(MIN_SIDE, Math.round(n / 64) * 64)
+  if (!w || !h) return '1152*1440' // 4:5 portrait default — most common TJP shape
+  const ar = w / h
+  if (ar >= 1) {
+    // Landscape or square
+    return `${round64(TARGET_LONG)}*${round64(TARGET_LONG / ar)}`
+  }
+  return `${round64(TARGET_LONG * ar)}*${round64(TARGET_LONG)}`
 }
 
 // Group `AI Ref Inputs` attachments by pose prefix from the filename:
@@ -220,10 +253,14 @@ async function planVariations(sourceUrl, n) {
   return plan
 }
 
-// Poll a Wan task until completed/failed/timeout. 3s interval, max 90 attempts (4.5min).
+// Poll a Wan task until completed/failed/timeout. 3s interval, max 190
+// attempts (~9.5 min). When 3+ Wan tasks queue on WaveSpeed the late ones
+// commonly take 5-8 min; the prior 4.5 min cap was killing them mid-flight.
+// Stays just under the route's maxDuration=600s so the poll loop fails
+// gracefully before Vercel kills the whole function.
 async function waitForTask(taskId) {
   const SLEEP_MS = 3000
-  const MAX_ATTEMPTS = 90
+  const MAX_ATTEMPTS = 190
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     const s = await pollWaveSpeedTask(taskId)
     if (s.status === 'completed') {
@@ -288,11 +325,16 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // 2. Host the source image so Wan can fetch it.
-    const { sourceUrl, cdnUrl } = await hostSourceImage(file, aka)
+    // 2. Host the source image so Wan can fetch it. Capture dimensions so
+    //    we can ask Wan for an output at the same aspect ratio — without
+    //    this, Wan defaults the prior hardcoded 9:16 size regardless of
+    //    input shape.
+    const { sourceUrl, cdnUrl, width: srcW, height: srcH } = await hostSourceImage(file, aka)
     if (!sourceUrl) {
       return NextResponse.json({ error: 'Failed to upload source image' }, { status: 500 })
     }
+    const wanSize = pickWanSize(srcW, srcH)
+    console.log(`[carousel-variations] source ${srcW}x${srcH} → Wan size ${wanSize}`)
 
     // 3. Sonnet analyzes the source and plans N variations.
     console.log(`[carousel-variations] Sonnet planning ${n} variations for ${aka}…`)
@@ -318,7 +360,7 @@ export async function POST(request) {
         const task = await submitWaveSpeedTask(WAN_MODEL, {
           images,
           prompt: promptForWan,
-          size: '1080*1920',
+          size: wanSize,
           seed: -1,
         })
         return {

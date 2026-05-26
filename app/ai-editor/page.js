@@ -1007,7 +1007,14 @@ export default function AiEditorPage() {
           <select
             id="tour-creator-picker"
             value={creatorId}
-            onChange={e => setCreatorId(e.target.value)}
+            onChange={e => {
+              // Persist the picked creator in the URL so a refresh keeps
+              // the selection. setTab handles param merging — passing the
+              // current tab keeps us on whichever tab the user is viewing.
+              const next = e.target.value
+              setCreatorId(next)
+              setTab(tab, { creator: next || null })
+            }}
             style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 13 }}
           >
             {creators.length === 0 && <option>No TJP creators</option>}
