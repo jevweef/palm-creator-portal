@@ -83,13 +83,29 @@ export default function CarouselsTab({ showToast }) {
     // Two independent sources fetched in parallel.
     //   - Photos library: AI-generated images we control (Photos table).
     //   - Asset photo library: creator-uploaded photos from their Dropbox
-    //     folder (Assets table, paginated — request the largest page so
-    //     we usually get everything in one call).
+    //     folder (Assets table). view=all so we see every photo regardless
+    //     of whether the chat team has already used it for a wall post or
+    //     mass message — carousels are a different surface.
+    //
+    // The Assets endpoint paginates. We fetch page 0 first to learn how
+    // many pages exist, then fetch the rest in parallel. 500-per-page so
+    // most creators come back in one or two round trips.
+    const PAGE_SIZE = 500
+    const fetchAssetPage = (pg) =>
+      fetchWithRetry(`/api/photo-library/photos?creatorId=${encodeURIComponent(creatorId)}&view=all&pageSize=${PAGE_SIZE}&page=${pg}`)
+        .then(r => r.json())
+        .catch(() => ({ photos: [], totalPages: 1 }))
+
     Promise.all([
       fetchWithRetry('/api/admin/photos/library').then(r => r.json()).catch(() => ({ photos: [] })),
-      fetchWithRetry(`/api/photo-library/photos?creatorId=${encodeURIComponent(creatorId)}&view=available&pageSize=200`)
-        .then(r => r.json())
-        .catch(() => ({ photos: [] })),
+      fetchAssetPage(0).then(async first => {
+        const totalPages = first.totalPages || 1
+        if (totalPages <= 1) return first
+        const rest = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) => fetchAssetPage(i + 1))
+        )
+        return { photos: [first.photos, ...rest.map(r => r.photos || [])].flat() }
+      }),
     ])
       .then(([photosResp, assetsResp]) => {
         // AI Generated photos linked to this creator. We deliberately
@@ -148,9 +164,13 @@ export default function CarouselsTab({ showToast }) {
 
   const trayIds = useMemo(() => new Set(tray.map(p => p.id)), [tray])
 
-  function addToTray(p) {
+  function toggleTray(p) {
+    if (trayIds.has(p.id)) {
+      // Already selected — clicking again removes it.
+      setTray(tray.filter(item => item.id !== p.id))
+      return
+    }
     if (tray.length >= 10) { showToast?.('Max 10 slides per carousel', true); return }
-    if (trayIds.has(p.id)) return
     setTray([...tray, p])
   }
 
@@ -282,13 +302,12 @@ export default function CarouselsTab({ showToast }) {
               return (
                 <button
                   key={p.id}
-                  onClick={() => addToTray(p)}
-                  disabled={selected}
-                  title={p.caption || p.handle || ''}
+                  onClick={() => toggleTray(p)}
+                  title={selected ? 'Click to remove from carousel' : (p.caption || p.handle || 'Click to add')}
                   style={{
                     position: 'relative', aspectRatio: '1 / 1', overflow: 'hidden',
                     background: '#111', border: `2px solid ${selected ? 'var(--palm-pink)' : 'transparent'}`,
-                    borderRadius: 6, cursor: selected ? 'default' : 'pointer', padding: 0,
+                    borderRadius: 6, cursor: 'pointer', padding: 0,
                   }}
                 >
                   {p.image && (

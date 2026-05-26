@@ -7,8 +7,10 @@ import { requireAdminOrChatManager, fetchAirtableRecords, patchAirtableRecord } 
 const DEFAULT_PAGE_SIZE = 40
 // What the client is allowed to choose from. ALLOWED_PAGE_SIZES doubles as a
 // safety check — anything not in this list falls back to the default, so a
-// malformed pageSize URL param can't blow up payload size.
-const ALLOWED_PAGE_SIZES = [25, 40, 50, 100, 200]
+// malformed pageSize URL param can't blow up payload size. 500 was added for
+// the Carousels picker which needs to see every photo for the creator (chat
+// manager pagination tops out at 200 — too low for creators with many uploads).
+const ALLOWED_PAGE_SIZES = [25, 40, 50, 100, 200, 500]
 
 const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff', 'tif']
 const imageExtRegex = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)/i
@@ -34,7 +36,13 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url)
   const creatorId = searchParams.get('creatorId')
-  const view = searchParams.get('view') === 'used' ? 'used' : 'available'
+  // view=available (default) — not yet marked used by chat manager
+  // view=used       — already toggled used (for restore view)
+  // view=all        — both, no chat-manager-used filter. Added for the
+  //                   Carousels picker which needs every photo regardless
+  //                   of whether the chat team has used it elsewhere.
+  const rawView = searchParams.get('view')
+  const view = rawView === 'used' ? 'used' : rawView === 'all' ? 'all' : 'available'
   const page = Math.max(0, parseInt(searchParams.get('page') || '0', 10))
 
   // Page size is client-controlled but clamped to ALLOWED_PAGE_SIZES.
@@ -84,6 +92,7 @@ export async function GET(request) {
 
     const filtered = photoAssets.filter(a => {
       const usedAt = a.fields?.['Used By Chat Manager At']
+      if (view === 'all') return true
       if (view === 'used') return !!usedAt
       return !usedAt
     })

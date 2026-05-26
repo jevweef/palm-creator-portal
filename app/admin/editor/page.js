@@ -2626,16 +2626,26 @@ export default function EditorQueue() {
     }
   }
 
+  // 16px line icons drawn inline (no extra dep). Stroke=currentColor so each
+  // icon picks up the tab's text color (and animates with it on hover/active).
+  const Icon = ({ d, size = 16 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0 }} aria-hidden="true">
+      {d}
+    </svg>
+  )
+
   const TABS = [
-    { key: 'editorview', label: '📋 Dashboard' },
-    { key: 'review', label: '👁 For Review' },
-    { key: 'submissions', label: '📨 Submissions' },
-    { key: 'postprep', label: '✈️ Post Prep' },
-    { key: 'carousels', label: '📸 Carousels' },
-    { key: 'grid', label: '▦ Grid Planner' },
-    { key: 'library', label: '📁 Creator Library' },
-    { key: 'oftv', label: '🎬 OFTV Projects' },
-    { key: 'longform', label: '⬆️ Long Form Upload' },
+    { key: 'editorview',  label: 'Dashboard',        icon: <Icon d={<><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></>} /> },
+    { key: 'review',      label: 'For Review',       icon: <Icon d={<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>} /> },
+    { key: 'submissions', label: 'Submissions',      icon: <Icon d={<><path d="M4 4h16v16H4z"/><path d="M4 8l8 5 8-5"/></>} /> },
+    { key: 'postprep',    label: 'Post Prep',        icon: <Icon d={<><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></>} /> },
+    { key: 'carousels',   label: 'Carousels',        icon: <Icon d={<><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M20 8v11a2 2 0 0 1-2 2H8"/></>} /> },
+    { key: 'grid',        label: 'Grid Planner',     icon: <Icon d={<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>} /> },
+    { key: 'library',     label: 'Creator Library',  icon: <Icon d={<><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></>} /> },
+    { key: 'oftv',        label: 'OFTV Projects',    icon: <Icon d={<><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></>} /> },
+    { key: 'longform',    label: 'Long Form Upload', icon: <Icon d={<><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/><path d="M5 21h14"/></>} /> },
   ]
 
   return (
@@ -2664,21 +2674,39 @@ export default function EditorQueue() {
       `}</style>
       {/* Header row: tabs + notification */}
       <div className="admin-editor-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div className="admin-editor-tabs" style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => switchSection(tab.key)}
-            style={{
-              padding: '10px 20px', fontSize: '12px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: activeSection === tab.key ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none',
-              borderBottom: activeSection === tab.key ? '1px solid var(--palm-pink)' : '1px solid transparent',
-              cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.3s var(--ease-stripe)',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div className="admin-editor-tabs" style={{ display: 'flex', gap: '2px', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
+        {TABS.map(tab => {
+          const isActive = activeSection === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => switchSection(tab.key)}
+              onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.background = 'rgba(255,255,255,0.025)' } }}
+              onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.color = 'var(--foreground-muted)'; e.currentTarget.style.background = 'transparent' } }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                padding: '12px 16px',
+                fontSize: '13px', fontWeight: isActive ? 600 : 500, letterSpacing: '-0.005em',
+                color: isActive ? 'var(--foreground)' : 'var(--foreground-muted)',
+                background: 'transparent', border: 'none',
+                borderRadius: '6px 6px 0 0',
+                cursor: 'pointer', marginBottom: '-1px',
+                position: 'relative',
+                transition: 'color 180ms var(--ease-stripe), background 180ms var(--ease-stripe)',
+              }}
+            >
+              <span style={{ opacity: isActive ? 1 : 0.7, transition: 'opacity 180ms var(--ease-stripe)', display: 'inline-flex' }}>{tab.icon}</span>
+              <span>{tab.label}</span>
+              <span aria-hidden="true" style={{
+                position: 'absolute', left: '12px', right: '12px', bottom: '-1px', height: '2px',
+                background: 'var(--palm-pink)', borderRadius: '2px 2px 0 0',
+                transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
+                transformOrigin: 'center',
+                transition: 'transform 220ms var(--ease-stripe)',
+              }} />
+            </button>
+          )
+        })}
         </div>
         {/* Notification opt-in */}
         {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
