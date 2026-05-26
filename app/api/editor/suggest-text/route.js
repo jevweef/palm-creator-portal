@@ -7,6 +7,7 @@ import { writeFile, readFile, unlink, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -325,7 +326,7 @@ export async function POST(request) {
     if (creatorId) {
       try {
         const creatorRecs = await fetchAirtableRecords(PALM_CREATORS_TABLE, {
-          filterByFormula: `RECORD_ID()='${creatorId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
           fields: ['AKA', 'Creator Profile', 'Top Tags'],
           maxRecords: 1,
         })

@@ -4,6 +4,7 @@ import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask, pollWaveSpeedTask } from '@/lib/wavespeed'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // Convert any Dropbox shared link into a raw streamable URL Wan can fetch.
 // Strips dl= / raw= params and re-appends raw=1 so we don't double-add.
@@ -175,7 +176,7 @@ export async function POST(request) {
     // path for older scenes that pre-date the Source Variation field).
     const sceneRows = await fetchAirtableRecords(STAGE_B_TABLE, {
       fields: ['Dropbox Path', 'Dropbox Link', 'Room', 'Source Variation', 'Slug', 'Name', 'Time of Day', 'Room Framing'],
-      filterByFormula: `RECORD_ID() = '${sceneId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(sceneId)}`,
     })
     if (!sceneRows.length) return NextResponse.json({ error: 'Scene not found' }, { status: 404 })
     const sceneF = sceneRows[0].fields || {}
@@ -212,7 +213,7 @@ export async function POST(request) {
     if (sourceVariationId) {
       const variationRows = await fetchAirtableRecords(VARIATIONS_TABLE, {
         fields: ['Time of Day', 'Status', 'Dropbox Path', 'Dropbox Link', 'Variation'],
-        filterByFormula: `RECORD_ID() = '${sourceVariationId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(sourceVariationId)}`,
       })
       const v = variationRows[0]?.fields
       if (v && (v['Dropbox Path'] || v['Dropbox Link'])) {
@@ -225,7 +226,7 @@ export async function POST(request) {
     // Always load the parent Room — for the room name + Step 2/3 fallback.
     const roomRows = await fetchAirtableRecords(ROOMS_TABLE, {
       fields: ['Base Dropbox Path', 'Base Dropbox Link', 'Room Name', 'Recreate Room Variations'],
-      filterByFormula: `RECORD_ID() = '${roomId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(roomId)}`,
     })
     const roomF = roomRows[0]?.fields || {}
     roomName = roomF['Room Name'] || ''
@@ -234,7 +235,7 @@ export async function POST(request) {
     if (!roomPath && !roomExistingLink && sceneTimeOfDay) {
       const variationIds = roomF['Recreate Room Variations'] || []
       if (variationIds.length) {
-        const orExpr = variationIds.map(id => `RECORD_ID()='${id}'`).join(',')
+        const orExpr = variationIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')
         const varRows = await fetchAirtableRecords(VARIATIONS_TABLE, {
           fields: ['Time of Day', 'Status', 'Dropbox Path', 'Dropbox Link', 'Variation'],
           filterByFormula: `OR(${orExpr})`,
@@ -267,7 +268,7 @@ export async function POST(request) {
     // (Wan can work with either; flatlay is cleaner).
     const outfitRows = await fetchAirtableRecords(PHOTOS_TABLE, {
       fields: ['Name', 'Dropbox Path', 'Dropbox Link', 'Flatlay Dropbox Path', 'Flatlay Status'],
-      filterByFormula: `RECORD_ID() = '${outfitPhotoId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(outfitPhotoId)}`,
     })
     const outfitF = outfitRows[0]?.fields || {}
     const flatlayReady = (outfitF['Flatlay Status']?.name || outfitF['Flatlay Status']) === 'Done' && outfitF['Flatlay Dropbox Path']

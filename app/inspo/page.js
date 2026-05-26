@@ -1,3 +1,12 @@
+// Note: this page intentionally stays a client component. It has 7 fetch
+// calls, 16+ useState declarations, and 30+ hooks driving filtering,
+// sorting, rating, saving, modals, and the "for you" scoring loop —
+// nearly all of which need to react to user input. Converting to a server
+// component would require wrapping almost the entire UI in a client shell,
+// which trades real refactor risk for a marginal SSR benefit on a route
+// the user always lands on already-authenticated. The data-shell pattern
+// applied to /onboarding is the model for new lighter pages; revisit this
+// one once we have a story for the interactive state.
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'

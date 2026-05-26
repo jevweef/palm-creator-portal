@@ -465,6 +465,19 @@ function GridCell({ post, status, draggable, isDragging, onDragStart, onDragEnd,
       }}>
         {isScraped ? 'live' : status}
       </div>
+      {/* Carousel badge — shows for Type=Carousel posts so admin can spot
+          them at a glance vs single-video reels. N = slide count. */}
+      {post.type === 'Carousel' && (
+        <div style={{
+          position: 'absolute', bottom: 3, left: 3,
+          padding: '1px 5px', borderRadius: '3px',
+          background: 'rgba(0,0,0,0.7)',
+          color: 'var(--foreground)',
+          fontSize: '8px', fontWeight: 700, letterSpacing: '0.04em',
+        }} title={`Carousel · ${post.photos?.length || 0} slides`}>
+          📸 {post.photos?.length || 0}
+        </div>
+      )}
       {/* Date chip retired May 2026 — Scheduled Date is now an opaque
           ordering token for cron FIFO, not a calendar time. SMM posts on
           their own cadence. No date shown on cells. */}
@@ -1027,6 +1040,15 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
   )
 }
 
+// Whether a post can be sent to Telegram. Reels need an edited video file
+// link; carousels need at least one linked photo asset. Used to gate the
+// bulk send filters, per-post Send button, and account queue counts.
+function isPostSendable(p) {
+  if (!p) return false
+  if (p.type === 'Carousel') return (p.photos?.length || 0) > 0
+  return !!p.asset?.editedFileLink
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GridPlanner({ smmMode = false } = {}) {
@@ -1534,7 +1556,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
   // 'Sending' on its own schedule.
   const [bulkSending, setBulkSending] = useState(false)
   const sendablePosts = posts
-    .filter(p => p.accountId && p.scheduledDate && p.status !== 'Sent to Telegram' && p.status !== 'Sending' && p.status !== 'Send Failed' && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink)
+    .filter(p => p.accountId && p.scheduledDate && p.status !== 'Sent to Telegram' && p.status !== 'Sending' && p.status !== 'Send Failed' && !p.telegramSentAt && !p.postedAt && isPostSendable(p))
     .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))
   const handleBulkSend = async () => {
     if (!sendablePosts.length) return
@@ -1774,7 +1796,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
         p.scheduledDate &&
         !p.telegramSentAt &&
         !p.postedAt &&
-        p.asset?.editedFileLink &&
+        isPostSendable(p) &&
         p.status !== 'Sending' &&
         p.status !== 'Sent to Telegram'
       )
@@ -1815,6 +1837,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               postId: p.id,
+              type: p.type || 'Reel',
+              photos: p.type === 'Carousel' ? p.photos : undefined,
               editedFileLink: p.asset?.editedFileLink,
               smmTopicId: account.telegramTopicId,
               caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
@@ -1912,6 +1936,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           postId: post.id,
+          type: post.type || 'Reel',
+          photos: post.type === 'Carousel' ? post.photos : undefined,
           editedFileLink: post.asset?.editedFileLink || post.assetEditedFileLink,
           smmTopicId: account.telegramTopicId,
           caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
@@ -2096,7 +2122,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
               {/* Account phones — drop targets */}
               {accounts.map(acc => {
                 const accountQueueCount = (postsByAccount[acc.id] || []).filter(p =>
-                  p.scheduledDate && !p.telegramSentAt && !p.postedAt && p.asset?.editedFileLink &&
+                  p.scheduledDate && !p.telegramSentAt && !p.postedAt && isPostSendable(p) &&
                   p.status !== 'Sending' && p.status !== 'Sent to Telegram'
                 ).length
                 const isThisAccountSending = accountBulkSending === acc.id
@@ -2396,7 +2422,11 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     setTimeout(() => setCopiedKey(null), 1500)
   }
   const isScraped = !!post._scraped
-  const canReplaceThumb = !isScraped && post.id?.startsWith('rec')
+  const isCarousel = post.type === 'Carousel'
+  // Replace-thumbnail UI is reel-only — carousels are N photo slides and
+  // the per-photo asset already has its own image, so there's no aggregate
+  // "thumbnail" concept to overwrite.
+  const canReplaceThumb = !isScraped && !isCarousel && post.id?.startsWith('rec')
 
   async function handleThumbnailFile(file) {
     if (!file || !file.type?.startsWith('image/')) {
@@ -2469,7 +2499,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
     'Live on IG': 'Live',
   }
   const effectiveStatus = displayStatusMap[rawStatus] || rawStatus
-  const canSend = !isScraped && post.asset?.editedFileLink && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
+  const canSend = !isScraped && (post.asset?.editedFileLink || (post.type === 'Carousel' && (post.photos?.length || 0) > 0)) && post.status !== 'Sent to Telegram' && post.status !== 'Sending' && post.status !== 'Posted'
   const scheduledLabel = post.scheduledDate
     ? new Date(post.scheduledDate).toLocaleDateString('en-US', {
         timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
@@ -2518,7 +2548,45 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px' }}>×</button>
         </div>
 
-        {/* Thumbnail / Video */}
+        {/* Thumbnail / Video / Carousel slides */}
+        {isCarousel ? (
+          <div style={{ padding: '0 20px' }}>
+            <div style={{
+              fontSize: '11px', color: 'var(--foreground-muted)',
+              textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px',
+            }}>📸 Carousel · {post.photos?.length || 0} slide{(post.photos?.length || 0) === 1 ? '' : 's'}</div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6,
+              maxHeight: '300px', overflowY: 'auto',
+            }}>
+              {(post.photos || []).map((ph, idx) => {
+                const src = ph.cdnUrl || ph.dropboxLink
+                return (
+                  <div key={ph.id} style={{
+                    aspectRatio: '1 / 1', position: 'relative',
+                    background: '#111', borderRadius: '6px', overflow: 'hidden',
+                  }}>
+                    {src && (
+                      <img src={src} alt={`Slide ${idx + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    )}
+                    <div style={{
+                      position: 'absolute', bottom: 2, left: 2,
+                      padding: '1px 5px', borderRadius: '3px',
+                      background: 'rgba(0,0,0,0.7)', color: '#fff',
+                      fontSize: '9px', fontWeight: 700,
+                    }}>{idx + 1}</div>
+                  </div>
+                )
+              })}
+            </div>
+            {!(post.photos || []).length && (
+              <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', padding: '20px', textAlign: 'center' }}>
+                No slides linked to this carousel.
+              </div>
+            )}
+          </div>
+        ) : (
         <div style={{ padding: '0 20px', position: 'relative' }}>
           <div style={{ aspectRatio: '9/16', maxHeight: '400px', margin: '0 auto', background: '#000', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             {(() => {
@@ -2599,6 +2667,7 @@ function PostDetailModal({ post, account, creatorMeta, sending, onClose, onSend,
             </div>
           )}
         </div>
+        )}
 
         {/* Status pill */}
         <div style={{ padding: '12px 20px 0', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>

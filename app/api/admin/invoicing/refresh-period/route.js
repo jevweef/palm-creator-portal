@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/adminAuth'
 import { google } from 'googleapis'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 60
 
@@ -185,7 +186,7 @@ async function fetchRevenueAccountsByIds(ids) {
   // Airtable formula limit ≈ 16k chars; batch in 10s to be safe
   for (let i = 0; i < ids.length; i += 10) {
     const batch = ids.slice(i, i + 10)
-    const formula = 'OR(' + batch.map(id => `RECORD_ID()="${id}"`).join(',') + ')'
+    const formula = 'OR(' + batch.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',') + ')'
     const params = new URLSearchParams()
     params.set('filterByFormula', formula)
     params.set('returnFieldsByFieldId', 'true')
@@ -206,7 +207,7 @@ async function fetchCreatorsByIds(ids) {
   const result = {}
   for (let i = 0; i < ids.length; i += 10) {
     const batch = ids.slice(i, i + 10)
-    const formula = 'OR(' + batch.map(id => `RECORD_ID()="${id}"`).join(',') + ')'
+    const formula = 'OR(' + batch.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',') + ')'
     const params = new URLSearchParams()
     params.set('filterByFormula', formula)
     params.set('returnFieldsByFieldId', 'true')

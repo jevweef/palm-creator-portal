@@ -8,6 +8,7 @@ import {
   patchAirtableRecord,
 } from '@/lib/adminAuth'
 import { createSmmTopicForHandle, isSmmGroupConfigured } from '@/lib/telegramTopics'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const SM_SETUP_REQUESTS_TABLE = 'SM Setup Requests'
 const CPD_TABLE = 'Creator Platform Directory'
@@ -34,7 +35,7 @@ export async function POST(request, { params }) {
 
     // Load the request
     const reqRecs = await fetchAirtableRecords(SM_SETUP_REQUESTS_TABLE, {
-      filterByFormula: `RECORD_ID()='${params.id}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(params.id)}`,
       maxRecords: 1,
     })
     const reqRec = reqRecs[0]

@@ -10,6 +10,7 @@ import {
   createDropboxSharedLink,
   createDropboxFolder,
 } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // POST /api/admin/grid-planner/post-thumbnail/:postId
 // multipart/form-data: { file: <image> }
@@ -58,7 +59,7 @@ export async function POST(request, { params }) {
     // Task and patch them all in one shot. Also patch the Asset.Thumbnail
     // so future fan-outs of the same asset start from the new image.
     const sourceList = await fetchAirtableRecords('Posts', {
-      filterByFormula: `RECORD_ID()='${params.postId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(params.postId)}`,
       fields: ['Task', 'Asset'],
     })
     const source = sourceList[0]?.fields || {}

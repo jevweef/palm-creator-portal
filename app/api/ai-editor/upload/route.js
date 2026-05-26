@@ -3,6 +3,7 @@ import { requireAdminOrAiEditor } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
 import { triggerAssetMirror } from '@/lib/triggerMirror'
 import { uploadImageBytes, uploadImageByUrl, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OPS_BASE = 'applLIT2t83plMqNx'
@@ -237,7 +238,7 @@ export async function POST(request) {
     if (slug) {
       try {
         const sbList = await fetch(
-          `https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs?filterByFormula=${encodeURIComponent(`{Slug} = '${slug.replace(/'/g, "\\'")}'`)}&maxRecords=1`,
+          `https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs?filterByFormula=${encodeURIComponent(`{Slug} = ${quoteAirtableString(slug)}`)}&maxRecords=1`,
           { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
         )
         if (sbList.ok) {

@@ -3,6 +3,7 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { findSimilarMusic, searchTrack } from '@/lib/spotify'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // POST — get music suggestions based on inspo reel song + creator DNA
 // Uses search-based discovery (Spotify deprecated /recommendations for new apps)
@@ -18,7 +19,7 @@ export async function POST(request) {
     // Mode 1: Task-based — use identified song from the inspo reel
     if (inspoId) {
       const inspoRecords = await fetchAirtableRecords('Inspiration', {
-        filterByFormula: `RECORD_ID()='${inspoId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(inspoId)}`,
         fields: ['Identified Song', 'Identified Song Data'],
       })
       const inspoData = inspoRecords[0]?.fields?.['Identified Song Data']
@@ -56,7 +57,7 @@ export async function POST(request) {
     if (creatorId) {
       try {
         const creatorRecords = await fetchAirtableRecords('Palm Creators', {
-          filterByFormula: `RECORD_ID()='${creatorId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
           fields: ['Music DNA Processed'],
         })
         const dnaRaw = creatorRecords[0]?.fields?.['Music DNA Processed']

@@ -4,6 +4,7 @@ export const maxDuration = 300
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // One-shot cleanup: find raw clips that were assigned to an edit task but
 // never got moved out of 10_UNREVIEWED_LIBRARY (the pre-fix field-ID bug).
@@ -61,7 +62,7 @@ async function buildCreatorNameMap(assets) {
   const creatorIds = [...new Set(assets.flatMap(a => a.fields?.['Palm Creators'] || []).filter(Boolean))]
   if (!creatorIds.length) return {}
   const records = await fetchAirtableRecords('Palm Creators', {
-    filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+    filterByFormula: `OR(${creatorIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
     fields: ['Creator', 'AKA'],
   })
   return Object.fromEntries(records.map(r => [r.id, r.fields?.AKA || r.fields?.Creator || '']))

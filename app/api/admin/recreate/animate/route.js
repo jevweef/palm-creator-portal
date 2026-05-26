@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { submitWaveSpeedTask } from '@/lib/wavespeed'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,7 +43,7 @@ export async function POST(request) {
     let aiRefInputs = []
     try {
       const records = await fetchAirtableRecords(PALM_CREATORS, {
-        filterByFormula: `RECORD_ID() = '${creatorId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
         fields: ['Kling Element ID', 'AKA', 'AI Ref Inputs', 'AI Ref Face', 'AI Ref Front'],
         maxRecords: 1,
       })

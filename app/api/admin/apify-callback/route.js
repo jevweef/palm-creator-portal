@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchAirtableRecords, batchCreateRecords, batchUpdateRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
@@ -241,7 +242,7 @@ export async function POST(request) {
     const [existingReels, followerCount] = await Promise.all([
       fetchAirtableRecords('Source Reels', {
         fields: ['Reel URL'],
-        filterByFormula: `{Source Handle} = "${handle}"`,
+        filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
       }),
       fetchFollowerCount(handle),
     ])
@@ -349,7 +350,7 @@ export async function POST(request) {
       try {
         // Fetch the just-created records that need scoring
         const unscoredReels = await fetchAirtableRecords('Source Reels', {
-          filterByFormula: `AND({Source Handle} = "${handle}", {Views} > 0, {Performance Score} = BLANK())`,
+          filterByFormula: `AND({Source Handle} = ${quoteAirtableString(handle)}, {Views} > 0, {Performance Score} = BLANK())`,
         })
 
         console.log(`[Callback] Found ${unscoredReels.length} unscored reels for @${handle}`)
@@ -405,7 +406,10 @@ export async function POST(request) {
 
       // --- INLINE PROMOTE ---
       try {
-        const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+        const callbackSecret = process.env.APIFY_CALLBACK_SECRET
+        if (!callbackSecret) {
+          throw new Error('APIFY_CALLBACK_SECRET is not configured')
+        }
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.palm-mgmt.com'
         const promoteRes = await fetch(`${baseUrl}/api/admin/promote-handle?secret=${callbackSecret}`, {
           method: 'POST',

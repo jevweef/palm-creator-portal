@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { requireInboxOwner, fetchAirtableRecords } from '@/lib/adminAuth'
 import { fetchDaemonChats } from '@/lib/inboxDaemon'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const TASKS_TABLE = 'Inbox Tasks'
 
@@ -26,11 +27,11 @@ export async function GET(request) {
 
   const esc = (s) => String(s).replace(/'/g, "\\'")
   const filters = []
-  if (status !== 'all') filters.push(`{Status} = '${esc(status)}'`)
-  if (owner) filters.push(`{Owner} = '${esc(owner)}'`)
-  if (creator) filters.push(`{Creator AKA} = '${esc(creator)}'`)
-  if (urgency) filters.push(`{Urgency} = '${esc(urgency)}'`)
-  if (topic) filters.push(`{Topic} = '${esc(topic)}'`)
+  if (status !== 'all') filters.push(`{Status} = ${quoteAirtableString(esc(status))}`)
+  if (owner) filters.push(`{Owner} = ${quoteAirtableString(esc(owner))}`)
+  if (creator) filters.push(`{Creator AKA} = ${quoteAirtableString(esc(creator))}`)
+  if (urgency) filters.push(`{Urgency} = ${quoteAirtableString(esc(urgency))}`)
+  if (topic) filters.push(`{Topic} = ${quoteAirtableString(esc(topic))}`)
   // Hide deferred tasks unless explicitly requested. A task is deferred if
   // its Defer Until > now. Empty Defer Until = surface immediately.
   if (!showDeferred) {
@@ -55,7 +56,7 @@ export async function GET(request) {
       for (const chunk of chunks) {
         const formula = chunk.length === 1
           ? `RECORD_ID() = '${chunk[0]}'`
-          : `OR(${chunk.map(id => `RECORD_ID() = '${id}'`).join(',')})`
+          : `OR(${chunk.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
         try {
           const chats = await fetchAirtableRecords('Telegram Chats', {
             filterByFormula: formula,

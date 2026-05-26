@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, batchCreateRecords, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -24,7 +25,7 @@ export async function POST(request) {
     // Drop any reels that already exist in Source Reels for this handle.
     const existing = await fetchAirtableRecords('Source Reels', {
       fields: ['Reel URL'],
-      filterByFormula: `{Source Handle} = "${handle}"`,
+      filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
     })
     const existingUrls = new Set(existing.map(r => normalizeUrl(r.fields?.['Reel URL'] || '')).filter(Boolean))
 

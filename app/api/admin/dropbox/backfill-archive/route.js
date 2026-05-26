@@ -3,6 +3,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // Resolve a Dropbox shared link URL to the actual file's absolute path.
 // Used as a fallback when an Asset has Edited File Link but no Edited File Path.
@@ -160,7 +161,7 @@ export async function POST() {
     const assetMap = {}
     for (let i = 0; i < assetIds.length; i += 50) {
       const chunk = assetIds.slice(i, i + 50)
-      const formula = `OR(${chunk.map(id => `RECORD_ID()='${id}'`).join(',')})`
+      const formula = `OR(${chunk.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
       const recs = await fetchAirtableRecords('Assets', {
         filterByFormula: formula,
         fields: ['Asset Name', 'Edited File Path', 'Edited File Link', 'Palm Creators', 'AKA (from Palm Creators)'],

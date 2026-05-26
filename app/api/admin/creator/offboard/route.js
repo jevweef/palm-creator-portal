@@ -5,6 +5,7 @@ import { fetchHqRecord, patchHqRecord, HQ_BASE, hqHeaders } from '@/lib/hqAirtab
 import { getDropboxAccessToken, getDropboxRootNamespaceId, moveDropboxItem, createDropboxFolder } from '@/lib/dropbox'
 import { closeDropboxFileRequest } from '@/lib/dropboxFileRequests'
 import { deleteSmmTopic } from '@/lib/telegramTopics'
+import { assertRecordId, quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 // Telegram + Dropbox + Clerk all involve external calls; raise the default 10s.
@@ -27,6 +28,9 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const hqId = searchParams.get('hqId')
   if (!hqId) return NextResponse.json({ error: 'hqId required' }, { status: 400 })
+  try { assertRecordId(hqId, 'hqId') } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 400 })
+  }
 
   try {
     const hq = await fetchHqRecord(HQ_CREATORS, hqId)
@@ -56,14 +60,15 @@ export async function GET(request) {
     let cpdTopicCount = 0
     try {
       const opsRows = await fetchAirtableRecords('Palm Creators', {
-        filterByFormula: `{HQ Record ID} = '${hqId}'`,
+        filterByFormula: `{HQ Record ID} = ${quoteAirtableString(hqId)}`,
         fields: ['Creator', 'AKA', 'Status', 'HQ Record ID', 'Telegram Thread ID', 'Social Media Editing'],
         maxRecords: 1,
       })
       opsRecord = opsRows[0] || null
       if (opsRecord) {
+        assertRecordId(opsRecord.id, 'opsRecord.id')
         const cpdRows = await fetchAirtableRecords('Creator Platform Directory', {
-          filterByFormula: `FIND('${opsRecord.id}', ARRAYJOIN({Creator}))`,
+          filterByFormula: `FIND(${quoteAirtableString(opsRecord.id)}, ARRAYJOIN({Creator}))`,
           fields: ['Account Name', 'Telegram Topic ID'],
         })
         cpdTopicCount = cpdRows.filter(r => r.fields?.['Telegram Topic ID']).length
@@ -122,6 +127,9 @@ export async function POST(request) {
     const body = await request.json()
     const { hqId, confirmAka, reason } = body || {}
     if (!hqId) return NextResponse.json({ error: 'hqId required' }, { status: 400 })
+    try { assertRecordId(hqId, 'hqId') } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
     const reasonText = (reason || '').toString().trim().slice(0, 2000)
 
     const hq = await fetchHqRecord(HQ_CREATORS, hqId)
@@ -183,7 +191,7 @@ export async function POST(request) {
     let cpdRows = []
     try {
       const opsRows = await fetchAirtableRecords('Palm Creators', {
-        filterByFormula: `{HQ Record ID} = '${hqId}'`,
+        filterByFormula: `{HQ Record ID} = ${quoteAirtableString(hqId)}`,
         fields: ['Creator', 'AKA', 'Status', 'HQ Record ID', 'Telegram Thread ID', 'Social Media Editing'],
         maxRecords: 1,
       })
@@ -212,8 +220,9 @@ export async function POST(request) {
 
       // 3b. CPD per-account Telegram topics
       try {
+        assertRecordId(opsRecord.id, 'opsRecord.id')
         cpdRows = await fetchAirtableRecords('Creator Platform Directory', {
-          filterByFormula: `FIND('${opsRecord.id}', ARRAYJOIN({Creator}))`,
+          filterByFormula: `FIND(${quoteAirtableString(opsRecord.id)}, ARRAYJOIN({Creator}))`,
           fields: ['Account Name', 'Telegram Topic ID'],
         })
       } catch (e) {
@@ -271,7 +280,7 @@ export async function POST(request) {
         // 5a. Close Dropbox file requests recorded on the Onboarding row
         try {
           const onboardingRows = await fetch(
-            `https://api.airtable.com/v0/${HQ_BASE}/${HQ_ONBOARDING}?filterByFormula=${encodeURIComponent(`FIND('${hqId}', ARRAYJOIN({Creator}))`)}&maxRecords=1`,
+            `https://api.airtable.com/v0/${HQ_BASE}/${HQ_ONBOARDING}?filterByFormula=${encodeURIComponent(`FIND(${quoteAirtableString(hqId)}, ARRAYJOIN({Creator}))`)}&maxRecords=1`,
             { headers: hqHeaders, cache: 'no-store' }
           ).then(r => r.json())
           const ob = onboardingRows.records?.[0]

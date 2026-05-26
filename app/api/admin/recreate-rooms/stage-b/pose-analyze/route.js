@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 30
 
@@ -91,7 +92,7 @@ export async function POST(request) {
       // shot — no pose to analyze.) Fall back to Image attachment.
       const rows = await fetchAirtableRecords(PHOTOS_TABLE, {
         fields: ['Name', 'CDN URL', 'Image'],
-        filterByFormula: `RECORD_ID() = '${photoId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(photoId)}`,
       })
       if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
       const f = rows[0].fields || {}

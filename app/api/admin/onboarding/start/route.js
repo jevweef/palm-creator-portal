@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/adminAuth'
 import { fetchHqRecords, createHqRecord, patchHqRecord } from '@/lib/hqAirtable'
 import { createAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 const OPS_CREATORS = 'tbls2so6pHGbU4Uhh'
@@ -69,7 +70,7 @@ export async function POST(request) {
     const opsExisting = await (async () => {
       const { fetchAirtableRecords } = await import('@/lib/adminAuth')
       return fetchAirtableRecords(OPS_CREATORS, {
-        filterByFormula: `{Creator}="${name}"`,
+        filterByFormula: `{Creator} = ${quoteAirtableString(name)}`,
         maxRecords: 1,
       })
     })()

@@ -4,6 +4,7 @@ export const maxDuration = 30
 import { NextResponse } from 'next/server'
 import { requireAdminOrSocialMedia, fetchAirtableRecords } from '@/lib/adminAuth'
 import { fetchHqRecords } from '@/lib/hqAirtable'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const SM_SETUP_REQUESTS_TABLE = 'SM Setup Requests'
 const HQ_CREATORS_TABLE = 'tblYhkNvrNuOAHfgw'
@@ -23,14 +24,14 @@ export async function GET() {
     const opsCreatorIds = [...new Set(requests.flatMap(r => r.fields?.Creator || []).filter(Boolean))]
 
     const opsCreators = opsCreatorIds.length ? await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `OR(${opsCreatorIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+      filterByFormula: `OR(${opsCreatorIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
       fields: ['Creator', 'AKA', 'HQ Record ID'],
     }) : []
     const opsToHq = Object.fromEntries(opsCreators.map(c => [c.id, c.fields?.['HQ Record ID'] || null]))
 
     const hqIds = [...new Set(Object.values(opsToHq).filter(Boolean))]
     const hqRecords = hqIds.length ? await fetchHqRecords(HQ_CREATORS_TABLE, {
-      filterByFormula: `OR(${hqIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+      filterByFormula: `OR(${hqIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
       fields: ['Creator', 'AKA', 'Birthday', 'Profile Photos'],
     }) : []
     const hqMap = Object.fromEntries(hqRecords.map(r => [r.id, r.fields || {}]))

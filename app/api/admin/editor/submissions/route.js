@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // Submission feed for the admin Editor view.
 // Each entry = "an editor pressed submit at this moment in time" — one per Task
@@ -40,7 +41,7 @@ export async function GET() {
     const inspoIds = [...new Set(tasks.flatMap(t => t.fields?.Inspiration || []))]
 
     const recordIdFormula = ids => ids.length
-      ? `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+      ? `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
       : 'FALSE()'
     const fetchByIds = async (table, ids, fields) => {
       if (!ids.length) return []

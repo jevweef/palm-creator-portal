@@ -15,6 +15,7 @@ import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CONCURRENCY = 4
 
@@ -42,7 +43,7 @@ export async function POST(request) {
 
     const rows = await fetchAirtableRecords('Recreate Reels', {
       fields: ['Reel ID', 'Source Handle', 'Dropbox Video Link'],
-      filterByFormula: `OR(${reelIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+      filterByFormula: `OR(${reelIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
     })
     const reels = rows
       .map(r => ({

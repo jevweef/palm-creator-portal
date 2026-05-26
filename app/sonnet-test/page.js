@@ -207,7 +207,7 @@ export default function SonnetTestPage() {
       <div style={{ padding: 40, color: '#f87171', fontFamily: 'monospace' }}>
         Failed to load /sonnet-test-data.json: {error}
         <p style={{ color: '#888', marginTop: 12, fontSize: 13 }}>
-          Run <code>cd ~/inspo_test && .venv/bin/python sonnet_batch.py</code> to regenerate the data file.
+          Run <code>cd ~/palm-creator-portal/pipeline && .venv/bin/python ml/sonnet/sonnet_batch.py</code> to regenerate the data file.
         </p>
       </div>
     )

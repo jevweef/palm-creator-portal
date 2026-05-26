@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, batchUpdateRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 const TABLE = 'Photos'
@@ -33,7 +34,7 @@ export async function POST(request) {
     // Find every Photos record sharing this Source Post URL.
     const siblings = await fetchAirtableRecords(TABLE, {
       fields: ['Source Post URL', 'Carousel Index'],
-      filterByFormula: `{Source Post URL} = "${postUrl.replace(/"/g, '\\"')}"`,
+      filterByFormula: `{Source Post URL} = ${quoteAirtableString(postUrl)}`,
     })
     if (siblings.length === 0) {
       return NextResponse.json({ error: 'no images found for that post' }, { status: 404 })
@@ -73,7 +74,7 @@ export async function DELETE(request) {
 
     const siblings = await fetchAirtableRecords(TABLE, {
       fields: ['Source Post URL'],
-      filterByFormula: `{Source Post URL} = "${postUrl.replace(/"/g, '\\"')}"`,
+      filterByFormula: `{Source Post URL} = ${quoteAirtableString(postUrl)}`,
     })
     if (siblings.length === 0) {
       return NextResponse.json({ error: 'no images found for that post' }, { status: 404 })

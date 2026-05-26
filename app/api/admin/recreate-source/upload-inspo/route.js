@@ -3,6 +3,7 @@ import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/ad
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadVideoByUrl } from '@/lib/cloudflareStream'
 import { waitUntil } from '@vercel/functions'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
@@ -69,7 +70,7 @@ export async function POST(request) {
     // URL was already scraped. Cheap, idempotent.
     const existing = await fetchAirtableRecords(REELS_TABLE, {
       fields: ['Reel ID', 'Source Handle'],
-      filterByFormula: `{Reel ID} = '${shortcode}'`,
+      filterByFormula: `{Reel ID} = ${quoteAirtableString(shortcode)}`,
       maxRecords: 1,
     })
     if (existing.length) {

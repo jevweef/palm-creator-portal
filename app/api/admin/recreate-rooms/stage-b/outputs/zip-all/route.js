@@ -26,6 +26,7 @@ import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { requireAdminOrAiEditor, fetchAirtableRecords, OPS_BASE } from '@/lib/adminAuth'
 import { getDropboxAccessToken } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const OUTPUTS = 'Stage B Outputs'
 const OUTFIT_SWAP_OUTPUTS = 'Outfit Swap Outputs'
@@ -43,7 +44,7 @@ export async function GET(request) {
 
     // Resolve creator AKA for the archive filename.
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID()='${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA', 'Creator'],
       maxRecords: 1,
     })

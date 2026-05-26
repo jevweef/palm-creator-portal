@@ -3,6 +3,7 @@ import { requireAdmin, batchCreateRecords, fetchAirtableRecords, patchAirtableRe
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 import { fetchPostHdUrls } from '@/lib/instagramHd'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -43,7 +44,7 @@ export async function POST(request) {
     // Dup check against existing Photos rows for this handle.
     const existing = await fetchAirtableRecords('Photos', {
       fields: ['Source Post URL', 'Carousel Index'],
-      filterByFormula: `{Source Handle} = "${handle}"`,
+      filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
     })
     const existingKeys = new Set()
     for (const r of existing) {

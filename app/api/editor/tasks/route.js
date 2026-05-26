@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord, OPS_BASE, airtableHeaders } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, createDropboxSharedLink } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const FROM_STAGE = '10_UNREVIEWED_LIBRARY'
 const TO_STAGE = '20_NEEDS_EDIT'
@@ -69,7 +70,7 @@ export async function POST(req) {
 
     // 1. Fetch the asset (by record ID via fetchAirtableRecords → returns field NAMES)
     const assetRecords = await fetchAirtableRecords('Assets', {
-      filterByFormula: `RECORD_ID()='${assetId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
       fields: ['Asset Name', 'Tasks', 'Inspiration Source', 'Pipeline Status', 'Dropbox Path (Current)', 'Dropbox Parent Folder'],
     })
     if (!assetRecords.length) {

@@ -12,6 +12,7 @@ import {
 } from '@/lib/adminAuth'
 import { fetchDaemonChats } from '@/lib/inboxDaemon'
 import { extractForChat } from '@/app/api/cron/extract-tasks/route'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 
@@ -30,7 +31,7 @@ const VALID_CATEGORIES = new Set(['Creator', 'Chat Team', 'Internal Palm', 'Pers
 async function ensureDaemonRecord(chatId) {
   // Already exists?
   const existing = await fetchAirtableRecords(CHATS_TABLE, {
-    filterByFormula: `AND({Chat ID} = '${chatId.replace(/'/g, "\\'")}', {Source} = 'imessage')`,
+    filterByFormula: `AND({Chat ID} = ${quoteAirtableString(chatId)}, {Source} = 'imessage')`,
     maxRecords: 1,
   })
   if (existing[0]) return existing[0]
@@ -128,7 +129,7 @@ export async function PATCH(request, { params }) {
     if (updates.Status === 'Watching') {
       try {
         const fullChat = await fetchAirtableRecords(CHATS_TABLE, {
-          filterByFormula: `RECORD_ID() = '${recordId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(recordId)}`,
           maxRecords: 1,
         })
         if (fullChat[0]) {

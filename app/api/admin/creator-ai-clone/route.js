@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
 import { POSES, poseFromFilename, AI_REF_FOLDER } from '@/lib/aiCloneConfig'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,7 +78,7 @@ export async function GET(request) {
   try {
     if (creatorId) {
       const records = await fetchAirtableRecords(PALM_CREATORS, {
-        filterByFormula: `RECORD_ID() = '${creatorId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
         fields: FIELDS,
         maxRecords: 1,
       })
@@ -142,7 +143,7 @@ export async function DELETE(request) {
 
     // Fetch current state — need AKA for Dropbox path + current attachments
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA', fieldName],
       maxRecords: 1,
     })

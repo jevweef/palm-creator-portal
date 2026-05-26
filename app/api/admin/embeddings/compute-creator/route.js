@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, batchUpdateRecords } from '@/lib/adminAuth'
 import { embedText, cosineSimilarity, buildCreatorEmbeddingText } from '@/lib/embeddings'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 /**
  * POST /api/admin/embeddings/compute-creator
@@ -20,7 +21,7 @@ export async function POST(request) {
 
     // Fetch creator profile fields
     const creatorRecords = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['Creator', 'Profile Summary', 'Brand Voice Notes', 'Content Direction Notes', 'Dos and Donts'],
     })
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ const PHOTOS = 'Photos'
 async function readSelectionForReel(reelId) {
   const rows = await fetchAirtableRecords(REELS, {
     fields: ['Selected Outfits'],
-    filterByFormula: `RECORD_ID() = '${reelId}'`,
+    filterByFormula: `RECORD_ID() = ${quoteAirtableString(reelId)}`,
   })
   return Array.isArray(rows[0]?.fields?.['Selected Outfits']) ? rows[0].fields['Selected Outfits'] : []
 }
@@ -32,7 +33,7 @@ async function hydrateOutfits(ids) {
   // Airtable's IN() formula doesn't exist; build a chained OR(RECORD_ID()=...).
   // 30 IDs max in a single OR() expression is comfortable — far above
   // the realistic outfit-count per reel.
-  const expr = ids.map(id => `RECORD_ID() = '${id}'`).join(', ')
+  const expr = ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(', ')
   const rows = await fetchAirtableRecords(PHOTOS, {
     fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Carousel Total', 'CDN URL', 'Dropbox Path', 'Image', 'Is Outfit', 'Flatlay CDN URL', 'Flatlay Status'],
     filterByFormula: `OR(${expr})`,

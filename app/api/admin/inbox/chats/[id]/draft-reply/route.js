@@ -11,6 +11,7 @@ import {
   fetchAirtableRecords,
 } from '@/lib/adminAuth'
 import { fetchDaemonMessages } from '@/lib/inboxDaemon'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
@@ -45,7 +46,7 @@ export async function POST(request, { params }) {
   } else {
     try {
       const records = await fetchAirtableRecords(CHATS_TABLE, {
-        filterByFormula: `RECORD_ID() = '${id}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(id)}`,
         maxRecords: 1,
       })
       chatRecord = records[0]
@@ -72,7 +73,7 @@ export async function POST(request, { params }) {
       }
     } else {
       const msgs = await fetchAirtableRecords(MESSAGES_TABLE, {
-        filterByFormula: `{Chat} = '${String(chatIdentifier).replace(/'/g, "\\'")}'`,
+        filterByFormula: `{Chat} = ${quoteAirtableString(String(chatIdentifier))}`,
         sort: [{ field: 'Sent At', direction: 'desc' }],
         maxRecords: 12,
       })

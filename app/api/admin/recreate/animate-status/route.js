@@ -14,6 +14,7 @@ import { writeFile, unlink, readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { randomBytes } from 'crypto'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 ffmpeg.setFfmpegPath(ffmpegStatic)
 
@@ -91,7 +92,7 @@ export async function POST(request) {
 
     // Resolve creator AKA for the Dropbox folder
     const records = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID() = '${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA'],
       maxRecords: 1,
     })

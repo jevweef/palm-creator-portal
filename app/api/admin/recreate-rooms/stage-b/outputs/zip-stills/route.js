@@ -27,6 +27,7 @@ import archiver from 'archiver'
 import sharp from 'sharp'
 import { requireAdminOrAiEditor, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const OUTPUTS = 'Stage B Outputs'
 const OUTFIT_SWAP_OUTPUTS = 'Outfit Swap Outputs'
@@ -52,7 +53,7 @@ export async function GET(request) {
     }
 
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
-      filterByFormula: `RECORD_ID()='${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['AKA'],
       maxRecords: 1,
     })
@@ -169,7 +170,7 @@ export async function GET(request) {
     }
     let outfitPhotos = []
     if (orderedOutfitIds.length > 0) {
-      const expr = orderedOutfitIds.map(id => `RECORD_ID() = '${id}'`).join(', ')
+      const expr = orderedOutfitIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(', ')
       const rows = await fetchAirtableRecords(PHOTOS, {
         fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'CDN URL', 'Image',
           'Flatlay Status', 'Flatlay Dropbox Path', 'Flatlay CDN URL', 'Flatlay Model'],

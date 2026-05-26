@@ -3,6 +3,7 @@ export const maxDuration = 120
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'instagram-scraper-stable-api.p.rapidapi.com'
@@ -292,7 +293,7 @@ export async function POST(request) {
     let accounts
     if (accountId) {
       accounts = await fetchAirtableRecords('Creator Platform Directory', {
-        filterByFormula: `RECORD_ID()='${accountId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(accountId)}`,
         fields: commonFields,
       })
     } else {

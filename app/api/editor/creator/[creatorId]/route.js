@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 function recordIdFormula(ids) {
   if (!ids.length) return 'FALSE()'
-  return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
 async function fetchByIds(table, ids, params) {
@@ -27,7 +28,7 @@ export async function GET(request, { params }) {
   try {
     // 1. Fetch creator record to get all task + asset IDs
     const creators = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `RECORD_ID()='${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['Creator', 'AKA', 'Weekly Reel Quota', 'Tasks', 'Assets'],
     })
     if (!creators.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
@@ -49,7 +50,7 @@ export async function GET(request, { params }) {
         ],
       }),
       creatorName ? fetchAirtableRecords('Assets', {
-        filterByFormula: `AND({Pipeline Status}='Uploaded',{Dropbox Parent Folder}='${unreviewedFolderPath}')`,
+        filterByFormula: `AND({Pipeline Status}='Uploaded',{Dropbox Parent Folder} = ${quoteAirtableString(unreviewedFolderPath)})`,
         fields: [
           'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Dropbox Parent Folder', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Stream Raw ID', 'Upload Week',

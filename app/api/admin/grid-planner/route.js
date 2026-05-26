@@ -3,6 +3,7 @@ export const maxDuration = 30
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrSocialMedia, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // Standard posting slots: 11 AM and 7 PM Eastern, matching the editor's
 // auto-schedule in /api/admin/editor. Grid Planner uses these to pick the
@@ -37,7 +38,7 @@ async function buildClonedThumbnail(assetId, srcThumbnail) {
   if (assetId) {
     try {
       const assetRecs = await fetchAirtableRecords('Assets', {
-        filterByFormula: `RECORD_ID()='${assetId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
         fields: ['Thumbnail'],
       })
       const assetThumb = assetRecs[0]?.fields?.Thumbnail
@@ -272,7 +273,7 @@ export async function GET(request) {
       filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
       fields: [
         'Post Name', 'Creator', 'Channel', 'Asset', 'Task',
-        'Status', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
+        'Status', 'Type', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
         'SMM Scheduled', 'SMM Scheduled At',
       ],
@@ -354,8 +355,8 @@ export async function GET(request) {
     const assetMap = {}
     if (assetIds.length) {
       const assets = await fetchAirtableRecords('Assets', {
-        filterByFormula: `OR(${assetIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
-        fields: ['Asset Name', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
+        filterByFormula: `OR(${assetIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
+        fields: ['Asset Name', 'Asset Type', 'Thumbnail', 'CDN URL', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
       })
       for (const a of assets) assetMap[a.id] = a.fields || {}
     }
@@ -458,9 +459,30 @@ export async function GET(request) {
 
     const normalized = posts.map(p => {
       const f = p.fields || {}
-      const assetId = (f.Asset || [])[0]
+      const linkedAssetIds = f.Asset || []
+      const assetId = linkedAssetIds[0]
       const taskId = (f.Task || [])[0] || null
       const asset = assetId ? (assetMap[assetId] || {}) : {}
+      // Type drives whether this is a single-video reel or an N-photo carousel.
+      // Legacy posts without Type default to Reel — they predate the carousel
+      // build and the cron/send path still expects them.
+      const postType = statusName(f.Type) || 'Reel'
+      // For carousels, build an ordered list of all linked photo assets with
+      // their CDN/Dropbox URLs so the client + send route can iterate them.
+      const photos = postType === 'Carousel'
+        ? linkedAssetIds
+            .map(aid => {
+              const a = assetMap[aid]
+              if (!a) return null
+              return {
+                id: aid,
+                cdnUrl: a['CDN URL'] || '',
+                dropboxLink: a['Dropbox Shared Link'] || '',
+                name: a['Asset Name'] || '',
+              }
+            })
+            .filter(Boolean)
+        : []
       // Pick the first attachment whose type is actually an image. Some Make.com
       // uploads land in Airtable with type=text/html (URL ingest returned HTML
       // instead of image bytes) — those serve broken icons in the browser. Skip
@@ -522,6 +544,8 @@ export async function GET(request) {
         id: p.id,
         name: f['Post Name'] || '',
         status: statusName(f.Status),
+        type: postType,
+        photos, // ordered Photo-type Assets for carousel posts ([] for reels)
         accountId,
         channel: ch,
         taskId, // for grouping sibling instances in the Unassigned tray
@@ -676,7 +700,7 @@ export async function PATCH(request) {
       }
       // Fetch both posts to get their current Scheduled Dates
       const posts = await fetchAirtableRecords('Posts', {
-        filterByFormula: `OR(RECORD_ID()='${postA}', RECORD_ID()='${postB}')`,
+        filterByFormula: `OR(RECORD_ID() = ${quoteAirtableString(postA)}, RECORD_ID() = ${quoteAirtableString(postB)})`,
         fields: ['Scheduled Date'],
       })
       const a = posts.find(p => p.id === postA)
@@ -736,7 +760,7 @@ export async function PATCH(request) {
       let targetIds = [postId]
       try {
         const sourceList = await fetchAirtableRecords('Posts', {
-          filterByFormula: `RECORD_ID()='${postId}'`,
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(postId)}`,
           fields: ['Task'],
         })
         const taskId = (sourceList[0]?.fields?.Task || [])[0] || null
@@ -890,7 +914,7 @@ export async function POST(request) {
       // Verify the creator has both topic IDs set — otherwise the send route
       // will error at Telegram time. Fail loud now instead of later.
       const creatorRecs = await fetchAirtableRecords('Palm Creators', {
-        filterByFormula: `RECORD_ID()='${creatorId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
         fields: ['Creator', 'AKA', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
       })
       if (!creatorRecs.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
@@ -1108,7 +1132,7 @@ export async function POST(request) {
       // a URL that returns raw image bytes — Dropbox ?dl=0 returns an HTML
       // preview page so we rewrite to ?raw=1 (same as PhotoPickerModal).
       const assetRecs = await fetchAirtableRecords('Assets', {
-        filterByFormula: `RECORD_ID()='${assetId}'`,
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
         fields: ['Dropbox Shared Link', 'Asset Name'],
       })
       if (!assetRecs.length) return NextResponse.json({ error: 'Asset not found' }, { status: 404 })

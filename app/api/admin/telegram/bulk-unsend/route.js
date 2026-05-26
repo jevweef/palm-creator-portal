@@ -3,6 +3,7 @@ export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
@@ -51,7 +52,7 @@ export async function POST(request) {
     const accountMap = {}
     if (accountIds.length) {
       const accs = await fetchAirtableRecords('Creator Platform Directory', {
-        filterByFormula: `OR(${accountIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+        filterByFormula: `OR(${accountIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
         fields: ['Telegram Topic ID'],
       })
       for (const a of accs) accountMap[a.id] = a.fields?.['Telegram Topic ID'] || null
@@ -59,7 +60,7 @@ export async function POST(request) {
 
     // Creator's Telegram Thread ID (for non-SMM sends)
     const creators = await fetchAirtableRecords('Palm Creators', {
-      filterByFormula: `RECORD_ID()='${creatorId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
       fields: ['Telegram Thread ID'],
     })
     const creatorThreadId = creators[0]?.fields?.['Telegram Thread ID'] || null

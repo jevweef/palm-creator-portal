@@ -34,6 +34,7 @@ import {
   patchAirtableRecord,
   createAirtableRecord,
 } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const CHATS_TABLE = 'Telegram Chats'
 const MESSAGES_TABLE = 'Telegram Messages'
@@ -46,12 +47,12 @@ const ME_DISPLAY = 'Evan'
 
 function chatKeyLookup(chatIdStr) {
   const safeId = chatIdStr.replace(/'/g, "\\'")
-  return `AND({Chat ID} = '${safeId}', {Source} = 'imessage')`
+  return `AND({Chat ID} = ${quoteAirtableString(safeId)}, {Source} = 'imessage')`
 }
 
 function msgKeyLookup(key) {
   const safeKey = key.replace(/'/g, "\\'")
-  return `{Telegram Msg Key} = '${safeKey}'`
+  return `{Telegram Msg Key} = ${quoteAirtableString(safeKey)}`
 }
 
 // Normalize daemon-sent media type strings to the singleSelect options on

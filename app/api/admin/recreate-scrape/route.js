@@ -63,7 +63,13 @@ export async function POST(request) {
       return NextResponse.json({ started: [], skipped: skippedBusy.length ? skippedBusy : [{ reason: 'no Queued sources' }] })
     }
 
-    const callbackSecret = process.env.APIFY_CALLBACK_SECRET || 'default-secret'
+    const callbackSecret = process.env.APIFY_CALLBACK_SECRET
+
+    if (!callbackSecret) {
+
+      throw new Error('APIFY_CALLBACK_SECRET is not configured')
+
+    }
     // Derive the callback base from THIS request's origin, not a hardcoded
     // env. A scrape triggered on the dev preview must call back to that
     // same preview deployment — otherwise the Apify webhook fires to

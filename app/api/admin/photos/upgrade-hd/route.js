@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink } from '@/lib/dropbox'
 import { uploadImageBytes, buildDeliveryUrl, isCloudflareImagesConfigured } from '@/lib/cloudflareImages'
 import { fetchPostHdUrls } from '@/lib/instagramHd'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -29,7 +30,7 @@ export async function POST(request) {
 
     const rows = await fetchAirtableRecords(PHOTOS, {
       fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'CDN URL', 'CDN Image ID'],
-      filterByFormula: `RECORD_ID() = '${photoId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(photoId)}`,
     })
     if (!rows.length) return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
     const f = rows[0].fields || {}

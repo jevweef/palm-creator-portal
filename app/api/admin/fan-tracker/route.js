@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const TABLE = 'Fan Tracker'
 const FAN_ANALYSIS_TABLE = 'tblNMtOEg2AIzvLDK'
@@ -29,7 +30,7 @@ export async function GET(request) {
       const terms = [creator, creatorFull].filter(Boolean).map(n => `FIND("${esc(n)}", ARRAYJOIN({Creator}))`)
       trackerFilters.push(terms.length > 1 ? `OR(${terms.join(', ')})` : terms[0])
     }
-    if (status && status !== 'all') trackerFilters.push(`{Status} = "${status}"`)
+    if (status && status !== 'all') trackerFilters.push(`{Status} = ${quoteAirtableString(status)}`)
 
     const trackerFormula = trackerFilters.length > 1
       ? `AND(${trackerFilters.join(', ')})`
@@ -452,9 +453,9 @@ async function findFanRecord(fanName, ofUsername, creatorRecordId) {
   // Try username match first (more reliable), then fall back to name
   let formula
   if (ofUsername) {
-    formula = `AND({OF Username} = "${ofUsername}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `AND({OF Username} = ${quoteAirtableString(ofUsername)}, FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   } else {
-    formula = `AND({Fan Name} = "${fanName}", FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
+    formula = `AND({Fan Name} = ${quoteAirtableString(fanName)}, FIND("${creatorRecordId}", ARRAYJOIN({Creator})))`
   }
 
   const records = await fetchAirtableRecords(TABLE, {

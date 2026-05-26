@@ -6,6 +6,7 @@ import { waitUntil } from '@vercel/functions'
 import { requireAdminOrEditor, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { sendPushToAdmins } from '@/lib/sendPushNotifications'
 import { triggerAssetMirror } from '@/lib/triggerMirror'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // Build a snapshot of who pressed submit (Clerk identity at the moment of save).
 // Stored on the Task record so the submissions feed can render an avatar +
@@ -166,7 +167,7 @@ async function sendRevisionText(token, chatId, threadId, text) {
 // Build OR formula for batch record lookup by ID
 function recordIdFormula(ids) {
   if (!ids.length) return ''
-  return `OR(${ids.map(id => `RECORD_ID()='${id}'`).join(',')})`
+  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
 // GET — fetch editor task queue with joined inspo + creator + asset data
@@ -314,7 +315,7 @@ export async function PATCH(request) {
 
     // Fetch the task to get linked Asset ID
     const tasks = await fetchAirtableRecords('Tasks', {
-      filterByFormula: `RECORD_ID()='${taskId}'`,
+      filterByFormula: `RECORD_ID() = ${quoteAirtableString(taskId)}`,
     })
     if (!tasks.length) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
@@ -337,7 +338,7 @@ export async function PATCH(request) {
         let creatorAKA = ''
         if (creatorId) {
           const creators = await fetchAirtableRecords('Palm Creators', {
-            filterByFormula: `RECORD_ID()='${creatorId}'`,
+            filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
             fields: ['AKA', 'Creator'],
           })
           creatorAKA = creators[0]?.fields?.AKA || creators[0]?.fields?.Creator || ''
@@ -369,9 +370,10 @@ export async function PATCH(request) {
           ...(creatorId ? { 'Creator': [creatorId] } : {}),
           ...(assetId ? { 'Asset': [assetId] } : {}),
           'Task': [taskId],
-          'Status': 'Prepping',
+          'Type': 'Reel',
+          'Status': 'Ready to Go',
           ...(scheduledDate ? { 'Scheduled Date': scheduledDate.toISOString() } : {}),
-        })
+        }, { typecast: true })
         console.log(`[Editor] Post record created for task ${taskId}`)
       } catch (postErr) {
         console.error('[Editor] Failed to create Post record:', postErr.message)
@@ -410,7 +412,7 @@ export async function PATCH(request) {
         const postIds = tasks[0]?.fields?.Posts || []
         if (postIds.length) {
           const linkedPosts = await fetchAirtableRecords('Posts', {
-            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
             fields: ['Status', 'Telegram Sent At', 'Posted At'],
           })
           const archivable = linkedPosts.filter(p => {
@@ -455,7 +457,7 @@ export async function PATCH(request) {
         const postIds = tasks[0]?.fields?.Posts || []
         if (postIds.length) {
           const linkedPosts = await fetchAirtableRecords('Posts', {
-            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
             fields: ['Status', 'Telegram Sent At', 'Posted At'],
           })
           const archivable = linkedPosts.filter(p => {
@@ -528,7 +530,7 @@ export async function PATCH(request) {
         const postIds = tasks[0]?.fields?.Posts || []
         if (postIds.length) {
           const linkedPosts = await fetchAirtableRecords('Posts', {
-            filterByFormula: `OR(${postIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+            filterByFormula: `OR(${postIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
             fields: ['Status', 'Telegram Sent At', 'Posted At'],
           })
           const archivable = linkedPosts.filter(p => {
@@ -567,7 +569,7 @@ export async function PATCH(request) {
       if (assetId) {
         try {
           const assets = await fetchAirtableRecords('Assets', {
-            filterByFormula: `RECORD_ID()='${assetId}'`,
+            filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
             fields: ['Source Type'],
           })
           isAiRecreate = (assets[0]?.fields?.['Source Type'] || '') === 'AI Generated'
@@ -577,8 +579,8 @@ export async function PATCH(request) {
         let creatorName = '', inspoTitle = ''
         try {
           const [creatorRecs, inspoRecs] = await Promise.all([
-            creatorId ? fetchAirtableRecords('Palm Creators', { filterByFormula: `RECORD_ID()='${creatorId}'`, fields: ['AKA', 'Creator'] }) : [],
-            inspoId ? fetchAirtableRecords('Inspiration', { filterByFormula: `RECORD_ID()='${inspoId}'`, fields: ['Title'] }) : [],
+            creatorId ? fetchAirtableRecords('Palm Creators', { filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`, fields: ['AKA', 'Creator'] }) : [],
+            inspoId ? fetchAirtableRecords('Inspiration', { filterByFormula: `RECORD_ID() = ${quoteAirtableString(inspoId)}`, fields: ['Title'] }) : [],
           ])
           creatorName = creatorRecs[0]?.fields?.AKA || creatorRecs[0]?.fields?.Creator || ''
           inspoTitle = inspoRecs[0]?.fields?.Title || ''

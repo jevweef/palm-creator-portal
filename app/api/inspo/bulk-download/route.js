@@ -18,6 +18,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { Readable } from 'node:stream'
 import archiver from 'archiver'
 import { getDropboxAccessToken } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const BASE_ID = 'applLIT2t83plMqNx'
 const INSPIRATION_TABLE = 'tblnQhATaMtpoYErb'
@@ -87,7 +88,7 @@ async function batchMarkDownloaded(recordIds, creatorOpsId) {
   for (let i = 0; i < recordIds.length; i += 10) {
     const chunk = recordIds.slice(i, i + 10)
     const params = new URLSearchParams({
-      filterByFormula: `OR(${chunk.map((id) => `RECORD_ID()='${id}'`).join(',')})`,
+      filterByFormula: `OR(${chunk.map((id) => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
     })
     params.append('fields[]', 'Downloaded By')
     const r = await fetch(

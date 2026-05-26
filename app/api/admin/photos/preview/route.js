@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -46,7 +47,7 @@ export async function GET(request) {
     // so the dup key needs both Post URL and Carousel Index.
     const existingRows = await fetchAirtableRecords('Photos', {
       fields: ['Source Post URL', 'Carousel Index'],
-      filterByFormula: `{Source Handle} = "${handle}"`,
+      filterByFormula: `{Source Handle} = ${quoteAirtableString(handle)}`,
     })
     const existingKeys = new Set()
     for (const r of existingRows) {

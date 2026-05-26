@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 120
 
@@ -43,7 +44,7 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
     analysisParams.set('maxRecords', '1')
     analysisParams.set('sort[0][field]', 'Analyzed Date')
     analysisParams.set('sort[0][direction]', 'desc')
-    analysisParams.set('filterByFormula', `AND({Fan Name} = "${fanName.replace(/"/g, '\\"')}"${creatorName ? `, {Creator} = "${creatorName.replace(/"/g, '\\"')}"` : ''})`)
+    analysisParams.set('filterByFormula', `AND({Fan Name} = ${quoteAirtableString(fanName)}${creatorName ? `, {Creator} = ${quoteAirtableString(creatorName)}` : ''})`)
     const analysisRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${analysisParams}`, {
       headers: AIRTABLE_HEADERS, cache: 'no-store',
     })
@@ -53,7 +54,7 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
     // Get fan tracker record for alert history
     const trackerParams = new URLSearchParams()
     trackerParams.set('maxRecords', '1')
-    trackerParams.set('filterByFormula', `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+    trackerParams.set('filterByFormula', `{Fan Name} = ${quoteAirtableString(fanName)}`)
     const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
       headers: AIRTABLE_HEADERS, cache: 'no-store',
     })
@@ -156,8 +157,8 @@ async function saveToAirtable(record, { fanUsername, fanName, creatorName } = {}
     let existingId = null
     if (fanUsername || fanName) {
       const terms = []
-      if (fanUsername) terms.push(`{OF Username} = "${fanUsername.replace(/"/g, '\\"')}"`)
-      else if (fanName) terms.push(`{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+      if (fanUsername) terms.push(`{OF Username} = ${quoteAirtableString(fanUsername)}`)
+      else if (fanName) terms.push(`{Fan Name} = ${quoteAirtableString(fanName)}`)
       if (creatorName) terms.push(`FIND("${creatorName.replace(/"/g, '\\"')}", {Creator})`)
       const formula = terms.length > 1 ? `AND(${terms.join(', ')})` : terms[0]
       const params = new URLSearchParams()
@@ -311,7 +312,7 @@ export async function GET(request) {
     params.set('maxRecords', '1')
     params.set('sort[0][field]', 'Analyzed Date')
     params.set('sort[0][direction]', 'desc')
-    params.set('filterByFormula', `AND({Fan Name} = "${fan.replace(/"/g, '\\"')}"${creator ? `, {Creator} = "${creator.replace(/"/g, '\\"')}"` : ''})`)
+    params.set('filterByFormula', `AND({Fan Name} = ${quoteAirtableString(fan)}${creator ? `, {Creator} = ${quoteAirtableString(creator)}` : ''})`)
 
     const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${params}`, {
       headers: AIRTABLE_HEADERS, cache: 'no-store',
@@ -1001,9 +1002,9 @@ async function upsertFanTracker({ fanName, fanUsername, creatorRecordId, lifetim
   // Find existing record — match by username first, fall back to fan name
   let formula
   if (fanUsername) {
-    formula = `{OF Username} = "${fanUsername}"`
+    formula = `{OF Username} = ${quoteAirtableString(fanUsername)}`
   } else {
-    formula = `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`
+    formula = `{Fan Name} = ${quoteAirtableString(fanName)}`
   }
 
   const params = new URLSearchParams()
@@ -1261,7 +1262,7 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
   try {
     const trackerParams = new URLSearchParams()
     trackerParams.set('maxRecords', '1')
-    trackerParams.set('filterByFormula', `{Fan Name} = "${fanName.replace(/"/g, '\\"')}"`)
+    trackerParams.set('filterByFormula', `{Fan Name} = ${quoteAirtableString(fanName)}`)
     const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
       headers: AIRTABLE_HEADERS, cache: 'no-store',
     })

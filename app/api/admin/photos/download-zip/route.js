@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import archiver from 'archiver'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -21,7 +22,7 @@ export async function GET(request) {
 
     const rows = await fetchAirtableRecords('Photos', {
       fields: ['Source Handle', 'Source Post URL', 'Carousel Index', 'Dropbox Path', 'Flatlay Dropbox Path', 'Flatlay Model', 'Flatlay Status'],
-      filterByFormula: `{Source Post URL} = "${postUrl.replace(/"/g, '\\"')}"`,
+      filterByFormula: `{Source Post URL} = ${quoteAirtableString(postUrl)}`,
     })
     if (rows.length === 0) return NextResponse.json({ error: 'no photos for that post' }, { status: 404 })
 

@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { google } from 'googleapis'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // ── HTML Parser — extracts transactions from saved OF statements page ───────
 
@@ -379,7 +380,7 @@ async function updateAirtableCoverage(accountName, sheetType, txns, fileTimestam
 
     // Look up Revenue Account by Account Name
     const params = new URLSearchParams()
-    params.append('filterByFormula', `{Account Name}="${accountName}"`)
+    params.append('filterByFormula', `{Account Name} = ${quoteAirtableString(accountName)}`)
     params.append('fields[]', RA_FIELDS.accountName)
     params.append('fields[]', RA_FIELDS.earningsStart)
     params.append('fields[]', RA_FIELDS.earningsEnd)
