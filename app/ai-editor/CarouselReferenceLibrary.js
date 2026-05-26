@@ -47,7 +47,7 @@ function downloadCarouselZip(postUrl) {
 //   - Part of a carousel (Carousel Total > 1)
 //   - Excludes: AI Generated, Pinterest, Creator Upload, single-photo posts
 
-export default function CarouselReferenceLibrary({ creatorId, creatorName }) {
+export default function CarouselReferenceLibrary({ creatorId, creatorName, onProjectStarted }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('grid')  // grid | expanded
@@ -110,6 +110,7 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName }) {
   // Optimistic: insert a placeholder into projects[] so the badge flips
   // immediately, then reconcile on response. Errors revert.
   async function startProject(postUrl, sourceHandle) {
+    console.log('[ref-library] Start project clicked', { postUrl, sourceHandle, creatorId })
     if (!creatorId) { setStartError('Pick a creator in the upload section first'); return }
     setStartingProject(postUrl)
     setStartError('')
@@ -127,14 +128,24 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sourcePostUrl: postUrl, creatorId }),
       })
-      const data = await res.json()
+      // Read as text first so we can surface ANY response (HTML 401, plain
+      // 500, JSON error) without choking on res.json() against non-JSON.
+      const text = await res.text()
+      let data = {}
+      try { data = JSON.parse(text) } catch { data = { error: text.slice(0, 200) } }
+      console.log('[ref-library] Project create response', { status: res.status, data })
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-      // Replace placeholder with the real one.
       setProjects(prev => [
         { id: data.project.id, sourcePostUrl: postUrl, sourceHandle, status: 'Planning', createdAt: new Date().toISOString() },
         ...prev.filter(p => p.id !== placeholder.id),
       ])
+      // Hand the new project ID to the parent so the Upload section can
+      // auto-link it + scroll the editor down to "upload AI versions
+      // here" mode. Without this, the editor sees the badge change and
+      // has no idea what to do next.
+      if (onProjectStarted) onProjectStarted(data.project.id)
     } catch (err) {
+      console.error('[ref-library] Start project failed:', err)
       setStartError(`Couldn't start project: ${err.message}`)
       setProjects(prev => prev.filter(p => p.id !== placeholder.id))
     } finally {
@@ -197,7 +208,19 @@ export default function CarouselReferenceLibrary({ creatorId, creatorName }) {
           Scraped IG carousel posts to use as source for AI carousel generations. Click a post to see every slide.
           {creatorName ? <> Showing badges for <strong style={{ color: 'var(--palm-pink)' }}>{creatorName}</strong>.</> : <> Pick a creator below to start projects.</>}
         </p>
-        {startError && <div style={{ fontSize: 12, color: '#E87878', marginTop: 6 }}>{startError}</div>}
+        {startError && (
+          <div style={{
+            marginTop: 10, padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(232, 120, 120, 0.08)',
+            border: '1px solid rgba(232, 120, 120, 0.3)',
+            color: '#E87878', fontSize: 13, fontWeight: 500,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>⚠</span>
+            <span style={{ flex: 1 }}>{startError}</span>
+            <button onClick={() => setStartError('')} style={{ background: 'none', border: 'none', color: '#E87878', fontSize: 16, cursor: 'pointer' }}>×</button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>

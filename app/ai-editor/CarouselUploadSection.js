@@ -17,7 +17,7 @@ function bytesLabel(n) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
-export default function CarouselUploadSection({ creatorId, creators }) {
+export default function CarouselUploadSection({ creatorId, creators, linkedProjectId: externalLinkedProjectId, onLinkedProjectIdChange }) {
   const [files, setFiles] = useState([])  // [{ file, previewUrl }]
   const [title, setTitle] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -41,15 +41,36 @@ export default function CarouselUploadSection({ creatorId, creators }) {
   // In-progress projects for the current creator (Planning/Submitted).
   // Editor optionally links a submission to one so admin review sees
   // the source carousel side-by-side + the project archives on Approve.
+  // linkedProjectId is controlled by the parent so Start Project in the
+  // Reference Library can pre-select a project on this form. Falls back
+  // to internal state if no parent controller is wired.
   const [activeProjects, setActiveProjects] = useState([])
-  const [linkedProjectId, setLinkedProjectId] = useState('')
-  useEffect(() => {
-    if (!creatorId) { setActiveProjects([]); setLinkedProjectId(''); return }
-    fetch(`/api/admin/carousel-projects?creatorId=${encodeURIComponent(creatorId)}&status=Planning,Submitted`)
+  const [internalLinkedProjectId, setInternalLinkedProjectId] = useState('')
+  const linkedProjectId = externalLinkedProjectId !== undefined ? externalLinkedProjectId : internalLinkedProjectId
+  const setLinkedProjectId = onLinkedProjectIdChange || setInternalLinkedProjectId
+
+  const reloadActiveProjects = (cid) => {
+    if (!cid) { setActiveProjects([]); return }
+    fetch(`/api/admin/carousel-projects?creatorId=${encodeURIComponent(cid)}&status=Planning,Submitted`)
       .then(r => r.json())
       .then(d => setActiveProjects(d.projects || []))
       .catch(() => setActiveProjects([]))
+  }
+  useEffect(() => {
+    if (!creatorId) { setActiveProjects([]); setLinkedProjectId(''); return }
+    reloadActiveProjects(creatorId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creatorId])
+  // When the parent lifts a new linked-project ID into us (e.g., from
+  // Start Project in the Reference Library), our active-projects list
+  // might not have caught the new one yet. Re-fetch so the dropdown
+  // labels are accurate.
+  useEffect(() => {
+    if (linkedProjectId && creatorId && !activeProjects.some(p => p.id === linkedProjectId)) {
+      reloadActiveProjects(creatorId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedProjectId])
 
   const acceptFiles = (incoming) => {
     const list = Array.from(incoming || []).filter(f => f.type?.startsWith('image/'))
@@ -232,14 +253,121 @@ export default function CarouselUploadSection({ creatorId, creators }) {
 
   const creatorName = creators?.find(c => c.id === creatorId)?.name || ''
 
+  const linkedProject = activeProjects.find(p => p.id === linkedProjectId)
+
   return (
-    <div style={{ maxWidth: 900, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div id="carousel-upload-anchor" style={{ maxWidth: 900, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16, scrollMarginTop: 80 }}>
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>📸 AI Carousel Upload</h2>
         <p style={{ fontSize: 13, color: 'var(--foreground-muted)', margin: 0 }}>
           Upload AI-generated carousel slides. After submit, admins see the batch in their For Review tab. Approved batches become available in the Carousels picker under <em>AI Generated</em>.
         </p>
       </div>
+
+      {/* Active Projects panel — surface in-progress projects so the
+          editor sees them at a glance and can pick one for their next
+          upload. Hidden when there's nothing in flight. */}
+      {activeProjects.length > 0 && (
+        <div style={{
+          padding: 14, borderRadius: 10,
+          background: 'rgba(232,184,120,0.04)',
+          border: '1px solid rgba(232,184,120,0.18)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <strong style={{ fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#E8B878' }}>
+              🔧 Active Projects for {creators?.find(c => c.id === creatorId)?.name || 'this creator'}
+            </strong>
+            <span style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+              {activeProjects.length} in progress
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {activeProjects.map(p => {
+              const isLinked = p.id === linkedProjectId
+              return (
+                <div key={p.id} style={{
+                  padding: '10px 12px', borderRadius: 6,
+                  background: isLinked ? 'rgba(168,132,232,0.12)' : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${isLinked ? 'rgba(168,132,232,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.name || `@${p.sourceHandle}`}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 2 }}>
+                        Status: <span style={{ color: p.status === 'Submitted' ? '#7DD3A4' : '#E8B878' }}>{p.status}</span>
+                        {p.sourcePhotoCount > 0 && ` · ${p.sourcePhotoCount} source slide${p.sourcePhotoCount === 1 ? '' : 's'}`}
+                        {p.uploadedPhotoCount > 0 && ` · ${p.uploadedPhotoCount} uploaded`}
+                        {p.sourcePostUrl && (
+                          <> · <a href={p.sourcePostUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--palm-pink)', textDecoration: 'none' }}>source ↗</a></>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setLinkedProjectId(isLinked ? '' : p.id)}
+                      style={{
+                        padding: '6px 12px', fontSize: 11, fontWeight: 700,
+                        background: isLinked ? 'rgba(168,132,232,0.25)' : 'rgba(168,132,232,0.08)',
+                        color: '#c8b0e8',
+                        border: '1px solid rgba(168,132,232,0.35)', borderRadius: 5,
+                        cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >{isLinked ? '✓ Linked' : 'Use for upload'}</button>
+                  </div>
+                  {/* Source slide thumbnails inline — editor sees what
+                      they're recreating right next to where they're
+                      uploading. Linked project gets the full strip;
+                      others get a compact 4-thumb peek so the panel
+                      stays manageable. */}
+                  {p.sourcePhotos?.length > 0 && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(auto-fill, minmax(${isLinked ? '280px' : '180px'}, 1fr))`,
+                      gap: 6,
+                    }}>
+                      {(isLinked ? p.sourcePhotos : p.sourcePhotos.slice(0, 6)).map(sp => (
+                        <div key={sp.id} style={{
+                          aspectRatio: '1/1', background: '#000', borderRadius: 4,
+                          overflow: 'hidden', position: 'relative',
+                        }}>
+                          {sp.image && (
+                            <img
+                              src={sp.image}
+                              onError={e => { if (sp.imageFallback && e.currentTarget.src !== sp.imageFallback) e.currentTarget.src = sp.imageFallback }}
+                              alt=""
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          )}
+                          <div style={{
+                            position: 'absolute', top: 3, left: 3,
+                            padding: '1px 5px', fontSize: 10, fontWeight: 700,
+                            background: 'rgba(0,0,0,0.75)', color: '#fff', borderRadius: 3,
+                          }}>{sp.carouselIndex || '?'}</div>
+                        </div>
+                      ))}
+                      {!isLinked && p.sourcePhotos.length > 6 && (
+                        <div style={{
+                          aspectRatio: '1/1', borderRadius: 4,
+                          background: 'rgba(255,255,255,0.03)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 14, color: '#888', fontWeight: 700,
+                        }}>+{p.sourcePhotos.length - 6}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {linkedProject && (
+            <div style={{ marginTop: 10, fontSize: 12, color: '#c8b0e8' }}>
+              ↓ Drop AI slides below. They&apos;ll attach to <strong>{linkedProject.name}</strong> on submit.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Variations generator — Sonnet plans, Wan 2.7 fans out. Section
           is collapsible-by-presence: empty until the editor picks a source. */}

@@ -87,7 +87,19 @@ export default function CarouselSubmissionsReview({ showToast }) {
                   {sub.uploadedBy ? ` · by ${sub.uploadedBy.slice(0, 20)}` : ''}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {sub.project && (
+                  <button
+                    onClick={() => setSourceModal({ submission: sub })}
+                    title={`View source carousel: @${sub.project.sourceHandle || '?'}`}
+                    style={{
+                      padding: '8px 12px', fontSize: 12, fontWeight: 600,
+                      background: 'rgba(168,132,232,0.10)', color: '#c8b0e8',
+                      border: '1px solid rgba(168,132,232,0.3)', borderRadius: 6,
+                      cursor: 'pointer',
+                    }}
+                  >▸ Show source</button>
+                )}
                 <button
                   onClick={() => decide(sub.batchId, 'reject')}
                   disabled={updating === sub.batchId}
@@ -147,6 +159,149 @@ export default function CarouselSubmissionsReview({ showToast }) {
           </div>
         ))}
       </div>
+
+      {/* Side-by-side source vs AI modal. Opens via the "Show source"
+          button per submission. Reviewer compares the original scraped
+          carousel slides (left) with the AI versions (right). */}
+      {sourceModal && (() => {
+        const sub = sourceModal.submission
+        const proj = sub.project
+        return (
+          <div
+            onClick={e => { if (e.target === e.currentTarget) setSourceModal(null) }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 600,
+              background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+              padding: 32, overflowY: 'auto',
+            }}
+          >
+            <div style={{
+              background: 'var(--card-bg-solid)', borderRadius: 12,
+              width: '100%', maxWidth: 1280, padding: 20,
+              display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>
+                    {sub.title || `Carousel for ${sub.creatorName}`}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4 }}>
+                    Source: <strong>@{proj.sourceHandle || '?'}</strong>
+                    {proj.sourcePostUrl && (
+                      <> · <a href={proj.sourcePostUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--palm-pink)' }}>view on IG</a></>
+                    )} · @{sub.creatorName}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSourceModal(null)}
+                  style={{ background: 'none', border: 'none', color: '#aaa', fontSize: 22, cursor: 'pointer', padding: '0 8px' }}
+                >×</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {/* Source column */}
+                <div>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', color: 'var(--foreground-muted)',
+                    marginBottom: 8,
+                  }}>📷 Source · {proj.sourcePhotos?.length || 0}</div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                    gap: 6,
+                  }}>
+                    {(proj.sourcePhotos || []).map(p => (
+                      <div key={p.id} style={{
+                        position: 'relative', aspectRatio: '1/1', overflow: 'hidden',
+                        background: '#111', borderRadius: 6,
+                      }}>
+                        {p.image && (
+                          <img
+                            src={p.image}
+                            onError={e => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        )}
+                        <div style={{
+                          position: 'absolute', top: 2, left: 2,
+                          padding: '0 5px', fontSize: 9, fontWeight: 700,
+                          background: 'rgba(0,0,0,0.75)', color: '#fff', borderRadius: 2,
+                        }}>{p.carouselIndex || '?'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {!proj.sourcePhotos?.length && (
+                    <div style={{ color: '#777', fontSize: 12, padding: 12 }}>
+                      No source slides attached to this project.
+                    </div>
+                  )}
+                </div>
+
+                {/* AI column */}
+                <div>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', color: 'var(--palm-pink)',
+                    marginBottom: 8,
+                  }}>✨ AI Submission · {sub.photos.length}</div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                    gap: 6,
+                  }}>
+                    {sub.photos.map(p => (
+                      <div key={p.id} style={{
+                        position: 'relative', aspectRatio: '1/1', overflow: 'hidden',
+                        background: '#111', borderRadius: 6,
+                      }}>
+                        {p.image && (
+                          <img
+                            src={p.image}
+                            onError={e => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        )}
+                        <div style={{
+                          position: 'absolute', top: 2, left: 2,
+                          padding: '0 5px', fontSize: 9, fontWeight: 700,
+                          background: 'rgba(0,0,0,0.75)', color: '#fff', borderRadius: 2,
+                        }}>{p.carouselIndex || '?'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { decide(sub.batchId, 'reject'); setSourceModal(null) }}
+                  disabled={updating === sub.batchId}
+                  style={{
+                    padding: '10px 18px', fontSize: 13, fontWeight: 600,
+                    background: 'rgba(232,120,120,0.06)', color: '#E87878',
+                    border: '1px solid rgba(232,120,120,0.25)', borderRadius: 6,
+                    cursor: updating === sub.batchId ? 'default' : 'pointer',
+                  }}
+                >Reject</button>
+                <button
+                  onClick={() => { decide(sub.batchId, 'approve'); setSourceModal(null) }}
+                  disabled={updating === sub.batchId}
+                  style={{
+                    padding: '10px 22px', fontSize: 13, fontWeight: 700,
+                    background: 'rgba(125,211,164,0.14)', color: '#7DD3A4',
+                    border: '1px solid rgba(125,211,164,0.35)', borderRadius: 6,
+                    cursor: updating === sub.batchId ? 'default' : 'pointer',
+                  }}
+                >{updating === sub.batchId ? 'Working…' : 'Approve'}</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {lightbox && (
         <div

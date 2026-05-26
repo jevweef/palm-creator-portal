@@ -802,6 +802,11 @@ export default function AiEditorPage() {
   // Reel record so the file appears in the Fresh Inspo grid. NOT an
   // IG URL flow — admins still drive IG scraping via /admin/recreate-
   // source; the editor uploads their own local files.
+  // Carousel-tab: shared linked-project ID between Reference Library
+  // (start project → auto-link) and Upload Section (Link-to-project
+  // dropdown). Lifted here so a successful Start Project pre-selects
+  // the project in the upload form.
+  const [carouselLinkedProjectId, setCarouselLinkedProjectId] = useState('')
   const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
   const [uploadInspoFile, setUploadInspoFile] = useState(null)
   const [uploadInspoCaption, setUploadInspoCaption] = useState('')
@@ -1028,15 +1033,36 @@ export default function AiEditorPage() {
         </button>
       </div>
 
-      {tab === 'carousel' && (
-        <>
-          <CarouselReferenceLibrary
-            creatorId={creatorId}
-            creatorName={creators?.find(c => c.id === creatorId)?.name || ''}
-          />
-          <CarouselUploadSection creatorId={creatorId} creators={creators} />
-        </>
-      )}
+      {tab === 'carousel' && (() => {
+        // Shared between Reference Library + Upload section so Start
+        // Project can auto-link the new project into the upload form
+        // and auto-scroll the editor to it. Plain function-scope vars
+        // need to live on the AiEditorPage component above; declared
+        // there as `carouselLinkedProjectId` / setter.
+        return (
+          <>
+            <CarouselReferenceLibrary
+              creatorId={creatorId}
+              creatorName={creators?.find(c => c.id === creatorId)?.name || ''}
+              onProjectStarted={(projectId) => {
+                setCarouselLinkedProjectId(projectId)
+                // Smooth-scroll to the upload section after the badge update
+                // settles. The upload section root has id="carousel-upload-anchor".
+                setTimeout(() => {
+                  document.getElementById('carousel-upload-anchor')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 100)
+              }}
+            />
+            <CarouselUploadSection
+              creatorId={creatorId}
+              creators={creators}
+              linkedProjectId={carouselLinkedProjectId}
+              onLinkedProjectIdChange={setCarouselLinkedProjectId}
+            />
+          </>
+        )
+      })()}
 
       {tab === 'create' && (
         <>

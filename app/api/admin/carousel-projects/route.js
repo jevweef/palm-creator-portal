@@ -43,16 +43,28 @@ export async function POST(request) {
     if (!creators.length) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     const aka = creators[0].fields?.AKA || creators[0].fields?.Creator || 'unknown'
 
-    // Pull source carousel slides. Filter to Instagram (we never want
-    // AI-generated photos as the source of a "recreate" project) and
-    // match by Source Post URL.
-    const safeUrl = sourcePostUrl.replace(/'/g, "\\'")
+    // Pull source carousel slides. Match by Source Post URL only — that
+    // field is reliably set by the IG scraper, and post-URL-having photos
+    // are by definition scraped IG (Pinterest/AI/Creator uploads don't
+    // have one). Allowing blank Source Type covers legacy rows from
+    // before the field existed; non-Instagram Source Types are excluded
+    // explicitly so AI-gen photos that accidentally carry a Source Post
+    // URL don't sneak in as a project source.
+    // Match URL with OR without trailing slash — Airtable's `=` is exact
+    // and the scraper can store either form depending on the source.
+    const trimmed = sourcePostUrl.replace(/\/+$/, '')
+    const withSlash = `${trimmed}/`
+    const safeTrimmed = trimmed.replace(/'/g, "\\'")
+    const safeWithSlash = withSlash.replace(/'/g, "\\'")
     const slides = await fetchAirtableRecords(PHOTOS, {
-      filterByFormula: `AND({Source Post URL}='${safeUrl}',{Source Type}='Instagram')`,
-      fields: ['Source Handle', 'Carousel Index'],
+      filterByFormula: `AND(OR({Source Post URL}='${safeTrimmed}',{Source Post URL}='${safeWithSlash}'),OR({Source Type}='Instagram',{Source Type}=BLANK()))`,
+      fields: ['Source Handle', 'Carousel Index', 'Source Type'],
     })
     if (!slides.length) {
-      return NextResponse.json({ error: 'No scraped slides found for that Source Post URL' }, { status: 404 })
+      console.warn(`[carousel-projects] No slides for URL: ${sourcePostUrl} (tried ${safeTrimmed} and ${safeWithSlash})`)
+      return NextResponse.json({
+        error: `No scraped slides found for "${sourcePostUrl}". Check Airtable Photos table — slides may need Source Type set to Instagram.`,
+      }, { status: 404 })
     }
     const sourceHandle = slides[0].fields?.['Source Handle'] || ''
     const sourcePhotoIds = slides.map(s => s.id)
@@ -147,10 +159,41 @@ export async function GET(request) {
       ],
     })
 
-    const projects = rows
-      .filter(r => (r.fields?.Creator || []).includes(creatorId))
+    const matched = rows.filter(r => (r.fields?.Creator || []).includes(creatorId))
+
+    // Resolve source photo URLs in a single batched fetch so the Upload
+    // section's Active Projects panel can render source thumbnails
+    // inline (editor sees what they're recreating right next to where
+    // they're uploading). Skips empty projects.
+    const allSourceIds = [...new Set(matched.flatMap(r => r.fields?.['Source Photos'] || []))]
+    let sourcePhotosById = {}
+    if (allSourceIds.length) {
+      const photos = await fetchAirtableRecords('Photos', {
+        filterByFormula: `OR(${allSourceIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+        fields: ['Carousel Index', 'CDN URL', 'Image', 'Dropbox Link'],
+      })
+      sourcePhotosById = Object.fromEntries(photos.map(p => {
+        const pf = p.fields || {}
+        const cdn = pf['CDN URL'] || ''
+        const att = (pf['Image'] || [])[0]
+        const fallback = att?.thumbnails?.large?.url || att?.url || pf['Dropbox Link'] || ''
+        return [p.id, {
+          id: p.id,
+          carouselIndex: pf['Carousel Index'] || 0,
+          image: cdn || fallback,
+          imageFallback: fallback,
+        }]
+      }))
+    }
+
+    const projects = matched
       .map(r => {
         const f = r.fields || {}
+        const sourceIds = f['Source Photos'] || []
+        const sourcePhotos = sourceIds
+          .map(id => sourcePhotosById[id])
+          .filter(Boolean)
+          .sort((a, b) => (a.carouselIndex || 0) - (b.carouselIndex || 0))
         return {
           id: r.id,
           name: f['Project Name'] || '',
@@ -158,7 +201,8 @@ export async function GET(request) {
           sourceHandle: f['Source Handle'] || '',
           status: f['Status']?.name || f['Status'] || 'Planning',
           submissionBatchId: f['Submission Batch ID'] || '',
-          sourcePhotoCount: (f['Source Photos'] || []).length,
+          sourcePhotoCount: sourceIds.length,
+          sourcePhotos,
           uploadedPhotoCount: (f['Uploaded Photos'] || []).length,
           createdBy: f['Created By'] || '',
           createdAt: f['Created At'] || null,
