@@ -11,6 +11,10 @@ export default function CarouselSubmissionsReview({ showToast }) {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(null)
   const [lightbox, setLightbox] = useState(null)  // { photo }
+  // Source-carousel modal — opens on demand so the review queue stays
+  // visually tight (AI slides only by default). Populated from the
+  // submission's linked Carousel Project.
+  const [sourceModal, setSourceModal] = useState(null)  // { submission }
 
   const fetchSubmissions = useCallback(async () => {
     setLoading(true)

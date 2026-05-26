@@ -1,6 +1,41 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 
+// Trigger a file download by fetching the URL as a blob, wrapping in an
+// object URL, and clicking a synthetic anchor. Beats <a download> for
+// cross-origin URLs (Dropbox/CF) which the browser would otherwise open
+// in a new tab.
+async function downloadFromUrl(url, suggestedName) {
+  try {
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const blob = await r.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = suggestedName || 'image.jpg'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+  } catch (err) {
+    console.error('[ref-library] download failed:', err)
+  }
+}
+
+// Download the whole carousel as a zip via the server route. Browser
+// handles the streamed response directly (no in-memory zip build needed
+// on the client).
+function downloadCarouselZip(postUrl) {
+  const a = document.createElement('a')
+  a.href = `/api/ai-editor/carousel-references/zip?postUrl=${encodeURIComponent(postUrl)}`
+  // Same-origin response carries the Content-Disposition filename, so we
+  // skip a.download (would otherwise override the server's name).
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
 // Carousel Reference Library — scraped IG carousel posts the editor uses
 // as source material for AI carousel recreations. Read-only browse with
 // the same Grid / Expanded view toggle as the admin's /admin/recreate-
@@ -12,13 +47,19 @@ import { useEffect, useMemo, useState } from 'react'
 //   - Part of a carousel (Carousel Total > 1)
 //   - Excludes: AI Generated, Pinterest, Creator Upload, single-photo posts
 
-export default function CarouselReferenceLibrary() {
+export default function CarouselReferenceLibrary({ creatorId, creatorName }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('grid')  // grid | expanded
   const [search, setSearch] = useState('')
   const [openPostUrl, setOpenPostUrl] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  // Projects for the currently-selected creator — drives the ✓ Done /
+  // 🔧 In Progress badges on each post and prevents duplicate project
+  // starts. Re-fetched whenever the parent's creatorId changes.
+  const [projects, setProjects] = useState([])  // [{ id, sourcePostUrl, status, ... }]
+  const [startingProject, setStartingProject] = useState(null)  // postUrl mid-flight
+  const [startError, setStartError] = useState('')
 
   useEffect(() => {
     fetch('/api/admin/photos/library')
@@ -37,6 +78,69 @@ export default function CarouselReferenceLibrary() {
       .catch(() => setPhotos([]))
       .finally(() => setLoading(false))
   }, [])
+
+  // Reload projects whenever the selected creator changes. Empty creator
+  // = no badges, no start-project button (UI gates on creatorId).
+  useEffect(() => {
+    if (!creatorId) { setProjects([]); return }
+    fetch(`/api/admin/carousel-projects?creatorId=${encodeURIComponent(creatorId)}`)
+      .then(r => r.json())
+      .then(d => setProjects(d.projects || []))
+      .catch(() => setProjects([]))
+  }, [creatorId])
+
+  // O(1) lookup of project status per source post URL for the current
+  // creator. Same source can have multiple projects over time (after a
+  // Rejected one, a fresh project can be started) — pick the most
+  // recent and use ITS status. Approved/Archived = "Done" (✓); Planning/
+  // Submitted = "In Progress" (🔧); Rejected = no badge (can retry).
+  const projectByPostUrl = useMemo(() => {
+    const m = new Map()
+    for (const p of projects) {
+      if (!p.sourcePostUrl) continue
+      const existing = m.get(p.sourcePostUrl)
+      if (!existing || (p.createdAt || '') > (existing.createdAt || '')) {
+        m.set(p.sourcePostUrl, p)
+      }
+    }
+    return m
+  }, [projects])
+
+  // Kick off a new project from this carousel for the current creator.
+  // Optimistic: insert a placeholder into projects[] so the badge flips
+  // immediately, then reconcile on response. Errors revert.
+  async function startProject(postUrl, sourceHandle) {
+    if (!creatorId) { setStartError('Pick a creator in the upload section first'); return }
+    setStartingProject(postUrl)
+    setStartError('')
+    const placeholder = {
+      id: `temp-${Date.now()}`,
+      sourcePostUrl: postUrl,
+      sourceHandle,
+      status: 'Planning',
+      createdAt: new Date().toISOString(),
+    }
+    setProjects(prev => [placeholder, ...prev])
+    try {
+      const res = await fetch('/api/admin/carousel-projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourcePostUrl: postUrl, creatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      // Replace placeholder with the real one.
+      setProjects(prev => [
+        { id: data.project.id, sourcePostUrl: postUrl, sourceHandle, status: 'Planning', createdAt: new Date().toISOString() },
+        ...prev.filter(p => p.id !== placeholder.id),
+      ])
+    } catch (err) {
+      setStartError(`Couldn't start project: ${err.message}`)
+      setProjects(prev => prev.filter(p => p.id !== placeholder.id))
+    } finally {
+      setStartingProject(null)
+    }
+  }
 
   // Group photos by Source Post URL — one entry per IG carousel post.
   const posts = useMemo(() => {
@@ -79,11 +183,21 @@ export default function CarouselReferenceLibrary() {
 
   return (
     <div style={{ marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Hover-to-reveal style for download/action overlays on each tile.
+          Inline styles can't express :hover, so we scope a small block to
+          our action classnames. */}
+      <style>{`
+        .ref-cover:hover .ref-cover-actions { opacity: 1 !important; }
+        .ref-slide:hover .ref-slide-actions { opacity: 1 !important; }
+        .ref-lightbox-img-wrap:hover .ref-lightbox-actions { opacity: 1 !important; }
+      `}</style>
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>📚 Reference Library</h2>
         <p style={{ fontSize: 12, color: 'var(--foreground-muted)', margin: 0 }}>
           Scraped IG carousel posts to use as source for AI carousel generations. Click a post to see every slide.
+          {creatorName ? <> Showing badges for <strong style={{ color: 'var(--palm-pink)' }}>{creatorName}</strong>.</> : <> Pick a creator below to start projects.</>}
         </p>
+        {startError && <div style={{ fontSize: 12, color: '#E87878', marginTop: 6 }}>{startError}</div>}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -134,15 +248,27 @@ export default function CarouselReferenceLibrary() {
           {visible.map(post => {
             const cover = post.slides[0]
             const expanded = openPostUrl === post.postUrl
+            const project = post.postUrl ? projectByPostUrl.get(post.postUrl) : null
+            // Map project status to a visible badge. Rejected projects
+            // get NO badge — a fresh project can be started.
+            const projectBadge = project && (
+              project.status === 'Approved' || project.status === 'Archived'
+                ? { label: '✓ Done', bg: 'rgba(125,211,164,0.18)', fg: '#7DD3A4' }
+                : project.status === 'Planning' || project.status === 'Submitted'
+                ? { label: '🔧 In progress', bg: 'rgba(232,184,120,0.18)', fg: '#E8B878' }
+                : null
+            )
+            const starting = startingProject === post.postUrl
             return (
               <div key={post.postUrl || cover.id}>
-                <button
+                <div
+                  className="ref-cover"
                   onClick={() => setOpenPostUrl(expanded ? null : post.postUrl)}
                   title={cover.caption || post.handle}
                   style={{
                     width: '100%', aspectRatio: '1/1', overflow: 'hidden',
-                    background: '#111', border: `2px solid ${expanded ? 'var(--palm-pink)' : 'transparent'}`,
-                    borderRadius: 6, cursor: 'pointer', padding: 0, position: 'relative',
+                    background: '#111', border: `2px solid ${expanded ? 'var(--palm-pink)' : projectBadge ? projectBadge.fg : 'transparent'}`,
+                    borderRadius: 6, cursor: 'pointer', position: 'relative',
                   }}
                 >
                   {cover.image && (
@@ -166,7 +292,52 @@ export default function CarouselReferenceLibrary() {
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>@{post.handle}</div>
                   )}
-                </button>
+                  {/* Project status badge — always visible when a project
+                      exists for this creator. Approved/Archived = green
+                      "Done"; Planning/Submitted = amber "In progress".
+                      Rejected projects show NO badge so a fresh project
+                      can be started. */}
+                  {projectBadge && (
+                    <div style={{
+                      position: 'absolute', top: 4, right: 4,
+                      padding: '2px 7px', fontSize: 10, fontWeight: 700, borderRadius: 3,
+                      background: projectBadge.bg, color: projectBadge.fg,
+                      border: `1px solid ${projectBadge.fg}`,
+                    }}>{projectBadge.label}</div>
+                  )}
+                  {/* Hover overlay — Start Project (only if no active project)
+                      + Download ZIP. Reveals on hover via CSS opacity so it
+                      doesn't clutter the grid until the editor wants to act. */}
+                  <div className="ref-cover-actions" style={{
+                    position: 'absolute', bottom: 26, right: 4,
+                    opacity: 0, transition: 'opacity 150ms ease',
+                    display: 'flex', gap: 4, pointerEvents: 'none', flexDirection: 'column', alignItems: 'flex-end',
+                  }}>
+                    {!projectBadge && creatorId && (
+                      <button
+                        onClick={e => { e.stopPropagation(); startProject(post.postUrl, post.handle) }}
+                        disabled={starting}
+                        title={`Start a project for ${creatorName || 'this creator'}`}
+                        style={{
+                          padding: '4px 9px', fontSize: 10, fontWeight: 700,
+                          background: starting ? 'rgba(168,132,232,0.4)' : 'rgba(168,132,232,0.85)', color: '#fff',
+                          border: '1px solid rgba(168,132,232,0.6)', borderRadius: 3,
+                          cursor: starting ? 'default' : 'pointer', pointerEvents: 'auto',
+                        }}
+                      >{starting ? '…' : '+ Start project'}</button>
+                    )}
+                    <button
+                      onClick={e => { e.stopPropagation(); if (post.postUrl) downloadCarouselZip(post.postUrl) }}
+                      title="Download all slides as ZIP"
+                      style={{
+                        padding: '3px 8px', fontSize: 10, fontWeight: 700,
+                        background: 'rgba(0,0,0,0.85)', color: '#fff',
+                        border: '1px solid rgba(255,255,255,0.25)', borderRadius: 3,
+                        cursor: 'pointer', pointerEvents: 'auto',
+                      }}
+                    >⬇ ZIP</button>
+                  </div>
+                </div>
 
                 {/* Expanded slide strip below the cover when this post is open. */}
                 {expanded && (
@@ -179,13 +350,14 @@ export default function CarouselReferenceLibrary() {
                     gap: 4,
                   }}>
                     {post.slides.map(s => (
-                      <button
+                      <div
                         key={s.id}
+                        className="ref-slide"
                         onClick={() => setLightbox(s)}
                         style={{
                           aspectRatio: '1/1', background: '#000',
-                          border: 'none', borderRadius: 4, overflow: 'hidden',
-                          padding: 0, cursor: 'pointer', position: 'relative',
+                          borderRadius: 4, overflow: 'hidden',
+                          cursor: 'pointer', position: 'relative',
                         }}
                         title={`Slide ${s.carouselIndex || '?'} — click to view full size`}
                       >
@@ -202,7 +374,27 @@ export default function CarouselReferenceLibrary() {
                           padding: '0 4px', fontSize: 9, fontWeight: 700,
                           background: 'rgba(0,0,0,0.75)', color: '#fff', borderRadius: 2,
                         }}>{s.carouselIndex || '?'}</div>
-                      </button>
+                        <div className="ref-slide-actions" style={{
+                          position: 'absolute', top: 2, right: 2,
+                          opacity: 0, transition: 'opacity 150ms ease',
+                          pointerEvents: 'none',
+                        }}>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              const fn = `${post.handle || 'slide'}_${String(s.carouselIndex || '0').padStart(2, '0')}.jpg`
+                              downloadFromUrl(s.image, fn)
+                            }}
+                            title="Download this slide"
+                            style={{
+                              padding: '2px 5px', fontSize: 9, fontWeight: 700,
+                              background: 'rgba(0,0,0,0.85)', color: '#fff',
+                              border: '1px solid rgba(255,255,255,0.25)', borderRadius: 2,
+                              cursor: 'pointer', pointerEvents: 'auto',
+                            }}
+                          >⬇</button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -220,14 +412,15 @@ export default function CarouselReferenceLibrary() {
           gap: 8,
         }}>
           {visibleSlides.map(s => (
-            <button
+            <div
               key={s.id}
+              className="ref-slide"
               onClick={() => setLightbox(s)}
               title={`@${s.handle || '?'} · slide ${s.carouselIndex}/${s.carouselTotal} — click to view`}
               style={{
                 aspectRatio: '1/1', background: '#111',
-                border: 'none', borderRadius: 6, overflow: 'hidden',
-                padding: 0, cursor: 'pointer', position: 'relative',
+                borderRadius: 6, overflow: 'hidden',
+                cursor: 'pointer', position: 'relative',
               }}
             >
               {s.image && (
@@ -251,7 +444,40 @@ export default function CarouselReferenceLibrary() {
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>@{s.handle}</div>
               )}
-            </button>
+              {/* Hover actions: download this slide + the whole carousel zip. */}
+              <div className="ref-slide-actions" style={{
+                position: 'absolute', top: 4, right: 4,
+                display: 'flex', gap: 3, opacity: 0,
+                transition: 'opacity 150ms ease', pointerEvents: 'none',
+              }}>
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    const fn = `${s.handle || 'slide'}_${String(s.carouselIndex || '0').padStart(2, '0')}.jpg`
+                    downloadFromUrl(s.image, fn)
+                  }}
+                  title="Download this slide"
+                  style={{
+                    padding: '2px 6px', fontSize: 10, fontWeight: 700,
+                    background: 'rgba(0,0,0,0.85)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.25)', borderRadius: 3,
+                    cursor: 'pointer', pointerEvents: 'auto',
+                  }}
+                >⬇</button>
+                {s.postUrl && (
+                  <button
+                    onClick={e => { e.stopPropagation(); downloadCarouselZip(s.postUrl) }}
+                    title="Download whole carousel as ZIP"
+                    style={{
+                      padding: '2px 6px', fontSize: 10, fontWeight: 700,
+                      background: 'rgba(0,0,0,0.85)', color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.25)', borderRadius: 3,
+                      cursor: 'pointer', pointerEvents: 'auto',
+                    }}
+                  >ZIP</button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -267,12 +493,47 @@ export default function CarouselReferenceLibrary() {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', maxWidth: '90vw' }}>
-            <img
-              src={lightbox.image}
-              onError={e => { if (lightbox.imageFallback) e.currentTarget.src = lightbox.imageFallback }}
-              alt=""
-              style={{ maxWidth: '90vw', maxHeight: '78vh', objectFit: 'contain', background: '#000', borderRadius: 8 }}
-            />
+            <div className="ref-lightbox-img-wrap" style={{ position: 'relative' }}>
+              <img
+                src={lightbox.image}
+                onError={e => { if (lightbox.imageFallback) e.currentTarget.src = lightbox.imageFallback }}
+                alt=""
+                style={{ maxWidth: '90vw', maxHeight: '78vh', objectFit: 'contain', background: '#000', borderRadius: 8, display: 'block' }}
+              />
+              {/* Hover actions on the lightbox: download this slide, download
+                  the whole carousel as a zip. Float top-right of the image. */}
+              <div className="ref-lightbox-actions" style={{
+                position: 'absolute', top: 10, right: 10,
+                display: 'flex', gap: 6, opacity: 0,
+                transition: 'opacity 150ms ease',
+              }}>
+                <button
+                  onClick={() => {
+                    const fn = `${lightbox.handle || 'slide'}_${String(lightbox.carouselIndex || '0').padStart(2, '0')}.jpg`
+                    downloadFromUrl(lightbox.image, fn)
+                  }}
+                  title="Download this slide"
+                  style={{
+                    padding: '6px 12px', fontSize: 12, fontWeight: 700,
+                    background: 'rgba(0,0,0,0.85)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.25)', borderRadius: 5,
+                    cursor: 'pointer',
+                  }}
+                >⬇ Slide</button>
+                {lightbox.postUrl && (
+                  <button
+                    onClick={() => downloadCarouselZip(lightbox.postUrl)}
+                    title="Download whole carousel as ZIP"
+                    style={{
+                      padding: '6px 12px', fontSize: 12, fontWeight: 700,
+                      background: 'rgba(0,0,0,0.85)', color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.25)', borderRadius: 5,
+                      cursor: 'pointer',
+                    }}
+                  >⬇ Carousel ZIP</button>
+                )}
+              </div>
+            </div>
             <div style={{ fontSize: 12, color: '#bbb', textAlign: 'center' }}>
               @{lightbox.handle || '?'} · slide {lightbox.carouselIndex}/{lightbox.carouselTotal}
               {lightbox.postUrl && (

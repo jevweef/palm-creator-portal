@@ -1030,7 +1030,10 @@ export default function AiEditorPage() {
 
       {tab === 'carousel' && (
         <>
-          <CarouselReferenceLibrary />
+          <CarouselReferenceLibrary
+            creatorId={creatorId}
+            creatorName={creators?.find(c => c.id === creatorId)?.name || ''}
+          />
           <CarouselUploadSection creatorId={creatorId} creators={creators} />
         </>
       )}

@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // Carousel Upload — editor drops in N AI-generated images, optionally
 // labels the submission, and submits. Each image uploads one-at-a-time
@@ -25,6 +25,31 @@ export default function CarouselUploadSection({ creatorId, creators }) {
   const [lastResult, setLastResult] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
+
+  // Variations section state — Sonnet+Wan pipeline that takes a single
+  // TJP source image and produces N pose variations using the creator's
+  // AI Ref Inputs. Separate state from the main upload tray so editors
+  // can iterate on variations before adding any to the actual upload.
+  const [varSource, setVarSource] = useState(null)  // { file, previewUrl }
+  const [varN, setVarN] = useState(3)
+  const [varGenerating, setVarGenerating] = useState(false)
+  const [varElapsed, setVarElapsed] = useState(0)
+  const [varResults, setVarResults] = useState(null)  // API response
+  const [varError, setVarError] = useState('')
+  const varInputRef = useRef(null)
+
+  // In-progress projects for the current creator (Planning/Submitted).
+  // Editor optionally links a submission to one so admin review sees
+  // the source carousel side-by-side + the project archives on Approve.
+  const [activeProjects, setActiveProjects] = useState([])
+  const [linkedProjectId, setLinkedProjectId] = useState('')
+  useEffect(() => {
+    if (!creatorId) { setActiveProjects([]); setLinkedProjectId(''); return }
+    fetch(`/api/admin/carousel-projects?creatorId=${encodeURIComponent(creatorId)}&status=Planning,Submitted`)
+      .then(r => r.json())
+      .then(d => setActiveProjects(d.projects || []))
+      .catch(() => setActiveProjects([]))
+  }, [creatorId])
 
   const acceptFiles = (incoming) => {
     const list = Array.from(incoming || []).filter(f => f.type?.startsWith('image/'))
@@ -57,6 +82,69 @@ export default function CarouselUploadSection({ creatorId, creators }) {
     setProgress({ current: 0, total: 0, lastError: '' })
   }
 
+  // Variations — pick a single TJP source.
+  const pickVarSource = (file) => {
+    if (varSource?.previewUrl) URL.revokeObjectURL(varSource.previewUrl)
+    if (!file) { setVarSource(null); return }
+    if (!file.type?.startsWith('image/')) { setVarError('Pick an image file'); return }
+    setVarSource({ file, previewUrl: URL.createObjectURL(file) })
+    setVarError('')
+    setVarResults(null)
+  }
+
+  // Fire the Sonnet+Wan pipeline. ~60-90s — we tick an elapsed counter
+  // so the editor sees progress vs a frozen spinner.
+  const generateVariations = async () => {
+    if (!creatorId) { setVarError('Pick a creator first'); return }
+    if (!varSource?.file) { setVarError('Pick a source image first'); return }
+    setVarGenerating(true)
+    setVarError('')
+    setVarResults(null)
+    setVarElapsed(0)
+    const start = Date.now()
+    const tick = setInterval(() => setVarElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    try {
+      const fd = new FormData()
+      fd.append('file', varSource.file)
+      fd.append('creatorId', creatorId)
+      fd.append('n', String(varN))
+      const res = await fetch('/api/admin/ai-gen/carousel-variations', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      setVarResults(data)
+    } catch (err) {
+      setVarError(err.message)
+    } finally {
+      clearInterval(tick)
+      setVarGenerating(false)
+    }
+  }
+
+  // Pull a variation result URL down as bytes, wrap it as a File, and push
+  // it into the upload tray so the existing submit-for-review flow handles
+  // it like any other slide.
+  const addVariationToTray = async (result, idx) => {
+    if (files.length >= 10) { setProgress(p => ({ ...p, lastError: 'Tray is full (max 10)' })); return }
+    try {
+      const r = await fetch(result.outputUrl)
+      if (!r.ok) throw new Error(`Could not fetch variation: ${r.status}`)
+      const blob = await r.blob()
+      const filename = `variation-${idx + 1}-${(result.label || 'slide').replace(/[^\w-]+/g, '_').slice(0, 30)}.jpg`
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
+      setFiles(prev => [...prev, { file, previewUrl: URL.createObjectURL(file) }])
+    } catch (err) {
+      setProgress(p => ({ ...p, lastError: `Could not add variation: ${err.message}` }))
+    }
+  }
+
+  const addAllVariationsToTray = async () => {
+    const successful = (varResults?.results || []).filter(r => r.outputUrl)
+    for (let i = 0; i < successful.length; i++) {
+      if (files.length + i >= 10) break
+      await addVariationToTray(successful[i], i)
+    }
+  }
+
   const submit = async () => {
     if (!creatorId) { setProgress(p => ({ ...p, lastError: 'Pick a creator first' })); return }
     if (!files.length) { setProgress(p => ({ ...p, lastError: 'Add at least one image' })); return }
@@ -66,6 +154,7 @@ export default function CarouselUploadSection({ creatorId, creators }) {
     const batchId = genBatchId()
     let okCount = 0
     let firstError = ''
+    const uploadedPhotoIds = []
     setProgress({ current: 0, total: files.length, lastError: '' })
 
     for (let i = 0; i < files.length; i++) {
@@ -79,6 +168,7 @@ export default function CarouselUploadSection({ creatorId, creators }) {
         const res = await fetch('/api/ai-editor/carousel-upload', { method: 'POST', body: fd })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data.error || `slide ${i + 1} failed: HTTP ${res.status}`)
+        if (data.photoId) uploadedPhotoIds.push(data.photoId)
         okCount++
         setProgress({ current: i + 1, total: files.length, lastError: '' })
       } catch (err) {
@@ -88,19 +178,55 @@ export default function CarouselUploadSection({ creatorId, creators }) {
       }
     }
 
+    // If linked to a project, stamp the project with the batch ID +
+    // uploaded photo IDs + flip status to Submitted. Failures here are
+    // non-fatal — photos still exist as a standalone submission the
+    // admin can act on; the project link just won't show on review.
+    if (linkedProjectId && uploadedPhotoIds.length) {
+      try {
+        await fetch('/api/admin/carousel-projects', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: linkedProjectId,
+            fields: {
+              'Submission Batch ID': batchId,
+              'Uploaded Photos': uploadedPhotoIds,
+              'Status': 'Submitted',
+              'Submitted At': new Date().toISOString(),
+            },
+          }),
+        })
+      } catch (err) {
+        console.warn('[carousel-upload] Project link failed:', err)
+      }
+    }
+
     setSubmitting(false)
     setLastResult({
       ok: okCount === files.length,
       uploaded: okCount,
       total: files.length,
       batchId,
+      linkedProjectId: linkedProjectId || null,
       error: firstError,
     })
     if (okCount > 0) {
       // Clear the tray so the editor sees a clean slate. Keep title for
-      // quick repeat submissions.
+      // quick repeat submissions. Project link also clears — admin's
+      // dropdown re-fetches on next render and the just-linked project
+      // moves out of the Planning list.
       files.forEach(f => f.previewUrl && URL.revokeObjectURL(f.previewUrl))
       setFiles([])
+      setLinkedProjectId('')
+      // Re-fetch project list since the one we linked just moved to
+      // Submitted and should drop from the Planning dropdown.
+      if (creatorId) {
+        fetch(`/api/admin/carousel-projects?creatorId=${encodeURIComponent(creatorId)}&status=Planning,Submitted`)
+          .then(r => r.json())
+          .then(d => setActiveProjects(d.projects || []))
+          .catch(() => {})
+      }
     }
   }
 
@@ -113,6 +239,184 @@ export default function CarouselUploadSection({ creatorId, creators }) {
         <p style={{ fontSize: 13, color: 'var(--foreground-muted)', margin: 0 }}>
           Upload AI-generated carousel slides. After submit, admins see the batch in their For Review tab. Approved batches become available in the Carousels picker under <em>AI Generated</em>.
         </p>
+      </div>
+
+      {/* Variations generator — Sonnet plans, Wan 2.7 fans out. Section
+          is collapsible-by-presence: empty until the editor picks a source. */}
+      <div style={{
+        padding: 16, borderRadius: 10,
+        background: 'rgba(168,132,232,0.04)',
+        border: '1px solid rgba(168,132,232,0.18)',
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            ✨ Generate variations from one image
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
+            Drop a single TJP image. The system analyzes it, then generates 3 candid-style pose variations using the creator&apos;s Super Clone reference photos. ~60-90 sec.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* Source picker */}
+          <div
+            onClick={() => varInputRef.current?.click()}
+            style={{
+              width: 120, height: 160, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+              cursor: 'pointer', position: 'relative',
+              border: `2px dashed ${varSource ? 'transparent' : 'rgba(168,132,232,0.4)'}`,
+              background: varSource ? '#000' : 'rgba(168,132,232,0.04)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <input
+              ref={varInputRef}
+              type="file"
+              accept="image/*"
+              onChange={e => { pickVarSource(e.target.files?.[0] || null); e.target.value = '' }}
+              style={{ display: 'none' }}
+            />
+            {varSource ? (
+              <>
+                <img src={varSource.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{
+                  position: 'absolute', bottom: 4, left: 4, right: 4,
+                  padding: '2px 6px', fontSize: 9, fontWeight: 700,
+                  background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
+                  textAlign: 'center',
+                }}>SOURCE</div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', color: 'rgba(168,132,232,0.7)', fontSize: 11, padding: 8 }}>
+                Click<br />or drop<br />source image
+              </div>
+            )}
+          </div>
+
+          {/* Controls + status */}
+          <div style={{ flex: 1, minWidth: 240, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Variations:</label>
+              <div style={{ display: 'inline-flex', borderRadius: 5, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {[3, 5].map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setVarN(num)}
+                    disabled={varGenerating}
+                    style={{
+                      padding: '5px 14px', fontSize: 12, fontWeight: 700,
+                      background: varN === num ? 'rgba(168,132,232,0.18)' : 'transparent',
+                      color: varN === num ? '#c8b0e8' : '#888',
+                      border: 'none', cursor: varGenerating ? 'default' : 'pointer',
+                    }}
+                  >{num}</button>
+                ))}
+              </div>
+              <button
+                onClick={generateVariations}
+                disabled={varGenerating || !varSource || !creatorId}
+                style={{
+                  padding: '8px 16px', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                  background: varGenerating || !varSource || !creatorId ? 'rgba(255,255,255,0.04)' : 'rgba(168,132,232,0.16)',
+                  color: varGenerating || !varSource || !creatorId ? '#666' : '#c8b0e8',
+                  border: `1px solid ${varGenerating || !varSource || !creatorId ? 'rgba(255,255,255,0.06)' : 'rgba(168,132,232,0.4)'}`,
+                  borderRadius: 6, cursor: varGenerating || !varSource || !creatorId ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {varGenerating ? `Generating… ${varElapsed}s` : 'Generate'}
+              </button>
+              {varSource && !varGenerating && (
+                <button
+                  onClick={() => pickVarSource(null)}
+                  style={{ background: 'none', border: 'none', color: '#888', fontSize: 11, cursor: 'pointer' }}
+                >Clear source</button>
+              )}
+            </div>
+            {varGenerating && (
+              <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+                Analyzing source and running {varN} parallel generations. Leave this tab open.
+              </div>
+            )}
+            {varError && (
+              <div style={{ fontSize: 12, color: '#E87878' }}>{varError}</div>
+            )}
+            {varResults && !varGenerating && (
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
+                {varResults.sceneDescription && <em>{varResults.sceneDescription}</em>}
+                {' · '}{varResults.succeeded}/{varResults.requested} succeeded
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Results grid */}
+        {varResults?.results?.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <strong style={{ fontSize: 11, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Results
+              </strong>
+              {varResults.results.some(r => r.outputUrl) && (
+                <button
+                  onClick={addAllVariationsToTray}
+                  style={{
+                    padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                    background: 'rgba(168,132,232,0.10)', color: '#c8b0e8',
+                    border: '1px solid rgba(168,132,232,0.3)', borderRadius: 5, cursor: 'pointer',
+                  }}
+                >+ Add all to tray</button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+              {varResults.results.map((r, idx) => (
+                <div key={idx} style={{
+                  background: 'rgba(0,0,0,0.25)', borderRadius: 6, overflow: 'hidden',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  display: 'flex', flexDirection: 'column',
+                }}>
+                  <div style={{ aspectRatio: '9/16', background: '#000', position: 'relative' }}>
+                    {r.outputUrl ? (
+                      <img src={r.outputUrl} alt={r.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#E87878', fontSize: 11, padding: 12, textAlign: 'center',
+                      }}>
+                        Failed: {r.error?.slice(0, 80) || 'unknown error'}
+                      </div>
+                    )}
+                    <div style={{
+                      position: 'absolute', top: 4, left: 4,
+                      padding: '1px 6px', fontSize: 9, fontWeight: 700,
+                      background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
+                    }}>{idx + 1}</div>
+                  </div>
+                  <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
+                      {r.label}
+                    </div>
+                    {r.outputUrl && (
+                      <button
+                        onClick={() => addVariationToTray(r, idx)}
+                        disabled={files.length >= 10}
+                        style={{
+                          padding: '5px 8px', fontSize: 11, fontWeight: 600,
+                          background: files.length >= 10 ? 'rgba(255,255,255,0.04)' : 'rgba(168,132,232,0.12)',
+                          color: files.length >= 10 ? '#555' : '#c8b0e8',
+                          border: `1px solid ${files.length >= 10 ? 'rgba(255,255,255,0.06)' : 'rgba(168,132,232,0.3)'}`,
+                          borderRadius: 4, cursor: files.length >= 10 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        + Add to tray
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -132,6 +436,28 @@ export default function CarouselUploadSection({ creatorId, creators }) {
             border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
           }}
         />
+        {/* Project link — optional. Pulls Planning/Submitted projects for
+            the selected creator. When linked, admin's review modal shows
+            the source carousel side-by-side and the project archives on
+            Approve. Standalone uploads are still fine (linked = none). */}
+        {creatorId && (
+          <select
+            value={linkedProjectId}
+            onChange={e => setLinkedProjectId(e.target.value)}
+            style={{
+              flex: '1 1 240px', padding: '8px 12px', fontSize: 13,
+              background: 'rgba(168,132,232,0.06)', color: 'var(--foreground)',
+              border: '1px solid rgba(168,132,232,0.25)', borderRadius: 6,
+            }}
+          >
+            <option value="">Link to project (optional)</option>
+            {activeProjects.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.status})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div

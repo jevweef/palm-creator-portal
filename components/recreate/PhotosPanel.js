@@ -586,6 +586,12 @@ function LibrarySection({ outfitsOnly = false }) {
     // standalone single-image groups, cluttering the IG carousel view.
     // The Outfit Library is where they belong.
     if (!outfitsOnly && p.sourceType === 'Pinterest') return false
+    // Hide AI Generated from this library too — it's meant for scraped
+    // inspo / carousel reference material, not Stage B / Free-form gen /
+    // Nano Banana intermediate outputs. The Carousels picker and the
+    // AI Editor's own surfaces handle AI gens separately with their
+    // own review-status gating.
+    if (!outfitsOnly && p.sourceType === 'AI Generated') return false
     if (statusFilter !== 'all' && p.status !== statusFilter) return false
     if (!filter) return true
     const q = filter.toLowerCase()

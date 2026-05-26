@@ -65,11 +65,63 @@ export async function GET(request) {
       )
     }
 
+    // Look up linked Carousel Projects (one per batch, if any) so admin
+    // can "Show source" without a second fetch. Source photo URLs are
+    // resolved here so the modal renders immediately.
+    const batchIds = Object.keys(byBatch)
+    let projectByBatch = {}
+    if (batchIds.length) {
+      const projects = await fetchAirtableRecords('Carousel Projects', {
+        filterByFormula: `OR(${batchIds.map(b => `{Submission Batch ID}='${b.replace(/'/g, "\\'")}'`).join(',')})`,
+        fields: ['Submission Batch ID', 'Source Post URL', 'Source Handle', 'Source Photos'],
+      })
+      // Collect every Source Photo ID across all projects, fetch in one round
+      // trip, then re-attach per project so each submission card knows its
+      // source slide URLs.
+      const allSourceIds = [...new Set(projects.flatMap(p => p.fields?.['Source Photos'] || []))]
+      let sourcePhotos = {}
+      if (allSourceIds.length) {
+        const photos = await fetchAirtableRecords('Photos', {
+          filterByFormula: `OR(${allSourceIds.map(id => `RECORD_ID()='${id}'`).join(',')})`,
+          fields: ['Carousel Index', 'Source Handle', 'CDN URL', 'Image', 'Dropbox Link'],
+        })
+        sourcePhotos = Object.fromEntries(photos.map(p => {
+          const pf = p.fields || {}
+          const cdn = pf['CDN URL'] || ''
+          const att = (pf['Image'] || [])[0]
+          const fallback = att?.thumbnails?.large?.url || att?.url || pf['Dropbox Link'] || ''
+          return [p.id, {
+            id: p.id,
+            carouselIndex: pf['Carousel Index'] || 0,
+            handle: pf['Source Handle'] || '',
+            image: cdn || fallback,
+            imageFallback: fallback,
+          }]
+        }))
+      }
+      for (const proj of projects) {
+        const pf = proj.fields || {}
+        const bid = pf['Submission Batch ID']
+        if (!bid || !byBatch[bid]) continue
+        const sourceIds = pf['Source Photos'] || []
+        projectByBatch[bid] = {
+          projectId: proj.id,
+          sourcePostUrl: pf['Source Post URL'] || '',
+          sourceHandle: pf['Source Handle'] || '',
+          sourcePhotos: sourceIds
+            .map(id => sourcePhotos[id])
+            .filter(Boolean)
+            .sort((a, b) => (a.carouselIndex || 0) - (b.carouselIndex || 0)),
+        }
+      }
+    }
+
     const submissions = Object.values(byBatch)
       .map(b => ({
         ...b,
         creatorName: (b.creatorIds[0] && creatorNames[b.creatorIds[0]]) || '(unknown)',
         photos: b.photos.sort((a, b) => (a.carouselIndex || 0) - (b.carouselIndex || 0)),
+        project: projectByBatch[b.batchId] || null,
       }))
       .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 
@@ -115,6 +167,32 @@ export async function PATCH(request) {
       console.warn(`[carousel-submissions] ${failed}/${photos.length} patches failed for batch ${batchId}`)
     }
 
+    // If this submission was linked to a Carousel Project (editor picked
+    // a project at upload time), flip the project's Status + stamp
+    // Reviewed At so the Reference Library's ✓ Done badge updates and
+    // the project moves out of the in-progress dropdown.
+    //   Approve → Status=Approved (auto-archived per creator)
+    //   Reject  → Status=Rejected
+    let projectUpdated = null
+    try {
+      const projects = await fetchAirtableRecords('Carousel Projects', {
+        filterByFormula: `{Submission Batch ID}='${batchId.replace(/'/g, "\\'")}'`,
+        fields: ['Status'],
+        maxRecords: 1,
+      })
+      if (projects.length) {
+        const proj = projects[0]
+        const projectStatus = action === 'approve' ? 'Approved' : 'Rejected'
+        await patchAirtableRecord('Carousel Projects', proj.id, {
+          'Status': projectStatus,
+          'Reviewed At': new Date().toISOString(),
+        }, { typecast: true })
+        projectUpdated = { id: proj.id, status: projectStatus }
+      }
+    } catch (e) {
+      console.warn(`[carousel-submissions] Could not update linked project for batch ${batchId}:`, e.message)
+    }
+
     return NextResponse.json({
       ok: true,
       batchId,
@@ -122,6 +200,7 @@ export async function PATCH(request) {
       newStatus,
       updated: photos.length - failed,
       failed,
+      projectUpdated,
     })
   } catch (err) {
     if (err instanceof Response) return err
