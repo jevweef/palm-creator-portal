@@ -30,13 +30,17 @@ export async function GET(request) {
       // via ARRAYJOIN+FIND (that yields primary-field text, not rec IDs,
       // so FIND('rec…') silently matches nothing).
       const rows = (await fetchAirtableRecords('Recreate Reels', {
-        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Stream UID', 'Thumbnail', 'Status', 'Produced For', 'Selected Outfits'],
+        fields: ['Reel ID', 'Source Handle', 'Reel URL', 'Caption', 'Posted At', 'Views', 'Dropbox Video Link', 'Stream UID', 'Thumbnail', 'Status', 'Produced For', 'Selected Outfits', 'Added Via', 'Added By'],
         filterByFormula: `{Status} = 'Available'`,
         sort: [{ field: 'Posted At', direction: 'desc' }],
       })).filter(r => !(r.fields?.['Produced For'] || []).includes(creatorId))
       reels = rows.map(r => {
         const f = r.fields || {}
         const thumb = Array.isArray(f.Thumbnail) && f.Thumbnail[0] ? f.Thumbnail[0].url : null
+        // Added Via comes back as either a string or { name } depending on
+        // read path. Normalize so client always sees a string.
+        const addedViaRaw = f['Added Via']
+        const addedVia = typeof addedViaRaw === 'string' ? addedViaRaw : (addedViaRaw?.name || null)
         return {
           id: r.id,
           reelId: f['Reel ID'] || '',
@@ -52,6 +56,10 @@ export async function GET(request) {
           // to drive the outfit fan-out step. Just IDs here; the photo
           // metadata is hydrated client-side from the Photos library.
           selectedOutfits: Array.isArray(f['Selected Outfits']) ? f['Selected Outfits'] : [],
+          // Provenance — exposed so the AI editor can filter to admin-added
+          // vs editor-uploaded vs their own uploads.
+          addedVia: addedVia || null,
+          addedBy: f['Added By'] || '',
         }
       })
     }
