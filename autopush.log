@@ -9144,3 +9144,28 @@ After doing this, you may fix the identity used for this commit with:
  create mode 100644 docs/build-plans/smm-consolidation/00-research-scope.md
  create mode 100644 docs/build-plans/smm-consolidation/audit-A-section-inventory.md
 fatal: could not read Username for 'https://github.com': Device not configured
+[dev 5ae40c43] Auto-save: 2026-05-27 02:30
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 11 files changed, 3184 insertions(+)
+ create mode 100644 docs/build-plans/smm-consolidation/audit-B-warmup-strategy.md
+ create mode 100644 docs/build-plans/smm-consolidation/batch-1-nav-consolidation.md
+ create mode 100644 docs/build-plans/smm-consolidation/batch-2-warmup-flow.md
+ create mode 100644 docs/build-plans/smm-consolidation/batch-3-content-strategy.md
+ create mode 100644 docs/build-plans/smm-consolidation/batch-4-amin-bridge.md
+ create mode 100644 docs/build-plans/smm-consolidation/batch-5-publer-phase3.md
+ create mode 100644 docs/build-plans/smm-consolidation/critique-A.md
+ create mode 100644 docs/build-plans/smm-consolidation/critique-B.md
+ create mode 100644 docs/build-plans/smm-consolidation/master-goal-prompt.md
+ create mode 100644 docs/build-plans/smm-consolidation/master-plan.md
+fatal: could not read Username for 'https://github.com': Device not configured
