@@ -9057,3 +9057,27 @@ After doing this, you may fix the identity used for this commit with:
 
  1 file changed, 15 insertions(+)
 fatal: could not read Username for 'https://github.com': Device not configured
+[dev d7278d65] Auto-save: 2026-05-27 00:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 12 files changed, 1487 insertions(+)
+ create mode 100644 app/admin/publer/page.js
+ create mode 100644 app/api/admin/publer/accounts/route.js
+ create mode 100644 app/api/admin/publer/enqueue/route.js
+ create mode 100644 app/api/admin/publer/mappings/route.js
+ create mode 100644 app/api/admin/publer/sync-accounts/route.js
+ create mode 100644 app/api/cron/publer-job-poll/route.js
+ create mode 100644 app/api/cron/publer-queue/route.js
+ create mode 100644 docs/build-plans/publer-ai-scheduler-phase1-2-handoff.md
+ create mode 100644 lib/publer.js
+fatal: could not read Username for 'https://github.com': Device not configured
