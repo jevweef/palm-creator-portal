@@ -19,13 +19,35 @@ const TILES = [
   { key: 'activeWarmups',   label: 'Active warm-ups',      hint: 'AI accounts in their 90-day warm-up' },
 ]
 
-const LINKS = [
-  { label: 'Editor — For Review',  href: '/admin/editor?tab=review', icon: '👀' },
-  { label: 'AI Content',           href: '/admin/recreate-source',   icon: '🎨' },
-  { label: 'Account Warm-Up',      href: '/admin/recreate-source?tab=warmup', icon: '🔥' },
-  { label: 'Publer Mappings',      href: '/admin/publer',            icon: '📅' },
-  { label: 'Grid Planner',         href: '/admin/editor?tab=grid',   icon: '🗓️' },
-  { label: 'OFTV Projects',        href: '/admin/editor?tab=oftv',   icon: '📺' },
+// Grouped quick links — review/decide stuff first (most-frequent admin action),
+// strategy/setup second (planning), outbound/operational third (when content
+// is moving). Order within group is most → least common.
+const LINK_GROUPS = [
+  {
+    title: 'Review & Approve',
+    links: [
+      { label: 'Editor — For Review',     href: '/admin/editor?tab=review',     icon: '👀' },
+      { label: 'Post Prep',               href: '/admin/editor?tab=postprep',   icon: '📝' },
+      { label: 'Carousels',               href: '/admin/editor?tab=carousels',  icon: '📸' },
+      { label: 'OFTV Projects',           href: '/admin/editor?tab=oftv',       icon: '📺' },
+    ],
+  },
+  {
+    title: 'Strategy & Setup',
+    links: [
+      { label: 'AI Content',              href: '/admin/recreate-source',                icon: '🎨' },
+      { label: 'Account Warm-Up',         href: '/admin/recreate-source?tab=warmup',     icon: '🔥' },
+      { label: 'Content Strategy',        href: '/admin/recreate-source?tab=strategy',   icon: '🧭' },
+      { label: 'Creator Library',         href: '/admin/editor?tab=library',             icon: '📂' },
+    ],
+  },
+  {
+    title: 'Outbound',
+    links: [
+      { label: 'Grid Planner',            href: '/admin/editor?tab=grid',  icon: '🗓️' },
+      { label: 'Publer Mappings',         href: '/admin/publer',           icon: '📅' },
+    ],
+  },
 ]
 
 export default function MarketingContentPage() {
@@ -78,35 +100,43 @@ export default function MarketingContentPage() {
         ))}
       </div>
 
-      <div>
-        <h2 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 600, color: 'var(--foreground)' }}>
-          Quick links
-        </h2>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: 10,
-        }}>
-          {LINKS.map(l => (
-            <Link key={l.href} href={l.href} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '14px 16px',
-              background: 'rgba(232,160,160,0.04)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 10,
-              textDecoration: 'none',
-              color: 'var(--foreground)',
-              fontSize: 13,
-              fontWeight: 500,
-              transition: '0.15s ease',
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        {LINK_GROUPS.map(group => (
+          <div key={group.title}>
+            <h2 style={{
+              margin: '0 0 10px', fontSize: 11, fontWeight: 700,
+              color: 'var(--foreground-muted)',
+              textTransform: 'uppercase', letterSpacing: '0.08em',
             }}>
-              <span style={{ fontSize: 18 }}>{l.icon}</span>
-              {l.label}
-            </Link>
-          ))}
-        </div>
+              {group.title}
+            </h2>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 8,
+            }}>
+              {group.links.map(l => (
+                <Link key={l.href} href={l.href} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  background: 'rgba(232,160,160,0.04)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 9,
+                  textDecoration: 'none',
+                  color: 'var(--foreground)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  transition: '0.15s ease',
+                }}>
+                  <span style={{ fontSize: 17 }}>{l.icon}</span>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {error && (
