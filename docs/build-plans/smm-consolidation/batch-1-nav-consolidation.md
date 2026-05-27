@@ -1,266 +1,367 @@
-# Batch 1 — Nav Consolidation
+# Batch 1 — Sidebar additions + AI Content tab strip
 
 **Status:** READY TO EXECUTE
 **Branch:** `smm-consolidation` (off `dev`)
-**Estimated time:** 12-16 hours
+**Estimated time:** 6-9 hours (narrower than original synthesizer scope; rewritten 2026-05-27 after owner review)
 **Airtable changes:** NONE
-**Predecessor:** master-plan.md
+**Predecessor:** master-plan.md (read the "Scope correction" section at the top first)
 
 ## Goal
 
-Collapse the 12-entry admin sidebar into a 10-entry sidebar with a role-filtered **Social Media Management** parent (3-group soft divider — Pipeline / Outbound / Strategy & Warm-Up), rename "AI Source" → "AI Content" (label only), open ai_editor access to three SMM tabs, fix the editor two-hop redirect, archive three dead routes, and align `components/Header.js` with the new sidebar — all on a single branch, all reversible, no Airtable changes.
+Add one new admin-only sidebar item (**Marketing Content**), relabel the existing `AI Source` sidebar entry to `AI Content`, and convert `/admin/recreate-source` into a 4-tab strip (Workflow / Setup / Warm-Up / Strategy) where Warm-Up and Strategy are placeholder cards until later batches. AI editor user role gets access to the same `/admin/recreate-source` page (their workflow tab) while keeping `/ai-editor` working as before for deep links and back-compat.
+
+**What this batch does NOT do** (deferred or explicitly out of scope):
+- No `/admin/smm` parent route.
+- No structural changes to Editor sidebar item or its tabs (deferred to Batch 3 when post-prep automation lands).
+- No archive of dead routes (`/admin/tonio`, `/sonnet-test`, `/creator/[id]/vault` left alone).
+- No Inspo Board changes.
+- No editor two-hop redirect fix.
+- No bug-hunt for missing AI edits or hidden carousels (deferred at owner request).
+- No refactor of the `/ai-editor` page's 1242-line workflow into a shared component — Batch 1's "Workflow" tab launches a new browser navigation to `/ai-editor` (placeholder behavior). A later batch can extract the shared component if the seam shows.
 
 ## Prerequisites
 
 - [ ] Branch `smm-consolidation` exists off latest `dev`. Worktree at `.claude/worktrees/smm-consolidation` if using EnterWorktree.
-- [ ] `npm install` is clean (no lockfile drift).
-- [ ] `next build` passes from a clean checkout of `dev`.
-- [ ] Read `master-plan.md` end-to-end before starting.
-- [ ] Skim `app/admin/layout.js`, `components/Header.js`, `app/dashboard/page.js`, `app/admin/recreate-source/page.js`, `app/admin/inspo/page.js`, `app/editor/page.js`, `app/ai-editor/page.js`.
+- [ ] `npm install` clean (no lockfile drift).
+- [ ] `next build` passes from clean checkout of `dev`.
+- [ ] Read `master-plan.md` "Scope correction" section.
 
 ## Files to touch
 
-Exhaustive list. Every file touched in Batch 1 is on this list. If a file isn't on this list and you find yourself editing it, **stop and confirm with the owner**.
+Exhaustive list. If you find yourself editing a file not on this list, **stop and confirm**.
 
-- `app/admin/layout.js` — sidebar `ADMIN_NAV` rewrite to use SMM parent + 3-group divider; `EDITOR_NAV` Inspo target change; `aiEditorAllowedPath` flip.
-- `components/Header.js` — per-role link pass: editor, ai_editor, creator, chat_manager.
-- `app/dashboard/page.js` — editor's two-hop redirect fix (line 22: `'/admin/editor'` → `'/editor'`).
-- `app/admin/inspo/page.js` — remove `recreate` tab from the tab strip; leave the route alive.
-- `app/admin/recreate-source/page.js` — change sidebar label only ("AI Source" → "AI Content"). The page header/title can also relabel for consistency, but the route stays `/admin/recreate-source`.
-- `app/admin/smm/page.js` — **NEW** wrapper that reads `?tab=` and renders the appropriate sub-surface (Overview is the default landing).
-- `app/admin/smm/layout.js` — **NEW** thin layout that asserts role with `requireAdmin || requireAdminOrEditor || requireAdminOrAiEditor || requireAdminOrSocialMedia` depending on the requested tab.
-- `app/admin/_legacy/tonio/page.js` — **NEW** (move from `app/admin/tonio/`), returns 410 Gone.
-- `app/admin/_legacy/sonnet-test/page.js` — **NEW** (move from `app/sonnet-test/`), returns 410 Gone.
-- `app/admin/_legacy/vault/page.js` — **NEW** (move from `app/creator/[id]/vault/`), returns 410 Gone with creator-redirect notice.
-- `lib/sidebarConfig.js` — **NEW** centralized sidebar config (single source of truth, imported by both `app/admin/layout.js` and any future drift-lint).
+| File | Action | Why |
+|---|---|---|
+| `app/admin/layout.js` | Edit | Add `Marketing Content` to `ADMIN_NAV` (slot 3, between Inspo Board and AI Source). Rename `AI Source` label → `AI Content`. Flip `aiEditorAllowedPath` so ai_editor can reach `/admin/recreate-source` (currently hard-blocked at line ~84). |
+| `app/admin/recreate-source/page.js` | Edit | Wrap existing content in a tab strip. 4 tabs: Workflow (default for ai_editor), Setup (default for admin — contains current page content), Warm-Up (placeholder), Strategy (placeholder). H1 changes from "AI Source" to "AI Content". |
+| `app/admin/recreate-source/SetupTab.js` | **NEW** | Move current `/admin/recreate-source` page body into this tab component. |
+| `app/admin/recreate-source/WorkflowTab.js` | **NEW** | Currently just renders a card with "Open AI Workflow →" button linking to `/ai-editor`. Future batch may merge `/ai-editor` content here. |
+| `app/admin/recreate-source/WarmupTab.js` | **NEW** | Placeholder card: "Account Warm-Up — shipping in Batch 2. See `docs/build-plans/smm-consolidation/batch-2-warmup-flow.md`." |
+| `app/admin/recreate-source/StrategyTab.js` | **NEW** | Placeholder card: "Content Strategy Engine — shipping in Batch 3. See `docs/build-plans/smm-consolidation/batch-3-content-strategy.md`." |
+| `app/admin/marketing-content/page.js` | **NEW** | Admin dashboard hub. Cross-stream KPIs (counts via existing APIs), quick links to Editor / AI Content / Warm-Up / Publer / OFTV. |
+| `app/admin/marketing-content/layout.js` | **NEW** | Thin `requireAdmin()` gate. |
+| `components/Header.js` | Edit | Add "AI Content" link for `ai_editor` role pointing to `/admin/recreate-source?tab=workflow`. Keep existing `/ai-editor` link. |
+| `app/api/admin/marketing-content/overview/route.js` | **NEW** | GET endpoint that returns counts: `aiPostsInFlight`, `realPostsInFlight`, `forReviewCount`, `warmupAccountsActive`, `todaysScheduledCount`. Read-only aggregation from existing tables. |
 
 ## Step-by-step build order
 
-### Step 1 — Create the new sidebar config (single source of truth)
+### Step 1 — Branch setup
 
-Create `lib/sidebarConfig.js` exporting:
-- `ADMIN_NAV_TOP_LEVEL` — array of 10 items (Dashboard, Inspo Board, SMM, Creators, Whale Hunting, Photo Library, Onboarding, Invoicing, Inbox, Help).
-- `SMM_CHILDREN` — flat array of 12 SMM children, each tagged with `group: 'pipeline' | 'outbound' | 'strategy'` and `roles: string[]`.
-- `EDITOR_NAV` — 2 items (My Dashboard, Inspo Board), with Inspo pointing at `/editor/inspo`.
-- `getSidebarFor(role, currentPath)` — pure function returning the filtered + grouped sidebar tree.
-
-Test: write a tiny vitest or vanilla node assertion file (`scripts/sidebar-config.test.mjs`) that asserts `getSidebarFor('admin', '/admin/smm')` returns 10 top-level items + 12 SMM children grouped 7/2/3.
-
-### Step 2 — Rewrite `app/admin/layout.js` to consume the config
-
-- Remove the hard-coded `ADMIN_NAV` / `EDITOR_NAV` / `CHAT_MANAGER_NAV` arrays.
-- Import from `lib/sidebarConfig.js`.
-- Replace the rendering logic with a recursive renderer that handles the new `group` divider (a non-clickable `<div className="sidebar-divider">` between children).
-- Flip `aiEditorAllowedPath`:
-  ```
-  const aiEditorAllowedPath = pathname.startsWith('/admin/smm') &&
-    ['ai-content', 'warmup', 'strategy'].includes(searchParams.get('tab'));
-  ```
-- Update the Inspo active-state check (currently at `app/admin/layout.js:261-262`) to cover all 8 Inspo tabs, not just 3.
-- Verify: load the page as admin, see the 10-item sidebar + SMM with 3 dividers; load as editor, see 2-item EDITOR_NAV.
-
-### Step 3 — Create `app/admin/smm/{layout,page}.js`
-
-- `app/admin/smm/layout.js`: thin wrapper that gates access by role + tab. Pseudocode:
-  ```
-  const tab = searchParams.tab || 'overview';
-  if (tab in {'overview','review','postprep','grid','library','oftv','longform','outbound-real','outbound-ai','publer-mappings'}) {
-    await requireAdminOrEditor() // or admin-only for postprep etc.
-  } else if (tab in {'ai-content','warmup','strategy'}) {
-    await requireAdminOrAiEditor()
-  }
-  ```
-  Use the existing `lib/adminAuth.js` helpers; do NOT invent new ones in Batch 1.
-- `app/admin/smm/page.js`: switch on `?tab=` and dynamic-import the appropriate child surface. For Batch 1, the child surfaces are mostly *aliases* — they re-export the existing pages:
-  - `overview` → new simple landing component
-  - `review` → re-export `app/admin/editor/page.js` with `?tab=review` already set
-  - `postprep`, `grid`, `library`, `oftv`, `longform`, `carousels` → same pattern
-  - `ai-content` → re-export `app/admin/recreate-source/page.js`
-  - `publer-mappings` → re-export `app/admin/publer/page.js`
-  - `warmup`, `strategy`, `outbound-real`, `outbound-ai` → simple "coming in Batch N" placeholder cards.
-- Each placeholder card states which batch will ship it and links to the batch doc.
-
-### Step 4 — Edit `components/Header.js`
-
-The current header at `components/Header.js:85-130` (approximate) renders different links per role:
-- Admin: hidden (admin uses sidebar)
-- Editor: logo → `/editor`, link to `/editor/inspo`
-- AI Editor: logo → `/ai-editor`, single link to AI workspace
-- Creator: logo → `/creator/{opsId}/dashboard`, links to my-content + content-request
-
-Changes:
-- Editor: keep `/editor/inspo` (confirms Critique A's correction).
-- AI Editor: ADD link "AI Content" → `/admin/smm?tab=ai-content`. Keep the `/ai-editor` link as "TJP Workspace."
-- Creator: no changes — creator surfaces are out of SMM scope per master-plan Decision 7 and audit's coverage.
-- Chat manager: no changes — `/photo-library` is their full surface.
-
-Verify: load the app as each role, confirm the header links work and route correctly.
-
-### Step 5 — Fix editor two-hop redirect
-
-In `app/dashboard/page.js:22`, change:
 ```
-if (role === 'editor') router.replace('/admin/editor');
-```
-to:
-```
-if (role === 'editor') router.replace('/editor');
+cd /Users/jevanleith/palm-creator-portal
+git checkout dev && git pull
+git checkout -b smm-consolidation
 ```
 
-Verify: log in as editor, navigate to `/dashboard`, confirm single `router.replace` to `/editor` with no flash through `/admin/editor`.
-
-### Step 6 — Rename "AI Source" → "AI Content"
-
-- In `lib/sidebarConfig.js`: the SMM child label is `"AI Content"`, target is `/admin/smm?tab=ai-content`.
-- In `app/admin/recreate-source/page.js`: change the H1 / page title from "AI Source" to "AI Content."
-- Verify: `/admin/smm?tab=ai-content` renders the recreate-source page with the new title. The old route `/admin/recreate-source` still works (deep links + bookmarks preserved).
-
-### Step 7 — Remove Inspo Board's `recreate` tab
-
-In `app/admin/inspo/page.js:14-23`, the tab strip lists 8 tabs. Remove the `'recreate'` entry. The underlying route `/admin/recreate` stays alive for direct-URL access (it's used by Inspo Board's internal navigation too — verify no other tab references it).
-
-Verify: Inspo Board now shows 7 tabs. `/admin/recreate` still loads when typed directly.
-
-### Step 8 — Archive dead routes
-
-Move each of these to `app/admin/_legacy/<name>/page.js` and replace the contents with a 410 Gone page:
-- `app/admin/tonio/page.js` → `app/admin/_legacy/tonio/page.js`
-- `app/sonnet-test/page.js` → `app/admin/_legacy/sonnet-test/page.js`
-- `app/creator/[id]/vault/page.js` → `app/admin/_legacy/vault/page.js`
-
-Each archived page returns:
+If using worktree:
 ```
-export default function GonePage() {
-  return (
-    <div className="p-12 text-center">
-      <h1 className="text-2xl">410 Gone</h1>
-      <p>This page was archived as part of the SMM consolidation. Contact evan@palm-mgmt.com if you need access.</p>
-    </div>
-  );
-}
+git worktree add ../palm-creator-portal-smm smm-consolidation
+cd ../palm-creator-portal-smm
 ```
 
-Verify: the four URLs return the 410 page, no internal links 404 (grep the codebase for `/admin/tonio`, `/sonnet-test`, `/creator/[id]/vault` references).
+### Step 2 — `app/admin/layout.js` edits
 
-### Step 9 — Tabs-vs-sidebar single source of truth
+In `ADMIN_NAV` array (around line 8-52):
 
-In `app/admin/editor/page.js`, the TABS array (line ~2640) is currently 9 items but the sidebar lists 7. Export the TABS array, import in `lib/sidebarConfig.js`, derive the SMM Pipeline children from it.
+1. Insert new entry at slot 3 (after Inspo Board, before the current `AI Source`):
+   ```js
+   { href: '/admin/marketing-content', label: 'Marketing Content', icon: '📱' },
+   ```
+2. Change the existing entry:
+   ```js
+   { href: '/admin/recreate-source', label: 'AI Source', icon: '🎞️' },
+   ```
+   to:
+   ```js
+   { href: '/admin/recreate-source', label: 'AI Content', icon: '🎨' },
+   ```
+3. Update the `aiEditorAllowedPath` logic around line 84:
+   ```js
+   // BEFORE
+   const isAiEditor = role === 'ai_editor'
+   const aiEditorAllowedPath = false
 
-Specifically:
-- Add `export const EDITOR_TABS = [...]` at the top of `app/admin/editor/page.js`.
-- In `lib/sidebarConfig.js`, import `EDITOR_TABS` and map them into the SMM Pipeline group.
+   // AFTER
+   const isAiEditor = role === 'ai_editor'
+   const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
+   ```
+4. Update the AI editor `NAV_ITEMS` block to render a single-item nav when ai_editor lands inside `/admin/recreate-source`:
+   ```js
+   const NAV_ITEMS = (isAiEditor
+       ? [{ href: '/admin/recreate-source?tab=workflow', label: 'AI Content', icon: '🎨' }]
+       : isAdmin ? ADMIN_NAV : EDITOR_NAV)
+     .filter(...)
+   ```
 
-Verify: adding a new tab to `app/admin/editor/page.js`'s EDITOR_TABS automatically adds it to the SMM sidebar (smoke-test by adding a dummy tab and reloading).
+### Step 3 — Convert `/admin/recreate-source/page.js` to a tab strip
 
-### Step 10 — Build + smoke test
+The current file is the single AI Source page. Read it first to understand what's there.
 
-- `next build` — must pass cleanly.
-- `npm run lint` (if a lint script exists) — must pass.
-- Manual click-through per role (see Test Plan below).
+1. **Extract current page body** into `app/admin/recreate-source/SetupTab.js`:
+   - Move everything inside the current `export default function` body into a new exported component `SetupTab`.
+   - The `'use client'` directive stays on the tab file.
+   - All imports the page uses come along.
+
+2. **Create the three other tab files** as small placeholders:
+   - `WorkflowTab.js`:
+     ```jsx
+     'use client'
+     export default function WorkflowTab() {
+       return (
+         <div style={{ padding: 24 }}>
+           <h2>AI Workflow</h2>
+           <p>Pick reels, run image-to-image in TJP, batch upload, and handle revisions.</p>
+           <a
+             href="/ai-editor"
+             style={{
+               display: 'inline-block',
+               marginTop: 16,
+               padding: '10px 18px',
+               background: 'var(--palm-pink)',
+               color: '#fff',
+               borderRadius: 8,
+               textDecoration: 'none',
+               fontWeight: 600,
+             }}
+           >
+             Open AI Workflow →
+           </a>
+           <p style={{ marginTop: 24, color: 'var(--foreground-muted)', fontSize: 12 }}>
+             A future batch may inline this workflow directly into this tab. For now it opens
+             the existing /ai-editor page.
+           </p>
+         </div>
+       )
+     }
+     ```
+   - `WarmupTab.js`:
+     ```jsx
+     'use client'
+     export default function WarmupTab() {
+       return (
+         <div style={{ padding: 24 }}>
+           <h2>Account Warm-Up</h2>
+           <p>Per-account 90-day daily task lists for AI personas (Brielle, Lily, Katie Rosie).</p>
+           <p style={{ color: 'var(--foreground-muted)', marginTop: 16 }}>
+             Shipping in Batch 2. See <code>docs/build-plans/smm-consolidation/batch-2-warmup-flow.md</code>.
+           </p>
+         </div>
+       )
+     }
+     ```
+   - `StrategyTab.js`:
+     ```jsx
+     'use client'
+     export default function StrategyTab() {
+       return (
+         <div style={{ padding: 24 }}>
+           <h2>Content Strategy</h2>
+           <p>"What's next for [creator]" engine — pillar rotation, caption picks, hashtag pools.</p>
+           <p style={{ color: 'var(--foreground-muted)', marginTop: 16 }}>
+             Shipping in Batch 3. See <code>docs/build-plans/smm-consolidation/batch-3-content-strategy.md</code>.
+           </p>
+         </div>
+       )
+     }
+     ```
+
+3. **Rewrite `app/admin/recreate-source/page.js`** as the tab strip wrapper:
+   ```jsx
+   'use client'
+   import { useUser } from '@clerk/nextjs'
+   import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+   import SetupTab from './SetupTab'
+   import WorkflowTab from './WorkflowTab'
+   import WarmupTab from './WarmupTab'
+   import StrategyTab from './StrategyTab'
+
+   const TABS = [
+     { key: 'workflow', label: 'Workflow', roles: ['admin', 'super_admin', 'ai_editor'] },
+     { key: 'setup',    label: 'Setup',    roles: ['admin', 'super_admin'] },
+     { key: 'warmup',   label: 'Warm-Up',  roles: ['admin', 'super_admin'] },
+     { key: 'strategy', label: 'Strategy', roles: ['admin', 'super_admin'] },
+   ]
+
+   export default function AiContentPage() {
+     const { user } = useUser()
+     const role = user?.publicMetadata?.role
+     const isAiEditor = role === 'ai_editor'
+     const searchParams = useSearchParams()
+     const router = useRouter()
+     const pathname = usePathname()
+
+     const visibleTabs = TABS.filter(t => t.roles.includes(role))
+     const defaultTab = isAiEditor ? 'workflow' : 'setup'
+     const currentTab = searchParams.get('tab') || defaultTab
+     const active = visibleTabs.find(t => t.key === currentTab) || visibleTabs[0]
+
+     const goTab = (key) => router.replace(`${pathname}?tab=${key}`)
+
+     return (
+       <div>
+         <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '14px 24px' }}>
+           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>AI Content</h1>
+         </div>
+         <div style={{ display: 'flex', gap: 4, padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+           {visibleTabs.map(t => (
+             <button
+               key={t.key}
+               onClick={() => goTab(t.key)}
+               style={{
+                 padding: '10px 16px',
+                 background: 'transparent',
+                 border: 'none',
+                 borderBottom: `2px solid ${active.key === t.key ? 'var(--palm-pink)' : 'transparent'}`,
+                 color: active.key === t.key ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+                 fontWeight: active.key === t.key ? 600 : 400,
+                 cursor: 'pointer',
+                 fontSize: 13,
+               }}
+             >
+               {t.label}
+             </button>
+           ))}
+         </div>
+         <div>
+           {active.key === 'workflow' && <WorkflowTab />}
+           {active.key === 'setup'    && <SetupTab />}
+           {active.key === 'warmup'   && <WarmupTab />}
+           {active.key === 'strategy' && <StrategyTab />}
+         </div>
+       </div>
+     )
+   }
+   ```
+
+### Step 4 — Marketing Content hub
+
+1. Create `app/admin/marketing-content/layout.js`:
+   ```jsx
+   import { requireAdmin } from '@/lib/adminAuth'
+
+   export default async function Layout({ children }) {
+     try { await requireAdmin() } catch (e) { return e }
+     return <>{children}</>
+   }
+   ```
+
+2. Create `app/admin/marketing-content/page.js` as a client component that fetches `/api/admin/marketing-content/overview` and renders:
+   - Hero: today's date, brief "what to look at"
+   - Tile row: 4 KPI tiles (AI in flight / Real in flight / Needs review / Active warm-ups)
+   - Quick links: Editor For Review · AI Content · Account Warm-Up · Publer Mappings
+   - "Coming soon" block listing future enhancements (reach trend, posted-this-week sparkline) when Phase 3 data exists
+
+3. Create `app/api/admin/marketing-content/overview/route.js`:
+   ```js
+   export const dynamic = 'force-dynamic'
+   import { NextResponse } from 'next/server'
+   import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+
+   export async function GET() {
+     try { await requireAdmin() } catch (e) { return e }
+     try {
+       const [aiInFlight, realInFlight, needsReview, activeWarmups] = await Promise.all([
+         fetchAirtableRecords('Posts', {
+           filterByFormula: "AND({Publer Status}='Submitted', {Publer Status}!='')",
+           fields: ['Status'],
+         }).then(r => r.length).catch(() => 0),
+         fetchAirtableRecords('Posts', {
+           filterByFormula: "OR({Status}='Queued for Telegram',{Status}='Sending to Telegram')",
+           fields: ['Status'],
+         }).then(r => r.length).catch(() => 0),
+         fetchAirtableRecords('Tasks', {
+           filterByFormula: "AND({Status}='Done',{Admin Review Status}='Pending Review')",
+           fields: ['Status'],
+         }).then(r => r.length).catch(() => 0),
+         // Warmup table doesn't exist yet — return 0 until Batch 2 ships
+         Promise.resolve(0),
+       ])
+       return NextResponse.json({
+         aiInFlight,
+         realInFlight,
+         needsReview,
+         activeWarmups,
+         asOf: new Date().toISOString(),
+       })
+     } catch (err) {
+       return NextResponse.json({ error: err.message }, { status: 500 })
+     }
+   }
+   ```
+
+### Step 5 — `components/Header.js` ai_editor link
+
+Find the section that renders the ai_editor header (search for `'ai_editor'` in the file). Add a new link "AI Content" pointing to `/admin/recreate-source?tab=workflow`. Keep the existing `/ai-editor` link in place — it's still the primary URL for ai_editor user-role landing during this transition.
+
+Pattern roughly:
+```jsx
+{role === 'ai_editor' && (
+  <>
+    <Link href="/ai-editor">TJP Workspace</Link>
+    <Link href="/admin/recreate-source?tab=workflow">AI Content</Link>
+  </>
+)}
+```
+
+(Adjust to match the file's actual JSX style — read first, then edit.)
+
+### Step 6 — Build + smoke test
+
+```
+npm run build
+```
+
+Manual click-through (use multiple browser sessions or `view as` if available):
+- **admin**: log in → sidebar shows 13 items with Marketing Content in slot 3 + AI Content (renamed). Click Marketing Content → hub loads with 4 KPI tiles. Click AI Content → land on Setup tab by default. Click Workflow tab → see the placeholder card with "Open AI Workflow" button. Click button → land on `/ai-editor`.
+- **ai_editor**: log in → land on `/ai-editor` as before. Header now has "AI Content" link → click → land on `/admin/recreate-source?tab=workflow` (the new tab strip, single-tab visible since other tabs are admin-only) → see the placeholder workflow card.
+- **editor**: log in → land on `/editor` as before. Header unchanged. No access to `/admin/marketing-content` (403 via layout's requireAdmin) and no access to `/admin/recreate-source` beyond what they had (which is none).
+- **creator, chat_manager, social_media**: no changes — confirm with one click-through each.
 
 ## Airtable changes
 
-**NONE.** Batch 1 is purely code. If any Airtable interaction is required during Batch 1 (it shouldn't be), stop and ask the owner.
+**NONE.** Batch 1 is pure code.
 
-## Role-access matrix — final (target state for Batch 1)
-
-| Sub-node | admin / super_admin | editor | ai_editor | social_media | chat_manager |
-|---|---|---|---|---|---|
-| Overview | visible | visible (filtered) | visible | visible (filtered to today's posts) | hidden |
-| Review Queue | visible | visible | hidden | hidden | hidden |
-| Post Prep | visible | hidden | hidden | hidden | hidden |
-| Carousels | (folded into Review Queue) | visible (carousels) | hidden | hidden | hidden |
-| Grid Planner | visible | hidden | hidden | visible (read+write via existing API; no separate readonly gate yet) | hidden |
-| Creator Library | visible | visible | hidden | hidden | hidden |
-| OFTV Projects | visible | visible | hidden | hidden | hidden |
-| Long Form Upload | visible | visible | hidden | hidden | hidden |
-| Outbound — Real (Telegram) | visible | hidden | hidden | visible (placeholder in Batch 1; built out in Batch 4) | hidden |
-| Outbound — AI (Publer) | visible | hidden | hidden | hidden | hidden |
-| Publer Mappings (tab inside Outbound — AI) | visible | hidden | hidden | hidden | hidden |
-| AI Content | visible | hidden | visible (full) | hidden | hidden |
-| Account Warm-Up | visible | hidden | visible (read-only of today's content needs) | visible (placeholder in Batch 1; built out in Batch 2) | hidden |
-| Content Strategy | visible | hidden | visible | hidden | hidden |
-
-Notes:
-- Visibility = sidebar entry + page-level allow. Server-side gates in `lib/adminAuth.js` are the enforcement layer.
-- Grid Planner does NOT have a read-only gate today. Critique A flagged this; we are NOT building the readonly helper in Batch 1. Treated as a known gap for a later sprint.
-- The "Carousels" entry from today's Editor sidebar folds into "Review Queue" (the Editor page already handles both via tabs). Editors still see the same surface.
-
-## Sidebar tree — final
+## Sidebar tree — final (target state)
 
 ```
-ADMIN SIDEBAR (10 items)
-├── Dashboard                                /admin/dashboard
-├── Inspo Board                              /admin/inspo  (7 tabs after removing 'recreate')
-├── Social Media Management                  /admin/smm   ← NEW PARENT
-│   ── Pipeline ──
-│   • Overview                               /admin/smm
-│   • Review Queue                           /admin/smm?tab=review
-│   • Post Prep                              /admin/smm?tab=postprep
-│   • Grid Planner                           /admin/smm?tab=grid
-│   • Creator Library                        /admin/smm?tab=library
-│   • OFTV Projects                          /admin/smm?tab=oftv
-│   • Long Form Upload                       /admin/smm?tab=longform
-│   ── Outbound ──
-│   • Outbound — Real (Telegram)             /admin/smm?tab=outbound-real     [placeholder until Batch 4]
-│   • Outbound — AI (Publer)                 /admin/smm?tab=outbound-ai       [includes Mappings sub-tab]
-│   ── Strategy & Warm-Up ──
-│   • AI Content                             /admin/smm?tab=ai-content        [alias of /admin/recreate-source]
-│   • Account Warm-Up                        /admin/smm?tab=warmup            [placeholder until Batch 2]
-│   • Content Strategy                       /admin/smm?tab=strategy          [placeholder until Batch 3]
-├── Creators                                 /admin/creators
-├── Whale Hunting                            /admin/whale-hunting
-├── Photo Library                            /photo-library
-├── Onboarding                               /admin/onboarding
-├── Invoicing                                /admin/invoicing
-├── Inbox                                    /admin/inbox  (owner only)
-└── Help                                     /admin/help
+ADMIN SIDEBAR (13 items, was 12)
+├── 📊  Dashboard                /admin/dashboard
+├── 🎬  Inspo Board              /admin/inspo
+├── 📱  Marketing Content        /admin/marketing-content     ← NEW
+├── 🎨  AI Content               /admin/recreate-source       ← relabeled, tab strip added
+├── ✂️  Editor                   /admin/editor
+├── 🎭  Creators                 /admin/creators
+├── 🐋  Whale Hunting            /admin/whale-hunting
+├── 🖼️  Photo Library            /photo-library
+├── 📅  Publer                   /admin/publer
+├── 📋  Onboarding               /admin/onboarding
+├── 💸  Invoicing                /admin/invoicing
+├── 📥  Inbox                    /admin/inbox  (owner-only, unchanged)
+└── ❓  Help                     /admin/help
 ```
 
-## components/Header.js audit + plan
-
-Today the file drives non-admin global navigation (~140 lines). Per role:
-
-| Role | Today's links | Batch 1 target |
-|---|---|---|
-| Editor | `/editor` (logo), `/editor/inspo` ("Inspo Board") | UNCHANGED — `/editor/inspo` stays (the wrapper is intentional per Critique A). |
-| AI Editor | `/ai-editor` (logo + "AI Workspace") | ADD link "AI Content" → `/admin/smm?tab=ai-content`. Keep `/ai-editor`. |
-| Creator | `/creator/{opsId}/dashboard` (logo), `/creator/{opsId}/my-content`, `/creator/{opsId}/content-request`, `/creator/{opsId}/inspo` | UNCHANGED — creators don't enter SMM. |
-| Chat manager | `/photo-library` (logo) | UNCHANGED — Photo Library is their full surface. |
-
-Verify: log in as each role, confirm the header links work and routing is correct after Batch 1 ships.
-
-## Rename: "AI Source" → "AI Content"
-
-Surface-level only. Three places:
-1. `lib/sidebarConfig.js` SMM children — label `"AI Content"`.
-2. `app/admin/recreate-source/page.js` H1 / page title — `"AI Content"`.
-3. `components/Header.js` ai_editor link — `"AI Content"`.
-
-Route stays at `/admin/recreate-source` (deep-link-safe). The new SMM entry `/admin/smm?tab=ai-content` is an alias that wraps the existing page.
-
-## Editor & AI editor — exit from ghettos
-
-**Editor today:** `/editor` is their sidebar-less workspace. They cannot reach `/admin/*`. **Post-Batch-1:** unchanged. The editor's primary surface stays `/editor`. They access SMM tabs they should see (Review Queue, Carousels, Library, OFTV, Long Form Upload) via direct URL OR by following the in-app links from their dashboard. The `/admin/smm` route allows editor via `requireAdminOrEditor` for those tabs only.
-
-**AI editor today:** `/ai-editor` is their TJP-only sandbox. They cannot reach `/admin/*` (hard-blocked at `app/admin/layout.js:84`). **Post-Batch-1:** the layout flip allows them into `/admin/smm?tab=ai-content`, `?tab=warmup`, `?tab=strategy`. The header gets a new "AI Content" link. They still can't reach Dashboard, Creators, Inbox, etc. Page-level role gates enforce.
+Note: Marketing Content slots above AI Content because it's the admin's at-a-glance entry point — operator opens admin shell, sees the hub first.
 
 ## Test plan
 
-For each role, log in and verify:
+For each role:
 
-1. **admin** — visit `/admin/dashboard`. See the 10-item sidebar with SMM in slot 3. Click SMM → see the 3-divider structure. Click each child, verify the corresponding page or placeholder loads.
-2. **editor** — log in. Land on `/editor` (single hop, no flash). Click Inspo Board in header → land at `/editor/inspo` (not `/inspo`). Direct-URL to `/admin/smm?tab=review` → see the review queue (page-level gate allows editor). Direct-URL to `/admin/smm?tab=postprep` → 403 (page-level gate rejects).
-3. **ai_editor** — log in. Land on `/ai-editor`. Click "AI Content" in header → land at `/admin/smm?tab=ai-content` → see the recreate-source UI inside the SMM layout. Direct-URL to `/admin/smm?tab=warmup` → see the placeholder card. Direct-URL to `/admin/smm?tab=review` → 403.
-4. **social_media** — log in. (Currently no landing page; the layout sends them somewhere — confirm this still works.) Direct-URL to `/admin/smm?tab=outbound-real` → see the placeholder card.
-5. **chat_manager** — log in. Land on `/photo-library`. No changes.
-6. **creator** — log in. Land on `/creator/{opsId}/dashboard`. Header links unchanged. Cannot reach any `/admin/smm` route — 403.
+1. **admin** — visit `/admin/dashboard` (unchanged). Click new "Marketing Content" entry → land on hub. Verify 4 KPI tiles render (counts may be 0 — that's fine for now). Click "Editor For Review" quick link → navigates to `/admin/editor?tab=review`. Click "AI Content" sidebar → land on `/admin/recreate-source` with Setup tab active. Click Workflow tab → placeholder. Click Warm-Up tab → placeholder. Click Strategy tab → placeholder.
 
-Additional checks:
-- 410 Gone: `/admin/tonio`, `/sonnet-test`, `/creator/{anyId}/vault` all return the archive page.
-- Inspo Board tab strip: 7 tabs (no "Recreate Reels"); `/admin/recreate` direct URL still loads.
-- Build: `next build` clean, no warnings about missing imports or dead exports.
-- Lint: `npm run lint` clean.
+2. **ai_editor** — visit `/ai-editor` (unchanged). Header shows "AI Content" link → click → land on `/admin/recreate-source?tab=workflow` with admin shell sidebar showing single AI Content entry. Verify no other admin nav is visible. Try direct URL `/admin/dashboard` → bounced back.
+
+3. **editor** — visit `/editor` (unchanged). Header unchanged. Direct URL `/admin/marketing-content` → forbidden (requireAdmin rejects).
+
+4. **creator** — no changes — confirm `/creator/[id]/dashboard` still works.
+
+5. **chat_manager** — no changes — confirm `/photo-library` still works.
+
+6. **social_media** — confirm wherever they land today still works (likely `/admin/editor?tab=grid` per grid-planner usage).
+
+Additional:
+- `next build` clean, no missing-import warnings.
+- `/admin/recreate-source` (the renamed page) still serves all existing deep links — paste any current bookmark and confirm the Setup tab is the default.
+- Inspo Board, Creators, Whale Hunting, Onboarding, Invoicing, Inbox, Help, Publer — all untouched. Verify no incidental breakage by opening each once.
 
 ## Rollback procedure
 
@@ -269,33 +370,38 @@ git checkout dev
 git branch -D smm-consolidation
 ```
 
-No Airtable changes, so no schema reversal. Worktree deletion if used: `git worktree remove .claude/worktrees/smm-consolidation`.
+Or if pushed:
+```
+git push origin :smm-consolidation
+```
+
+No Airtable changes to reverse.
 
 ## Estimated time
 
-12-16 hours. Breakdown:
-- Steps 1-3 (sidebar config + layout + SMM wrapper): 4-5h
-- Step 4 (Header.js): 2h
-- Steps 5-7 (redirect fix + rename + Inspo tab): 1-2h
-- Step 8 (archive dead routes): 1h
-- Step 9 (single source of truth for tabs): 2h
-- Step 10 (build + manual click-through): 2-4h
+6-9 hours. Breakdown:
+- Step 1-2 (branch + layout edits): 1h
+- Step 3 (tab strip + 4 tab files): 2-3h
+- Step 4 (Marketing Content hub + API): 2-3h
+- Step 5 (Header.js edit): 30m
+- Step 6 (build + 6-role click-through): 1-2h
 
 ## Success criteria
 
 - [ ] `next build` passes from a clean checkout of the branch.
-- [ ] `npm run lint` passes.
-- [ ] Each role's manual click-through (test plan above) succeeds end-to-end.
+- [ ] Admin sees 13-item sidebar with Marketing Content in slot 3.
+- [ ] Marketing Content hub loads with 4 KPI tiles (any values — including 0 — are acceptable, as long as no error).
+- [ ] AI Content (renamed from AI Source) loads as a tab strip with 4 tabs. Setup tab is the default for admin and contains the original AI Source page body intact (no broken UI).
+- [ ] ai_editor can click "AI Content" in their header and land inside the admin shell on the Workflow tab. Only one tab visible (Workflow). No access to admin-only tabs.
+- [ ] ai_editor still has `/ai-editor` working as before — that URL is unchanged.
 - [ ] No file outside the "Files to touch" list was modified.
-- [ ] No Airtable interaction occurred during the batch.
-- [ ] No regression: every URL that worked on `dev` (excluding the three archived routes) still works on the branch.
-- [ ] `git diff dev..smm-consolidation -- '*.airtable*'` returns nothing (no Airtable code paths added).
+- [ ] No Airtable interaction during the batch.
 - [ ] Handoff doc `batch-1-handoff.md` exists, lists every file touched + rollback command.
 
 ## Open questions to surface to owner during Batch 1
 
-(If any of these come up, STOP and ask before deciding unilaterally.)
+(If any of these come up, STOP and ask.)
 
-1. Does the owner want a sidebar collapse animation for the 3-group dividers, or are static dividers fine?
-2. The Inbox sidebar entry is `ownerOnly` today (only evan@palm-mgmt.com sees it). Does this stay as-is, or should it widen with the SMM consolidation? **Recommendation: stays as-is.**
-3. Should the placeholder cards for Batch 2/3/4 tabs link to the batch doc paths in the repo, or to a generic "coming soon" message? **Recommendation: link to the batch docs so future agents can find context.**
+1. The Workflow tab is a placeholder linking to `/ai-editor`. Owner may prefer to inline the workflow directly in Batch 1 — that's a ~1242-line refactor and a separate decision. **Default: leave as placeholder; revisit after Batches 2-3 ship.**
+2. The Marketing Content hub's "warmup accounts active" tile returns 0 until Batch 2 ships the Warmup table. Owner may want a "Setup pending — see Batch 2" tooltip on that tile.
+3. Sidebar icon for Marketing Content: 📱 chosen for "marketing surface." Owner may prefer 📋 or 🎯.

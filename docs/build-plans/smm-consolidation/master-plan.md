@@ -1,15 +1,44 @@
 # SMM Consolidation — Master Plan
 
-**Author:** Synthesizer (Phase 3)
+**Author:** Synthesizer (Phase 3) — scope-corrected 2026-05-27 after owner review
 **Date:** 2026-05-27
 **Branch:** `smm-consolidation` (off `dev`)
 **Inputs reconciled:** audit-A, critique-A, audit-B, critique-B, 00-research-scope.md, both playbooks.
 
 ---
 
-## Vision
+## ⚠️ Scope correction — read this first
 
-The portal will collapse twelve scattered admin sidebar entries into a single role-filtered **Social Media Management** parent that follows three real operator jobs: **Pipeline** (review/prep/grid), **Outbound** (Telegram for real creators, Publer for AI accounts), and **Strategy & Warm-Up** (per-account 90-day playbook, content engine, AI Content). Inspo Board stays top-level (cross-role research surface). The new Account Warm-Up section delivers zero-mental-load operation for the three in-flight AI personas (Brielle, Lily, Katie Rosie) — open the page, see today's tasks for each account, click through. A daily content engine pre-fills tomorrow's posts so the operator never has to ask "what's next for Amelia in TJP?" again. Amin's manual Telegram pipe gets a dedicated per-AI-account topic (so warmup posts can't mis-route into the real creator's thread) and stays live until each account graduates to Publer at Day 23+.
+After owner review, the original "collapse 12 sidebar items under a single SMM parent" framing was rejected. The actual scope is **narrower**:
+
+**Touch only these existing admin sidebar items:**
+- `Editor` (the 9-tab content pipeline) — internal reorg
+- `AI Source` (the AI content setup surface) — relabel to **AI Content** + merge with the `/ai-editor` user-role workflow pages
+
+**Add one new admin-only top-level item:**
+- **Marketing Content** — a dashboard hub for admins that gives an at-a-glance view of both content streams (real + AI), today's posting schedule, and quick links into Editor / AI Content / Warm-Up / Publer Mappings. Not a parent wrapping children — just a landing page.
+
+**Add new sub-pages inside AI Content** (not new top-level items):
+- **Account Warm-Up** (Brielle / Lily / Katie Rosie daily tasks)
+- **Content Strategy** ("what's next for Amelia in TJP")
+
+**Untouched** (do not edit sidebar entry, route, or page contents):
+- Dashboard, Inspo Board, Creators, Whale Hunting, Photo Library, Onboarding, Invoicing, Inbox, Help, Publer (already its own item from Phase 1+2).
+
+**Per-role views:**
+- **Admin** — sees the new Marketing Content hub + Editor (internally reorganized) + AI Content (renamed + expanded). All other items unchanged.
+- **Editor** — `/editor` unchanged. Header link unchanged. Internal Editor reorg means editor sees the cleaned-up tabs when they view the dashboard.
+- **AI Editor** — currently lives at `/ai-editor`. Their workflow pages get folded into AI Content (role-filtered to show their workflow tabs, hide admin-only setup tabs).
+
+**Bug investigations (missing AI edits, Katie Rosie carousel hidden) — deferred at owner request.**
+
+The reconciliation log below and the deeper architecture decisions (Katie Rosie stub row, Day-21 sub-task chaining, Day-45 owner-approval gate, Amin Telegram bridge fix, Haiku 4.5 backfill) still apply to Batches 2-5. Batch 1 is the only batch substantially rewritten by this scope correction — see `batch-1-nav-consolidation.md` for the corrected plan.
+
+---
+
+## Vision (corrected)
+
+The portal will not get a new "Social Media Management" parent. Instead, two existing admin sidebar items (`Editor`, `AI Source`) get focused improvements: Editor is internally reorganized, AI Source is renamed to AI Content and absorbs the AI editor's workflow pages so admin and AI editor stop living in separate ghettos. A new **Marketing Content** dashboard hub gives admins one place to see both content streams at a glance. Account Warm-Up and Content Strategy become sub-pages under AI Content. The three in-flight AI personas (Brielle, Lily, Katie Rosie) get day-counter-driven daily task lists. A content engine pre-fills tomorrow's posts so the operator never has to think "what's next for Amelia in TJP." Amin's manual Telegram pipe gets a dedicated per-AI-account topic (so warmup posts can't mis-route into the real creator's thread). Amin stays live for real-creator posting indefinitely and for AI-account posting until each account graduates to Publer at Day 23+.
 
 ## Hard constraints (recap)
 
@@ -88,30 +117,47 @@ Critic B's calls are nearly all adopted, but one deserves a small note:
 
 **Trade-off:** A stub Palm Creators row will show up in any list view of creators that doesn't filter on a creator-type field. Mitigation: add a new `Creator Type` single-select on Palm Creators with values `Real Creator` / `AI Persona — Standalone` (additive, doesn't rename anything). Views that filter to managed creators get a `Creator Type = "Real Creator"` filter. New, never-yet-stale.
 
-### Decision 2 — SMM sidebar shape: 3-group soft divider
+### Decision 2 — Sidebar shape (corrected): no SMM parent
 
-Owner sees three visual groups under one **Social Media Management** parent. Routes are still flat. Role filtering trims groups naturally.
+After owner review, the consolidated SMM parent was rejected. The sidebar gains **one new top-level item** (Marketing Content) and **two existing items get internal improvements** (Editor reorganized, AI Source → AI Content + ai_editor workflow merged in). Everything else is untouched.
 
 ```
-SOCIAL MEDIA MANAGEMENT
-  ── Pipeline ──
-  • Overview
-  • Review Queue          (Reels + Carousels)
-  • Post Prep
-  • Grid Planner
-  • Creator Library
-  • OFTV Projects
-  • Long Form Upload
-  ── Outbound ──
-  • Outbound — Real (Telegram)
-  • Outbound — AI (Publer)         [Mappings + Phase-3 dashboard tab]
-  ── Strategy & Warm-Up ──
-  • AI Content                      [relabeled from "AI Source", route stays /admin/recreate-source]
-  • Account Warm-Up                 [NEW]
-  • Content Strategy                [NEW]
+ADMIN SIDEBAR (13 items — adds 1)
+├── Dashboard                        [untouched]
+├── Inspo Board                      [untouched]
+├── Marketing Content                ← NEW. Admin-only dashboard hub.
+├── Editor                           [internal reorg only — tabs reorganized, label unchanged]
+├── AI Content                       ← RELABELED from "AI Source." Internal: tabs for ai_editor workflow
+│                                       (folded in from /ai-editor) + setup + sub-pages Warm-Up + Strategy
+├── Publer                           [untouched — from Phase 1+2]
+├── Creators                         [untouched]
+├── Whale Hunting                    [untouched]
+├── Photo Library                    [untouched]
+├── Onboarding                       [untouched]
+├── Invoicing                        [untouched]
+├── Inbox                            [untouched, owner-only]
+└── Help                              [untouched]
 ```
 
-Implementation: divider labels are static text rows in the sidebar config, not links. Each child still resolves to a flat route (`/admin/smm?tab=warmup`, etc.). Role filtering happens before render.
+**Marketing Content hub** (admin-only landing page; not a parent with children):
+- "In flight today" — counts of AI posts in draft/scheduled + real posts in Telegram queue
+- "Needs your review" — items in For Review across both streams (clickable)
+- "Today's warm-up tasks" — count badge per active warm-up account (3: Brielle, Lily, Katie Rosie)
+- Quick links: Editor For Review · AI Content · Account Warm-Up · Publer Mappings
+- KPIs: posts published this week (later, when Publer Phase 3 data exists)
+
+**AI Content sub-pages** (rendered inside `/admin/recreate-source` via `?tab=` or sibling routes — TBD in Batch 1):
+- `Workflow` — AI editor's workflow (folded from `/ai-editor`): pick reels, Create Scene, Carousel
+- `Setup` — current AI Source content (per-creator AI toggle, sources)
+- `Warm-Up` — NEW. Per-account 90-day daily tasks for the 3 personas
+- `Strategy` — NEW. "What's next for [creator]" engine
+
+**Editor internal reorg** (within `/admin/editor`, same route, same sidebar label):
+- Hide / move `Submissions` tab (owner doesn't use it)
+- Investigate + fix the For Review filter so AI edits are visible (deferred at owner request, separate from Batch 1)
+- Investigate + fix the Carousels tab visibility for Katie Rosie's in-review carousel (deferred)
+- Expand Post Prep automation (Batch 3 work — caption generation, more thumbnail handling)
+- Auto-grouping in Carousels using Cloudflare-resized images + Claude Haiku 4.5 (Batch 3 work)
 
 ### Decision 3 — Warmup engine output routing
 
@@ -157,13 +203,13 @@ Server-side gate stays the source of truth — each `/api/admin/smm/*` route che
 
 ## Batches in dependency order
 
-### Batch 1 — Nav Consolidation
-- **Scope:** Sidebar consolidation under SMM parent (3-group divider). Header.js audit + edits. ai_editor admin-layout policy flip. Editor two-hop redirect fix. Dead-route archive. Tabs-vs-sidebar single-source-of-truth. "AI Source" → "AI Content" relabel.
+### Batch 1 — Nav Consolidation (corrected scope)
+- **Scope:** Sidebar gains new **Marketing Content** hub entry (admin-only). `AI Source` sidebar entry relabeled to `AI Content`. `/admin/recreate-source` page absorbs the ai_editor workflow pages from `/ai-editor` as a `Workflow` sub-tab (role-filtered: ai_editor sees only Workflow; admin sees Workflow + Setup). Two placeholder sub-tabs added inside AI Content for Warm-Up (Batch 2) and Strategy (Batch 3). `ai_editor` admin-layout block flipped to allow `/admin/recreate-source` (the renamed AI Content route). Header.js gets a parallel pass for the ai_editor role's "AI Content" link. **Editor sidebar item: no structural reorg in Batch 1 — preserved for Batch 3.** No dead-route archiving. No Inspo Board changes. No `/admin/smm` parent route created.
 - **Blocks on:** Nothing.
-- **Estimated hours:** 12-16h.
-- **Key files:** `app/admin/layout.js`, `components/Header.js`, `app/dashboard/page.js`, `app/admin/recreate-source/*` (label-only), `app/admin/_legacy/*` (new), `app/admin/smm/page.js` (new wrapper for /admin/smm route), `app/admin/inspo/page.js`.
+- **Estimated hours:** 6-9h (narrower than original 12-16h).
+- **Key files:** `app/admin/layout.js`, `components/Header.js`, `app/admin/recreate-source/page.js`, `app/admin/recreate-source/WorkflowTab.js` (new — composes `/ai-editor` page contents), `app/admin/marketing-content/page.js` (new), `lib/sidebarConfig.js` (new optional — single source of truth).
 - **Airtable changes:** **NONE.**
-- **Success criteria:** Every existing role lands on the right URL after login. Sidebar shows the 3-group SMM divider. ai_editor can reach `/admin/smm?tab=ai-content`, `?tab=warmup`, `?tab=strategy` — and nothing else under `/admin/*`. Editor's two-hop redirect is single-hop. Every dead route returns 410 Gone. No new feature surfaces are built yet — this is purely structural.
+- **Success criteria:** Admin sees the new Marketing Content sidebar item between Inspo Board and Editor. Clicking it lands on the dashboard hub. AI Content sidebar item shows the renamed label. Clicking it lands on `/admin/recreate-source` with a 4-tab strip: Workflow / Setup / Warm-Up / Strategy (last two are placeholder cards). AI editor logs in, lands on `/ai-editor` as before (URL unchanged for back-compat), AND the new "AI Content" header link goes to `/admin/recreate-source?tab=workflow` which shows the same workflow they're used to — now inside the admin shell. Build clean, all existing roles' click-paths still work.
 - **Rollback:** `git branch -D smm-consolidation` (none of Batch 1 touches Airtable; reset is a single command).
 
 ### Batch 2 — Account Warm-Up Flow
