@@ -1055,7 +1055,7 @@ function PostCard({ post, onRefresh, onSend }) {
           {/* Send action lives in Grid Planner now — Post Prep just preps.
               Clicking stages the post (status → 'Staged'), which removes it
               from this list. It remains visible + draggable in Grid Planner. */}
-          {post.status === 'Prepping' && hasFile && (
+          {isPreppingLike(post.status) && hasFile && (
             <button
               onClick={handleSendToGrid}
               disabled={sendingToGrid}
@@ -1085,7 +1085,7 @@ function PostCard({ post, onRefresh, onSend }) {
               + Cancel. Only meaningful while the post is still in admin's
               queue (Prepping/Staged) — once it's gone to Telegram or further,
               recalling would just create a phantom task with no Post to undo. */}
-          {post.taskId && (post.status === 'Prepping' || post.status === 'Staged') && (
+          {post.taskId && (isPreppingLike(post.status) || post.status === 'Staged') && (
             !showRevisionModal ? (
               <button onClick={() => { setShowRevisionModal(true); setRevisionError('') }}
                 style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', fontSize: '10px', cursor: 'pointer', padding: '2px 0', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
@@ -1111,7 +1111,7 @@ function PostCard({ post, onRefresh, onSend }) {
           {/* Discard — terminal kill. Same pre-flight gate as send-back (no
               point discarding something already on Telegram or live). Two
               clicks: link → "Discard this clip permanently? Yes / Cancel". */}
-          {post.taskId && (post.status === 'Prepping' || post.status === 'Staged') && (
+          {post.taskId && (isPreppingLike(post.status) || post.status === 'Staged') && (
             !showDiscardConfirm ? (
               <button onClick={() => { setShowDiscardConfirm(true); setDiscardError('') }}
                 style={{ background: 'none', border: 'none', color: 'rgba(232, 120, 120, 0.75)', fontSize: '10px', cursor: 'pointer', padding: '2px 0', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
@@ -1242,10 +1242,19 @@ function isFullyPrepped(p) {
   return hasThumb && hasCaption && hasHashtags
 }
 
+// 'Ready to Go' was introduced by Carousels feature step 04 (commit 253fb1fc)
+// as the Approve handler's new write — operator-equivalent to 'Prepping'
+// (approved, needs prep). All Post Prep filters + status-gated buttons treat
+// the two as the same state until a follow-up cleans up the schema.
+function isPreppingLike(status) {
+  return status === 'Prepping' || status === 'Ready to Go'
+}
+
 function matchesFilter(p, filter) {
   if (filter === 'All') return true
-  if (filter === 'Needs Prep') return p.status === 'Prepping' && !isFullyPrepped(p)
-  if (filter === 'Saved') return p.status === 'Prepping' && isFullyPrepped(p)
+  if (filter === 'Needs Prep') return isPreppingLike(p.status) && !isFullyPrepped(p)
+  if (filter === 'Saved') return isPreppingLike(p.status) && isFullyPrepped(p)
+  if (filter === 'Prepping') return isPreppingLike(p.status)
   return p.status === filter
 }
 
