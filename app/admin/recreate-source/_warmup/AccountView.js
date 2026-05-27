@@ -290,6 +290,28 @@ export default function AccountView({ accountId, onBack }) {
                               ⚠ Grant Owner Approval
                             </button>
                           )}
+                          {t.phase !== 'Setup' && (
+                            <button
+                              onClick={async () => {
+                                const extraNote = prompt('Optional note for Amin (e.g. "post around 2pm ET"):', '') || ''
+                                const res = await fetch(`/api/admin/smm/warmup/send-task/${t.id}`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ extraNote }),
+                                })
+                                const d = await res.json()
+                                if (!res.ok) {
+                                  alert(`Send failed: ${d.telegramError || d.error || res.status}\n\n${d.hint || ''}`)
+                                  return
+                                }
+                                alert(`Sent to Amin (topic ${d.topicId}, message ${d.messageId})`)
+                                load()
+                              }}
+                              style={btn('secondary')}
+                            >
+                              ✈ Send to Amin
+                            </button>
+                          )}
                           {!isDone && !isSkipped && (
                             <button onClick={() => {
                               if (confirm('Skip this task? It won\'t affect the day counter, but the task will be marked Skipped permanently.')) {
