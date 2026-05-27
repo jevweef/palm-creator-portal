@@ -964,10 +964,22 @@ export async function POST(request) {
       // Across calls, fresh `now()` ensures later batches sort after earlier ones.
       const baseTs = Date.now()
 
+      // Distribute THIS batch as evenly as possible — strict alternation.
+      // (Previous behavior balanced the total IG+FB count across all
+      // existing-queued posts, which produced surprising splits like
+      // 3 IG / 1 FB on a 4-item batch when the creator already had a few
+      // FB-queued from before. Owner expectation 2026-05-27: each
+      // distribute call splits its own batch 50/50.)
+      //
+      // Start with whichever channel is currently lagging so long-term
+      // skew still nudges back toward parity over many batches — but
+      // within a single batch the split is always Math.ceil(N/2) on the
+      // starting channel and Math.floor(N/2) on the other.
+      let next = countByChannel.IG <= countByChannel.FB ? 'IG' : 'FB'
+
       for (let i = 0; i < queueItems.length; i++) {
         const p = queueItems[i]
-        // Pick the channel with fewer current posts. Tie → IG.
-        const ch = countByChannel.IG <= countByChannel.FB ? 'IG' : 'FB'
+        const ch = next
         const orderToken = new Date(baseTs + i * 1000).toISOString()
 
         await patchAirtableRecord('Posts', p.id, {
@@ -978,6 +990,7 @@ export async function POST(request) {
         countByChannel[ch]++
         distributed++
         updates.push({ postId: p.id, channel: ch, orderToken })
+        next = next === 'IG' ? 'FB' : 'IG'
       }
 
       return NextResponse.json({
