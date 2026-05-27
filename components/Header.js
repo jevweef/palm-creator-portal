@@ -16,6 +16,11 @@ export default function Header() {
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
   const isChatWallPath = pathname?.startsWith('/photo-library')
+  // Like isEditorPath above — keep AI editor nav scoped to the route so
+  // admins (and super admins viewing-as via SuperAdminBar) see the same
+  // single-link nav a real ai_editor sees when they're on /ai-editor,
+  // not the admin's Dashboard/My Content/Inspo/Content Request/Admin row.
+  const isAiEditorPath = pathname?.startsWith('/ai-editor')
   const creatorIdFromPath = isCreatorPath ? pathname?.split('/')?.[2] : null
   const hqIdFromUrl = searchParams?.get('hqId')
 
@@ -97,7 +102,7 @@ export default function Header() {
               <Link href="/editor" style={linkStyle(pathname === '/editor')}>Editor Queue</Link>
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
             </>
-          ) : isAiEditor ? (
+          ) : (isAiEditor || isAiEditorPath) ? (
             // AI Editor gets a single-link nav while we relocate the
             // Outfit Library out of /admin/* into the /ai-editor workflow.
             // Previously this had an "Outfit Library" link to

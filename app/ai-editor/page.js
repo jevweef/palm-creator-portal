@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { buildStreamIframeUrl, buildStreamPosterUrl } from '@/lib/cfStreamUrl'
 import { ModalHost, uiConfirm, StageBPanel } from '@/components/recreate/panels'
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
@@ -333,7 +334,7 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
     <div style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10, justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>My Projects</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Projects</div>
           {hasProjects && (
             <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
               {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} scene{projects.length === 1 ? '' : 's'}
@@ -814,8 +815,18 @@ export default function AiEditorPage() {
   const urlUpload = sp.get('upload') || ''
   const urlReel = sp.get('reel') || undefined
   const urlProject = sp.get('project') || undefined
+  // Role gate — used to hide tabs an AI editor shouldn't see (e.g.
+  // Carousel Upload while that workflow is still being iterated on).
+  const { user } = useUser()
+  const role = user?.publicMetadata?.role
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
   const tabParam = sp.get('tab')
-  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : 'workspace'
+  // Internal tab keys kept as-is to preserve URL bookmarks ('workspace',
+  // 'create', 'carousel'), but the user-facing labels are now Projects /
+  // Bedroom Scene / Carousel respectively. New 'inspo' tab owns the
+  // Fresh Inspo grid that used to live inside Workspace.
+  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : tabParam === 'inspo' ? 'inspo' : 'workspace'
   const setTab = (k, extra = {}) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'workspace') params.delete('tab')
@@ -1040,7 +1051,13 @@ export default function AiEditorPage() {
   const projectsForBadge = projects.filter(p => p.status !== 'Approved' && p.status !== 'Rejected').length
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 32px)' }}>
+    <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)', padding: '0 clamp(12px, 4vw, 32px) clamp(16px, 4vw, 32px)' }}>
+      {/* Sticky header + tab bar — creator picker stays visible on scroll
+          so the editor never loses track of who they're editing for.
+          `top: 49px` sits below the global Palm Header (which is itself
+          sticky at top:0, zIndex:40, ~49px tall — matches the page
+          wrapper's `calc(100vh - 49px)` minHeight calc above). */}
+      <div style={{ position: 'sticky', top: 49, zIndex: 20, background: 'var(--background)', paddingTop: 'clamp(16px, 4vw, 32px)', marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1072,28 +1089,40 @@ export default function AiEditorPage() {
 
       {/* Tab bar — both workflow stages on one page so Continue doesn't
           feel like navigating to a different surface. */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap' }}>
         <button onClick={() => setTab('workspace')}
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'workspace' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'workspace' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
-          📚 Workspace{revisions.length > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: '#E87878', color: '#1a0a0a', borderRadius: 8 }}>{revisions.length}</span> : projectsForBadge > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: 'rgba(232,184,120,0.5)', color: '#1a0a0a', borderRadius: 8 }}>{projectsForBadge}</span> : null}
+          Projects{revisions.length > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: '#E87878', color: '#1a0a0a', borderRadius: 8 }}>{revisions.length}</span> : projectsForBadge > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: 'rgba(232,184,120,0.5)', color: '#1a0a0a', borderRadius: 8 }}>{projectsForBadge}</span> : null}
         </button>
-        {/* Create Scene is no longer a discoverable cold-start tab — it
+        <button onClick={() => setTab('inspo')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'inspo' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'inspo' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          Inspo Board
+        </button>
+        {/* Bedroom Scene is no longer a discoverable cold-start tab — it
             only shows when the user has an active project (so Continue
             jumps there) or they're already viewing it from a direct link.
             New cold-starts route through ✨ New Project → Bedroom Content. */}
         {(projectsForBadge > 0 || tab === 'create') && (
           <button onClick={() => setTab('create')}
             style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
-            🎨 Create Scene
+            Bedroom Scene
           </button>
         )}
-        <button onClick={() => setTab('carousel')}
-          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
-          📸 Carousel Upload
-        </button>
+        {/* Carousel Upload is admin-only for now — the workflow is still
+            in flux and we don't want to confuse AI editors with it. The
+            tab content render below is also gated on isAdmin so a
+            hand-typed ?tab=carousel URL from a non-admin shows nothing. */}
+        {isAdmin && (
+          <button onClick={() => setTab('carousel')}
+            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+            Carousel
+          </button>
+        )}
       </div>
+      </div>
+      {/* /sticky header+tabs */}
 
-      {tab === 'carousel' && (() => {
+      {tab === 'carousel' && isAdmin && (() => {
         // Shared between Reference Library + Upload section so Start
         // Project can auto-link the new project into the upload form
         // and auto-scroll the editor to it. Plain function-scope vars
@@ -1132,9 +1161,10 @@ export default function AiEditorPage() {
       )}
       {tab === 'workspace' && (
       <>
-      {/* Workspace tab — pool reels + revisions + my projects + batch upload */}
+      {/* Projects tab — revisions + in-flight projects (Fresh Inspo
+          grid lives in the separate Inspo Board tab below). */}
       <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: -6, marginBottom: 14 }}>
-        Pick an inspo reel → ✨ New Project (Bedroom Content for the full TJP flow, or Direct Upload if you already have finished AI videos) → admin review.
+        Your in-flight projects. Start a new one from <strong>+ New Project</strong> below or from the <strong>Inspo Board</strong> tab.
       </p>
 
       {revisions.length > 0 && (
@@ -1151,7 +1181,12 @@ export default function AiEditorPage() {
           onNewProject={() => setNewProjectReel({ __pickFromLibrary: true })}
         />
       </div>
+      </>
+      )}
 
+      {/* Batch upload + New Project modals + Upload Inspo modal are
+          always rendered (gated by their own open-state) so they work
+          from either tab. */}
       {batchOpen && (
         <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId); loadProjects(creatorId) }} />
       )}
@@ -1184,6 +1219,12 @@ export default function AiEditorPage() {
         />
       )}
 
+      {tab === 'inspo' && (
+      <>
+      <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: -6, marginBottom: 14 }}>
+        Available source reels for this creator. Click <strong>✨ New Project</strong> on a card to start work, or upload your own from <strong>↑ Upload inspo</strong>.
+      </p>
+
       {selected.size > 0 && (
         <div style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(232,160,160,0.1)', border: '1px solid rgba(232,160,160,0.3)', borderRadius: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--foreground)' }}>{selected.size} selected</span>
@@ -1195,7 +1236,7 @@ export default function AiEditorPage() {
       )}
 
       {/* Hide reels that already have a project in flight — those live
-          in My Projects above instead of cluttering the "fresh inspo" grid.
+          in the Projects tab instead of cluttering the "fresh inspo" grid.
           After in-flight removal, apply the source filter (all / admin /
           editor uploads) — kept separate from creator filter (which is
           the top-of-page picker). */}
