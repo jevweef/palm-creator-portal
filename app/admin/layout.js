@@ -37,6 +37,7 @@ const ADMIN_NAV = [
     { key: 'team', label: 'Chat Team Report' },
   ]},
   { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
+  { href: '/admin/publer', label: 'Publer', icon: '📅' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },

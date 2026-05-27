@@ -29,6 +29,14 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/publer-queue",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/publer-job-poll",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/compress-pending-assets",
       "schedule": "*/2 * * * *"
     },
