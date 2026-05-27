@@ -9,13 +9,18 @@ function recordIdFormula(ids) {
   return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
 }
 
-// GET — list posts in active states (Prepping, Sent to Telegram, Ready to Post)
+// GET — list posts in active states (Prepping, Ready to Go, Sent to Telegram,
+// Ready to Post). 'Ready to Go' was introduced in commit 253fb1fc (Carousels
+// feature step 04) as the new unified-queue status that the Approve handler
+// writes, but the Post Prep filter wasn't updated at the same time — every
+// approved reel since 2026-05-25 was invisible here. Adding 'Ready to Go' so
+// they surface again.
 export async function GET() {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
     const posts = await fetchAirtableRecords('Posts', {
-      filterByFormula: "OR({Status}='Prepping',{Status}='Sent to Telegram',{Status}='Ready to Post')",
+      filterByFormula: "OR({Status}='Prepping',{Status}='Ready to Go',{Status}='Sent to Telegram',{Status}='Ready to Post')",
       fields: [
         'Post Name', 'Status', 'Platform', 'Caption', 'Hashtags',
         'Thumbnail', 'Scheduled Date', 'Telegram Sent At', 'Admin Notes',
