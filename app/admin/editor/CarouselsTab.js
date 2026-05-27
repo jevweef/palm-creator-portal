@@ -60,6 +60,14 @@ export default function CarouselsTab({ showToast }) {
   const [sourceFilter, setSourceFilter] = useState('all')
   const [searchQ, setSearchQ] = useState('')
   const [tray, setTray] = useState([])
+  // Carousel auto-grouping (SMM Batch 3). Operator clicks "Find Similar
+  // Photo Clusters" → POSTs visible photos to /api/admin/smm/carousel-grouping
+  // → Claude Haiku 4.5 returns clusters of 2-5 photos that came from the
+  // same shoot. Each cluster gets an "Add to tray" button.
+  const [clusters, setClusters] = useState(null) // null=never analyzed; [] = no clusters found
+  const [analyzingClusters, setAnalyzingClusters] = useState(false)
+  const [clustersError, setClustersError] = useState('')
+  const [clustersCost, setClustersCost] = useState(null)
   const [caption, setCaption] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [lightbox, setLightbox] = useState(null)  // {photo} when open
@@ -174,6 +182,73 @@ export default function CarouselsTab({ showToast }) {
 
   const trayIds = useMemo(() => new Set(tray.map(p => p.id)), [tray])
 
+  // Re-analyze invalidates whenever the visible pool changes (creator switch,
+  // filter/search change). Operator must re-click to refresh.
+  const visibleIdSignature = useMemo(
+    () => visible.slice(0, 30).map(v => v.id).join(','),
+    [visible]
+  )
+  useEffect(() => {
+    setClusters(null)
+    setClustersError('')
+    setClustersCost(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIdSignature, creatorId])
+
+  async function analyzeClusters() {
+    setClustersError('')
+    setAnalyzingClusters(true)
+    try {
+      // Only photos with a fetchable image URL — Claude needs URL-resolvable
+      // images. Skip Dropbox-share-only items (those return HTML, not bytes).
+      const candidates = visible
+        .slice(0, 30)
+        .filter(p => p.image && !/dropbox\.com/.test(p.image))
+        .map(p => ({ id: p.id, url: p.image }))
+      if (candidates.length < 4) {
+        setClustersError(`Need at least 4 image-ready photos to cluster. Currently ${candidates.length}.`)
+        setAnalyzingClusters(false)
+        return
+      }
+      const res = await fetch('/api/admin/smm/carousel-grouping/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photos: candidates }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setClustersError(data.error || `HTTP ${res.status}`)
+        setAnalyzingClusters(false)
+        return
+      }
+      setClusters(data.clusters || [])
+      setClustersCost(data.usage?.cost_estimate_usd ?? null)
+      if ((data.clusters || []).length === 0) {
+        setClustersError('No clear clusters found. Try a different creator or wait for more uploads.')
+      }
+    } catch (e) {
+      setClustersError(e.message)
+    } finally {
+      setAnalyzingClusters(false)
+    }
+  }
+
+  function addClusterToTray(cluster) {
+    const photoMap = new Map(visible.map(p => [p.id, p]))
+    const items = cluster.photoIds.map(id => photoMap.get(id)).filter(Boolean)
+    if (!items.length) { showToast?.('Cluster photos no longer visible', true); return }
+    const space = Math.max(0, 10 - tray.length)
+    if (space === 0) { showToast?.('Tray is full (10 slides max). Remove some first.', true); return }
+    const toAdd = items.slice(0, space).filter(p => !trayIds.has(p.id))
+    if (!toAdd.length) { showToast?.('All cluster photos are already in the tray', true); return }
+    setTray([...tray, ...toAdd])
+    if (toAdd.length < items.length) {
+      showToast?.(`Added ${toAdd.length} of ${items.length} (tray capacity)`, false)
+    } else {
+      showToast?.(`Added ${toAdd.length} photos to tray`, false)
+    }
+  }
+
   function toggleTray(p) {
     if (trayIds.has(p.id)) {
       // Already selected — clicking again removes it.
@@ -272,7 +347,7 @@ export default function CarouselsTab({ showToast }) {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {SOURCE_FILTERS.map(f => (
           <button
             key={f.key}
@@ -288,7 +363,93 @@ export default function CarouselsTab({ showToast }) {
             {f.label}
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={analyzeClusters}
+          disabled={analyzingClusters || visible.length < 4}
+          title={visible.length < 4 ? 'Need at least 4 visible photos' : 'Cluster the first 30 visible photos using Claude Haiku 4.5 vision'}
+          style={{
+            padding: '6px 14px', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+            background: analyzingClusters ? 'rgba(167,139,250,0.15)' : 'rgba(167,139,250,0.10)',
+            color: visible.length < 4 ? '#666' : '#a78bfa',
+            border: '1px solid rgba(167,139,250,0.40)',
+            borderRadius: 999,
+            cursor: (analyzingClusters || visible.length < 4) ? 'not-allowed' : 'pointer',
+            opacity: visible.length < 4 ? 0.5 : 1,
+          }}
+        >
+          {analyzingClusters ? 'Analyzing…' : '🔮 Find Similar Photo Clusters'}
+        </button>
       </div>
+
+      {(clusters || clustersError) && (
+        <div style={{
+          padding: 14,
+          borderRadius: 10,
+          background: 'rgba(167,139,250,0.05)',
+          border: '1px solid rgba(167,139,250,0.20)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Suggested clusters {clusters && `(${clusters.length})`}
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 10, color: 'var(--foreground-subtle)' }}>
+              {clustersCost != null && <span>cost: ${clustersCost.toFixed(4)}</span>}
+              <button onClick={() => { setClusters(null); setClustersError('') }} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: 11, cursor: 'pointer' }}>
+                dismiss
+              </button>
+            </div>
+          </div>
+          {clustersError && (
+            <div style={{ fontSize: 12, color: '#E87878' }}>{clustersError}</div>
+          )}
+          {clusters && clusters.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {clusters.map((c, i) => {
+                const photoMap = new Map(visible.map(p => [p.id, p]))
+                const clusterItems = c.photoIds.map(id => photoMap.get(id)).filter(Boolean)
+                return (
+                  <div key={i} style={{
+                    background: 'rgba(0,0,0,0.20)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: 8,
+                    padding: 12,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>{c.name}</div>
+                        {c.rationale && (
+                          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 3 }}>{c.rationale}</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => addClusterToTray(c)}
+                        style={{
+                          padding: '6px 12px', fontSize: 11, fontWeight: 600,
+                          background: 'var(--palm-pink)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0,
+                        }}
+                      >
+                        + Add {clusterItems.length} to tray
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+                      {clusterItems.map(p => (
+                        <img
+                          key={p.id}
+                          src={p.image}
+                          alt=""
+                          style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, flexShrink: 0, background: '#000' }}
+                          onError={e => { e.target.src = p.imageFallback || '' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 20, alignItems: 'flex-start' }}>
         <div>
