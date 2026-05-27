@@ -19,16 +19,16 @@ const POOL_TOUR_STEPS = [
     body: `The page has two tabs:
 
 📚 Workspace — pick reels, manage in-flight projects, batch upload finished videos, handle revisions.
-🎨 Create Scene — the one-step portal generation that happens partway through a project (swap creator's background to her saved room).
+🎨 Create Scene — appears as a tab only when a project is in flight. It's the portal generation step inside the Bedroom Content workflow.
 
 The full loop:
 
 1. Pick the creator.
-2. Pick inspo reels — downloading one (↓ Raw, or multi-select Download as ZIP) starts a project for that creator + reel pair. You'll see project cards in Workspace.
-3. Do TJP image-to-image to get a photo of your creator in each reel's pose & outfit.
-4. Click Continue on a project card → switches to Create Scene tab with the project loaded → upload the TJP photo → generate.
-5. Approve the scene → ⬇ ZIP for TJP → outfit transfer + motion control in TJP.
-6. Come back, 📦 Batch Upload the finished videos in Workspace.
+2. Pick an inspo reel → ✨ New Project. The modal offers two workflows:
+   • Bedroom Content — full TJP flow (frame grab → i2i → upload TJP photo → portal scene → outfit/motion in TJP → batch upload back).
+   • Direct Upload — you already have finished AI videos. Multi-file submit; each becomes its own review item all linked to the source reel.
+3. Bedroom Content path: do TJP work → Continue on the project card → portal generates → Approve → ⬇ ZIP → finish in TJP → 📦 Batch Upload here.
+4. Direct Upload path: pick videos → Submit. Done.
 
 I'll highlight each piece — hit Next to step through.`,
   },
@@ -44,12 +44,11 @@ I'll highlight each piece — hit Next to step through.`,
     title: 'Step 2 — Pick + download reels (= start projects)',
     body: `Each card is one inspo reel available for this creator.
 
-Three actions on each card:
-• ↓ Raw — downloads the reel AND starts a project for it. The project appears in My Projects above.
-• 🎨 Create Scene — same effect, but jumps you straight to the Create Scene page (skip if you haven't done TJP work yet).
-• ↑ Upload AI — for one-off finished uploads (Batch Upload below is better when you have several).
+Two actions on each card:
+• ↓ Raw — downloads the reel locally AND starts a project for it. Use when you want the bytes + a Started project in one click.
+• ✨ New Project — opens the New Project modal with this reel preselected. Pick Bedroom Content (full TJP flow) or Direct Upload (finished AI videos already in hand). This is the primary entry point for committing to work.
 
-You can also multi-select reels (checkbox on each card) and Download N as ZIP — that starts N projects at once.`,
+You can also multi-select reels (checkbox on each card) and Download N as ZIP — starts N projects at once.`,
   },
   {
     target: '#tour-projects',
@@ -70,7 +69,9 @@ Discard a Started project (🗑) if you change your mind — the reel goes back 
     target: '#tour-batch-upload',
     placement: 'bottom',
     title: 'Step 4 — Batch Upload (after TJP)',
-    body: `When you come back from TJP with finished motion videos, click 📦 Batch Upload and drop them all in at once.
+    body: `When you come back from TJP with finished motion videos (or for any reel you have ready-made AI clips for), the easiest path is ✨ New Project → Direct Upload (multi-file, each becomes its own review item, all linked to the source reel).
+
+For the slug-naming convention (Aka_R042_S01.mp4), the dedicated 📦 Batch Upload modal still routes those by filename to existing in-flight projects.
 
 The filename of each video (e.g. Amelia_R042_S01.mp4) tells the portal which project it belongs to — that's the slug each project card shows. Thumbnails auto-extract from the first frame.`,
   },
@@ -247,31 +248,22 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
             style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: 'var(--foreground)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}
             title="Download the raw inspo reel + start a project for it"
           >↓ Raw</button>
-          <a
-            href={`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`}
-            style={{ flex: '1 1 80px', textAlign: 'center', padding: '6px 0', fontSize: 12, color: '#e8b878', background: 'rgba(232,184,120,0.1)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, cursor: 'pointer', textDecoration: 'none' }}
-            title="Put this creator in her room with this reel's pose"
-          >🎨 Create Scene</a>
+          {/* ✨ New Project is now the single workflow entry for this reel.
+              Opens NewProjectModal preselected — offers Bedroom Content (the
+              old Create Scene flow) or Direct Upload (the old Upload AI flow,
+              now multi-file with auto-thumbs). Removed the old per-card
+              Create Scene + Upload AI buttons (2026-05-27) — they did the
+              same things but bypassed the explicit project-creation step. */}
           <button
-            onClick={() => setShowUpload(v => !v)}
-            style={{ flex: '1 1 80px', padding: '6px 0', fontSize: 12, color: '#6AC68A', background: 'rgba(106,198,138,0.1)', border: '1px solid rgba(106,198,138,0.3)', borderRadius: 5, cursor: 'pointer' }}
-            title="Upload the finished AI motion video"
-          >↑ Upload AI</button>
+            onClick={() => onNewProject?.(reel)}
+            style={{
+              flex: '2 1 160px', textAlign: 'center', padding: '6px 0', fontSize: 12, fontWeight: 700,
+              color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.10)',
+              border: '1px solid rgba(232,160,160,0.30)', borderRadius: 5, cursor: 'pointer',
+            }}
+            title="Start a project for this reel — choose Bedroom Content or Direct Upload inside the modal"
+          >✨ New Project</button>
         </div>
-        {/* New unified "Create Project" entry (SMM workflow polish 2026-05-27).
-            Opens the NewProjectModal preselected with this reel — the modal
-            offers either Bedroom Content (existing scene-creation flow) or
-            Direct Upload (multi-file submission tied to this reel). The
-            existing three buttons above stay for quick single-step actions. */}
-        <button
-          onClick={() => onNewProject?.(reel)}
-          style={{
-            width: '100%', marginTop: 6, padding: '7px 0', fontSize: 12, fontWeight: 700,
-            color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.08)',
-            border: '1px solid rgba(232,160,160,0.30)', borderRadius: 5, cursor: 'pointer',
-          }}
-          title="Open the New Project modal — choose Bedroom workflow or Direct Upload"
-        >✨ New Project</button>
         {showUpload && (
           <div style={{ marginTop: 10, padding: 10, background: 'rgba(0,0,0,0.25)', borderRadius: 6 }}>
             <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginBottom: 4 }}>AI reel (mp4)</div>
@@ -1085,10 +1077,16 @@ export default function AiEditorPage() {
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'workspace' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'workspace' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
           📚 Workspace{revisions.length > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: '#E87878', color: '#1a0a0a', borderRadius: 8 }}>{revisions.length}</span> : projectsForBadge > 0 ? <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700, background: 'rgba(232,184,120,0.5)', color: '#1a0a0a', borderRadius: 8 }}>{projectsForBadge}</span> : null}
         </button>
-        <button onClick={() => setTab('create')}
-          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
-          🎨 Create Scene
-        </button>
+        {/* Create Scene is no longer a discoverable cold-start tab — it
+            only shows when the user has an active project (so Continue
+            jumps there) or they're already viewing it from a direct link.
+            New cold-starts route through ✨ New Project → Bedroom Content. */}
+        {(projectsForBadge > 0 || tab === 'create') && (
+          <button onClick={() => setTab('create')}
+            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'create' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'create' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+            🎨 Create Scene
+          </button>
+        )}
         <button onClick={() => setTab('carousel')}
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
           📸 Carousel Upload
@@ -1136,7 +1134,7 @@ export default function AiEditorPage() {
       <>
       {/* Workspace tab — pool reels + revisions + my projects + batch upload */}
       <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: -6, marginBottom: 14 }}>
-        Pick an inspo reel → downloading it starts a project → finish in 🎨 Create Scene tab → outfit transfer + motion in TJP → 📦 Batch Upload here for review.
+        Pick an inspo reel → ✨ New Project (Bedroom Content for the full TJP flow, or Direct Upload if you already have finished AI videos) → admin review.
       </p>
 
       {revisions.length > 0 && (
