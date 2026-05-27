@@ -791,6 +791,10 @@ export default function AiEditorPage() {
   const [creators, setCreators] = useState([])
   const [creatorId, setCreatorId] = useState('')
   const [reels, setReels] = useState([])
+  // Inspo board source filter (added 2026-05-27 per owner). Lets the AI
+  // editor narrow the fresh-inspo grid to just admin-added reels or just
+  // editor-uploaded reels. Default 'all' preserves prior behavior.
+  const [reelSourceFilter, setReelSourceFilter] = useState('all') // 'all' | 'admin' | 'editor'
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -1109,40 +1113,84 @@ export default function AiEditorPage() {
       )}
 
       {/* Hide reels that already have a project in flight — those live
-          in My Projects above instead of cluttering the "fresh inspo" grid. */}
+          in My Projects above instead of cluttering the "fresh inspo" grid.
+          After in-flight removal, apply the source filter (all / admin /
+          editor uploads) — kept separate from creator filter (which is
+          the top-of-page picker). */}
       {(() => {
         const projectReelIds = new Set(projects.map(p => p.reel?.id).filter(Boolean))
-        const freshReels = reels.filter(r => !projectReelIds.has(r.id))
+        const allFresh = reels.filter(r => !projectReelIds.has(r.id))
+        const freshReels = reelSourceFilter === 'all'
+          ? allFresh
+          : reelSourceFilter === 'editor'
+            ? allFresh.filter(r => r.addedVia === 'Editor Upload')
+            : allFresh.filter(r => r.addedVia !== 'Editor Upload')
+        const adminCount = allFresh.filter(r => r.addedVia !== 'Editor Upload').length
+        const editorCount = allFresh.filter(r => r.addedVia === 'Editor Upload').length
         if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>Loading…</div>
-        if (freshReels.length === 0) return (
+        if (allFresh.length === 0) return (
           <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>
             {projects.length > 0
               ? 'No more fresh inspo for this creator — every available reel is already a project above.'
               : 'No available reels for this creator. An admin queues + scrapes accounts in AI Source.'}
           </div>
         )
+        const FILTER_CHIPS = [
+          { key: 'all',    label: 'All',            count: allFresh.length, title: 'Show every available reel for this creator' },
+          { key: 'admin',  label: 'Admin added',    count: adminCount,      title: 'Reels scraped or uploaded by an admin' },
+          { key: 'editor', label: 'Editor uploads', count: editorCount,     title: 'Reels uploaded by an AI editor via the Upload inspo button' },
+        ]
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Fresh inspo · {freshReels.length}
+                Fresh inspo · {freshReels.length}{reelSourceFilter !== 'all' && allFresh.length !== freshReels.length ? <span style={{ textTransform: 'none', marginLeft: 6, color: 'var(--foreground-subtle)' }}>of {allFresh.length}</span> : null}
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                {FILTER_CHIPS.map(c => {
+                  const disabled = c.count === 0 && c.key !== 'all'
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => setReelSourceFilter(c.key)}
+                      disabled={disabled}
+                      title={c.title}
+                      style={{
+                        padding: '5px 11px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+                        background: reelSourceFilter === c.key ? 'rgba(232,160,160,0.10)' : 'rgba(255,255,255,0.03)',
+                        color: reelSourceFilter === c.key ? 'var(--palm-pink)' : (disabled ? '#555' : '#aaa'),
+                        border: `1px solid ${reelSourceFilter === c.key ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: 999,
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.5 : 1,
+                      }}
+                    >
+                      {c.label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{c.count}</span>
+                    </button>
+                  )
+                })}
                 {uploadInspoMsg && (
-                  <span style={{ fontSize: 11, color: '#6AC68A' }}>{uploadInspoMsg}</span>
+                  <span style={{ fontSize: 11, color: '#6AC68A', marginLeft: 4 }}>{uploadInspoMsg}</span>
                 )}
                 <button onClick={() => { setUploadInspoOpen(true); setUploadInspoError(''); setUploadInspoMsg('') }}
                   title="Paste an Instagram reel URL — we scrape just that reel and add it to your pool."
-                  style={{ padding: '6px 12px', background: 'rgba(200,168,255,0.10)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.35)', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ padding: '6px 12px', background: 'rgba(200,168,255,0.10)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.35)', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', marginLeft: 4 }}>
                   ↑ Upload inspo
                 </button>
               </div>
             </div>
-            <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
-              {freshReels.map(r => (
-                <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} onProjectStarted={() => loadProjects(creatorId)} />
-              ))}
-            </div>
+            {freshReels.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#666', fontSize: 13 }}>
+                No {reelSourceFilter === 'editor' ? 'editor-uploaded' : 'admin-added'} reels for this creator yet.
+                {' '}<button onClick={() => setReelSourceFilter('all')} style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 13 }}>Show all</button>.
+              </div>
+            ) : (
+              <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
+                {freshReels.map(r => (
+                  <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} onProjectStarted={() => loadProjects(creatorId)} />
+                ))}
+              </div>
+            )}
           </>
         )
       })()}
