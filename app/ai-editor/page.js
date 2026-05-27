@@ -7,6 +7,7 @@ import { ModalHost, uiConfirm, StageBPanel } from '@/components/recreate/panels'
 import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
 import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
+import NewProjectModal from '@/app/ai-editor/NewProjectModal'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
 // missing elements degrade to a center modal (so a step about Needs
@@ -101,7 +102,7 @@ Hit "? Guide" any time to replay this tour.`,
 ]
 
 
-function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, onProjectStarted }) {
+function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, onProjectStarted, onNewProject }) {
   const [showPlayer, setShowPlayer] = useState(false)
   const [showUpload, setShowUpload] = useState(!!autoOpen)
   const [uploading, setUploading] = useState(false)
@@ -257,6 +258,20 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
             title="Upload the finished AI motion video"
           >↑ Upload AI</button>
         </div>
+        {/* New unified "Create Project" entry (SMM workflow polish 2026-05-27).
+            Opens the NewProjectModal preselected with this reel — the modal
+            offers either Bedroom Content (existing scene-creation flow) or
+            Direct Upload (multi-file submission tied to this reel). The
+            existing three buttons above stay for quick single-step actions. */}
+        <button
+          onClick={() => onNewProject?.(reel)}
+          style={{
+            width: '100%', marginTop: 6, padding: '7px 0', fontSize: 12, fontWeight: 700,
+            color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.08)',
+            border: '1px solid rgba(232,160,160,0.30)', borderRadius: 5, cursor: 'pointer',
+          }}
+          title="Open the New Project modal — choose Bedroom workflow or Direct Upload"
+        >✨ New Project</button>
         {showUpload && (
           <div style={{ marginTop: 10, padding: 10, background: 'rgba(0,0,0,0.25)', borderRadius: 6 }}>
             <div style={{ fontSize: 10, color: 'var(--foreground-muted)', marginBottom: 4 }}>AI reel (mp4)</div>
@@ -801,6 +816,11 @@ export default function AiEditorPage() {
   const [revisions, setRevisions] = useState([])
   const [projects, setProjects] = useState([])
   const [batchOpen, setBatchOpen] = useState(false)
+  // New Project Modal — Phase A1. Holds the preselected reel when an
+  // editor clicks "✨ New Project" on a ReelCard. Phase A2 will also
+  // allow opening the modal with no preselect (global "+ New Project"
+  // button + library picker inside).
+  const [newProjectReel, setNewProjectReel] = useState(null)
   // "Upload inspo" modal state — editor drops a local video file
   // (mp4/mov/webm), we direct-upload to Dropbox + create a Recreate
   // Reel record so the file appears in the Fresh Inspo grid. NOT an
@@ -1102,6 +1122,32 @@ export default function AiEditorPage() {
         <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId); loadProjects(creatorId) }} />
       )}
 
+      {newProjectReel && (
+        <NewProjectModal
+          creatorId={creatorId}
+          preselectedReel={newProjectReel}
+          onClose={() => setNewProjectReel(null)}
+          // Bedroom workflow — match what the ↓ Raw button does (create
+          // the project record) + navigate the operator to Create Scene
+          // where the actual workflow lives.
+          onChooseBedroom={(reel) => {
+            fetch('/api/admin/recreate-rooms/stage-b/start', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ creatorId, reelRecordIds: [reel.id] }),
+            }).then(() => loadProjects(creatorId)).catch(() => {})
+            router.push(`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`)
+          }}
+          // Direct Upload completed — refresh both reels (the source reel
+          // gets marked Produced and disappears from Fresh Inspo) and
+          // revisions/queue indicators.
+          onDirectUploadDone={({ uploadedCount }) => {
+            loadReels(creatorId)
+            loadProjects(creatorId)
+            loadRevisions(creatorId)
+          }}
+        />
+      )}
+
       {selected.size > 0 && (
         <div style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(232,160,160,0.1)', border: '1px solid rgba(232,160,160,0.3)', borderRadius: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 13, color: 'var(--foreground)' }}>{selected.size} selected</span>
@@ -1187,7 +1233,7 @@ export default function AiEditorPage() {
             ) : (
               <div id="tour-reel-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
                 {freshReels.map(r => (
-                  <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} onProjectStarted={() => loadProjects(creatorId)} />
+                  <ReelCard key={r.id} reel={r} creatorId={creatorId} selected={selected.has(r.id)} onToggle={toggle} onUploaded={onUploaded} autoOpen={r.id === urlUpload} onProjectStarted={() => loadProjects(creatorId)} onNewProject={setNewProjectReel} />
                 ))}
               </div>
             )}
