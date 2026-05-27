@@ -1,8 +1,19 @@
 # Publer AI Scheduler — Scoping Document
 
-**Status:** Draft, awaiting evan greenlight.
+**Status:** Draft, awaiting evan greenlight. Updated 2026-05-26 after evan clarified the "AI persona" model.
 **Author:** research session 2026-05-26.
-**Scope:** Build an internal "AI social media manager" feature that auto-schedules AI-generated content into Publer for AI-exclusive Instagram and Facebook accounts. Real-creator content stays on the current Telegram → human-SMM flow for now; this is additive, not a replacement of that path.
+**Scope:** Build an internal "AI social media manager" feature that auto-schedules AI-generated content into Publer for AI-content-dedicated Instagram and Facebook accounts. Real-creator content stays on the current Telegram → human-SMM flow; this is additive, not a replacement.
+
+### Core model (corrected)
+
+Every real creator we manage may have **two** Instagram presences:
+
+1. **Real-content account** — posts their actual content, edited via the editor workflow, sent via Telegram to the human social media manager. (Existing path. Unchanged.)
+2. **AI-content account** — a separate, dedicated IG account posting AI-generated content **of that real creator** (their AI likeness, generated in the AI editor / TJP). Posted via Publer's API. (New path. This document.)
+
+Same real person, two accounts. The "AI" attribute lives on the **account**, not the creator. Routing decision (Telegram vs Publer) is derived from which account a Post targets, not from any flag on the creator record.
+
+**Legal prerequisite (hard, non-negotiable):** Each creator whose likeness is used for AI content must have documented, signed consent for AI likeness use, kept on file (Airtable record or doc-management system). State laws — TN ELVIS Act (voice/likeness), NY synthetic-performer law, CA AB 3211 — and the May 2026 FTC AI-endorsement update treat AI content of identifiable real people more strictly than synthetic characters. Consent is what makes this a legitimate creator-management service rather than a deepfake-of-a-real-person operation. Verify before launching the AI account for any given creator.
 
 ---
 
@@ -89,10 +100,10 @@ AI Editor (TJP) ─────► Tasks (Pending Review)
    - `Publer Last Error` (long text)
 
 2. **New Airtable table: `Publer Accounts`** (recommended over per-creator JSON):
-   - Account Name, Platform (IG/FB), Publer Account ID (from `GET /accounts`), Workspace ID, Creator (link), Persona Type (`AI` / `Real`), Connected At, Last Token Refresh, Status (`Active`, `Reauth Required`, `Disabled`)
-   - This becomes the SoT for "which Publer account is this AI persona."
+   - Account Name, Platform (IG/FB), Publer Account ID (from `GET /accounts`), Creator (link to Palm Creators — same real creator the real-content account is linked to), **Account Type** (`Real` / `AI`), Connected At, Last Token Refresh, Status (`Active`, `Reauth Required`, `Disabled`), AI Consent on File (link to consent doc, required when Account Type='AI')
+   - This is the SoT that decides routing: target this account from a Post → cron picks Publer if `Account Type='AI'`, Telegram if `Real`. One creator can have rows of both types.
 
-3. **New AI persona model in `Palm Creators`** — flag `Is AI Persona` (boolean), `Publer Workspace ID` if multi-workspace.
+3. **No changes needed to `Palm Creators`.** The earlier "Is AI Persona" flag is dropped — AI-ness lives on the account, not the creator.
 
 4. **API routes** (mirroring existing patterns):
    - `POST /api/admin/publer/enqueue` — bulk-mark Posts as `Queued for Publer`. Same shape as the Telegram enqueue.
@@ -247,26 +258,66 @@ Target: 5-minute morning queue per persona, batched. **Skip approval on Stories*
 
 ---
 
-## 6. Open questions for evan (need answers before build)
+## 6. Resolved decisions (2026-05-26 session)
 
-1. **Publer workspace topology.** One workspace for all AI personas, or workspace-per-persona? One workspace means one API key, one rate-limit pool, simpler. Workspace-per-persona means cleaner billing/audit if we ever sell a persona to a client.
-2. **AI persona creator records.** Do AI personas get rows in `Palm Creators` (with a new `Is AI Persona` flag), or a new `AI Personas` table? Sharing the table means the grid planner / post pipeline "just works"; a new table means the schema stays clean. Recommendation: extend `Palm Creators` — less plumbing.
-3. **Media URL longevity.** Publer pulls media from URL once via `/media/from-url`. Cloudflare Images URLs are stable. Dropbox shared links can expire. For reels >200MB that won't fit Publer's direct upload cap, we need Cloudflare R2 or a refreshing Dropbox link. Which?
-4. **Approval-pipeline shortcut for AI?** Currently every post passes through `Tasks` → admin review. For AI content, do we keep that gate or short-circuit (admin approves the *batch* in the AI editor, not each Post)? Recommendation: keep individual review for now; tighten later once we trust the AI editor's hit rate.
-5. **Telegram vs Publer per Post.** Is `Pipeline Target` exclusive (Telegram XOR Publer) or can a Post go both ways? Recommendation: exclusive — derived from creator's `Is AI Persona` flag. Avoids accidental double-posting.
-6. **Failure routing.** When a Publer post fails, does it route back to the AI editor's revision queue (like real-creator rejects) or to admin only? Different fail modes (token expiry vs caption violation vs aspect-ratio reject) deserve different handlers.
-7. **First persona launch plan.** Are we launching 1 persona (warmup, measure, iterate) or N? Strongly recommend **1 first** — debug the pipeline against one persona's Publer account before fanning out. Picks up most operational bugs at lowest cost.
+All of §6 is settled. Build picks up from here without further blockers.
+
+1. **Workspace topology.** Single Publer Business workspace, all AI accounts under it. One API key.
+2. **Data model.** No `Is AI Persona` on `Palm Creators`. AI-ness lives on `Publer Accounts.Account Type`. One creator can have one Real and one AI row linked to them.
+3. **Media URL strategy.** Cloudflare Images URLs are the canonical source for Publer's `/media/from-url`. **Constraint: reels must be ≤200MB at render time.** If a reel exceeds 200MB, that's an upstream problem to fix in the AI editor, not something the Publer adapter accommodates. The cron worker validates size pre-submit and fails loud (status `Failed`, error `MEDIA_OVERSIZE`) if violated.
+4. **Approval gate — carousel-specific.** Per-Post review is kept. For carousels specifically, the admin needs **per-slide rejection with two modes**:
+   - **"Reject slide and bounce whole carousel"** (default) → carousel goes back to AI editor as a revision task. Whole thing re-generated.
+   - **"Reject slide and publish carousel without it"** → the rejected slide is dropped; remaining slides re-ordered and pushed through.
+
+   Implementation note: the carousel review UI in `app/admin/editor/CarouselSubmissionsReview.js` (or successor) gets per-slide "Reject + bounce" / "Reject + remove" buttons. The Post's `media[]` array is rebuilt from approved slides only on "remove" path. Capture which slides were rejected and why in `Tasks.Revision History` for the AI editor.
+5. **Routing exclusivity per Post.** Derived from `Account Type` of the Post's Platform list. AI-only → Publer. Real-only → Telegram. Mixed → enqueue rejects with error. Build the validator into `POST /api/admin/publer/enqueue` AND the existing `POST /api/admin/telegram/enqueue`.
+6. **Failure routing.** Two routes:
+   - **Token expiry / account disconnected** → admin alert (Slack/email), `Publer Accounts.Status='Reauth Required'`, cron skips that account until admin resolves.
+   - **Content violation** (aspect ratio, caption, hashtag, media size) → back to AI editor's revision queue via a new `Tasks` record (or the existing revision flow), with the Publer error message in the revision notes.
+7. **First creator launch plan.** **Amelia (Briel) first, then Katie Rosie.** Phase 3 runs only on Amelia's AI account. Katie Rosie joins in Phase 4.
+8. **Bio template.** See §6.1 below.
+9. **Consent.** Handled via creator KYC on TGP (palm-mgmt's existing creator onboarding portal). Consent for AI likeness use is part of TGP onboarding — no additional paperwork required to launch Amelia or Katie Rosie. Recommendation: add an `AI Likeness Consent` field on `Palm Creators` that points to the TGP record / signed agreement so the Publer adapter can verify before allowing an `Account Type='AI'` row to go live for that creator. **Open sub-question: confirm with ops that TGP's existing creator agreement explicitly covers AI-generated likeness for social publishing, not just real-content management.** If it doesn't, add an amendment — but this isn't a build blocker, it's an ops follow-up.
+
+### 6.1 Bio template (recommendation, awaiting evan sign-off)
+
+"Bio template" means the **Instagram account bio text** on each AI-dedicated account. The bio is the highest-visibility disclosure surface — first thing every viewer sees, and where Meta + FTC + state law all expect the AI nature to be made clear.
+
+Proposed template (one line, ~80 chars, leaves room for brand line + link):
+
+```
+✨ AI content of @{real_handle}
+{brand tagline — 1 line, creator-supplied}
+🔗 {link in bio}
+```
+
+Concrete example for Amelia/Briel:
+
+```
+✨ AI content of @briel
+{her tagline}
+🔗 linktr.ee/briel-ai
+```
+
+Why this template:
+- **"AI content of @realhandle"** is unambiguous disclosure that satisfies Meta's labeling expectations + FTC's May 2026 AI-endorsement guidance + state laws (TN ELVIS, NY synthetic-performer, CA AB 3211).
+- **Cross-link to real handle** — defensive: signals consent and provenance to any viewer who might assume deepfake.
+- **Emoji ✨ as visual marker** — distinct from real account, doesn't read as bot.
+- **Username convention:** `{realhandle}.ai` or `{realhandle}_ai` or `ai{realhandle}` — pick one and apply consistently across all AI accounts. Recommendation: `{realhandle}.ai` (e.g. `briel.ai`) — readable, IG-allowed, scans clearly.
+
+evan: confirm the template or hand me your preferred copy and I'll lock it in.
 
 ---
 
 ## 7. Phased rollout
 
 ### Phase 0 — Account prep (manual, evan + ops)
-- [ ] Decide workspace topology (Q1 above).
-- [ ] Create 1st AI persona IG account (Creator/Business), linked FB Page.
-- [ ] In Publer dashboard: connect via "Professional (via Facebook)." Set workspace to **Owner's API** mode.
-- [ ] Generate Publer API key + workspace ID. Drop in env: `PUBLER_API_KEY`, `PUBLER_WORKSPACE_ID`.
-- [ ] Add `Is AI Persona` to `Palm Creators`. Create `Publer Accounts` table.
+- [ ] Confirm TGP creator agreement explicitly covers AI-likeness use for social publishing (Q9 sub-question). Amend if it doesn't.
+- [ ] Lock bio template (see §6.1) or hand evan-preferred copy.
+- [ ] **Amelia (Briel)** — create dedicated AI IG account (Creator/Business type), linked FB Page. Username convention `briel.ai` (or evan's call).
+- [ ] In Publer dashboard: connect Amelia's AI account via "Professional (via Facebook)." Set workspace to **Owner's API** mode.
+- [ ] Generate Publer API key + workspace ID. Add to env: `PUBLER_API_KEY`, `PUBLER_WORKSPACE_ID`. Update Vercel env too.
+- [ ] Create `Publer Accounts` Airtable table with columns in §3.1.2. Add Amelia's AI row.
+- [ ] Add `AI Likeness Consent` field on `Palm Creators` pointing to TGP record/doc.
 
 ### Phase 1 — Read-side integration
 - [ ] `GET /api/admin/publer/accounts` proxy + cache.
@@ -288,9 +339,10 @@ Target: 5-minute morning queue per persona, batched. **Skip approval on Stories*
 - [ ] Run for 30 days on 1 persona. Track failures, fix the worst three.
 
 ### Phase 4 — Fanout + stories
-- [ ] Add 2nd–Nth AI persona.
-- [ ] Add story automation (1/day/persona).
-- [ ] Tune cadence based on per-persona reach data.
+- [ ] Add **Katie Rosie** AI account, repeat Phase 0 steps for her.
+- [ ] Add story automation (1/day/account).
+- [ ] Tune cadence based on per-account reach data from Amelia's 30-day run.
+- [ ] Roll out to additional creators based on what's learned.
 
 ### Phase 5 — Move grid planner UI to drive Publer for AI personas
 - [ ] (Eventually, as user mentioned.) Grid planner becomes the primary UI surface for AI Posts, and the new internal hire uses it daily.
@@ -301,7 +353,9 @@ Target: 5-minute morning queue per persona, batched. **Skip approval on Stories*
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Mixing AI + real content on same account | High (account ban) | `Is AI Persona` flag is the gate; cross-check at enqueue time |
+| Mixing AI + real content on same account | High (account ban + creator trust) | Enqueue rejects any Post whose Platform list mixes `Account Type='AI'` and `Account Type='Real'` rows |
+| Creator revokes AI consent or quits | High (legal + reputational) | Add a `Status='Disabled'` flag on `Publer Accounts`; cron skips disabled rows; consent audit log retained |
+| AI account misattributed to wrong creator | High (deepfake exposure) | Account Type='AI' rows require a non-empty `AI Consent on File` link; enforce at Airtable view + at API write |
 | Token expiry breaking the entire pipeline silently | High | Daily token-age check, alert at T-7 days |
 | Publer changing API without warning | Medium | Pin to documented endpoints; nightly contract test against `/accounts` |
 | AI reel rejected en masse for aspect ratio | Medium | Validate 9:16 + duration at render, not upload |
