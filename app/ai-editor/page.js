@@ -16,90 +16,99 @@ import NewProjectModal from '@/app/ai-editor/NewProjectModal'
 const POOL_TOUR_STEPS = [
   {
     placement: 'center',
-    title: '👋 Welcome — here\'s the workflow',
-    body: `The page has two tabs:
+    title: 'Welcome — here\'s the workflow',
+    body: `The page is organized into tabs:
 
-📚 Workspace — pick reels, manage in-flight projects, batch upload finished videos, handle revisions.
-🎨 Create Scene — appears as a tab only when a project is in flight. It's the portal generation step inside the Bedroom Content workflow.
+Projects — your in-flight work, revisions to handle, and the + New Project button. This is home base.
+Inspo Board — the pool of available source reels for the picked creator. Start a project from here.
+Bedroom Scene — only appears when you have an active project. It's the portal step inside the Bedroom workflow.
 
-The full loop:
+Two ways to ship AI content for a reel:
 
-1. Pick the creator.
-2. Pick an inspo reel → ✨ New Project. The modal offers two workflows:
-   • Bedroom Content — full TJP flow (frame grab → i2i → upload TJP photo → portal scene → outfit/motion in TJP → batch upload back).
-   • Direct Upload — you already have finished AI videos. Multi-file submit; each becomes its own review item all linked to the source reel.
-3. Bedroom Content path: do TJP work → Continue on the project card → portal generates → Approve → ⬇ ZIP → finish in TJP → 📦 Batch Upload here.
-4. Direct Upload path: pick videos → Submit. Done.
+• Bedroom Content — the full in-portal flow. Frame grab → image-to-image in TJP → upload TJP photo → portal generates the scene → outfit/motion in TJP → upload finished video back.
+• Direct Upload — you already produced the AI videos elsewhere (TJP, custom edit, anywhere). Drop multiple finished files; each becomes its own review item, all linked back to the source reel.
 
-I'll highlight each piece — hit Next to step through.`,
+I'll walk through each step.`,
   },
   {
     target: '#tour-creator-picker',
     placement: 'bottom',
     title: 'Step 1 — Pick the creator',
-    body: `Everything below filters to whoever is selected — your in-flight projects, the available reels, your revisions queue. Try switching it to see how the page re-flows.`,
-  },
-  {
-    target: '#tour-reel-grid',
-    placement: 'top',
-    title: 'Step 2 — Pick + download reels (= start projects)',
-    body: `Each card is one inspo reel available for this creator.
-
-Two actions on each card:
-• ↓ Raw — downloads the reel locally AND starts a project for it. Use when you want the bytes + a Started project in one click.
-• ✨ New Project — opens the New Project modal with this reel preselected. Pick Bedroom Content (full TJP flow) or Direct Upload (finished AI videos already in hand). This is the primary entry point for committing to work.
-
-You can also multi-select reels (checkbox on each card) and Download N as ZIP — starts N projects at once.`,
+    body: `Everything on the page filters to whoever is selected — projects, available reels, revisions queue. Switch creators to see the page re-flow. The creator picker stays visible while you scroll.`,
   },
   {
     target: '#tour-projects',
     placement: 'top',
-    title: 'Step 3 — My Projects (in-flight work)',
-    body: `Each project card is one (creator, reel) pair you've committed to.
+    title: 'Step 2 — Projects tab (home base)',
+    body: `Each card is one (creator, reel) pair you've committed to.
 
-The status badge tells you what's next:
-• Started — you downloaded the reel; do the TJP image-to-image work, then click Continue to upload the photo
-• Generating — portal is rendering your scene (3–6 min, just wait)
-• Pending — scene is done, click ✓ to approve
-• Approved — ready! Click ⬇ ZIP for TJP and do the outfit/motion work
-• Failed — scene didn't render; click to retry
+Status badges tell you what's next:
+• Started — you started the project; do TJP work, then Continue to upload the photo
+• Generating — portal is rendering your variation (3–6 min, just wait)
+• Pending — variation is done, click ✓ to approve
+• Approved — ready! Click ZIP for TJP outfit + motion
+• Failed — variation didn't render; click to retry
 
-Discard a Started project (🗑) if you change your mind — the reel goes back to the pool below.`,
+The + New Project button at the top of this tab opens the unified modal: pick a reel from the Library or upload a brand-new one from your computer, then choose Bedroom Content or Direct Upload.`,
   },
   {
-    target: '#tour-batch-upload',
-    placement: 'bottom',
-    title: 'Step 4 — Batch Upload (after TJP)',
-    body: `When you come back from TJP with finished motion videos (or for any reel you have ready-made AI clips for), the easiest path is ✨ New Project → Direct Upload (multi-file, each becomes its own review item, all linked to the source reel).
+    placement: 'center',
+    title: 'Step 3 — Inspo Board tab',
+    body: `Switch to the Inspo Board tab to browse available source reels for the picked creator.
 
-For the slug-naming convention (Aka_R042_S01.mp4), the dedicated 📦 Batch Upload modal still routes those by filename to existing in-flight projects.
+Each card has two actions:
+• ↓ Raw — downloads the reel bytes AND starts a Started project for it
+• ✨ New Project — opens the New Project modal preselected with this reel; choose Bedroom Content or Direct Upload inside the modal
 
-The filename of each video (e.g. Amelia_R042_S01.mp4) tells the portal which project it belongs to — that's the slug each project card shows. Thumbnails auto-extract from the first frame.`,
+You can also multi-select reels (checkbox on each card) and Download N as ZIP — that starts N projects in one go. Use ↑ Upload inspo to add a brand-new reel to the pool from your computer.`,
+  },
+  {
+    placement: 'center',
+    title: 'Step 4 — Bedroom Content workflow',
+    body: `Choose Bedroom Content in the New Project modal when you want the portal to inject the creator into a saved bedroom scene.
+
+The flow:
+1. Project lands on the Projects tab in Started state
+2. Do TJP image-to-image to get a photo of the creator in this reel's pose & outfit
+3. Click Continue on the project card → the Bedroom Scene tab opens with the project loaded
+4. Upload your TJP photo → portal generates the variation
+5. Approve → ZIP for TJP → outfit transfer + motion control in TJP
+6. Come back and upload the finished video back to the project (via ✨ New Project → Direct Upload on the same reel, or by adding it to the project from there)`,
+  },
+  {
+    placement: 'center',
+    title: 'Step 5 — Direct Upload workflow',
+    body: `Choose Direct Upload in the New Project modal when you already have finished AI videos for a reel (produced however — TJP, custom edits, freelance work, whatever).
+
+Drop one or many files. Each becomes its own review item, all linked back to the same source reel. Thumbnails auto-extract from the first frame. Files upload directly to Dropbox in parallel and get mirrored to Cloudflare Stream automatically for admin review.
+
+No naming convention required — just pick your files and submit.`,
   },
   {
     target: '#tour-revisions',
     placement: 'bottom',
-    title: 'Step 5 — Handle any rejections',
-    body: `If admin doesn't like something, the video appears at the top of this page with their feedback + screenshots.
+    title: 'Step 6 — Handle any rejections',
+    body: `If admin rejects something, the video appears at the top of the Projects tab with their feedback + screenshots.
 
 Three ways to handle it:
-• ↑ Re-upload revised — small tweak (re-edit in TJP, drop a new mp4)
-• 🎨 Re-do Scene — start over from a fresh scene
-• 🗑 Discard — when the rejected version is dead
+• Re-upload revised — small tweak (re-edit, drop a new mp4)
+• Re-do Variation — start over from a fresh Bedroom Scene
+• Discard — when the rejected version is dead
 
 (Section only appears when there's something to revise.)`,
   },
   {
     placement: 'center',
-    title: '🎯 Ready to start',
-    body: `Quick mental model:
+    title: 'Step 7 — Quick mental model',
+    body: `Mental shortcuts:
 
-• Download = "I'm working on this." → Project card appears.
-• Continue → upload TJP photo → Portal generates the scene.
-• Approve → ZIP → TJP outfit + motion.
-• Batch Upload → admin review → grid.
+• Pick a creator → everything filters to them
+• Inspo Board → pick a source reel → ✨ New Project
+• Bedroom Content path → TJP → portal variation → TJP outfit → upload back
+• Direct Upload path → drop files → done
+• Approved items land in admin For Review; rejected ones show up in your Revisions
 
-Hit "? Guide" any time to replay this tour.`,
+Hit ⓘ Help any time to replay this walkthrough.`,
   },
 ]
 
@@ -337,7 +346,7 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Projects</div>
           {hasProjects && (
             <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
-              {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} scene{projects.length === 1 ? '' : 's'}
+              {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} variation{projects.length === 1 ? '' : 's'}
               {totalCounts.Started ? ` · ${totalCounts.Started} need TJP work` : ''}
               {totalCounts.Generating ? ` · ${totalCounts.Generating} rendering` : ''}
               {totalCounts.Pending ? ` · ${totalCounts.Pending} awaiting your ✓` : ''}
@@ -401,7 +410,7 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
   const cta = topStatus === 'Started'    ? '🎨 Continue → upload TJP photo'
             : topStatus === 'Generating' ? '⏳ Rendering…'
-            : topStatus === 'Pending'    ? '👁 Review scenes'
+            : topStatus === 'Pending'    ? '👁 Review variations'
             : topStatus === 'Approved'   ? '🎬 Open workflow'
             : topStatus === 'Rejected'   ? '↻ Retry / view'
             : topStatus === 'Failed'     ? '↻ Retry'
@@ -414,8 +423,8 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const discardReel = async () => {
     const hasApproved = (counts.Approved || 0) > 0
     const msg = hasApproved
-      ? `This reel has ${counts.Approved} approved scene${counts.Approved === 1 ? '' : 's'}. Discarding wipes ALL ${scenes.length} scenes for this reel — even the approved ones. Continue?`
-      : `Discard every scene under this reel (${scenes.length} total)? The reel goes back to the pool so you (or someone else) can re-start it.`
+      ? `This reel has ${counts.Approved} approved variation${counts.Approved === 1 ? '' : 's'}. Discarding wipes ALL ${scenes.length} variations for this reel — even the approved ones. Continue?`
+      : `Discard every variation under this reel (${scenes.length} total)? The reel goes back to the pool so you (or someone else) can re-start it.`
     if (!(await uiConfirm(msg, { danger: true, okLabel: 'Discard reel' }))) return
     try {
       await Promise.all(scenes.map(s =>
@@ -434,7 +443,7 @@ function ReelProjectCard({ group, creatorId, onChange }) {
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc }}>no reel thumb</div>}
           {/* Scene-count badge — the headline number on a reel card. */}
           <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
-            {scenes.length} scene{scenes.length === 1 ? '' : 's'}
+            {scenes.length} variation{scenes.length === 1 ? '' : 's'}
           </div>
           <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#0a0a0a', background: sc, borderRadius: 3 }}>
             {topStatus}
@@ -609,12 +618,12 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
         {rev.stageBParent && (
           <a href={`/ai-editor/recreate?tab=stageb&creator=${rev.stageBParent.creatorId || creatorId}&reel=${rev.stageBParent.reelRecordId}`}
             style={{ flex: '1 1 120px', textAlign: 'center', padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#e8b878', background: 'rgba(232,184,120,0.12)', border: '1px solid rgba(232,184,120,0.3)', borderRadius: 5, textDecoration: 'none' }}>
-            🎨 Re-do Scene
+↻ Re-do Variation
           </a>
         )}
       </div>
       <button onClick={async () => {
-        if (!(await uiConfirm(`Discard this rejected task? The Dropbox file stays (archive). Use this when you're starting fresh with a new scene — otherwise just re-upload.`, { danger: true, okLabel: 'Discard' }))) return
+        if (!(await uiConfirm(`Discard this rejected task? The Dropbox file stays (archive). Use this when you're starting fresh with a new variation — otherwise just re-upload.`, { danger: true, okLabel: 'Discard' }))) return
         try {
           const r = await fetch('/api/ai-editor/discard', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -625,7 +634,7 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
         } catch (e) { setErr(e.message) }
       }}
         style={{ width: '100%', marginTop: 6, padding: '6px 0', fontSize: 11, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer' }}>
-        🗑 Discard (starting a new scene from scratch)
+🗑 Discard (starting a new variation from scratch)
       </button>
 
       {showUpload && (
@@ -643,169 +652,6 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
   )
 }
 
-// ─── Batch upload — drag N finished videos at once ─────────────────────────
-function BatchUploadModal({ creatorId, onClose, onDone }) {
-  const [files, setFiles] = useState([])
-  const [progress, setProgress] = useState({}) // name -> { status: 'pending'|'resolving'|'uploading'|'done'|'error', error? }
-  const [resolvedSlugs, setResolvedSlugs] = useState({}) // name -> { ok, reelRecordId, creatorId, slug, error }
-  const [running, setRunning] = useState(false)
-
-  const onDrop = (e) => { e.preventDefault(); setFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('video/'))) }
-  const onPick = (e) => setFiles([...e.target.files].filter(f => f.type.startsWith('video/')))
-
-  // Resolve every slug in one round-trip so the editor sees up front
-  // which files match a real Stage B Output and which are mystery files.
-  useEffect(() => {
-    if (!files.length) { setResolvedSlugs({}); return }
-    const slugs = files.map(f => f.name)
-    fetch('/api/ai-editor/slug-lookup', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slugs }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        const byName = {}
-        d.results?.forEach((r, i) => { byName[files[i].name] = r })
-        setResolvedSlugs(byName)
-      })
-      .catch(() => {})
-  }, [files])
-
-  const extractFirstFrame = (file) => new Promise((res, rej) => {
-    const video = document.createElement('video')
-    video.preload = 'metadata'
-    video.src = URL.createObjectURL(file)
-    video.muted = true
-    video.onloadeddata = () => { video.currentTime = Math.min(0.1, video.duration / 4) }
-    video.onseeked = () => {
-      const c = document.createElement('canvas')
-      c.width = video.videoWidth
-      c.height = video.videoHeight
-      c.getContext('2d').drawImage(video, 0, 0)
-      res(c.toDataURL('image/jpeg', 0.85).split(',')[1])
-    }
-    video.onerror = rej
-  })
-
-  const runBatch = async () => {
-    setRunning(true)
-    // Concurrency of 3 — Dropbox uploads in parallel work fine but we
-    // don't want to slam the API at 50-wide for a single editor.
-    const queue = files.filter(f => resolvedSlugs[f.name]?.ok)
-    const CONC = 3
-    let idx = 0
-    const next = async () => {
-      const f = queue[idx++]
-      if (!f) return
-      const meta = resolvedSlugs[f.name]
-      setProgress(p => ({ ...p, [f.name]: { status: 'uploading' } }))
-      try {
-        // Slug threaded into upload-token so each variant lands at a
-        // unique Dropbox path — without this, every outfit variant of
-        // the same reel would overwrite the same file.
-        const tokRes = await fetch('/api/ai-editor/upload-token', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reelRecordId: meta.reelRecordId, slug: meta.slug }),
-        })
-        const tok = await tokRes.json()
-        if (!tokRes.ok) throw new Error(tok.error || 'token failed')
-        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${tok.accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
-            'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
-            'Content-Type': 'application/octet-stream',
-          },
-          body: await f.arrayBuffer(),
-        })
-        if (!dbxRes.ok) throw new Error(`Dropbox ${dbxRes.status}`)
-        let thumb
-        try { thumb = await extractFirstFrame(f) } catch {}
-        const r = await fetch('/api/ai-editor/upload', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reelRecordId: meta.reelRecordId,
-            creatorId: meta.creatorId || creatorId,
-            dropboxPath: tok.path,
-            thumbnailBase64: thumb,
-            slug: meta.slug,
-          }),
-        })
-        const d = await r.json()
-        if (!r.ok) throw new Error(d.error || 'upload failed')
-        setProgress(p => ({ ...p, [f.name]: { status: 'done' } }))
-      } catch (e) {
-        setProgress(p => ({ ...p, [f.name]: { status: 'error', error: e.message } }))
-      }
-      await next()
-    }
-    await Promise.all(Array.from({ length: CONC }, next))
-    setRunning(false)
-    setTimeout(onDone, 1500)
-  }
-
-  const ok = files.filter(f => resolvedSlugs[f.name]?.ok).length
-  const bad = files.length - ok
-
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 'min(640px, 96vw)', maxHeight: '92vh', overflow: 'auto', background: '#16161c', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 22 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>📦 Batch upload finished videos</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-          Drop N finished AI motion videos at once. Filenames should match the scene name (e.g. <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', color: '#e8b878' }}>Amelia_R042_S01.mp4</span>) so each file lands on its parent scene. Thumbnails are auto-generated from the first frame.
-        </div>
-
-        <div onDrop={onDrop} onDragOver={e => e.preventDefault()}
-          style={{ border: '2px dashed rgba(255,255,255,0.2)', borderRadius: 10, padding: 24, textAlign: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginBottom: 8 }}>Drop video files here</div>
-          <label style={{ display: 'inline-block', padding: '8px 16px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 6, cursor: 'pointer' }}>
-            …or pick files
-            <input type="file" accept="video/*" multiple onChange={onPick} style={{ display: 'none' }} />
-          </label>
-        </div>
-
-        {files.length > 0 && (
-          <>
-            <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 8 }}>
-              {files.length} file{files.length === 1 ? '' : 's'} · <span style={{ color: '#6AC68A' }}>{ok} matched</span>{bad > 0 && <>, <span style={{ color: '#E87878' }}>{bad} unmatched</span></>}
-            </div>
-            <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6 }}>
-              {files.map(f => {
-                const meta = resolvedSlugs[f.name]
-                const p = progress[f.name]
-                const matched = meta?.ok
-                const color = p?.status === 'done' ? '#6AC68A' : p?.status === 'error' || !matched ? '#E87878' : p?.status === 'uploading' ? '#8fb4f0' : '#aaa'
-                return (
-                  <div key={f.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: 8 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--foreground-muted)' }}>
-                        {matched ? `→ slug ${meta.slug}${meta.outfit ? ' · ' + meta.outfit : ''}` : (meta?.error || 'parsing…')}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color, whiteSpace: 'nowrap' }}>
-                      {p?.status === 'done' ? '✓' : p?.status === 'error' ? `✕ ${p.error}` : p?.status === 'uploading' ? '⏳' : matched ? 'ready' : 'skip'}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-          <button onClick={onClose}
-            style={{ padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 8, cursor: 'pointer' }}>Close</button>
-          <button onClick={runBatch} disabled={running || ok === 0}
-            style={{ padding: '9px 18px', fontSize: 13, fontWeight: 700, background: (running || ok === 0) ? 'rgba(232,160,160,0.4)' : 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 8, cursor: (running || ok === 0) ? 'default' : 'pointer' }}>
-            {running ? 'Uploading…' : `Upload ${ok} matched video${ok === 1 ? '' : 's'}`}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function AiEditorPage() {
   const sp = useSearchParams()
@@ -849,7 +695,6 @@ export default function AiEditorPage() {
   const [busy, setBusy] = useState(false)
   const [revisions, setRevisions] = useState([])
   const [projects, setProjects] = useState([])
-  const [batchOpen, setBatchOpen] = useState(false)
   // New Project Modal — Phase A1. Holds the preselected reel when an
   // editor clicks "✨ New Project" on a ReelCard. Phase A2 will also
   // allow opening the modal with no preselect (global "+ New Project"
@@ -1061,13 +906,7 @@ export default function AiEditorPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <TourTriggerButton storageKey="ai-editor-pool-v7" label="? Guide" />
-          {tab === 'workspace' && (
-            <button id="tour-batch-upload" onClick={() => setBatchOpen(true)}
-              style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#1a0a0a', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-              📦 Batch Upload
-            </button>
-          )}
+          <TourTriggerButton storageKey="ai-editor-pool-v7" label="ⓘ Help" />
           <select
             id="tour-creator-picker"
             value={creatorId}
@@ -1187,10 +1026,6 @@ export default function AiEditorPage() {
       {/* Batch upload + New Project modals + Upload Inspo modal are
           always rendered (gated by their own open-state) so they work
           from either tab. */}
-      {batchOpen && (
-        <BatchUploadModal creatorId={creatorId} onClose={() => setBatchOpen(false)} onDone={() => { setBatchOpen(false); loadReels(creatorId); loadProjects(creatorId) }} />
-      )}
-
       {newProjectReel && (
         <NewProjectModal
           creatorId={creatorId}
@@ -1331,7 +1166,7 @@ export default function AiEditorPage() {
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from your machine</div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                Drop a video file (mp4, mov, webm). It lands in your Fresh Inspo grid and you can Create Scene from it just like any scraped reel.
+                Drop a video file (mp4, mov, webm). It lands in your Inspo Board and you can start a new project from it just like any scraped reel.
               </div>
             </div>
 

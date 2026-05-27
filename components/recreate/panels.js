@@ -1043,8 +1043,9 @@ export function StageBPanel({ initialCreatorId, initialReelRecordId, initialProj
                 // "this one is done" signal across the row.
                 <div key={o.id} style={{ position: 'relative', border: `${o.uploadedAt ? '2' : '1'}px solid ${o.uploadedAt ? 'rgba(106,198,138,0.7)' : sc + '40'}`, borderRadius: 8, overflow: 'hidden', background: o.uploadedAt ? 'rgba(106,198,138,0.06)' : 'rgba(0,0,0,0.25)' }}>
                   {showImage
-                    ? <img src={o.image} alt="" loading="lazy" onClick={() => setSelectedOutput(o)}
-                        style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
+                    ? <img src={o.uploadedThumbnail || o.image} alt="" loading="lazy" onClick={() => setSelectedOutput(o)}
+                        style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                        title={o.uploadedThumbnail ? 'Uploaded video thumbnail' : 'Bedroom scene generation'} />
                     : <div style={{ width: '100%', aspectRatio: '9/16', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc, textAlign: 'center', padding: 8 }}>{placeholder}</div>}
                   {o.uploadedAt && (
                     // Corner badge overlaid on the image so it's

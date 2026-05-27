@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, requireAdminOrAiEditor, fetchAirtableRecords, patchAirtableRecord, OPS_BASE } from '@/lib/adminAuth'
 import { recreateImageUrl, toDropboxRaw } from '@/lib/recreateImageUrl'
+import { quoteAirtableString } from '@/lib/airtableFormula'
+
+const ASSETS = 'tblAPl8Pi5v1qmMNM'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OUTPUTS = 'Stage B Outputs'
@@ -57,6 +60,36 @@ export async function GET(request) {
     }
     const reelById = Object.fromEntries(reels.map(r => [r.id, r.fields || {}]))
     const roomById = Object.fromEntries(rooms.map(r => [r.id, r.fields?.['Room Name'] || '']))
+
+    // For outputs that already have an uploaded video, look up the matching
+    // Asset (Asset Name = Slug) so the gallery card can swap the bedroom-
+    // scene image for the actual uploaded video's CDN thumbnail. Single
+    // batched filterByFormula query; falls back silently to the scene
+    // image if the lookup fails or the Asset has no thumbnail yet.
+    const uploadedSlugs = [...new Set(
+      outputs
+        .filter(o => o.fields?.['Uploaded At'] && o.fields?.Slug)
+        .map(o => o.fields.Slug)
+    )]
+    const slugToUploadedThumb = {}
+    if (uploadedSlugs.length > 0) {
+      try {
+        const formula = `OR(${uploadedSlugs.map(s => `{Asset Name}=${quoteAirtableString(s)}`).join(',')})`
+        const assets = await fetchAirtableRecords(ASSETS, {
+          fields: ['Asset Name', 'CDN URL', 'Thumbnail'],
+          filterByFormula: formula,
+        })
+        for (const a of assets) {
+          const name = a.fields?.['Asset Name']
+          if (!name) continue
+          const cdn = a.fields?.['CDN URL']
+          const thumb = att(a.fields?.Thumbnail)
+          if (cdn || thumb) slugToUploadedThumb[name] = cdn || thumb
+        }
+      } catch (e) {
+        console.warn('[stage-b outputs] uploaded thumb lookup failed:', e.message)
+      }
+    }
     // 1-based index per creator, oldest = 1 (stable label that matches
     // the ZIP filename).
     const idxById = {}
@@ -95,6 +128,12 @@ export async function GET(request) {
           status: sel(f.Status) || 'Pending',
           rejectReason: f['Reject Reason'] || '',
           uploadedAt: f['Uploaded At'] || null,
+          // CDN URL of the uploaded video's first-frame thumbnail (only
+          // populated once the editor has uploaded a finished video for
+          // this slug). Gallery card prefers this over the scene image
+          // so editors see what they actually shipped, not the bedroom
+          // scene generation that preceded it.
+          uploadedThumbnail: (f['Uploaded At'] && f.Slug) ? (slugToUploadedThumb[f.Slug] || null) : null,
           room: roomId ? roomById[roomId] || '' : '',
           reel: reel ? {
             id: reelId,
