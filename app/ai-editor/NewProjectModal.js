@@ -20,25 +20,123 @@ import { useState, useRef, useEffect } from 'react'
 // enough — admin can re-pick frames in Post Prep if needed. Stream's own
 // thumbnail pipeline replaces it after mirror-stream cron runs anyway.
 
-export default function NewProjectModal({ creatorId, preselectedReel, onClose, onChooseBedroom, onDirectUploadDone }) {
-  const [stage, setStage] = useState('choose-workflow') // 'choose-workflow' | 'direct-upload-config' | 'direct-upload-progress'
+export default function NewProjectModal({ creatorId, preselectedReel, availableReels = [], projectReelIds = new Set(), onClose, onChooseBedroom, onDirectUploadDone }) {
+  // Selected reel state — seeded from the preselect prop, mutable via the
+  // picker when there's no preselect. Once a reel is picked the modal
+  // moves into the workflow-choice stage just like the preselect path.
+  const [reel, setReel] = useState(preselectedReel || null)
+  const [stage, setStage] = useState(preselectedReel ? 'choose-workflow' : 'pick-reel')
+  // Filter chips inside the picker — same shape as the inspo grid chips.
+  const [sourceFilter, setSourceFilter] = useState('all')
   const [files, setFiles] = useState([])
   const [progress, setProgress] = useState({}) // file.name → { status, message }
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
-  if (!preselectedReel) {
-    // Phase B will add the no-preselect flow with a library picker. For
-    // now this modal only opens with a reel already selected — render an
-    // explicit message instead of a broken empty state.
+  // Picker view — when no preselected reel + we have an available pool.
+  if (stage === 'pick-reel') {
+    // Same filtering rules as the inspo grid: skip reels already in a project.
+    const pickable = availableReels.filter(r => !projectReelIds.has(r.id))
+    const adminCount = pickable.filter(r => r.addedVia !== 'Editor Upload').length
+    const editorCount = pickable.filter(r => r.addedVia === 'Editor Upload').length
+    const filtered = sourceFilter === 'all'
+      ? pickable
+      : sourceFilter === 'editor'
+        ? pickable.filter(r => r.addedVia === 'Editor Upload')
+        : pickable.filter(r => r.addedVia !== 'Editor Upload')
+
+    const CHIPS = [
+      { key: 'all',    label: 'All',            count: pickable.length },
+      { key: 'admin',  label: 'Admin added',    count: adminCount },
+      { key: 'editor', label: 'Editor uploads', count: editorCount },
+    ]
+
     return (
       <Backdrop onClose={onClose}>
-        <Panel>
-          <Header onClose={onClose}>New Project</Header>
-          <div style={{ padding: 24, color: 'var(--foreground-muted)', fontSize: 13 }}>
-            The no-preselect flow ships in the next iteration. For now, click
-            "Create Project" on a specific reel in the inspo grid below.
-          </div>
+        <Panel wide>
+          <Header onClose={onClose}>New Project — pick a reel</Header>
+          {pickable.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 13 }}>
+              No available reels for this creator. Add some from the Inspo Board first (↑ Upload inspo
+              in the Fresh Inspo grid, or have an admin scrape a source).
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 6, padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+                {CHIPS.map(c => {
+                  const disabled = c.count === 0 && c.key !== 'all'
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => setSourceFilter(c.key)}
+                      disabled={disabled}
+                      style={{
+                        padding: '5px 11px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+                        background: sourceFilter === c.key ? 'rgba(232,160,160,0.10)' : 'rgba(255,255,255,0.03)',
+                        color: sourceFilter === c.key ? 'var(--palm-pink)' : (disabled ? '#555' : '#aaa'),
+                        border: `1px solid ${sourceFilter === c.key ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: 999,
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.5 : 1,
+                      }}
+                    >
+                      {c.label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{c.count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {filtered.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 12 }}>
+                  No {sourceFilter === 'editor' ? 'editor-uploaded' : 'admin-added'} reels for this creator.
+                  {' '}<button onClick={() => setSourceFilter('all')} style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>Show all</button>.
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: 8,
+                  padding: 14,
+                }}>
+                  {filtered.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => { setReel(r); setStage('choose-workflow') }}
+                      style={{
+                        position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#111',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 0, cursor: 'pointer',
+                      }}
+                      title={r.handle ? `@${r.handle}` : 'Pick this reel'}
+                    >
+                      {r.thumbnail ? (
+                        <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : null}
+                      <div style={{
+                        position: 'absolute', bottom: 4, left: 4, right: 4,
+                        padding: '3px 6px', fontSize: 10, fontWeight: 600,
+                        background: 'rgba(0,0,0,0.65)', color: '#fff', borderRadius: 3,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        @{r.handle || '—'}
+                      </div>
+                      {r.addedVia === 'Editor Upload' && (
+                        <div style={{
+                          position: 'absolute', top: 4, left: 4,
+                          padding: '1px 6px', fontSize: 9, fontWeight: 700,
+                          background: 'rgba(200,168,255,0.85)', color: '#1a0a0a', borderRadius: 3,
+                        }}>EDITOR</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div style={{
+                padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.06)',
+                fontSize: 11, color: 'var(--foreground-subtle)',
+              }}>
+                Don't see the reel you want? Close this and upload one via <strong>↑ Upload inspo</strong> on the inspo grid. Drag-drop upload inside this modal ships next.
+              </div>
+            </>
+          )}
         </Panel>
       </Backdrop>
     )
@@ -90,7 +188,7 @@ export default function NewProjectModal({ creatorId, preselectedReel, onClose, o
     const tokRes = await fetch('/api/ai-editor/upload-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reelRecordId: preselectedReel.id, slug: null }),
+      body: JSON.stringify({ reelRecordId: reel.id, slug: null }),
     })
     const tok = await tokRes.json()
     if (!tokRes.ok) return { ok: false, error: tok.error || 'Could not get upload token' }
@@ -117,7 +215,7 @@ export default function NewProjectModal({ creatorId, preselectedReel, onClose, o
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        reelRecordId: preselectedReel.id,
+        reelRecordId: reel.id,
         creatorId,
         dropboxPath: tok.path,
         thumbnailBase64,
@@ -144,7 +242,7 @@ export default function NewProjectModal({ creatorId, preselectedReel, onClose, o
       .filter(x => !x.r.ok)
 
     if (failures.length === 0) {
-      onDirectUploadDone({ uploadedCount: results.length, reelId: preselectedReel.id })
+      onDirectUploadDone({ uploadedCount: results.length, reelId: reel.id })
       onClose()
     } else if (failures.length === results.length) {
       setError(`All ${failures.length} uploads failed. First error: ${failures[0].r.error}`)
@@ -165,18 +263,18 @@ export default function NewProjectModal({ creatorId, preselectedReel, onClose, o
 
         {/* Source reel preview — always visible. */}
         <div style={{ padding: '14px 18px 0', display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 14 }}>
-          {preselectedReel.thumbnail ? (
-            <img src={preselectedReel.thumbnail} alt="" style={{ width: 50, height: 80, objectFit: 'cover', borderRadius: 4, background: '#000', flexShrink: 0 }} />
+          {reel.thumbnail ? (
+            <img src={reel.thumbnail} alt="" style={{ width: 50, height: 80, objectFit: 'cover', borderRadius: 4, background: '#000', flexShrink: 0 }} />
           ) : (
             <div style={{ width: 50, height: 80, background: '#222', borderRadius: 4, flexShrink: 0 }} />
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Source reel</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
-              @{preselectedReel.handle || 'reel'}
+              @{reel.handle || 'reel'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
-              {(preselectedReel.caption || preselectedReel.url || '').slice(0, 80)}
+              {(reel.caption || reel.url || '').slice(0, 80)}
             </div>
           </div>
         </div>
@@ -191,7 +289,7 @@ export default function NewProjectModal({ creatorId, preselectedReel, onClose, o
               <WorkflowButton
                 title="Bedroom Content"
                 description="Full TJP workflow — frame extractor, image-to-image, creator injection into a saved bedroom scene. Use when you need to swap the creator into your own setting."
-                onClick={() => { onChooseBedroom(preselectedReel); onClose() }}
+                onClick={() => { onChooseBedroom(reel); onClose() }}
               />
               <WorkflowButton
                 title="Direct Upload"
@@ -333,12 +431,13 @@ function Backdrop({ children, onClose }) {
   )
 }
 
-function Panel({ children }) {
+function Panel({ children, wide }) {
   return (
     <div
       onClick={e => e.stopPropagation()}
       style={{
-        width: 'min(560px, 95vw)',
+        // 'wide' = the picker view, which needs room for a reel grid.
+        width: wide ? 'min(880px, 95vw)' : 'min(560px, 95vw)',
         background: 'var(--card-bg-solid, #16161c)',
         border: '1px solid rgba(255,255,255,0.12)',
         borderRadius: 14,

@@ -297,15 +297,17 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
 // showing scene-cards here was noisy (the same reel surfaced as 5+ tiles).
 // The reel card summarizes scene counts by status; clicking opens the
 // workflow where the full scene gallery lives at the bottom.
-function MyProjectsSection({ projects, creatorId, onChange }) {
-  if (!projects?.length) return null
+function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
+  // Don't early-return when there are zero projects — we still want the
+  // "+ New Project" button visible. Render an empty-state below instead.
+  const hasProjects = !!projects?.length
 
   // Group projects by reel record ID. A few really old rows may not have
   // a reel reference — keep those bucketed under their own project ID so
   // they don't all collide into one anonymous group.
   const groups = (() => {
     const byReel = new Map()
-    for (const p of projects) {
+    for (const p of (projects || [])) {
       const key = p.reel?.id || `__noReel_${p.id}`
       if (!byReel.has(key)) byReel.set(key, { reelKey: key, reel: p.reel || null, scenes: [] })
       byReel.get(key).scenes.push(p)
@@ -333,24 +335,53 @@ function MyProjectsSection({ projects, creatorId, onChange }) {
 
   // Aggregated counts across every scene under every reel, just for
   // the header summary (matches what the section showed before).
-  const totalCounts = projects.reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
+  const totalCounts = (projects || []).reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>My Projects</div>
-        <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
-          {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} scene{projects.length === 1 ? '' : 's'}
-          {totalCounts.Started ? ` · ${totalCounts.Started} need TJP work` : ''}
-          {totalCounts.Generating ? ` · ${totalCounts.Generating} rendering` : ''}
-          {totalCounts.Pending ? ` · ${totalCounts.Pending} awaiting your ✓` : ''}
-          {totalCounts.Approved ? ` · ${totalCounts.Approved} ready for TJP outfit/motion` : ''}
-          {totalCounts.Failed ? ` · ${totalCounts.Failed} failed` : ''}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>My Projects</div>
+          {hasProjects && (
+            <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+              {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} scene{projects.length === 1 ? '' : 's'}
+              {totalCounts.Started ? ` · ${totalCounts.Started} need TJP work` : ''}
+              {totalCounts.Generating ? ` · ${totalCounts.Generating} rendering` : ''}
+              {totalCounts.Pending ? ` · ${totalCounts.Pending} awaiting your ✓` : ''}
+              {totalCounts.Approved ? ` · ${totalCounts.Approved} ready for TJP outfit/motion` : ''}
+              {totalCounts.Failed ? ` · ${totalCounts.Failed} failed` : ''}
+            </div>
+          )}
         </div>
+        {/* + New Project — top-level entry to the New Project Modal with
+            no preselected reel (opens the library picker inside the modal). */}
+        {onNewProject && (
+          <button
+            onClick={() => onNewProject()}
+            style={{
+              padding: '7px 14px', fontSize: 12, fontWeight: 700,
+              color: '#fff', background: 'var(--palm-pink)',
+              border: 'none', borderRadius: 6, cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            title="Start a new project — pick a reel from the library or upload one">
+            + New Project
+          </button>
+        )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        {groups.map(g => <ReelProjectCard key={g.reelKey} group={g} creatorId={creatorId} onChange={onChange} />)}
-      </div>
+      {hasProjects ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+          {groups.map(g => <ReelProjectCard key={g.reelKey} group={g} creatorId={creatorId} onChange={onChange} />)}
+        </div>
+      ) : (
+        <div style={{
+          padding: 28, textAlign: 'center', fontSize: 12, color: 'var(--foreground-muted)',
+          border: '1px dashed rgba(255,255,255,0.10)', borderRadius: 10,
+          background: 'rgba(255,255,255,0.02)',
+        }}>
+          No projects yet for this creator. Click <strong>+ New Project</strong> above to start one.
+        </div>
+      )}
     </div>
   )
 }
@@ -1115,7 +1146,12 @@ export default function AiEditorPage() {
       )}
 
       <div id="tour-projects">
-        <MyProjectsSection projects={projects} creatorId={creatorId} onChange={() => loadProjects(creatorId)} />
+        <MyProjectsSection
+          projects={projects}
+          creatorId={creatorId}
+          onChange={() => loadProjects(creatorId)}
+          onNewProject={() => setNewProjectReel({ __pickFromLibrary: true })}
+        />
       </div>
 
       {batchOpen && (
@@ -1125,7 +1161,9 @@ export default function AiEditorPage() {
       {newProjectReel && (
         <NewProjectModal
           creatorId={creatorId}
-          preselectedReel={newProjectReel}
+          preselectedReel={newProjectReel.__pickFromLibrary ? null : newProjectReel}
+          availableReels={reels}
+          projectReelIds={new Set(projects.map(p => p.reel?.id).filter(Boolean))}
           onClose={() => setNewProjectReel(null)}
           // Bedroom workflow — match what the ↓ Raw button does (create
           // the project record) + navigate the operator to Create Scene
