@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const settle = (p) => p.then(v => v).catch(() => null)
 
-    const [aiInFlightRecords, realInFlightRecords, needsReviewRecords] = await Promise.all([
+    const [aiInFlightRecords, realInFlightRecords, needsReviewRecords, activeWarmupsRecords] = await Promise.all([
       settle(fetchAirtableRecords('Posts', {
         // Publer Phase 1+2 stamps Publer Status = 'Submitted' once a post is
         // sent to Publer and awaiting publish.
@@ -30,13 +30,19 @@ export async function GET() {
         filterByFormula: "AND({Status}='Done',{Admin Review Status}='Pending Review')",
         fields: ['Status'],
       })),
+      settle(fetchAirtableRecords('AI Account Profile', {
+        // Setup + Warming Up both count as active (operator has work to do).
+        // Live/Paused/Retired excluded.
+        filterByFormula: "OR({Warmup Status}='Setup',{Warmup Status}='Warming Up')",
+        fields: ['Warmup Status'],
+      })),
     ])
 
     return NextResponse.json({
       aiInFlight:    aiInFlightRecords    ? aiInFlightRecords.length    : 0,
       realInFlight:  realInFlightRecords  ? realInFlightRecords.length  : 0,
       needsReview:   needsReviewRecords   ? needsReviewRecords.length   : 0,
-      activeWarmups: 0, // Wired in Batch 2.
+      activeWarmups: activeWarmupsRecords ? activeWarmupsRecords.length : 0,
       asOf: new Date().toISOString(),
     })
   } catch (err) {
