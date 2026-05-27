@@ -1,152 +1,65 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
+import { buildStreamPosterUrl } from '@/lib/cfStreamUrl'
+
+// Most reels live in Cloudflare Stream — their visible thumbnail is the
+// Stream poster derived from streamUid. `r.thumbnail` is only populated
+// for a small subset (legacy uploads, manually-set thumbs). Match the
+// outside ReelCard fallback chain: streamUid → r.thumbnail → null.
+function reelPosterUrl(r, { width = 240 } = {}) {
+  if (!r) return null
+  if (r.streamUid) return buildStreamPosterUrl(r.streamUid, { width, fit: 'crop' })
+  return r.thumbnail || null
+}
 
 // New Project Modal — unified entry for both AI editor workflows.
-// Today this is Phase A1: preselected reel only. Phase A2 will add a
-// library picker + drag-drop local-reel upload for the no-preselect case.
 //
-// Workflows:
-//   "Bedroom Content" — triggers the existing scene-creation flow. Click
-//     just closes the modal with onChooseBedroom() — the parent decides what
-//     to do (typically open the existing Create Scene tab with the reel).
-//   "Direct Upload" — bypass Create Scene entirely. Multi-file picker
-//     uploads N final videos, each becomes its own review item all tied to
-//     the source reel. Thumbnails are auto-extracted from the first frame
-//     of each video via canvas (no manual thumbnail picking).
+// Stages:
+//   pick-source-method  — empty source slot with two CTAs ("Pick from
+//                         Library" / "Upload from Computer") + drag-drop
+//                         drop zone. Initial when no preselected reel.
+//   pick-source-uploading — local-reel upload in flight; same panel,
+//                         drop zone replaced by progress lines.
+//   pick-reel           — library grid + source-type chips + handle
+//                         chips. Reached from pick-source-method's
+//                         "Pick from Library" button.
+//   choose-workflow     — Bedroom Content vs Direct Upload. Reached
+//                         when a reel is attached (preselected, picked
+//                         from library, or just uploaded).
+//   direct-upload-config / direct-upload-progress — multi-file Direct
+//                         Upload path (one review item per video, all
+//                         tied to the source reel).
 //
-// Why auto-extracted thumbnails: the existing single-file upload requires
-// a manual thumbnail pick which would be tedious × N. Auto-extract is good
-// enough — admin can re-pick frames in Post Prep if needed. Stream's own
-// thumbnail pipeline replaces it after mirror-stream cron runs anyway.
+// Direct Upload thumbnails are auto-extracted from the first video
+// frame via canvas — manual thumbnail picking ×N would be tedious,
+// and Stream's mirror replaces them with proper posters anyway.
 
 export default function NewProjectModal({ creatorId, preselectedReel, availableReels = [], projectReelIds = new Set(), onClose, onChooseBedroom, onDirectUploadDone }) {
-  // Selected reel state — seeded from the preselect prop, mutable via the
-  // picker when there's no preselect. Once a reel is picked the modal
-  // moves into the workflow-choice stage just like the preselect path.
   const [reel, setReel] = useState(preselectedReel || null)
-  const [stage, setStage] = useState(preselectedReel ? 'choose-workflow' : 'pick-reel')
-  // Filter chips inside the picker — same shape as the inspo grid chips.
+  const [stage, setStage] = useState(preselectedReel ? 'choose-workflow' : 'pick-source-method')
+
+  // Picker filters — source-type chips intersect with handle chips.
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [handleFilter, setHandleFilter] = useState('all')
+
+  // Source-reel upload (the "Upload from Computer" path in
+  // pick-source-method). Independent of the Direct Upload progress.
+  const [sourceUpload, setSourceUpload] = useState(null) // { status, fileName, message }
+  const [dragOver, setDragOver] = useState(false)
+  const sourceUploadRef = useRef(null)
+
+  // Direct Upload state (per-file finished AI videos for an existing reel).
   const [files, setFiles] = useState([])
   const [progress, setProgress] = useState({}) // file.name → { status, message }
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
 
-  // Picker view — when no preselected reel + we have an available pool.
-  if (stage === 'pick-reel') {
-    // Same filtering rules as the inspo grid: skip reels already in a project.
-    const pickable = availableReels.filter(r => !projectReelIds.has(r.id))
-    const adminCount = pickable.filter(r => r.addedVia !== 'Editor Upload').length
-    const editorCount = pickable.filter(r => r.addedVia === 'Editor Upload').length
-    const filtered = sourceFilter === 'all'
-      ? pickable
-      : sourceFilter === 'editor'
-        ? pickable.filter(r => r.addedVia === 'Editor Upload')
-        : pickable.filter(r => r.addedVia !== 'Editor Upload')
-
-    const CHIPS = [
-      { key: 'all',    label: 'All',            count: pickable.length },
-      { key: 'admin',  label: 'Admin added',    count: adminCount },
-      { key: 'editor', label: 'Editor uploads', count: editorCount },
-    ]
-
-    return (
-      <Backdrop onClose={onClose}>
-        <Panel wide>
-          <Header onClose={onClose}>New Project — pick a reel</Header>
-          {pickable.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 13 }}>
-              No available reels for this creator. Add some from the Inspo Board first (↑ Upload inspo
-              in the Fresh Inspo grid, or have an admin scrape a source).
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', gap: 6, padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-                {CHIPS.map(c => {
-                  const disabled = c.count === 0 && c.key !== 'all'
-                  return (
-                    <button
-                      key={c.key}
-                      onClick={() => setSourceFilter(c.key)}
-                      disabled={disabled}
-                      style={{
-                        padding: '5px 11px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
-                        background: sourceFilter === c.key ? 'rgba(232,160,160,0.10)' : 'rgba(255,255,255,0.03)',
-                        color: sourceFilter === c.key ? 'var(--palm-pink)' : (disabled ? '#555' : '#aaa'),
-                        border: `1px solid ${sourceFilter === c.key ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
-                        borderRadius: 999,
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                        opacity: disabled ? 0.5 : 1,
-                      }}
-                    >
-                      {c.label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{c.count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              {filtered.length === 0 ? (
-                <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 12 }}>
-                  No {sourceFilter === 'editor' ? 'editor-uploaded' : 'admin-added'} reels for this creator.
-                  {' '}<button onClick={() => setSourceFilter('all')} style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>Show all</button>.
-                </div>
-              ) : (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                  gap: 8,
-                  padding: 14,
-                }}>
-                  {filtered.map(r => (
-                    <button
-                      key={r.id}
-                      onClick={() => { setReel(r); setStage('choose-workflow') }}
-                      style={{
-                        position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#111',
-                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 0, cursor: 'pointer',
-                      }}
-                      title={r.handle ? `@${r.handle}` : 'Pick this reel'}
-                    >
-                      {r.thumbnail ? (
-                        <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : null}
-                      <div style={{
-                        position: 'absolute', bottom: 4, left: 4, right: 4,
-                        padding: '3px 6px', fontSize: 10, fontWeight: 600,
-                        background: 'rgba(0,0,0,0.65)', color: '#fff', borderRadius: 3,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      }}>
-                        @{r.handle || '—'}
-                      </div>
-                      {r.addedVia === 'Editor Upload' && (
-                        <div style={{
-                          position: 'absolute', top: 4, left: 4,
-                          padding: '1px 6px', fontSize: 9, fontWeight: 700,
-                          background: 'rgba(200,168,255,0.85)', color: '#1a0a0a', borderRadius: 3,
-                        }}>EDITOR</div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div style={{
-                padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.06)',
-                fontSize: 11, color: 'var(--foreground-subtle)',
-              }}>
-                Don't see the reel you want? Close this and upload one via <strong>↑ Upload inspo</strong> on the inspo grid. Drag-drop upload inside this modal ships next.
-              </div>
-            </>
-          )}
-        </Panel>
-      </Backdrop>
-    )
-  }
-
-  // ── DIRECT UPLOAD HELPERS ───────────────────────────────────────────────
+  // ── HELPERS ────────────────────────────────────────────────────────────
 
   // Extract a base64 JPEG from the first decodable frame of a video file.
-  // Used as the auto-thumbnail. Resolves to empty string if extraction
-  // fails (server-side Stream pipeline will fill in a real thumb later).
+  // Used both for Direct Upload thumbnails AND as the placeholder thumb
+  // for a freshly-uploaded source reel (Stream mirror replaces it ~30s later).
   async function extractFirstFrameBase64(file) {
     try {
       const url = URL.createObjectURL(file)
@@ -176,6 +89,329 @@ export default function NewProjectModal({ creatorId, preselectedReel, availableR
       return ''
     }
   }
+
+  // Local reel upload — same 3-step direct-to-Dropbox flow as the
+  // outside "↑ Upload inspo" button. On success, the new reel becomes
+  // this project's source and we advance to workflow choice.
+  async function runLocalReelUpload(file) {
+    if (!file?.type?.startsWith('video/')) {
+      setStage('pick-source-uploading')
+      setSourceUpload({ status: 'error', fileName: file?.name || '', message: 'Need a video file (mp4, mov, webm)' })
+      return
+    }
+    setStage('pick-source-uploading')
+    setSourceUpload({ status: 'extracting-thumb', fileName: file.name, message: 'Extracting thumbnail…' })
+    const thumbBase64 = await extractFirstFrameBase64(file)
+
+    try {
+      setSourceUpload(s => ({ ...s, status: 'token', message: 'Requesting Dropbox token…' }))
+      const tokRes = await fetch('/api/ai-editor/upload-local-reel/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name }),
+      })
+      const tok = await tokRes.json()
+      if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
+
+      setSourceUpload(s => ({ ...s, status: 'dropbox', message: `Uploading ${(file.size / (1024*1024)).toFixed(1)} MB to Dropbox…` }))
+      const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tok.accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: tok.path, mode: 'overwrite', mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: await file.arrayBuffer(),
+      })
+      if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
+
+      setSourceUpload(s => ({ ...s, status: 'finalize', message: 'Creating reel record…' }))
+      const finRes = await fetch('/api/ai-editor/upload-local-reel/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dropboxPath: tok.path, shortid: tok.shortid, caption: '' }),
+      })
+      const fin = await finRes.json()
+      if (!finRes.ok) throw new Error(fin.error || 'Finalize failed')
+
+      // Construct a reel object good enough for the in-modal preview +
+      // downstream Bedroom/Direct Upload handoff. Stream UID lands
+      // ~30s later via mirror cron — irrelevant once modal closes.
+      setReel({
+        id: fin.reelRecordId,
+        handle: fin.handle || 'editor',
+        thumbnail: thumbBase64 ? `data:image/jpeg;base64,${thumbBase64}` : null,
+        caption: '',
+        addedVia: 'Editor Upload',
+        streamUid: null,
+      })
+      setSourceUpload(null)
+      setStage('choose-workflow')
+    } catch (e) {
+      setSourceUpload(s => ({ ...(s || {}), status: 'error', message: e.message }))
+    }
+  }
+
+  // Drag-drop handlers shared between pick-source-method + pick-reel —
+  // dropping a video anywhere on either stage runs the local upload.
+  function onPanelDragOver(e) {
+    if (stage === 'pick-source-uploading') return
+    e.preventDefault()
+    setDragOver(true)
+  }
+  function onPanelDragLeave() {
+    setDragOver(false)
+  }
+  function onPanelDrop(e) {
+    if (stage === 'pick-source-uploading') return
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer?.files?.[0]
+    if (f) runLocalReelUpload(f)
+  }
+
+  // ── STAGE: pick-source-method / pick-source-uploading ────────────────
+
+  if (stage === 'pick-source-method' || stage === 'pick-source-uploading') {
+    const uploading = stage === 'pick-source-uploading'
+    const closable = !uploading || sourceUpload?.status === 'error'
+    return (
+      <Backdrop onClose={closable ? onClose : null}>
+        <Panel onDragOver={onPanelDragOver} onDragLeave={onPanelDragLeave} onDrop={onPanelDrop}>
+          <Header onClose={closable ? onClose : null}>New Project</Header>
+          <div style={{ padding: 18 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)',
+              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8,
+            }}>Source reel</div>
+            <div style={{
+              border: `2px dashed ${dragOver ? '#6AC68A' : 'rgba(255,255,255,0.18)'}`,
+              background: dragOver ? 'rgba(106,198,138,0.10)' : 'rgba(255,255,255,0.03)',
+              borderRadius: 10,
+              padding: '28px 18px',
+              textAlign: 'center',
+              transition: '0.15s ease',
+            }}>
+              {uploading ? (
+                <SourceUploadProgress
+                  state={sourceUpload}
+                  onRetry={() => { setSourceUpload(null); setStage('pick-source-method') }}
+                />
+              ) : (
+                <>
+                  <div style={{ fontSize: 34, marginBottom: 6 }}>{dragOver ? '⬇️' : '📥'}</div>
+                  <div style={{ fontSize: 13, color: 'var(--foreground)', marginBottom: 4 }}>
+                    {dragOver ? 'Drop to upload as the source reel' : 'Drag a video here, or choose a source'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginBottom: 14 }}>
+                    The picked or uploaded reel becomes the source for this project
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setStage('pick-reel')}
+                      style={{
+                        padding: '9px 16px', fontSize: 12, fontWeight: 700,
+                        background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)',
+                        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, cursor: 'pointer',
+                      }}>📚 Pick from Library</button>
+                    <button
+                      onClick={() => sourceUploadRef.current?.click()}
+                      style={{
+                        padding: '9px 16px', fontSize: 12, fontWeight: 700,
+                        background: 'rgba(200,168,255,0.10)', color: '#C8A8FF',
+                        border: '1px solid rgba(200,168,255,0.35)', borderRadius: 6, cursor: 'pointer',
+                      }}>⬆️ Upload from Computer</button>
+                    <input
+                      ref={sourceUploadRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) runLocalReelUpload(f) }}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </Panel>
+      </Backdrop>
+    )
+  }
+
+  // ── STAGE: pick-reel (library picker) ────────────────────────────────
+
+  if (stage === 'pick-reel') {
+    // Skip reels already used by a project. Same rule the inspo grid uses.
+    const pickable = availableReels.filter(r => !projectReelIds.has(r.id))
+    const adminCount = pickable.filter(r => r.addedVia !== 'Editor Upload').length
+    const editorCount = pickable.filter(r => r.addedVia === 'Editor Upload').length
+
+    // Source filter narrows by added-via; handle filter intersects.
+    const afterSource = sourceFilter === 'all'
+      ? pickable
+      : sourceFilter === 'editor'
+        ? pickable.filter(r => r.addedVia === 'Editor Upload')
+        : pickable.filter(r => r.addedVia !== 'Editor Upload')
+    const handleCounts = afterSource.reduce((m, r) => {
+      const h = (r.handle || '—').trim() || '—'
+      m[h] = (m[h] || 0) + 1
+      return m
+    }, {})
+    const handles = Object.entries(handleCounts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    // If the active handle was filtered out by a source-type change,
+    // silently fall back to "all" so we don't show an empty grid.
+    const effectiveHandleFilter = handleFilter !== 'all' && !handleCounts[handleFilter] ? 'all' : handleFilter
+    const filtered = effectiveHandleFilter === 'all'
+      ? afterSource
+      : afterSource.filter(r => (r.handle || '—').trim() === effectiveHandleFilter || (effectiveHandleFilter === '—' && !r.handle))
+
+    const SOURCE_CHIPS = [
+      { key: 'all',    label: 'All',            count: pickable.length },
+      { key: 'admin',  label: 'Admin added',    count: adminCount },
+      { key: 'editor', label: 'Editor uploads', count: editorCount },
+    ]
+
+    return (
+      <Backdrop onClose={onClose}>
+        <Panel wide onDragOver={onPanelDragOver} onDragLeave={onPanelDragLeave} onDrop={onPanelDrop}>
+          <Header onClose={onClose}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={() => setStage('pick-source-method')}
+                style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer', padding: 0 }}>
+                ← Back
+              </button>
+              <span>New Project — pick a reel</span>
+            </div>
+          </Header>
+          {pickable.length === 0 ? (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 13 }}>
+              No available reels for this creator. Drop a video on this modal, or use
+              {' '}<button onClick={() => setStage('pick-source-method')}
+                style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 13 }}>
+                Upload from Computer
+              </button> to add one.
+            </div>
+          ) : (
+            <>
+              {/* Source-type chips */}
+              <div style={{ display: 'flex', gap: 6, padding: '12px 18px 6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Source</span>
+                {SOURCE_CHIPS.map(c => {
+                  const disabled = c.count === 0 && c.key !== 'all'
+                  return (
+                    <Chip
+                      key={c.key}
+                      label={c.label}
+                      count={c.count}
+                      active={sourceFilter === c.key}
+                      disabled={disabled}
+                      onClick={() => setSourceFilter(c.key)}
+                    />
+                  )
+                })}
+                <button
+                  onClick={() => sourceUploadRef.current?.click()}
+                  style={{
+                    marginLeft: 'auto', padding: '5px 11px', fontSize: 11, fontWeight: 700,
+                    background: 'rgba(200,168,255,0.10)', color: '#C8A8FF',
+                    border: '1px solid rgba(200,168,255,0.35)', borderRadius: 999, cursor: 'pointer',
+                  }}>
+                  ⬆️ Upload from Computer
+                </button>
+                <input
+                  ref={sourceUploadRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) runLocalReelUpload(f) }}
+                  style={{ display: 'none' }}
+                />
+              </div>
+              {/* Handle chips — only show when there are 2+ handles to pick between */}
+              {handles.length >= 2 && (
+                <div style={{ display: 'flex', gap: 6, padding: '0 18px 10px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Handle</span>
+                  <Chip
+                    label="All handles"
+                    count={afterSource.length}
+                    active={effectiveHandleFilter === 'all'}
+                    onClick={() => setHandleFilter('all')}
+                  />
+                  {handles.map(([h, count]) => (
+                    <Chip
+                      key={h}
+                      label={`@${h}`}
+                      count={count}
+                      active={effectiveHandleFilter === h}
+                      onClick={() => setHandleFilter(h)}
+                    />
+                  ))}
+                </div>
+              )}
+              {filtered.length === 0 ? (
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--foreground-muted)', fontSize: 12 }}>
+                  No reels match these filters.
+                  {' '}<button onClick={() => { setSourceFilter('all'); setHandleFilter('all') }}
+                    style={{ background: 'none', border: 'none', color: 'var(--palm-pink)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>
+                    Clear filters
+                  </button>.
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: 8,
+                  padding: 14,
+                }}>
+                  {filtered.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => { setReel(r); setStage('choose-workflow') }}
+                      style={{
+                        position: 'relative', aspectRatio: '9/16', overflow: 'hidden', background: '#111',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 0, cursor: 'pointer',
+                      }}
+                      title={r.handle ? `@${r.handle}` : 'Pick this reel'}
+                    >
+                      {(() => {
+                        const poster = reelPosterUrl(r, { width: 240 })
+                        return poster ? (
+                          <img src={poster} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : null
+                      })()}
+                      <div style={{
+                        position: 'absolute', bottom: 4, left: 4, right: 4,
+                        padding: '3px 6px', fontSize: 10, fontWeight: 600,
+                        background: 'rgba(0,0,0,0.65)', color: '#fff', borderRadius: 3,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        @{r.handle || '—'}
+                      </div>
+                      {r.addedVia === 'Editor Upload' && (
+                        <div style={{
+                          position: 'absolute', top: 4, left: 4,
+                          padding: '1px 6px', fontSize: 9, fontWeight: 700,
+                          background: 'rgba(200,168,255,0.85)', color: '#1a0a0a', borderRadius: 3,
+                        }}>EDITOR</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div style={{
+                padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.06)',
+                fontSize: 11, color: 'var(--foreground-subtle)',
+              }}>
+                Tip: drag a video file anywhere on this modal to upload a brand-new reel as the source.
+              </div>
+            </>
+          )}
+        </Panel>
+      </Backdrop>
+    )
+  }
+
+  // ── DIRECT UPLOAD HELPERS ───────────────────────────────────────────────
 
   // Run the full 3-step upload for ONE video file: get Dropbox token →
   // upload bytes to Dropbox → call finalize to create Asset+Task.
@@ -252,7 +488,7 @@ export default function NewProjectModal({ creatorId, preselectedReel, availableR
     }
   }
 
-  // ── RENDER ──────────────────────────────────────────────────────────────
+  // ── RENDER: choose-workflow / direct-upload-config / direct-upload-progress ─
 
   return (
     <Backdrop onClose={stage !== 'direct-upload-progress' ? onClose : null}>
@@ -261,22 +497,39 @@ export default function NewProjectModal({ creatorId, preselectedReel, availableR
           New Project
         </Header>
 
-        {/* Source reel preview — always visible. */}
+        {/* Source reel preview — always visible once a reel is attached. */}
         <div style={{ padding: '14px 18px 0', display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 14 }}>
-          {reel.thumbnail ? (
-            <img src={reel.thumbnail} alt="" style={{ width: 50, height: 80, objectFit: 'cover', borderRadius: 4, background: '#000', flexShrink: 0 }} />
-          ) : (
-            <div style={{ width: 50, height: 80, background: '#222', borderRadius: 4, flexShrink: 0 }} />
-          )}
+          {(() => {
+            const poster = reelPosterUrl(reel, { width: 160 })
+            return poster ? (
+              <img src={poster} alt="" style={{ width: 50, height: 80, objectFit: 'cover', borderRadius: 4, background: '#000', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 50, height: 80, background: '#222', borderRadius: 4, flexShrink: 0 }} />
+            )
+          })()}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Source reel</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
               @{reel.handle || 'reel'}
             </div>
             <div style={{ fontSize: 11, color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
-              {(reel.caption || reel.url || '').slice(0, 80)}
+              {(reel.caption || reel.url || '').slice(0, 80) || (reel.addedVia === 'Editor Upload' ? 'Local upload' : '')}
             </div>
           </div>
+          {/* Allow swapping the source reel before committing to a workflow.
+              Once you're past Direct Upload config the operator is committed. */}
+          {stage === 'choose-workflow' && !preselectedReel && (
+            <button
+              onClick={() => { setReel(null); setStage('pick-source-method') }}
+              style={{
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.10)',
+                color: 'var(--foreground-muted)', fontSize: 11, padding: '4px 10px',
+                borderRadius: 6, cursor: 'pointer', flexShrink: 0,
+              }}
+              title="Pick a different source reel">
+              Change
+            </button>
+          )}
         </div>
 
         {/* Stage 1: choose workflow */}
@@ -421,6 +674,54 @@ export default function NewProjectModal({ creatorId, preselectedReel, availableR
   )
 }
 
+// ── PRESENTATIONAL HELPERS ────────────────────────────────────────────
+
+function SourceUploadProgress({ state, onRetry }) {
+  const failed = state?.status === 'error'
+  const icon = failed ? '⨯' : state?.status === 'done' ? '✓' : '…'
+  const color = failed ? '#E87878' : state?.status === 'done' ? '#6AC68A' : 'var(--foreground-muted)'
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--foreground)', marginBottom: 6, display: 'flex', justifyContent: 'center', gap: 8, alignItems: 'center' }}>
+        <span style={{ color, fontSize: 16, fontWeight: 700 }}>{icon}</span>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>
+          {state?.fileName || 'Uploading…'}
+        </span>
+      </div>
+      <div style={{ fontSize: 11, color: failed ? '#E87878' : 'var(--foreground-muted)' }}>
+        {state?.message || 'Working…'}
+      </div>
+      {failed && (
+        <button onClick={onRetry}
+          style={{
+            marginTop: 12, padding: '7px 14px', fontSize: 12, fontWeight: 700,
+            background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)',
+            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, cursor: 'pointer',
+          }}>Try a different file</button>
+      )}
+    </div>
+  )
+}
+
+function Chip({ label, count, active, disabled, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '5px 11px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+        background: active ? 'rgba(232,160,160,0.10)' : 'rgba(255,255,255,0.03)',
+        color: active ? 'var(--palm-pink)' : (disabled ? '#555' : '#aaa'),
+        border: `1px solid ${active ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+        borderRadius: 999,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+      }}>
+      {label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{count}</span>
+    </button>
+  )
+}
+
 function Backdrop({ children, onClose }) {
   return (
     <div
@@ -431,10 +732,13 @@ function Backdrop({ children, onClose }) {
   )
 }
 
-function Panel({ children, wide }) {
+function Panel({ children, wide, onDragOver, onDragLeave, onDrop }) {
   return (
     <div
       onClick={e => e.stopPropagation()}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
       style={{
         // 'wide' = the picker view, which needs room for a reel grid.
         width: wide ? 'min(880px, 95vw)' : 'min(560px, 95vw)',
