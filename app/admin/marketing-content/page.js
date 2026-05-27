@@ -36,7 +36,7 @@ const LINK_GROUPS = [
     title: 'Strategy & Setup',
     links: [
       { label: 'AI Content',              href: '/admin/recreate-source',                icon: '🎨' },
-      { label: 'Account Warm-Up',         href: '/admin/recreate-source?tab=warmup',     icon: '🔥' },
+      { label: 'Account Warm-Up',         href: '/admin/account-warmup',                 icon: '🔥' },
       { label: 'Content Strategy',        href: '/admin/recreate-source?tab=strategy',   icon: '🧭' },
       { label: 'Creator Library',         href: '/admin/editor?tab=library',             icon: '📂' },
     ],

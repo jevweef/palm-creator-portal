@@ -23,8 +23,13 @@ const ADMIN_NAV = [
   { href: '/admin/marketing-content', label: 'Marketing Content', icon: '📱' },
   // Relabeled 2026-05-27 (was "AI Source"). Route unchanged for back-compat —
   // existing bookmarks + the Phase 1+2 Publer flow reference /admin/recreate-source.
-  // Page now renders a 4-tab strip (Workflow / Setup / Warm-Up / Strategy).
+  // Page now renders a 3-tab strip (Setup / Workflow / Strategy). Warm-Up
+  // was originally a tab here but was promoted to a top-level item — see
+  // the next nav entry.
   { href: '/admin/recreate-source', label: 'AI Content', icon: '🎨' },
+  // Account Warm-Up promoted to top-level (owner directive 2026-05-27).
+  // It's social-media account management + strategy, not AI content per se.
+  { href: '/admin/account-warmup', label: 'Account Warm-Up', icon: '🔥' },
   { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
     { key: 'editorview', label: 'Dashboard' },
     { key: 'review', label: 'For Review' },
