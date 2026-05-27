@@ -7,6 +7,10 @@ import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
   'Prepping': '#ca8a04',
+  // Same amber as Prepping — operator-equivalent state (approved, needs prep).
+  // Introduced by Carousels feature step 04 (commit 253fb1fc) as the unified
+  // post-approval status for both reels and carousels.
+  'Ready to Go': '#ca8a04',
   'Sending': '#f59e0b',
   'Sent to Telegram': '#78B4E8',
   'Send Failed': '#ef4444',
