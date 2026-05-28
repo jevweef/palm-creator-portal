@@ -938,19 +938,28 @@ export default function AISuperClonePanel({ creatorId }) {
         </div>
       )}
 
-      {state.enabled && POSE_ORDER.map(pose => (
-        <PoseCard
-          key={pose}
-          creatorId={creatorId}
-          pose={pose}
-          state={state}
-          prompts={prompts}
-          onPromptChange={(p, value) => setPrompts(prev => ({ ...prev, [p]: value }))}
-          onRefresh={fetchState}
-          onZoom={setLightboxUrl}
-          onConfirm={setConfirmDialog}
-        />
-      ))}
+      {/* Three pose cards laid out as columns when the viewport has room.
+          `auto-fit` + minmax means: try to fit 3 columns at ≥3×340 = ~1020px,
+          drop to 2 columns mid-sized, single column on mobile. Much better
+          than the old stacked-rows layout which left huge empty whitespace
+          on the right at desktop widths. */}
+      {state.enabled && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '12px' }}>
+          {POSE_ORDER.map(pose => (
+            <PoseCard
+              key={pose}
+              creatorId={creatorId}
+              pose={pose}
+              state={state}
+              prompts={prompts}
+              onPromptChange={(p, value) => setPrompts(prev => ({ ...prev, [p]: value }))}
+              onRefresh={fetchState}
+              onZoom={setLightboxUrl}
+              onConfirm={setConfirmDialog}
+            />
+          ))}
+        </div>
+      )}
 
       {state.enabled && <KlingElementCard state={state} onRefresh={fetchState} />}
 

@@ -253,7 +253,7 @@ export default function RecreateLibraryPage() {
 
   if (tab === 'rooms') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ width: '100%' }}>
         <TabBar tab={tab} setTab={setTab} />
         <RoomsPanel />
         <ModalHost />
@@ -262,7 +262,7 @@ export default function RecreateLibraryPage() {
   }
   if (tab === 'avatar') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ width: '100%' }}>
         <TabBar tab={tab} setTab={setTab} />
         <CreatorAvatarPanel />
         <ModalHost />
@@ -271,7 +271,7 @@ export default function RecreateLibraryPage() {
   }
   if (tab === 'photos') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ width: '100%' }}>
         <TabBar tab={tab} setTab={setTab} />
         <PhotosPanel />
         <ModalHost />
@@ -280,7 +280,7 @@ export default function RecreateLibraryPage() {
   }
   if (tab === 'stageb') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ width: '100%' }}>
         <TabBar tab={tab} setTab={setTab} />
         <StageBPanel />
         <ModalHost />
@@ -289,7 +289,7 @@ export default function RecreateLibraryPage() {
   }
   if (tab === 'freeform') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ width: '100%' }}>
         <TabBar tab={tab} setTab={setTab} />
         <FreeformGenPanel />
         <ModalHost />
@@ -298,7 +298,7 @@ export default function RecreateLibraryPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ width: '100%' }}>
       <TabBar tab={tab} setTab={setTab} />
       <ModalHost />
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>AI Recreate Library</h1>

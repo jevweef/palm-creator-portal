@@ -451,38 +451,48 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
   )
 }
 
-// One card per reel. Shows the reel thumbnail (not a scene thumbnail —
-// the workflow already has a scene gallery), the count + status mix
-// of scenes inside, and a single CTA that opens the workflow loaded
-// to this reel so the editor can see/work on every scene at once.
+// One card per reel. Shows a thumbnail carousel (source reel + each
+// variation's submitted/scene thumbnail), the derived editor step
+// label, and a CTA into the Bedroom Scene workflow.
 function ReelProjectCard({ group, creatorId, onChange }) {
-  const { reel, scenes, counts, topStatus } = group
-  const statusColor = (s) =>
-    s === 'Approved' ? '#6AC68A'
-    : s === 'Rejected' || s === 'Failed' ? '#E87878'
-    : s === 'Generating' ? '#8fb4f0'
-    : s === 'Started' ? '#aaa'
-    : '#e8b878' // Pending
-  const sc = statusColor(topStatus)
-  const thumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
-    || reel?.thumbnail
-    || null
-  // No ?project= — the workflow loads every scene for this reel into
-  // the gallery, which is what the editor actually wants to see when
-  // resuming work on a reel that already has scenes generated.
-  const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
-  const cta = topStatus === 'Started'    ? '🎨 Continue → upload TJP photo'
-            : topStatus === 'Generating' ? '⏳ Rendering…'
-            : topStatus === 'Pending'    ? '👁 Review variations'
-            : topStatus === 'Approved'   ? '🎬 Open workflow'
-            : topStatus === 'Rejected'   ? '↻ Retry / view'
-            : topStatus === 'Failed'     ? '↻ Retry'
-            : 'Open workflow'
+  const { reel, scenes, counts, topStep } = group
+  const stepLabel = STEP_LABEL[topStep] || topStep
+  const sc = STEP_COLOR[topStep] || '#888'
 
-  // Discard at the reel level wipes every scene record under it. The
-  // raw reel goes back to the pool. Approved scenes are protected —
-  // confirm extra-loud if any exist so the editor doesn't blow away
-  // hard-won renders by reflex.
+  // Carousel slides: [source reel, ...each variation]. Variation prefers
+  // its uploadedThumbnail (the actual submitted video) over the scene
+  // image so editors see what they shipped, not the bedroom-scene
+  // generation that preceded it.
+  const sourceThumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
+    || reel?.thumbnail || null
+  const slides = [
+    { kind: 'source', src: sourceThumb, label: 'Source reel', step: null },
+    ...scenes.map(s => ({
+      kind: 'variation',
+      src: s.uploadedThumbnail || s.image || null,
+      label: s.slug || `Variation ${s.index ?? ''}`.trim(),
+      step: sceneStep(s),
+      uploaded: !!s.uploadedAt,
+    })),
+  ]
+  const [slideIdx, setSlideIdx] = useState(0)
+  const slide = slides[Math.min(slideIdx, slides.length - 1)] || slides[0]
+  const prev = () => setSlideIdx(i => (i - 1 + slides.length) % slides.length)
+  const next = () => setSlideIdx(i => (i + 1) % slides.length)
+
+  const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
+  const ctaLabel = topStep === 'tjp-photo'      ? 'Continue → upload TJP photo'
+                 : topStep === 'rendering'      ? '⏳ Rendering…'
+                 : topStep === 'approve-scene'  ? 'Review variations'
+                 : topStep === 'tjp-motion'     ? 'Open workflow → upload'
+                 : topStep === 'awaiting-admin' ? 'View'
+                 : topStep === 'admin-rejected' ? 'See Revisions'
+                 : topStep === 'failed'         ? '↻ Retry'
+                 : topStep === 'rejected'       ? '↻ Retry / view'
+                 : topStep === 'complete'       ? 'View'
+                 : 'Open workflow'
+
+  // Discard at the reel level wipes every scene record under it.
   const discardReel = async () => {
     const hasApproved = (counts.Approved || 0) > 0
     const msg = hasApproved
@@ -499,21 +509,55 @@ function ReelProjectCard({ group, creatorId, onChange }) {
 
   return (
     <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
-      <a href={openHref} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
-        <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
-          {thumb
-            ? <img src={thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc }}>no reel thumb</div>}
-          {/* Scene-count badge — the headline number on a reel card. */}
-          <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
-            {scenes.length} variation{scenes.length === 1 ? '' : 's'}
-          </div>
-          <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 10, fontWeight: 700, color: '#0a0a0a', background: sc, borderRadius: 3 }}>
-            {topStatus}
-          </div>
+      <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
+        {/* Render every slide stacked so they all start loading in parallel
+            at card mount — clicking the arrows just toggles opacity, no
+            fresh fetch. Without this the user sees a blank flash every
+            time they click next because src-swap on a single <img>
+            triggers a brand-new load. */}
+        {slides.map((s, i) => s.src ? (
+          <img key={i} src={s.src} alt="" loading={i === 0 ? 'eager' : 'lazy'}
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%', objectFit: 'cover',
+              opacity: i === slideIdx ? 1 : 0,
+              transition: 'opacity 0.12s ease',
+              pointerEvents: 'none',
+            }} />
+        ) : null)}
+        {!slide.src && (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: sc }}>no thumb</div>
+        )}
+        {/* Carousel arrows — only shown when there's more than one slide. */}
+        {slides.length > 1 && (
+          <>
+            <button onClick={prev} aria-label="Previous"
+              style={{ position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+            <button onClick={next} aria-label="Next"
+              style={{ position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+            <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
+              {slides.map((_, i) => (
+                <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i === slideIdx ? '#fff' : 'rgba(255,255,255,0.4)' }} />
+              ))}
+            </div>
+          </>
+        )}
+        {/* Variation count badge — kept on the top-left for at-a-glance. */}
+        <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
+          {scenes.length} variation{scenes.length === 1 ? '' : 's'}
         </div>
-      </a>
+        {/* What slide am I on — source reel vs a specific variation. */}
+        <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 3, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slide.kind === 'source' ? 'Source reel' : (slide.uploaded ? '✓ ' : '') + slide.label}
+        </div>
+      </div>
       <div style={{ padding: 10, fontSize: 11 }}>
+        {/* Step pill — derived from real editor-step, not the misleading
+            raw Status. Replaces the old "Approved" badge that confused
+            editors into thinking the project was done. */}
+        <div style={{ display: 'inline-block', padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc}22`, color: sc, marginBottom: 6 }}>
+          {stepLabel}
+        </div>
         {reel && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <a href={reel.url} target="_blank" rel="noreferrer" style={{ color: '#8fb4f0', textDecoration: 'none', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -526,18 +570,9 @@ function ReelProjectCard({ group, creatorId, onChange }) {
             )}
           </div>
         )}
-        {/* Per-status mini-counts so the editor sees the full breakdown
-            without opening the workflow (e.g. "2 ✓ · 1 ⏳ · 1 ✕"). */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, fontSize: 10 }}>
-          {Object.entries(counts).map(([s, n]) => (
-            <span key={s} style={{ padding: '2px 6px', borderRadius: 3, background: `${statusColor(s)}22`, color: statusColor(s), fontWeight: 700 }}>
-              {n} {s.toLowerCase()}
-            </span>
-          ))}
-        </div>
         <a href={openHref}
           style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, textDecoration: 'none' }}>
-          {cta}
+          {ctaLabel}
         </a>
         <button onClick={discardReel}
           style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
@@ -753,6 +788,12 @@ export default function AiEditorPage() {
   // editor narrow the fresh-inspo grid to just admin-added reels or just
   // editor-uploaded reels. Default 'all' preserves prior behavior.
   const [reelSourceFilter, setReelSourceFilter] = useState('all') // 'all' | 'admin' | 'editor'
+  // Reel-id → random sort key. Empty = default order (newest first
+  // from the API). Click 🎲 Randomize to repopulate with fresh
+  // Math.random() per visible reel; sort renders them in that order.
+  // Reels not in the map (e.g. new arrivals after a randomize) get
+  // a default key of -1 so they show first.
+  const [reelRandomMap, setReelRandomMap] = useState({})
   const [selected, setSelected] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -1147,11 +1188,17 @@ export default function AiEditorPage() {
       {(() => {
         const projectReelIds = new Set(projects.map(p => p.reel?.id).filter(Boolean))
         const allFresh = reels.filter(r => !projectReelIds.has(r.id))
-        const freshReels = reelSourceFilter === 'all'
+        const filteredBySource = reelSourceFilter === 'all'
           ? allFresh
           : reelSourceFilter === 'editor'
             ? allFresh.filter(r => r.addedVia === 'Editor Upload')
             : allFresh.filter(r => r.addedVia !== 'Editor Upload')
+        // If user clicked 🎲 Randomize, sort by random map keys (stable
+        // until next click). Otherwise leave the API's default order.
+        const isRandomized = Object.keys(reelRandomMap).length > 0
+        const freshReels = isRandomized
+          ? [...filteredBySource].sort((a, b) => (reelRandomMap[a.id] ?? -1) - (reelRandomMap[b.id] ?? -1))
+          : filteredBySource
         const adminCount = allFresh.filter(r => r.addedVia !== 'Editor Upload').length
         const editorCount = allFresh.filter(r => r.addedVia === 'Editor Upload').length
         if (loading) return <div style={{ padding: 60, textAlign: 'center', color: '#666', fontSize: 13 }}>Loading…</div>
@@ -1198,6 +1245,29 @@ export default function AiEditorPage() {
                 })}
                 {uploadInspoMsg && (
                   <span style={{ fontSize: 11, color: '#6AC68A', marginLeft: 4 }}>{uploadInspoMsg}</span>
+                )}
+                {/* 🎲 Randomize — reshuffles the currently-filtered reels.
+                    Click again to re-randomize. Editors were seeing the
+                    same reels at the top every time; this gives the pool
+                    a fresh look on demand without changing the underlying
+                    data. */}
+                <button
+                  onClick={() => {
+                    const next = {}
+                    for (const r of filteredBySource) next[r.id] = Math.random()
+                    setReelRandomMap(next)
+                  }}
+                  title={isRandomized ? 'Reshuffle the visible reels again' : 'Shuffle the visible reels into a random order'}
+                  style={{ padding: '6px 12px', background: isRandomized ? 'rgba(232,160,160,0.15)' : 'rgba(255,255,255,0.04)', color: isRandomized ? 'var(--palm-pink)' : '#aaa', border: `1px solid ${isRandomized ? 'rgba(232,160,160,0.35)' : 'rgba(255,255,255,0.10)'}`, borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', marginLeft: 4 }}>
+                  🎲 {isRandomized ? 'Reshuffle' : 'Randomize'}
+                </button>
+                {isRandomized && (
+                  <button
+                    onClick={() => setReelRandomMap({})}
+                    title="Restore the default newest-first order"
+                    style={{ padding: '6px 10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>
+                    Reset order
+                  </button>
                 )}
                 <button onClick={() => { setUploadInspoOpen(true); setUploadInspoError(''); setUploadInspoMsg('') }}
                   title="Paste an Instagram reel URL — we scrape just that reel and add it to your pool."
