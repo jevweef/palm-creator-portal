@@ -187,7 +187,7 @@ function AccountsSection() {
 
 // ─── Library ────────────────────────────────────────────────────────────────
 
-function LibrarySection({ outfitsOnly = false }) {
+export function LibrarySection({ outfitsOnly = false }) {
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
