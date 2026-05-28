@@ -8,3 +8,7 @@ node_modules
 
 # Nested inspo-pipeline repo (managed separately, pushes to github.com/jevweef/inspo-pipeline)
 pipeline/
+
+# Claude Code session/worktree state — never deploy
+.claude/worktrees/
+.claude/jobs/
