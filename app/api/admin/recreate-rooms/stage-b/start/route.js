@@ -10,25 +10,30 @@ const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const STAGE_B_OUTPUTS = 'Stage B Outputs'
 const PALM_CREATORS = 'Palm Creators'
 
-// POST { creatorId, reelRecordIds: ['rec...', ...] }
+// POST { creatorId, reelRecordIds: ['rec...', ...], workflowType?: 'Bedroom' | 'Freelance' }
 //
 // "Start a project" — the moment the editor commits to working on a
 // (creator, reel) pair, even before any TJP work has happened. Creates
 // a Stage B Output record per reel with Status='Started', so the
 // editor sees a project card on /ai-editor as soon as they download.
 //
+// workflowType drives what the editor's project card asks for next:
+//   - 'Bedroom'   → full portal create-scene flow (default for legacy paths)
+//   - 'Freelance' → editor produces final reels in TJP; project card
+//                   shows "↑ Upload final reels" instead of the TJP-photo
+//                   step. No bedroom-scene work is required.
+//
 // Used by:
-//   - ReelCard's ↓ Raw button (single reel download)
-//   - Pool's Download N as ZIP (multi-select)
+//   - ReelCard's ↓ Raw button (single reel, Bedroom)
+//   - Pool's Download N as ZIP (multi-select, Bedroom)
+//   - NewProjectModal Freelance / Bedroom Content buttons (one or many reels)
 //
 // Idempotent: if a Stage B Output already exists for a (creator, reel)
-// pair, that reel is skipped rather than creating a duplicate. This
-// matters because the editor might click Raw a second time later, or
-// re-trigger the bulk download after some were already started.
+// pair, that reel is skipped rather than creating a duplicate.
 export async function POST(request) {
   try {
     await requireAdminOrAiEditor()
-    const { creatorId, reelRecordIds } = await request.json()
+    const { creatorId, reelRecordIds, workflowType: rawWorkflowType } = await request.json()
     if (!creatorId || !/^rec[A-Za-z0-9]{14}$/.test(creatorId)) {
       return NextResponse.json({ error: 'Valid creatorId required' }, { status: 400 })
     }
@@ -39,6 +44,9 @@ export async function POST(request) {
     if (!cleanReels.length) {
       return NextResponse.json({ error: 'No valid reelRecordIds' }, { status: 400 })
     }
+    // Whitelist workflow type. Default to Bedroom so the long-standing
+    // ↓ Raw + ZIP callers keep their current behavior without changes.
+    const workflowType = rawWorkflowType === 'Freelance' ? 'Freelance' : 'Bedroom'
 
     // Resolve creator AKA for the slug.
     const cRecs = await fetchAirtableRecords(PALM_CREATORS, {
@@ -84,6 +92,7 @@ export async function POST(request) {
         Creator: [creatorId],
         'Source Reel': [reelId],
         Status: 'Started',
+        'Workflow Type': workflowType,
         ...(reelNum != null ? { 'Reel #': reelNum } : {}),
         ...(stillNum != null ? { 'Still #': stillNum } : {}),
         ...(slug ? { Slug: slug, Name: slug } : {}),

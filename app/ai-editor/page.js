@@ -9,6 +9,7 @@ import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
 import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
 import NewProjectModal from '@/app/ai-editor/NewProjectModal'
+import FreelanceSubmitModal from '@/app/ai-editor/FreelanceSubmitModal'
 import { LibrarySection as OutfitLibrarySection } from '@/components/recreate/PhotosPanel'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
@@ -307,6 +308,16 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
 // editors who thought "Approved = shipped." This derived step describes
 // what the editor (or admin) needs to do next.
 function sceneStep(s) {
+  // Freelance projects skip the entire bedroom-scene state machine — no
+  // portal render, no pose pick. Only states: project claimed (waiting
+  // on the editor to upload finished reels), uploaded (admin reviewing),
+  // approved (done), or rejected (revision needed).
+  if (s.workflowType === 'Freelance') {
+    if (!s.uploadedAt) return 'freelance-upload-pending'
+    if (s.adminReviewStatus === 'Approved') return 'complete'
+    if (s.adminReviewStatus === 'Rejected' || s.adminReviewStatus === 'Needs Revision') return 'admin-rejected'
+    return 'awaiting-admin'
+  }
   if (s.status === 'Started')    return 'tjp-photo'
   if (s.status === 'Generating') return 'rendering'
   if (s.status === 'Pending')    return 'approve-scene'
@@ -322,6 +333,7 @@ function sceneStep(s) {
 }
 
 const STEP_LABEL = {
+  'freelance-upload-pending': 'Ready — upload final reels',
   'tjp-photo':      'Need TJP photo',
   'rendering':      'Rendering scene',
   'approve-scene':  'Approve scene',
@@ -335,6 +347,7 @@ const STEP_LABEL = {
 }
 
 const STEP_COLOR = {
+  'freelance-upload-pending': '#C8A8FF',
   'tjp-photo':      '#aaa',
   'rendering':      '#8fb4f0',
   'approve-scene':  '#e8b878',
@@ -349,10 +362,11 @@ const STEP_COLOR = {
 
 // Priority order — most-urgent step at the top of a group dictates the
 // card's headline. "Done" sits at the bottom so any in-flight work
-// outranks completion when scenes are mixed.
-const STEP_PRIORITY = ['failed', 'admin-rejected', 'tjp-photo', 'approve-scene', 'tjp-motion', 'rendering', 'awaiting-admin', 'rejected', 'complete', 'unknown']
+// outranks completion when scenes are mixed. Freelance-upload-pending
+// sits with tjp-photo (both = "editor's turn, do the next step").
+const STEP_PRIORITY = ['failed', 'admin-rejected', 'tjp-photo', 'freelance-upload-pending', 'approve-scene', 'tjp-motion', 'rendering', 'awaiting-admin', 'rejected', 'complete', 'unknown']
 
-function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
+function MyProjectsSection({ projects, creatorId, akaName, onChange, onNewProject }) {
   // Don't early-return when there are zero projects — we still want the
   // "+ New Project" button visible. Render an empty-state below instead.
   const hasProjects = !!projects?.length
@@ -437,7 +451,7 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
       </div>
       {hasProjects ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-          {groups.map(g => <ReelProjectCard key={g.reelKey} group={g} creatorId={creatorId} onChange={onChange} />)}
+          {groups.map(g => <ReelProjectCard key={g.reelKey} group={g} creatorId={creatorId} akaName={akaName} onChange={onChange} />)}
         </div>
       ) : (
         <div style={{
@@ -454,11 +468,29 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
 
 // One card per reel. Shows a thumbnail carousel (source reel + each
 // variation's submitted/scene thumbnail), the derived editor step
-// label, and a CTA into the Bedroom Scene workflow.
-function ReelProjectCard({ group, creatorId, onChange }) {
+// label, and a CTA into the workflow.
+//
+// Freelance vs Bedroom: derived from the scenes' workflowType. Freelance
+// cards swap the "Continue → upload TJP photo" link for an "↑ Upload
+// final reels" button that opens the FreelanceSubmitModal — no portal
+// scene step, no TJP image-to-image.
+function ReelProjectCard({ group, creatorId, onChange, akaName }) {
   const { reel, scenes, counts, topStep } = group
   const stepLabel = STEP_LABEL[topStep] || topStep
   const sc = STEP_COLOR[topStep] || '#888'
+
+  // Group-level workflow type. A reel can only have one Stage B Output
+  // per creator (idempotent /start), so all scenes in the group share
+  // the same workflowType in practice. Default to Bedroom for older
+  // records that predate the field.
+  const groupWorkflowType = scenes.find(s => s.workflowType)?.workflowType || 'Bedroom'
+  const isFreelance = groupWorkflowType === 'Freelance'
+
+  // The Freelance submit modal — drag-drop final reels, confirm,
+  // upload. Holds the Stage B record id so the upload route can stamp
+  // Uploaded At on it via the existing slug bridge.
+  const [showFreelanceSubmit, setShowFreelanceSubmit] = useState(false)
+  const freelanceTarget = scenes.find(s => s.workflowType === 'Freelance') || scenes[0]
 
   // Carousel slides: [source reel, ...each variation]. Variation prefers
   // its uploadedThumbnail (the actual submitted video) over the scene
@@ -482,16 +514,27 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const next = () => setSlideIdx(i => (i + 1) % slides.length)
 
   const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
-  const ctaLabel = topStep === 'tjp-photo'      ? 'Continue → upload TJP photo'
+  const ctaLabel = topStep === 'freelance-upload-pending' ? '↑ Upload final reels'
+                 : topStep === 'tjp-photo'      ? 'Continue → upload TJP photo'
                  : topStep === 'rendering'      ? '⏳ Rendering…'
                  : topStep === 'approve-scene'  ? 'Review variations'
                  : topStep === 'tjp-motion'     ? 'Open workflow → upload'
-                 : topStep === 'awaiting-admin' ? 'View'
+                 : topStep === 'awaiting-admin' ? (isFreelance ? '↑ Upload more reels' : 'View')
                  : topStep === 'admin-rejected' ? 'See Revisions'
                  : topStep === 'failed'         ? '↻ Retry'
                  : topStep === 'rejected'       ? '↻ Retry / view'
-                 : topStep === 'complete'       ? 'View'
+                 : topStep === 'complete'       ? (isFreelance ? '↑ Upload more reels' : 'View')
                  : 'Open workflow'
+
+  // Freelance cards bypass the workflow page entirely — the CTA opens
+  // the submit modal in-place. Bedroom keeps its href navigation. Also
+  // expose the upload modal from the "awaiting-admin" / "complete"
+  // states so the editor can submit additional finals on the same reel.
+  const freelanceCanUpload = isFreelance && (
+    topStep === 'freelance-upload-pending' ||
+    topStep === 'awaiting-admin' ||
+    topStep === 'complete'
+  )
 
   // Discard at the reel level wipes every scene record under it.
   const discardReel = async () => {
@@ -571,15 +614,32 @@ function ReelProjectCard({ group, creatorId, onChange }) {
             )}
           </div>
         )}
-        <a href={openHref}
-          style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, textDecoration: 'none' }}>
-          {ctaLabel}
-        </a>
+        {freelanceCanUpload ? (
+          <button onClick={() => setShowFreelanceSubmit(true)}
+            style={{ display: 'block', width: '100%', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, border: 'none', cursor: 'pointer' }}>
+            {ctaLabel}
+          </button>
+        ) : (
+          <a href={openHref}
+            style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, textDecoration: 'none' }}>
+            {ctaLabel}
+          </a>
+        )}
         <button onClick={discardReel}
           style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
           🗑 Discard reel
         </button>
       </div>
+      {showFreelanceSubmit && (
+        <FreelanceSubmitModal
+          reel={reel}
+          creatorId={creatorId}
+          akaName={akaName}
+          slug={freelanceTarget?.slug || ''}
+          onClose={() => setShowFreelanceSubmit(false)}
+          onDone={() => { setShowFreelanceSubmit(false); onChange?.() }}
+        />
+      )}
     </div>
   )
 }
@@ -1176,6 +1236,7 @@ export default function AiEditorPage() {
         <MyProjectsSection
           projects={projects}
           creatorId={creatorId}
+          akaName={creators?.find(c => c.id === creatorId)?.name || ''}
           onChange={() => loadProjects(creatorId)}
           onNewProject={() => setNewProjectReel({ __pickFromLibrary: true })}
         />
@@ -1193,23 +1254,21 @@ export default function AiEditorPage() {
           availableReels={reels}
           projectReelIds={new Set(projects.map(p => p.reel?.id).filter(Boolean))}
           onClose={() => setNewProjectReel(null)}
-          // Bedroom workflow — match what the ↓ Raw button does (create
-          // the project record) + navigate the operator to Create Scene
-          // where the actual workflow lives.
-          onChooseBedroom={(reel) => {
-            fetch('/api/admin/recreate-rooms/stage-b/start', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ creatorId, reelRecordIds: [reel.id] }),
-            }).then(() => loadProjects(creatorId)).catch(() => {})
-            router.push(`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${reel.id}`)
-          }}
-          // Direct Upload completed — refresh both reels (the source reel
-          // gets marked Produced and disappears from Fresh Inspo) and
-          // revisions/queue indicators.
-          onDirectUploadDone={({ uploadedCount }) => {
+          // Single callback for both workflow types. /start already ran
+          // server-side by this point — placeholder Stage B records exist
+          // for every selected reel. Refresh the lists so the new cards
+          // show up. For single-reel Bedroom, navigateReelId is set so
+          // the operator lands on Create Scene where the actual workflow
+          // lives (matches the legacy ↓ Raw behavior). Freelance and
+          // multi-reel batches stay on /ai-editor; the upload step
+          // happens from the project card.
+          onStarted={({ workflowType, navigateReelId }) => {
             loadReels(creatorId)
             loadProjects(creatorId)
             loadRevisions(creatorId)
+            if (workflowType === 'Bedroom' && navigateReelId) {
+              router.push(`/ai-editor/recreate?tab=stageb&creator=${creatorId}&reel=${navigateReelId}`)
+            }
           }}
         />
       )}
