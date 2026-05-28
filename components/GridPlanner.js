@@ -1638,9 +1638,47 @@ export default function GridPlanner({ smmMode = false } = {}) {
         }
       }
 
-      setBulkProgress(prev => prev ? { ...prev, status: 'done' } : prev)
+      // Final accounting from Airtable, not from accumulated tick results.
+      // The cron schedule at `* * * * *` races us for the same queue; when
+      // it grabs a post, its result lands in Vercel logs, not our browser,
+      // and `processed` undercounts. Pull ground truth for the exact set we
+      // enqueued so the toast reflects reality regardless of who processed
+      // each post.
+      let trueSent = processed
+      let trueFailed = failedCount
+      let truePending = total - trueSent - trueFailed
+      try {
+        const statusRes = await fetch('/api/admin/posts/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ postIds: ordered.map(p => p.id) }),
+        })
+        if (statusRes.ok) {
+          const { statuses = {} } = await statusRes.json()
+          trueSent = 0; trueFailed = 0; truePending = 0
+          for (const p of ordered) {
+            const s = statuses[p.id]
+            if (s && (s.status === 'Sent to Telegram' || s.sentAt)) trueSent++
+            else if (s && s.status === 'Send Failed') trueFailed++
+            else truePending++
+          }
+        }
+      } catch {
+        // Fall back to tick-accumulated numbers — better than nothing.
+      }
+
+      setBulkProgress(prev => prev ? {
+        ...prev,
+        status: 'done',
+        okCount: trueSent,
+        failCount: trueFailed,
+        current: trueSent + trueFailed,
+      } : prev)
       setTimeout(() => setBulkProgress(null), 8000)
-      showToast(`Done — ${processed}/${total} sent${failedCount ? `, ${failedCount} failed` : ''}.`)
+      const parts = [`${trueSent}/${total} sent`]
+      if (trueFailed) parts.push(`${trueFailed} failed`)
+      if (truePending) parts.push(`${truePending} still pending`)
+      showToast(`Done — ${parts.join(', ')}.`, trueFailed > 0)
     } catch (e) {
       showToast(`Send failed: ${e.message}`, true)
       setBulkProgress(null)

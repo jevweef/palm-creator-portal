@@ -1,8 +1,10 @@
 export const dynamic = 'force-dynamic'
-// Vercel Pro cap is 300s. Compression of 50MB+ videos on serverless CPUs can
-// legitimately take 30-60s, plus ~10s download + 10s upload + 35s URL method
-// attempt. 60s was too tight once compression joined the flow.
-export const maxDuration = 300
+// Pro Fluid Compute ceiling is 800s (was 300s for classic functions).
+// Uncompressed-asset worst case: 15s download + 200s libx264 ultrafast +
+// 10s upload + Telegram retry buffer was hitting 300s exactly and 504-ing
+// mid-upload, leaving Posts stuck at Status='Sending'. 800 gives ~13 min
+// of headroom. Requires Fluid Compute toggled on in the Vercel project.
+export const maxDuration = 800
 
 import { NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
@@ -481,6 +483,32 @@ async function doCarouselSend(params) {
 }
 
 async function doSend(params) {
+  // Idempotent re-entry guard. Any caller that retries — queue redelivery,
+  // a 504-then-reclaim by the stale-lock sweeper, a double-clicked Send
+  // button — would otherwise hit Telegram a second time. Skip when the
+  // Post is already marked Sent AND we have its Telegram Message ID to
+  // prove the prior call actually landed. (Status alone isn't enough: a
+  // future "manual retry" flow may flip back to Queued; require both.)
+  if (params.postId) {
+    try {
+      const existing = await fetchAirtableRecords('Posts', {
+        filterByFormula: `RECORD_ID() = ${quoteAirtableString(params.postId)}`,
+        fields: ['Status', 'Telegram Message ID'],
+      })
+      const f = existing[0]?.fields || {}
+      const statusName = typeof f.Status === 'string' ? f.Status : (f.Status?.name || '')
+      if (statusName === 'Sent to Telegram' && f['Telegram Message ID']) {
+        console.log(`[Telegram Send] Skipping ${params.postId} — already Sent with Message ID ${f['Telegram Message ID']}`)
+        return { ok: true, skipped: true, reason: 'already-sent' }
+      }
+    } catch (err) {
+      // Guard fetch failure shouldn't block the send — fall through and let
+      // the normal path run. Worst case is the duplicate we were trying to
+      // prevent, which is what the OLD behavior already was.
+      console.warn('[Telegram Send] Idempotency guard fetch failed, proceeding:', err.message)
+    }
+  }
+
   // Branch by post type. Carousels need a completely different upload path
   // (sendMediaGroup with N photos, no video / no compression / no thumbnail
   // asset cleanup) so route them through doCarouselSend instead of trying
