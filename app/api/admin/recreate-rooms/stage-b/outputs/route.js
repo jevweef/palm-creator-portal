@@ -4,6 +4,7 @@ import { recreateImageUrl, toDropboxRaw } from '@/lib/recreateImageUrl'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const ASSETS = 'tblAPl8Pi5v1qmMNM'
+const TASKS = 'tblXMh2UznOJMgxl6'
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT
 const OUTPUTS = 'Stage B Outputs'
@@ -72,13 +73,27 @@ export async function GET(request) {
         .map(o => o.fields.Slug)
     )]
     const slugToUploadedThumb = {}
+    // Admin's review status for each submitted video, keyed by slug. Lets
+    // the editor surface tell apart "submitted, admin still reviewing" from
+    // "admin approved → truly done." A scene is only Completed (from the
+    // editor's perspective) once this is 'Approved'. Falls back to null
+    // when the task hasn't been reviewed yet or the lookup fails.
+    const slugToAdminReview = {}
     if (uploadedSlugs.length > 0) {
       try {
-        const formula = `OR(${uploadedSlugs.map(s => `{Asset Name}=${quoteAirtableString(s)}`).join(',')})`
-        const assets = await fetchAirtableRecords(ASSETS, {
-          fields: ['Asset Name', 'CDN URL', 'Thumbnail'],
-          filterByFormula: formula,
-        })
+        const assetFormula = `OR(${uploadedSlugs.map(s => `{Asset Name}=${quoteAirtableString(s)}`).join(',')})`
+        // Tasks are named "AI Review: {slug}" per the upload finalize route.
+        const taskFormula = `OR(${uploadedSlugs.map(s => `{Name}=${quoteAirtableString('AI Review: ' + s)}`).join(',')})`
+        const [assets, tasks] = await Promise.all([
+          fetchAirtableRecords(ASSETS, {
+            fields: ['Asset Name', 'CDN URL', 'Thumbnail'],
+            filterByFormula: assetFormula,
+          }),
+          fetchAirtableRecords(TASKS, {
+            fields: ['Name', 'Admin Review Status'],
+            filterByFormula: taskFormula,
+          }),
+        ])
         for (const a of assets) {
           const name = a.fields?.['Asset Name']
           if (!name) continue
@@ -86,8 +101,15 @@ export async function GET(request) {
           const thumb = att(a.fields?.Thumbnail)
           if (cdn || thumb) slugToUploadedThumb[name] = cdn || thumb
         }
+        for (const t of tasks) {
+          const taskName = t.fields?.Name || ''
+          const slug = taskName.startsWith('AI Review: ') ? taskName.slice('AI Review: '.length) : null
+          if (!slug) continue
+          const status = t.fields?.['Admin Review Status']
+          slugToAdminReview[slug] = (status?.name || status || null)
+        }
       } catch (e) {
-        console.warn('[stage-b outputs] uploaded thumb lookup failed:', e.message)
+        console.warn('[stage-b outputs] uploaded asset/task lookup failed:', e.message)
       }
     }
     // 1-based index per creator, oldest = 1 (stable label that matches
@@ -134,6 +156,12 @@ export async function GET(request) {
           // so editors see what they actually shipped, not the bedroom
           // scene generation that preceded it.
           uploadedThumbnail: (f['Uploaded At'] && f.Slug) ? (slugToUploadedThumb[f.Slug] || null) : null,
+          // Admin's review status on the submitted video, null until the
+          // editor uploads (or the lookup misses). Editor's perspective:
+          // 'Pending Review' = submitted, admin hasn't decided.
+          // 'Approved' = truly done.
+          // 'Rejected' = needs revision (already surfaces in /revisions).
+          adminReviewStatus: (f['Uploaded At'] && f.Slug) ? (slugToAdminReview[f.Slug] || null) : null,
           room: roomId ? roomById[roomId] || '' : '',
           reel: reel ? {
             id: reelId,

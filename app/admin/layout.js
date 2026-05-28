@@ -81,7 +81,11 @@ export default function AdminLayout({ children }) {
   // being relocated into the /ai-editor workflow; until then, ai_editor
   // users get bounced to /ai-editor on every /admin visit.
   const isAiEditor = role === 'ai_editor'
-  const aiEditorAllowedPath = false
+  // Outfit Library lives at /admin/recreate-source — AI editors need to
+  // browse the reel source library + outfit closet. The "empty sidebar"
+  // block below renders no admin nav links for this role, so they can't
+  // see the rest of /admin/* even if they hand-type a URL.
+  const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')

@@ -299,6 +299,58 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
 // showing scene-cards here was noisy (the same reel surfaced as 5+ tiles).
 // The reel card summarizes scene counts by status; clicking opens the
 // workflow where the full scene gallery lives at the bottom.
+
+// Editor-perspective state derived from the raw scene status + uploadedAt
+// + adminReviewStatus. The raw "Approved" badge means the bedroom-scene
+// variation was approved, NOT that the project is done — that misled
+// editors who thought "Approved = shipped." This derived step describes
+// what the editor (or admin) needs to do next.
+function sceneStep(s) {
+  if (s.status === 'Started')    return 'tjp-photo'
+  if (s.status === 'Generating') return 'rendering'
+  if (s.status === 'Pending')    return 'approve-scene'
+  if (s.status === 'Failed')     return 'failed'
+  if (s.status === 'Rejected')   return 'rejected'
+  if (s.status === 'Approved') {
+    if (!s.uploadedAt) return 'tjp-motion'
+    if (s.adminReviewStatus === 'Approved') return 'complete'
+    if (s.adminReviewStatus === 'Rejected') return 'admin-rejected'
+    return 'awaiting-admin'
+  }
+  return 'unknown'
+}
+
+const STEP_LABEL = {
+  'tjp-photo':      'Need TJP photo',
+  'rendering':      'Rendering scene',
+  'approve-scene':  'Approve scene',
+  'tjp-motion':     'Do TJP outfit/motion → upload',
+  'awaiting-admin': 'Submitted — awaiting admin',
+  'admin-rejected': 'Rejected — see Revisions',
+  'rejected':       'Variation rejected',
+  'failed':         'Failed — retry',
+  'complete':       'Done ✓',
+  'unknown':        '—',
+}
+
+const STEP_COLOR = {
+  'tjp-photo':      '#aaa',
+  'rendering':      '#8fb4f0',
+  'approve-scene':  '#e8b878',
+  'tjp-motion':     '#e8b878',
+  'awaiting-admin': '#C8A8FF',
+  'admin-rejected': '#E87878',
+  'rejected':       '#E87878',
+  'failed':         '#E87878',
+  'complete':       '#6AC68A',
+  'unknown':        '#888',
+}
+
+// Priority order — most-urgent step at the top of a group dictates the
+// card's headline. "Done" sits at the bottom so any in-flight work
+// outranks completion when scenes are mixed.
+const STEP_PRIORITY = ['failed', 'admin-rejected', 'tjp-photo', 'approve-scene', 'tjp-motion', 'rendering', 'awaiting-admin', 'rejected', 'complete', 'unknown']
+
 function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
   // Don't early-return when there are zero projects — we still want the
   // "+ New Project" button visible. Render an empty-state below instead.
@@ -307,51 +359,62 @@ function MyProjectsSection({ projects, creatorId, onChange, onNewProject }) {
   // Group projects by reel record ID. A few really old rows may not have
   // a reel reference — keep those bucketed under their own project ID so
   // they don't all collide into one anonymous group.
-  const groups = (() => {
+  const allGroups = (() => {
     const byReel = new Map()
     for (const p of (projects || [])) {
       const key = p.reel?.id || `__noReel_${p.id}`
       if (!byReel.has(key)) byReel.set(key, { reelKey: key, reel: p.reel || null, scenes: [] })
       byReel.get(key).scenes.push(p)
     }
-    // Per-group status priority — most-urgent action wins so the editor
-    // sees at a glance what each reel needs next.
-    const order = { Failed: 0, Pending: 1, Started: 2, Generating: 3, Approved: 4, Rejected: 5 }
     for (const g of byReel.values()) {
       g.counts = g.scenes.reduce((m, s) => { m[s.status] = (m[s.status] || 0) + 1; return m }, {})
-      g.topStatus = g.scenes.reduce((best, s) => {
-        const a = order[s.status] ?? 99, b = order[best?.status] ?? 99
-        return a < b ? s : best
-      }, g.scenes[0]).status
+      // Derived editor-perspective top step (drives the card label + color).
+      const sceneSteps = g.scenes.map(sceneStep)
+      g.topStep = STEP_PRIORITY.find(step => sceneSteps.includes(step)) || 'unknown'
+      // A group is "completed" only when every scene reads as Done.
+      g.editorState = sceneSteps.length > 0 && sceneSteps.every(s => s === 'complete') ? 'completed' : 'in-progress'
       g.newest = g.scenes.reduce((t, s) => (s.createdTime || '') > t ? (s.createdTime || '') : t, '')
     }
-    // Sort the *reels* by their top status (same priority as before) so
-    // "needs TJP work" rises to the front.
     return [...byReel.values()].sort((a, b) => {
-      const oa = order[a.topStatus] ?? 99
-      const ob = order[b.topStatus] ?? 99
-      if (oa !== ob) return oa - ob
-      return (a.newest || '').localeCompare(b.newest || '')
+      const pa = STEP_PRIORITY.indexOf(a.topStep)
+      const pb = STEP_PRIORITY.indexOf(b.topStep)
+      if (pa !== pb) return pa - pb
+      return (b.newest || '').localeCompare(a.newest || '')
     })
   })()
 
-  // Aggregated counts across every scene under every reel, just for
-  // the header summary (matches what the section showed before).
-  const totalCounts = (projects || []).reduce((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m }, {})
+  // Filter: In Progress (default) vs Completed. Anything that still
+  // needs editor or admin action lives in In Progress.
+  const [editorFilter, setEditorFilter] = useState('in-progress')
+  const inProgressCount = allGroups.filter(g => g.editorState === 'in-progress').length
+  const completedCount  = allGroups.filter(g => g.editorState === 'completed').length
+  const groups = allGroups.filter(g => g.editorState === editorFilter)
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10, justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Projects</div>
+          {/* In Progress / Completed toggle — replaces the old wall-of-text
+              status summary. Counts come from the derived editorState. */}
           {hasProjects && (
-            <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
-              {groups.length} reel{groups.length === 1 ? '' : 's'} · {projects.length} variation{projects.length === 1 ? '' : 's'}
-              {totalCounts.Started ? ` · ${totalCounts.Started} need TJP work` : ''}
-              {totalCounts.Generating ? ` · ${totalCounts.Generating} rendering` : ''}
-              {totalCounts.Pending ? ` · ${totalCounts.Pending} awaiting your ✓` : ''}
-              {totalCounts.Approved ? ` · ${totalCounts.Approved} ready for TJP outfit/motion` : ''}
-              {totalCounts.Failed ? ` · ${totalCounts.Failed} failed` : ''}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[
+                { key: 'in-progress', label: 'In Progress', count: inProgressCount },
+                { key: 'completed',   label: 'Completed',   count: completedCount },
+              ].map(f => (
+                <button key={f.key}
+                  onClick={() => setEditorFilter(f.key)}
+                  style={{
+                    padding: '5px 11px', fontSize: 11, fontWeight: 600, letterSpacing: '0.03em',
+                    background: editorFilter === f.key ? 'rgba(232,160,160,0.10)' : 'rgba(255,255,255,0.03)',
+                    color: editorFilter === f.key ? 'var(--palm-pink)' : '#aaa',
+                    border: `1px solid ${editorFilter === f.key ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 999, cursor: 'pointer',
+                  }}>
+                  {f.label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{f.count}</span>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -947,16 +1010,22 @@ export default function AiEditorPage() {
             Bedroom Scene
           </button>
         )}
-        {/* Carousel Upload is admin-only for now — the workflow is still
-            in flux and we don't want to confuse AI editors with it. The
-            tab content render below is also gated on isAdmin so a
-            hand-typed ?tab=carousel URL from a non-admin shows nothing. */}
-        {isAdmin && (
-          <button onClick={() => setTab('carousel')}
-            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
-            Carousel
-          </button>
-        )}
+        {/* Outfit Library — gives editors quick access to the reel-source
+            library + outfit closet on /admin/recreate-source. Clicking
+            navigates away from /ai-editor since the page can't yet be
+            embedded as an inline tab (it ships its own admin sidebar
+            and conflicts with the editor view). When that page is
+            extracted into a component, swap to setTab('outfits') here. */}
+        <button
+          onClick={() => router.push('/admin/recreate-source')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}
+          title="Open the Outfit Library (reel sources + outfit closet)">
+          Outfit Library ↗
+        </button>
+        {/* Carousel tab is intentionally NOT in the strip — it's the
+            workflow Evan is still iterating on and clutter for editors.
+            Admins reach it by hand-typing ?tab=carousel. Content render
+            still gated on isAdmin so non-admins typing the URL get nothing. */}
       </div>
       </div>
       {/* /sticky header+tabs */}
