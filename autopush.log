@@ -9709,3 +9709,34 @@ After doing this, you may fix the identity used for this commit with:
 
  2 files changed, 20 insertions(+), 13 deletions(-)
 fatal: could not read Username for 'https://github.com': Device not configured
+warning: adding embedded git repository: .claude/worktrees/fix-posts-414
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> .claude/worktrees/fix-posts-414
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached .claude/worktrees/fix-posts-414
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+[dev 132452c7] Auto-save: 2026-05-27 23:00
+ Committer: Evan Leith <jevanleith@Evans-MacBook-Pro.local>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 16 insertions(+)
+ create mode 160000 .claude/worktrees/fix-posts-414
+fatal: could not read Username for 'https://github.com': Device not configured
