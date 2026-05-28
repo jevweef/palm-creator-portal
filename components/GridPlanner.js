@@ -1997,7 +1997,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           >
             <option value="">Select creator…</option>
             {creators.map(c => (
-              <option key={c.id} value={c.id}>{c.name} ({c.accountCount})</option>
+              <option key={c.id} value={c.id}>{c.name} ({c.queueCount ?? 0})</option>
             ))}
           </select>
         </div>
