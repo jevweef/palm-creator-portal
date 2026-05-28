@@ -344,8 +344,11 @@ function sceneStep(s) {
 
 // Short label per workflow type — drives the pill badges on cards and
 // inside carousel slide indicators. Mixed groups show both pills.
-const WORKFLOW_LABEL = { bedroom: 'Bedroom', 'custom-edit': 'Custom Edit' }
-const WORKFLOW_COLOR = { bedroom: '#7DD3A4', 'custom-edit': '#C8A8FF' }
+// Freelance is a Stage B record (source='bedroom') with Workflow Type
+// flipped — uses its own label/color so editors don't see "Bedroom" on
+// a card that's actually skipping the bedroom flow.
+const WORKFLOW_LABEL = { bedroom: 'Bedroom', 'custom-edit': 'Custom Edit', freelance: 'Freelance' }
+const WORKFLOW_COLOR = { bedroom: '#7DD3A4', 'custom-edit': '#C8A8FF', freelance: '#E8A0A0' }
 
 const STEP_LABEL = {
   'freelance-upload-pending': 'Ready — upload final reels',
@@ -637,7 +640,11 @@ function ReelProjectCard({ group, creatorId, onChange, akaName }) {
           </div>
           <div style={{ display: 'flex', gap: 3 }}>
             {hasBedroom && (
-              <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#0a1a10', background: WORKFLOW_COLOR.bedroom, borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL.bedroom}</span>
+              isFreelance ? (
+                <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#2a0a0a', background: WORKFLOW_COLOR.freelance, borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL.freelance}</span>
+              ) : (
+                <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#0a1a10', background: WORKFLOW_COLOR.bedroom, borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL.bedroom}</span>
+              )
             )}
             {hasCustom && (
               <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#1a0a2a', background: WORKFLOW_COLOR['custom-edit'], borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL['custom-edit']}</span>
