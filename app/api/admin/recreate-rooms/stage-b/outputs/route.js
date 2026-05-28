@@ -27,7 +27,7 @@ export async function GET(request) {
       fetchAirtableRecords(OUTPUTS, {
         fields: ['Name', 'Creator', 'Source Reel', 'Room', 'Image', 'Dropbox Link', 'Dropbox Path',
           'Pose Time', 'Screenshot Framing', 'Room Framing', 'Time of Day', 'Status', 'Reject Reason',
-          'Reel #', 'Still #', 'Slug', 'Uploaded At',
+          'Reel #', 'Still #', 'Slug', 'Uploaded At', 'Workflow Type',
           'Raw Screenshot', 'Upscaled Screenshot', 'TJP Output',
           'Raw Screenshot Path', 'Upscaled Screenshot Path', 'TJP Output Path'],
       }),
@@ -206,6 +206,12 @@ export async function GET(request) {
             }
           })(),
           source: 'bedroom',
+          // Project workflow type. Drives the project-card CTA:
+          //   'Bedroom'   → existing Continue → upload TJP photo flow
+          //   'Freelance' → ↑ Upload final reels modal (no portal scene step)
+          // Defaults to 'Bedroom' when the field is unset so older records
+          // render exactly as they did before the field existed.
+          workflowType: sel(f['Workflow Type']) || 'Bedroom',
           createdTime: o.createdTime,
         }
       })
