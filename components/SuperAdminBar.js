@@ -21,6 +21,16 @@ export default function SuperAdminBar() {
   const [selectedChatManager, setSelectedChatManager] = useState(null)
   const chatMgrDropdownRef = useRef(null)
 
+  // The bar uses overflow-x:auto for mobile scrolling, which the CSS spec
+  // forces overflow-y to compute to auto as well — that CLIPS an absolutely
+  // positioned dropdown rendered below the bar (it disappears). To escape the
+  // clip we render the menus position:fixed, anchored to the trigger button's
+  // on-screen rect captured when the menu opens.
+  const creatorBtnRef = useRef(null)
+  const chatMgrBtnRef = useRef(null)
+  const [creatorMenuPos, setCreatorMenuPos] = useState({ top: 0, left: 0 })
+  const [chatMgrMenuPos, setChatMgrMenuPos] = useState({ top: 0, left: 0 })
+
   const email = user?.primaryEmailAddress?.emailAddress
   const role = user?.publicMetadata?.role
   const isSuperAdmin = isLoaded && (role === 'super_admin' || SUPER_ADMIN_EMAILS.includes(email))
@@ -178,10 +188,16 @@ export default function SuperAdminBar() {
           unscoped admin browsing. */}
       <div ref={chatMgrDropdownRef} style={{ position: 'relative' }}>
         <button
+          ref={chatMgrBtnRef}
           onMouseEnter={ensureChatManagersLoaded}
           onClick={() => {
             ensureChatManagersLoaded()
-            setChatMgrDropdownOpen(o => !o)
+            const willOpen = !chatMgrDropdownOpen
+            if (willOpen && chatMgrBtnRef.current) {
+              const r = chatMgrBtnRef.current.getBoundingClientRect()
+              setChatMgrMenuPos({ top: r.bottom + 6, left: r.left })
+            }
+            setChatMgrDropdownOpen(willOpen)
           }}
           style={{
             ...tabStyle(isChatManagerTab),
@@ -201,9 +217,9 @@ export default function SuperAdminBar() {
 
         {chatMgrDropdownOpen && (
           <div style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
+            position: 'fixed',
+            top: chatMgrMenuPos.top,
+            left: chatMgrMenuPos.left,
             background: '#0a0a0a',
             border: '1px solid var(--card-border)',
             borderRadius: '12px',
@@ -274,6 +290,7 @@ export default function SuperAdminBar() {
       {/* Creator tab with dropdown */}
       <div ref={dropdownRef} style={{ position: 'relative' }}>
         <button
+          ref={creatorBtnRef}
           style={{
             ...tabStyle(isCreatorTab),
             display: 'flex',
@@ -281,12 +298,21 @@ export default function SuperAdminBar() {
             gap: '6px',
           }}
           onClick={() => {
+            const capturePos = () => {
+              if (creatorBtnRef.current) {
+                const r = creatorBtnRef.current.getBoundingClientRect()
+                setCreatorMenuPos({ top: r.bottom + 6, left: r.left })
+              }
+            }
             if (isCreatorTab) {
-              setDropdownOpen(o => !o)
+              const willOpen = !dropdownOpen
+              if (willOpen) capturePos()
+              setDropdownOpen(willOpen)
             } else if (selectedCreator) {
               const hqParam = selectedCreator.hqId ? `?hqId=${selectedCreator.hqId}` : ''
               router.push(`/creator/${selectedCreator.id}/dashboard${hqParam}`)
             } else {
+              capturePos()
               setDropdownOpen(true)
             }
           }}
@@ -302,9 +328,9 @@ export default function SuperAdminBar() {
 
         {dropdownOpen && (
           <div style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
+            position: 'fixed',
+            top: creatorMenuPos.top,
+            left: creatorMenuPos.left,
             background: '#0a0a0a',
             border: '1px solid var(--card-border)',
             borderRadius: '12px',
