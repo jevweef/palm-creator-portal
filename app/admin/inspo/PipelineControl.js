@@ -99,8 +99,6 @@ export default function PipelineControl() {
   const [scrapeResult, setScrapeResult] = useState(null)
   const [promoteLoading, setPromoteLoading] = useState(false)
   const [promoteResult, setPromoteResult] = useState(null)
-  const [analysisLoading, setAnalysisLoading] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState(null)
 
   const fetchStats = useCallback(async () => {
     try {
@@ -145,21 +143,6 @@ export default function PipelineControl() {
       setPromoteResult({ error: err.message })
     } finally {
       setPromoteLoading(false)
-    }
-  }
-
-  const runAnalysis = async () => {
-    setAnalysisLoading(true)
-    setAnalysisResult(null)
-    try {
-      const res = await fetch('/api/admin/trigger-analysis', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Trigger failed')
-      setAnalysisResult({ message: data.message || 'Analysis triggered.' })
-    } catch (err) {
-      setAnalysisResult({ error: err.message })
-    } finally {
-      setAnalysisLoading(false)
     }
   }
 
@@ -259,14 +242,6 @@ export default function PipelineControl() {
           loading={promoteLoading}
           result={promoteResult}
           color="#a78bfa"
-        />
-        <ActionButton
-          label="Analysis"
-          description="Run AI analysis on promoted reels — generates tags, directions, and notes."
-          onClick={runAnalysis}
-          loading={analysisLoading}
-          result={analysisResult}
-          color="#22c55e"
         />
       </div>
     </div>
