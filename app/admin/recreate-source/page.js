@@ -58,11 +58,27 @@ function LibraryReel({ reel, onRemove }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#555', fontSize: 11 }}>processing…</div>
       )}
       <div style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.7)', padding: '1px 6px', borderRadius: 4, fontSize: 10, color: '#ddd' }}>@{reel.handle}</div>
-      <button
-        onClick={() => onRemove(reel)}
-        title="Remove from library (deletes the Dropbox file)"
-        style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#E87878', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: '22px', padding: 0 }}
-      >×</button>
+      <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
+        {/* Direct download — admin needs to grab the raw reel without
+            going through the Workspace/Inspo grid. Same dl=1 trick as
+            the AI editor's ↓ Raw button: dropbox.com has no CORS so a
+            fetch()+blob would silently fail; dl=1 makes Dropbox serve
+            the file with an attachment disposition. */}
+        {reel.video && (
+          <a
+            href={String(reel.video).replace(/([?&])raw=1/, '$1dl=1').replace(/([?&])dl=0/, '$1dl=1')}
+            target="_blank"
+            rel="noopener"
+            title="Download the raw reel from Dropbox"
+            style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#8FB4F0', border: 'none', cursor: 'pointer', fontSize: 12, lineHeight: '22px', padding: 0, textAlign: 'center', textDecoration: 'none', display: 'inline-block' }}
+          >↓</a>
+        )}
+        <button
+          onClick={() => onRemove(reel)}
+          title="Remove from library (deletes the Dropbox file)"
+          style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', color: '#E87878', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: '22px', padding: 0 }}
+        >×</button>
+      </div>
       {reel.producedForCount > 0 && (
         <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(106,198,138,0.85)', padding: '1px 6px', borderRadius: 4, fontSize: 9, color: '#0a1a0f', fontWeight: 700 }}>
           produced ×{reel.producedForCount}
