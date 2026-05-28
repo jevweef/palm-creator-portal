@@ -201,8 +201,34 @@ export async function GET(request) {
     // accountCount = 2 always (IG + FB) for any creator with Social Media
     // Editing on. Keeping the field for frontend back-compat — it used to
     // flag creators with zero managed IG accounts; that case is gone.
+    //
+    // queueCount = number of unique Tasks for this creator that are sitting
+    // in the "Ready to schedule" tray (Channel BLANK, not yet sent/posted,
+    // and not in the Prepping/Archived buckets). Matches the count the
+    // creator-specific GET shows as `unassignedGroups.length` so the
+    // dropdown surfaces actionable queue depth per creator.
+    const queueByCreator = {}
+    if (!creatorId) {
+      const queuePosts = await fetchAirtableRecords('Posts', {
+        filterByFormula: "AND({Channel}=BLANK(),{Status}!='Prepping',{Status}!='Archived',{Telegram Sent At}=BLANK(),{Posted At}=BLANK(),{Post Link}=BLANK())",
+        fields: ['Creator', 'Task'],
+      })
+      for (const p of queuePosts) {
+        const cid = (p.fields?.Creator || [])[0]
+        if (!cid) continue
+        const tid = (p.fields?.Task || [])[0] || `orphan-${p.id}`
+        if (!queueByCreator[cid]) queueByCreator[cid] = new Set()
+        queueByCreator[cid].add(tid)
+      }
+    }
+
     const creators = Object.entries(creatorMap)
-      .map(([id, name]) => ({ id, name, accountCount: 2 }))
+      .map(([id, name]) => ({
+        id,
+        name,
+        accountCount: 2,
+        queueCount: queueByCreator[id] ? queueByCreator[id].size : 0,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name))
 
     if (!creatorId) {

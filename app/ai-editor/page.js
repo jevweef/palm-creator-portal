@@ -816,11 +816,17 @@ export default function AiEditorPage() {
   // the project in the upload form.
   const [carouselLinkedProjectId, setCarouselLinkedProjectId] = useState('')
   const [uploadInspoOpen, setUploadInspoOpen] = useState(false)
-  const [uploadInspoFile, setUploadInspoFile] = useState(null)
+  // Multi-file Upload Inspo: editor can drop / pick N video files at once
+  // and each one creates its own Recreate Reel record in parallel. The
+  // statuses map (file.name → { status, message }) drives the inline
+  // progress list — same pattern the New Project modal uses for Direct
+  // Upload, just pointed at the local-reel finalize endpoint instead of
+  // the project-scoped upload finalize.
+  const [uploadInspoFiles, setUploadInspoFiles] = useState([])
+  const [uploadInspoStatuses, setUploadInspoStatuses] = useState({})
   const [uploadInspoCaption, setUploadInspoCaption] = useState('')
   const [uploadInspoDragOver, setUploadInspoDragOver] = useState(false)
   const [uploadInspoBusy, setUploadInspoBusy] = useState(false)
-  const [uploadInspoProgress, setUploadInspoProgress] = useState('')
   const [uploadInspoError, setUploadInspoError] = useState('')
   const [uploadInspoMsg, setUploadInspoMsg] = useState('')
   const uploadInspoFileRef = useRef(null)
@@ -856,32 +862,45 @@ export default function AiEditorPage() {
     } catch {}
   }, [])
 
-  // Editor uploads a local video file → 3-step direct-to-Dropbox flow
-  // (token → PUT bytes → finalize) → new Recreate Reel record lands in
-  // the global pool with Status='Available'. Reel shows up in every
-  // creator's Fresh Inspo grid on the next loadReels().
-  const acceptUploadInspoFile = (file) => {
-    if (!file) return
-    if (!file.type?.startsWith('video/')) { setUploadInspoError('Need a video file (mp4, mov, webm)'); return }
+  // Editor uploads ONE OR MORE local video files → each runs the 3-step
+  // direct-to-Dropbox flow (token → PUT bytes → finalize) in parallel.
+  // Each file becomes its own Recreate Reel record (Status='Available',
+  // Added Via='Editor Upload'). Stream mirror fires on the finalize
+  // endpoint so playback uses Cloudflare's CDN poster + iframe player
+  // within ~30s; downloads still pull the raw Dropbox file.
+  const acceptUploadInspoFiles = (files) => {
+    if (!files || files.length === 0) return
+    const arr = Array.from(files).filter(f => f.type?.startsWith('video/'))
+    if (arr.length === 0) { setUploadInspoError('Need video files (mp4, mov, webm)'); return }
     setUploadInspoError('')
-    setUploadInspoFile(file)
+    // Append to existing selection (drag in a few, then drag in a few more)
+    // de-duped by name+size so the same drop doesn't queue dupes.
+    setUploadInspoFiles(prev => {
+      const seen = new Set(prev.map(f => `${f.name}|${f.size}`))
+      const merged = [...prev]
+      for (const f of arr) {
+        const key = `${f.name}|${f.size}`
+        if (!seen.has(key)) { seen.add(key); merged.push(f) }
+      }
+      return merged
+    })
   }
-  const submitUploadInspo = async () => {
-    const vf = uploadInspoFile
-    if (!vf) { setUploadInspoError('Drop a video file first'); return }
-    setUploadInspoBusy(true); setUploadInspoError(''); setUploadInspoMsg(''); setUploadInspoProgress('Getting upload token…')
+
+  // Per-file uploader — captures statuses in the shared map so the modal
+  // can render an inline status row per file as work progresses.
+  const uploadOneInspoFile = async (file, caption) => {
+    const setStatus = (s) => setUploadInspoStatuses(prev => ({ ...prev, [file.name]: s }))
     try {
-      // 1. Get Dropbox token + path (sized for this filename).
+      setStatus({ status: 'token', message: 'Requesting Dropbox token…' })
       const tokRes = await fetch('/api/ai-editor/upload-local-reel/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: vf.name }),
+        body: JSON.stringify({ filename: file.name }),
       })
       const tok = await tokRes.json()
       if (!tokRes.ok) throw new Error(tok.error || 'Could not get upload token')
 
-      // 2. Direct-to-Dropbox upload (bypasses Vercel body limit).
-      setUploadInspoProgress(`Uploading ${(vf.size / 1024 / 1024).toFixed(1)} MB to Dropbox…`)
+      setStatus({ status: 'dropbox', message: `Uploading ${(file.size / (1024*1024)).toFixed(1)} MB to Dropbox…` })
       const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
         method: 'POST',
         headers: {
@@ -890,35 +909,59 @@ export default function AiEditorPage() {
           'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: tok.rootNamespaceId }),
           'Content-Type': 'application/octet-stream',
         },
-        body: await vf.arrayBuffer(),
+        body: await file.arrayBuffer(),
       })
       if (!dbxRes.ok) throw new Error(`Dropbox upload failed (${dbxRes.status})`)
 
-      // 3. Finalize — mints shared link, creates Recreate Reel record,
-      //    kicks off Stream mirror in the background.
-      setUploadInspoProgress('Creating reel record…')
+      setStatus({ status: 'finalize', message: 'Creating reel record…' })
       const finRes = await fetch('/api/ai-editor/upload-local-reel/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dropboxPath: tok.path,
-          shortid: tok.shortid,
-          caption: uploadInspoCaption,
-        }),
+        body: JSON.stringify({ dropboxPath: tok.path, shortid: tok.shortid, caption: caption || '' }),
       })
       const fin = await finRes.json()
       if (!finRes.ok) throw new Error(fin.error || 'Finalize failed')
-
-      setUploadInspoOpen(false)
-      setUploadInspoFile(null)
-      setUploadInspoCaption('')
-      setUploadInspoProgress('')
-      setUploadInspoMsg(`Added · ${fin.reelId} — appears below`)
-      loadReels(creatorId)
+      setStatus({ status: 'done', message: `✓ Added · ${fin.reelId}` })
+      return { ok: true, reelId: fin.reelId }
     } catch (e) {
-      setUploadInspoError(e.message)
-    } finally {
-      setUploadInspoBusy(false)
+      setStatus({ status: 'error', message: e.message })
+      return { ok: false, error: e.message }
+    }
+  }
+
+  const submitUploadInspo = async () => {
+    if (uploadInspoFiles.length === 0) { setUploadInspoError('Pick at least one video file first'); return }
+    setUploadInspoBusy(true); setUploadInspoError(''); setUploadInspoMsg('')
+    // Seed the statuses map so every row shows "Queued…" from the start,
+    // not just the in-flight ones. Otherwise long files look broken.
+    const init = {}
+    for (const f of uploadInspoFiles) init[f.name] = { status: 'queued', message: 'Queued…' }
+    setUploadInspoStatuses(init)
+
+    // Run all uploads in parallel. Each call updates the statuses map
+    // independently — there's no batch endpoint, the local-reel finalize
+    // is single-file. Concurrent uploads here mirror what the New Project
+    // modal does in its Direct Upload stage.
+    const results = await Promise.all(uploadInspoFiles.map(f => uploadOneInspoFile(f, uploadInspoCaption)))
+    const failed = results.filter(r => !r.ok).length
+    const success = results.length - failed
+    setUploadInspoBusy(false)
+
+    if (failed === 0) {
+      setUploadInspoMsg(`✓ Added ${success} reel${success === 1 ? '' : 's'} to the pool`)
+      // Brief delay so the editor sees the ✓ row states before the modal
+      // closes — feels less abrupt than snapping shut immediately.
+      setTimeout(() => {
+        setUploadInspoOpen(false)
+        setUploadInspoFiles([])
+        setUploadInspoStatuses({})
+        setUploadInspoCaption('')
+        loadReels(creatorId)
+      }, 1500)
+    } else {
+      setUploadInspoError(`${failed} of ${results.length} failed — see per-file status above`)
+      // Refresh anyway so the successful ones appear in the grid.
+      loadReels(creatorId)
     }
   }
 
@@ -1308,11 +1351,11 @@ export default function AiEditorPage() {
         <div onClick={() => !uploadInspoBusy && setUploadInspoOpen(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ width: 'min(560px, 95vw)', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            style={{ width: 'min(620px, 95vw)', maxHeight: '90vh', overflow: 'auto', background: 'var(--card-bg-solid, #16161c)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>↑ Upload inspo from your machine</div>
               <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                Drop a video file (mp4, mov, webm). It lands in your Inspo Board and you can start a new project from it just like any scraped reel.
+                Drop one or more video files (mp4, mov, webm). Each one becomes its own reel in the AI Inspo Library — uploads run in parallel so you can drop a batch and watch them all finish.
               </div>
             </div>
 
@@ -1323,43 +1366,75 @@ export default function AiEditorPage() {
               onDrop={(e) => {
                 e.preventDefault(); setUploadInspoDragOver(false)
                 if (uploadInspoBusy) return
-                const f = e.dataTransfer?.files?.[0]
-                if (f) acceptUploadInspoFile(f)
+                acceptUploadInspoFiles(e.dataTransfer?.files)
               }}
               style={{
-                padding: uploadInspoFile ? '14px 16px' : '28px 16px',
+                padding: uploadInspoFiles.length ? '14px 16px' : '28px 16px',
                 borderRadius: 10,
-                border: `2px dashed ${uploadInspoDragOver ? '#6AC68A' : uploadInspoFile ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
-                background: uploadInspoDragOver ? 'rgba(106,198,138,0.10)' : uploadInspoFile ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
+                border: `2px dashed ${uploadInspoDragOver ? '#6AC68A' : uploadInspoFiles.length ? 'rgba(106,198,138,0.55)' : 'rgba(255,255,255,0.18)'}`,
+                background: uploadInspoDragOver ? 'rgba(106,198,138,0.10)' : uploadInspoFiles.length ? 'rgba(106,198,138,0.06)' : 'rgba(255,255,255,0.02)',
                 cursor: uploadInspoBusy ? 'wait' : 'pointer',
                 textAlign: 'center',
                 transition: 'all 0.15s',
               }}>
-              {uploadInspoFile ? (
+              {uploadInspoFiles.length > 0 ? (
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>🎬 {uploadInspoFile.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#6AC68A', marginBottom: 4 }}>
+                    🎬 {uploadInspoFiles.length} file{uploadInspoFiles.length === 1 ? '' : 's'} selected
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>
-                    {(uploadInspoFile.size / 1024 / 1024).toFixed(1)} MB · click to pick another
+                    {uploadInspoBusy ? 'Uploading…' : 'Click or drop more to add'}
                   </div>
                 </div>
               ) : (
                 <div>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>🎬</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Drop a video here</div>
-                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to pick from Finder</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Drop videos here</div>
+                  <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>or click to pick one or many from Finder</div>
                 </div>
               )}
             </div>
             <input ref={uploadInspoFileRef} type="file"
               accept="video/mp4,video/quicktime,video/webm,video/*"
-              onChange={(e) => acceptUploadInspoFile(e.target.files?.[0])}
+              multiple
+              onChange={(e) => acceptUploadInspoFiles(e.target.files)}
               style={{ display: 'none' }} />
+
+            {/* Inline per-file rows — shows up as soon as the editor picks
+                files, then updates live during upload. Mirrors the New
+                Project modal's Direct Upload progress UI for consistency. */}
+            {uploadInspoFiles.length > 0 && (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 280, overflowY: 'auto' }}>
+                {uploadInspoFiles.map(f => {
+                  const s = uploadInspoStatuses[f.name] || { status: 'pending', message: `${(f.size / (1024*1024)).toFixed(1)} MB` }
+                  const done = s.status === 'done'
+                  const failed = s.status === 'error'
+                  const inflight = ['token', 'dropbox', 'finalize'].includes(s.status)
+                  return (
+                    <li key={f.name} style={{
+                      padding: '7px 10px', borderRadius: 6,
+                      background: done ? 'rgba(106,198,138,0.07)' : failed ? 'rgba(232,120,120,0.07)' : inflight ? 'rgba(120,180,232,0.06)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${done ? 'rgba(106,198,138,0.30)' : failed ? 'rgba(232,120,120,0.30)' : inflight ? 'rgba(120,180,232,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                      fontSize: 12,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--foreground)' }}>{f.name}</span>
+                        <span style={{ color: done ? '#6AC68A' : failed ? '#E87878' : inflight ? '#8FB4F0' : 'var(--foreground-muted)', flexShrink: 0, fontWeight: 700 }}>
+                          {done ? '✓' : failed ? '⨯' : inflight ? '…' : ''}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: failed ? '#E87878' : 'var(--foreground-subtle)', marginTop: 2 }}>{s.message}</div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
 
             <input
               type="text"
               value={uploadInspoCaption}
               onChange={e => setUploadInspoCaption(e.target.value)}
-              placeholder="Caption / note (optional) — shows on the reel card"
+              placeholder="Caption / note (optional) — applies to every reel in this batch"
               disabled={uploadInspoBusy}
               maxLength={500}
               style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, fontSize: 12, fontFamily: 'inherit' }}
@@ -1368,19 +1443,30 @@ export default function AiEditorPage() {
             {uploadInspoError && (
               <div style={{ padding: '8px 10px', background: 'rgba(232,120,120,0.12)', color: '#E87878', borderRadius: 5, fontSize: 12 }}>{uploadInspoError}</div>
             )}
-            {uploadInspoProgress && !uploadInspoError && (
-              <div style={{ padding: '8px 10px', background: 'rgba(120,180,232,0.10)', color: '#8FB4F0', borderRadius: 5, fontSize: 12 }}>{uploadInspoProgress}</div>
+            {uploadInspoMsg && !uploadInspoError && (
+              <div style={{ padding: '8px 10px', background: 'rgba(106,198,138,0.10)', color: '#6AC68A', borderRadius: 5, fontSize: 12 }}>{uploadInspoMsg}</div>
             )}
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setUploadInspoOpen(false)} disabled={uploadInspoBusy}
-                style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={submitUploadInspo} disabled={uploadInspoBusy || !uploadInspoFile}
-                style={{ padding: '8px 16px', background: uploadInspoBusy ? 'rgba(200,168,255,0.10)' : 'rgba(200,168,255,0.25)', color: '#C8A8FF', border: '1px solid rgba(200,168,255,0.45)', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
-                {uploadInspoBusy ? '⏳ Uploading…' : '↑ Add to pool'}
-              </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Clear / Cancel — clear-only when files queued + idle, cancel always closes the modal */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {uploadInspoFiles.length > 0 && !uploadInspoBusy && (
+                  <button onClick={() => { setUploadInspoFiles([]); setUploadInspoStatuses({}); setUploadInspoError('') }}
+                    style={{ padding: '6px 10px', background: 'transparent', color: 'var(--foreground-muted)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 5, fontSize: 11, cursor: 'pointer' }}>
+                    Clear all
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setUploadInspoOpen(false)} disabled={uploadInspoBusy}
+                  style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: uploadInspoBusy ? 'wait' : 'pointer' }}>
+                  {uploadInspoBusy ? 'Working…' : 'Cancel'}
+                </button>
+                <button onClick={submitUploadInspo} disabled={uploadInspoBusy || uploadInspoFiles.length === 0}
+                  style={{ padding: '8px 16px', background: uploadInspoBusy ? 'rgba(200,168,255,0.10)' : uploadInspoFiles.length === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(200,168,255,0.25)', color: uploadInspoFiles.length === 0 ? 'var(--foreground-muted)' : '#C8A8FF', border: `1px solid ${uploadInspoFiles.length === 0 ? 'rgba(255,255,255,0.10)' : 'rgba(200,168,255,0.45)'}`, borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: uploadInspoBusy || uploadInspoFiles.length === 0 ? 'not-allowed' : 'pointer' }}>
+                  {uploadInspoBusy ? '⏳ Uploading…' : `↑ Add ${uploadInspoFiles.length || ''} to pool`}
+                </button>
+              </div>
             </div>
           </div>
         </div>
