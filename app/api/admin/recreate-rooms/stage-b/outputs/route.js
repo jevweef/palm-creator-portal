@@ -125,7 +125,11 @@ export async function GET(request) {
         .sort((a, b) => (a.createdTime || '').localeCompare(b.createdTime || ''))
         .forEach((o, i) => { idxById[o.id] = i + 1 })
     }
-    const list = outputs
+    // Bedroom scenes — what Stage B Outputs become for the editor's
+    // Projects tab. Custom Edit submissions (uploaded via Direct Upload
+    // with no slug) are emitted below as synthetic scenes alongside
+    // these, so editors can see both workflows in one list.
+    const bedroomList = outputs
       .filter(o => !creatorId || (o.fields?.Creator || []).includes(creatorId))
       .map(o => {
         const f = o.fields || {}
@@ -201,9 +205,171 @@ export async function GET(request) {
               } : null,
             }
           })(),
+          source: 'bedroom',
           createdTime: o.createdTime,
         }
       })
+
+    // ── Custom Edit projects ──────────────────────────────────────────
+    // The Direct Upload path in the New Project modal creates an Asset +
+    // Task per uploaded video but no Stage B Output (no Bedroom scene
+    // backing). Without this block the editor's Projects tab couldn't
+    // see anything they submitted via Custom Edit until admin rejected
+    // it. We surface those Tasks as synthetic scenes with
+    // `source: 'custom-edit'`, joined back to a source reel via the
+    // Asset's Reference Source URL.
+    //
+    // Slug-collision rule: a Task whose name parses to a slug that
+    // ALREADY appears as a Stage B Output's Slug is skipped — those are
+    // Bedroom uploads (the Asset+Task is the receipt; the Stage B Output
+    // is the canonical project record).
+    const bedroomSlugs = new Set(
+      outputs
+        .filter(o => o.fields?.Slug && (!creatorId || (o.fields?.Creator || []).includes(creatorId)))
+        .map(o => o.fields.Slug)
+    )
+
+    let customList = []
+    if (creatorId) {
+      try {
+        // Filter: AI Generated tasks for this creator that have an Asset
+        // attached. The creator linked record stores an array of record
+        // IDs; FIND() against the comma-joined string is the cheapest
+        // formula-side check.
+        const taskFormula = `AND({Source Type}='AI Generated', FIND(${quoteAirtableString(creatorId)}, ARRAYJOIN({Creator}))>0)`
+        const aiTasks = await fetchAirtableRecords(TASKS, {
+          fields: ['Name', 'Status', 'Admin Review Status', 'Admin Feedback', 'Completed At', 'Asset', 'Creator'],
+          filterByFormula: taskFormula,
+        })
+
+        // Collect linked Asset IDs (each Task has exactly one Asset per
+        // the upload finalize route — line 184). Batch-fetch them so
+        // we can read CDN URL, Dropbox link, Reference Source URL for
+        // each.
+        const assetIds = [...new Set(
+          aiTasks
+            .map(t => (t.fields?.Asset || [])[0])
+            .filter(Boolean)
+        )]
+        let assetById = {}
+        if (assetIds.length > 0) {
+          // Fetch in chunks of 100 to keep filterByFormula sane.
+          const chunks = []
+          for (let i = 0; i < assetIds.length; i += 100) chunks.push(assetIds.slice(i, i + 100))
+          const all = await Promise.all(chunks.map(c => {
+            const formula = `OR(${c.map(id => `RECORD_ID()=${quoteAirtableString(id)}`).join(',')})`
+            return fetchAirtableRecords(ASSETS, {
+              fields: ['Asset Name', 'CDN URL', 'Thumbnail', 'Dropbox Shared Link', 'Reference Source URL'],
+              filterByFormula: formula,
+            })
+          }))
+          for (const batch of all) {
+            for (const a of batch) assetById[a.id] = a.fields || {}
+          }
+        }
+
+        // Index reels by Reel URL so we can join Custom Edit Tasks back
+        // to their source reel (Asset.Reference Source URL == Reel.Reel
+        // URL by convention).
+        const reelByUrl = {}
+        for (const r of reels) {
+          const url = r.fields?.['Reel URL']
+          if (url) reelByUrl[url] = { id: r.id, fields: r.fields }
+        }
+
+        customList = aiTasks
+          .map(t => {
+            const tf = t.fields || {}
+            const assetId = (tf.Asset || [])[0]
+            const af = assetId ? assetById[assetId] : null
+            if (!af) return null  // task without an asset — skip, can't show usefully
+
+            // Parse slug out of "AI Review: <slug>" or "AI Review: @<handle> <reelId>".
+            const taskName = tf.Name || ''
+            const slug = taskName.startsWith('AI Review: ')
+              ? taskName.slice('AI Review: '.length)
+              : ''
+            if (slug && bedroomSlugs.has(slug)) return null  // Bedroom upload — already represented by its Stage B Output
+
+            const adminReview = tf['Admin Review Status']?.name || tf['Admin Review Status'] || null
+            // Mimic Stage B Output's Status field so the frontend's existing
+            // sceneStep can handle it once we add the source-aware branch.
+            //   Pending Review → Approved (the variation-approval; sceneStep
+            //     uses uploadedAt+adminReviewStatus to derive awaiting-admin)
+            //   Approved → Approved (sceneStep flips to 'complete' from
+            //     adminReviewStatus)
+            //   Needs Revision → Rejected (matches the Bedroom flow's
+            //     rejected state)
+            const mimicStatus = adminReview === 'Needs Revision' ? 'Rejected' : 'Approved'
+
+            const sourceUrl = af['Reference Source URL'] || ''
+            const matchedReel = sourceUrl ? reelByUrl[sourceUrl] : null
+            const reelObj = matchedReel ? {
+              id: matchedReel.id,
+              reelId: matchedReel.fields['Reel ID'] || '',
+              url: matchedReel.fields['Reel URL'] || sourceUrl,
+              handle: matchedReel.fields['Source Handle'] || '',
+              streamUid: matchedReel.fields['Stream UID'] || null,
+              thumbnail: Array.isArray(matchedReel.fields.Thumbnail) && matchedReel.fields.Thumbnail[0]
+                ? (matchedReel.fields.Thumbnail[0].thumbnails?.large?.url || matchedReel.fields.Thumbnail[0].url)
+                : null,
+              video: (matchedReel.fields['Dropbox Video Link'] || '').replace('dl=0', 'raw=1').replace('dl=1', 'raw=1'),
+              selectedOutfits: Array.isArray(matchedReel.fields['Selected Outfits']) ? matchedReel.fields['Selected Outfits'] : [],
+            } : (sourceUrl ? {
+              // Fallback when the Recreate Reel record doesn't exist for
+              // this source URL — usually means the editor submitted a
+              // Custom Edit on a reel that was never imported as inspo.
+              // ID is keyed off the source URL (not the Asset ID) so
+              // multiple Custom Edit submissions on the same untracked
+              // reel cluster into one card on the editor's Projects tab.
+              id: `__url_${sourceUrl}`,
+              reelId: '',
+              url: sourceUrl,
+              handle: (sourceUrl.match(/instagram\.com\/([^/?]+)/) || [])[1] || '',
+              streamUid: null,
+              thumbnail: null,
+              video: '',
+              selectedOutfits: [],
+            } : null)
+
+            const cdn = af['CDN URL'] || att(af.Thumbnail) || null
+            return {
+              id: t.id,
+              source: 'custom-edit',
+              slug,
+              name: taskName,
+              status: mimicStatus,
+              uploadedAt: tf['Completed At'] || t.createdTime || null,
+              adminReviewStatus: adminReview,
+              image: cdn,
+              uploadedThumbnail: cdn,
+              dropbox: af['Dropbox Shared Link']
+                ? String(af['Dropbox Shared Link']).replace('dl=0', 'dl=1')
+                : null,
+              rejectReason: tf['Admin Feedback'] || '',
+              reel: reelObj,
+              // Bedroom-specific fields kept empty so the frontend's
+              // existing renderers don't choke on undefined access.
+              reelNum: null,
+              stillNum: null,
+              dropboxPath: '',
+              poseTime: null,
+              screenshotFraming: null,
+              roomFraming: null,
+              timeOfDay: null,
+              room: '',
+              variants: [],
+              uploads: { rawScreenshot: null, upscaledScreenshot: null, tjpOutput: null },
+              createdTime: t.createdTime,
+            }
+          })
+          .filter(Boolean)
+      } catch (e) {
+        console.warn('[stage-b outputs] custom-edit fetch failed:', e.message)
+      }
+    }
+
+    const list = [...bedroomList, ...customList]
       .sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || ''))
     return NextResponse.json({ outputs: list })
   } catch (err) {

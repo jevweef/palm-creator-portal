@@ -306,7 +306,17 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
 // variation was approved, NOT that the project is done — that misled
 // editors who thought "Approved = shipped." This derived step describes
 // what the editor (or admin) needs to do next.
+//
+// Custom Edit variations (`s.source === 'custom-edit'`) skip the
+// Bedroom-only states (Started / Generating / Pending / Failed) — there
+// is no portal render to wait for. They're always uploaded, so the only
+// states are "awaiting admin," "complete," or "admin-rejected."
 function sceneStep(s) {
+  if (s?.source === 'custom-edit') {
+    if (s.adminReviewStatus === 'Approved') return 'complete'
+    if (s.adminReviewStatus === 'Needs Revision' || s.adminReviewStatus === 'Rejected') return 'admin-rejected'
+    return 'awaiting-admin'
+  }
   if (s.status === 'Started')    return 'tjp-photo'
   if (s.status === 'Generating') return 'rendering'
   if (s.status === 'Pending')    return 'approve-scene'
@@ -315,11 +325,16 @@ function sceneStep(s) {
   if (s.status === 'Approved') {
     if (!s.uploadedAt) return 'tjp-motion'
     if (s.adminReviewStatus === 'Approved') return 'complete'
-    if (s.adminReviewStatus === 'Rejected') return 'admin-rejected'
+    if (s.adminReviewStatus === 'Rejected' || s.adminReviewStatus === 'Needs Revision') return 'admin-rejected'
     return 'awaiting-admin'
   }
   return 'unknown'
 }
+
+// Short label per workflow type — drives the pill badges on cards and
+// inside carousel slide indicators. Mixed groups show both pills.
+const WORKFLOW_LABEL = { bedroom: 'Bedroom', 'custom-edit': 'Custom Edit' }
+const WORKFLOW_COLOR = { bedroom: '#7DD3A4', 'custom-edit': '#C8A8FF' }
 
 const STEP_LABEL = {
   'tjp-photo':      'Need TJP photo',
@@ -460,6 +475,15 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const stepLabel = STEP_LABEL[topStep] || topStep
   const sc = STEP_COLOR[topStep] || '#888'
 
+  // Workflow composition for this card. Drives the pill badge(s) and
+  // the gating on the Discard button + CTA. A "mixed" card has both
+  // Bedroom and Custom Edit variations under the same source reel.
+  const bedroomScenes = scenes.filter(s => s.source !== 'custom-edit')
+  const customScenes = scenes.filter(s => s.source === 'custom-edit')
+  const hasBedroom = bedroomScenes.length > 0
+  const hasCustom = customScenes.length > 0
+  const customOnly = hasCustom && !hasBedroom
+
   // Carousel slides: [source reel, ...each variation]. Variation prefers
   // its uploadedThumbnail (the actual submitted video) over the scene
   // image so editors see what they shipped, not the bedroom-scene
@@ -467,13 +491,14 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const sourceThumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
     || reel?.thumbnail || null
   const slides = [
-    { kind: 'source', src: sourceThumb, label: 'Source reel', step: null },
+    { kind: 'source', src: sourceThumb, label: 'Source reel', step: null, source: null },
     ...scenes.map(s => ({
       kind: 'variation',
       src: s.uploadedThumbnail || s.image || null,
       label: s.slug || `Variation ${s.index ?? ''}`.trim(),
       step: sceneStep(s),
       uploaded: !!s.uploadedAt,
+      source: s.source || 'bedroom',
     })),
   ]
   const [slideIdx, setSlideIdx] = useState(0)
@@ -481,27 +506,44 @@ function ReelProjectCard({ group, creatorId, onChange }) {
   const prev = () => setSlideIdx(i => (i - 1 + slides.length) % slides.length)
   const next = () => setSlideIdx(i => (i + 1) % slides.length)
 
-  const openHref = `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
-  const ctaLabel = topStep === 'tjp-photo'      ? 'Continue → upload TJP photo'
-                 : topStep === 'rendering'      ? '⏳ Rendering…'
-                 : topStep === 'approve-scene'  ? 'Review variations'
-                 : topStep === 'tjp-motion'     ? 'Open workflow → upload'
-                 : topStep === 'awaiting-admin' ? 'View'
-                 : topStep === 'admin-rejected' ? 'See Revisions'
-                 : topStep === 'failed'         ? '↻ Retry'
-                 : topStep === 'rejected'       ? '↻ Retry / view'
-                 : topStep === 'complete'       ? 'View'
-                 : 'Open workflow'
+  // Custom-only cards don't have a Bedroom Scene page to open — there
+  // are no Stage B Outputs backing them. CTA becomes a link to the
+  // source reel (or nothing if the reel was never imported as inspo).
+  // Bedroom-having cards (pure or mixed) keep the existing workflow CTA.
+  const openHref = customOnly
+    ? (reel?.url || '#')
+    : `/ai-editor?tab=create&creator=${creatorId}&reel=${reel?.id || ''}`
+  const ctaLabel = customOnly
+    ? (topStep === 'admin-rejected' ? 'See Revisions' : topStep === 'complete' ? '↗ View source reel' : '↗ View source reel')
+    : topStep === 'tjp-photo'      ? 'Continue → upload TJP photo'
+    : topStep === 'rendering'      ? '⏳ Rendering…'
+    : topStep === 'approve-scene'  ? 'Review variations'
+    : topStep === 'tjp-motion'     ? 'Open workflow → upload'
+    : topStep === 'awaiting-admin' ? 'View'
+    : topStep === 'admin-rejected' ? 'See Revisions'
+    : topStep === 'failed'         ? '↻ Retry'
+    : topStep === 'rejected'       ? '↻ Retry / view'
+    : topStep === 'complete'       ? 'View'
+    : 'Open workflow'
 
-  // Discard at the reel level wipes every scene record under it.
+  // Discard at the reel level wipes every Bedroom scene record under it.
+  // Custom Edit variations are Task records owned by admin — editors
+  // can't (and shouldn't) delete those from this surface. So discard
+  // only operates on Bedroom-backed scenes; on custom-only cards the
+  // button isn't rendered at all.
   const discardReel = async () => {
     const hasApproved = (counts.Approved || 0) > 0
+    const targetScenes = bedroomScenes
+    if (targetScenes.length === 0) return
+    const customNote = hasCustom
+      ? ` (${customScenes.length} Custom Edit variation${customScenes.length === 1 ? '' : 's'} on this reel will stay — admin manages those.)`
+      : ''
     const msg = hasApproved
-      ? `This reel has ${counts.Approved} approved variation${counts.Approved === 1 ? '' : 's'}. Discarding wipes ALL ${scenes.length} variations for this reel — even the approved ones. Continue?`
-      : `Discard every variation under this reel (${scenes.length} total)? The reel goes back to the pool so you (or someone else) can re-start it.`
+      ? `This reel has ${counts.Approved} approved Bedroom variation${counts.Approved === 1 ? '' : 's'}. Discarding wipes ALL ${targetScenes.length} Bedroom variations for this reel — even the approved ones.${customNote} Continue?`
+      : `Discard every Bedroom variation under this reel (${targetScenes.length} total)? The reel goes back to the pool so you (or someone else) can re-start it.${customNote}`
     if (!(await uiConfirm(msg, { danger: true, okLabel: 'Discard reel' }))) return
     try {
-      await Promise.all(scenes.map(s =>
+      await Promise.all(targetScenes.map(s =>
         fetch(`/api/admin/recreate-rooms/stage-b/outputs?id=${s.id}`, { method: 'DELETE' })
       ))
       onChange?.()
@@ -543,13 +585,35 @@ function ReelProjectCard({ group, creatorId, onChange }) {
             </div>
           </>
         )}
-        {/* Variation count badge — kept on the top-left for at-a-glance. */}
-        <div style={{ position: 'absolute', top: 6, left: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
-          {scenes.length} variation{scenes.length === 1 ? '' : 's'}
+        {/* Variation count + workflow badge on the top-left. Mixed
+            groups show both workflow pills so the editor immediately
+            sees that this reel has Bedroom AND Custom Edit work. */}
+        <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+          <div style={{ padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
+            {scenes.length} variation{scenes.length === 1 ? '' : 's'}
+          </div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {hasBedroom && (
+              <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#0a1a10', background: WORKFLOW_COLOR.bedroom, borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL.bedroom}</span>
+            )}
+            {hasCustom && (
+              <span style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#1a0a2a', background: WORKFLOW_COLOR['custom-edit'], borderRadius: 3, letterSpacing: '0.02em' }}>{WORKFLOW_LABEL['custom-edit']}</span>
+            )}
+          </div>
         </div>
-        {/* What slide am I on — source reel vs a specific variation. */}
-        <div style={{ position: 'absolute', top: 6, right: 6, padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 3, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {slide.kind === 'source' ? 'Source reel' : (slide.uploaded ? '✓ ' : '') + slide.label}
+        {/* What slide am I on — source reel vs a specific variation —
+            with the variation's per-step status surfaced inline so the
+            editor sees "Awaiting admin" / "✓ Approved" / "Rejected" per
+            slide without expanding anything. */}
+        <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, maxWidth: 160 }}>
+          <div style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+            {slide.kind === 'source' ? 'Source reel' : (slide.uploaded ? '✓ ' : '') + slide.label}
+          </div>
+          {slide.kind === 'variation' && slide.step && (
+            <div style={{ padding: '2px 6px', fontSize: 9, fontWeight: 700, background: `${STEP_COLOR[slide.step] || '#888'}33`, color: STEP_COLOR[slide.step] || '#888', border: `1px solid ${STEP_COLOR[slide.step] || '#888'}66`, borderRadius: 3, whiteSpace: 'nowrap' }}>
+              {STEP_LABEL[slide.step] || slide.step}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ padding: 10, fontSize: 11 }}>
@@ -572,13 +636,21 @@ function ReelProjectCard({ group, creatorId, onChange }) {
           </div>
         )}
         <a href={openHref}
+          target={customOnly ? '_blank' : undefined}
+          rel={customOnly ? 'noreferrer' : undefined}
           style={{ display: 'block', marginTop: 8, padding: '6px 8px', fontSize: 11, fontWeight: 700, textAlign: 'center', background: `${sc}28`, color: sc, borderRadius: 5, textDecoration: 'none' }}>
           {ctaLabel}
         </a>
-        <button onClick={discardReel}
-          style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
-          🗑 Discard reel
-        </button>
+        {/* Discard reel — only renders for cards that have Bedroom
+            scenes backing them. Custom-only cards have nothing the
+            editor is allowed to delete from this surface (admin owns
+            the Task records). */}
+        {hasBedroom && (
+          <button onClick={discardReel}
+            style={{ width: '100%', marginTop: 6, padding: '4px 0', fontSize: 10, color: '#888', background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, cursor: 'pointer' }}>
+            🗑 Discard reel{hasCustom ? ' (Bedroom only)' : ''}
+          </button>
+        )}
       </div>
     </div>
   )
