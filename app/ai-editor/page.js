@@ -9,6 +9,7 @@ import { GuidedTour, TourTriggerButton } from '@/components/recreate/tour'
 import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
 import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
 import NewProjectModal from '@/app/ai-editor/NewProjectModal'
+import { LibrarySection as OutfitLibrarySection } from '@/components/recreate/PhotosPanel'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
 // missing elements degrade to a center modal (so a step about Needs
@@ -770,7 +771,7 @@ export default function AiEditorPage() {
   // 'create', 'carousel'), but the user-facing labels are now Projects /
   // Bedroom Scene / Carousel respectively. New 'inspo' tab owns the
   // Fresh Inspo grid that used to live inside Workspace.
-  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : tabParam === 'inspo' ? 'inspo' : 'workspace'
+  const tab = tabParam === 'create' ? 'create' : tabParam === 'carousel' ? 'carousel' : tabParam === 'inspo' ? 'inspo' : tabParam === 'outfits' ? 'outfits' : 'workspace'
   const setTab = (k, extra = {}) => {
     const params = new URLSearchParams(sp.toString())
     if (k === 'workspace') params.delete('tab')
@@ -1051,17 +1052,13 @@ export default function AiEditorPage() {
             Bedroom Scene
           </button>
         )}
-        {/* Outfit Library — gives editors quick access to the reel-source
-            library + outfit closet on /admin/recreate-source. Clicking
-            navigates away from /ai-editor since the page can't yet be
-            embedded as an inline tab (it ships its own admin sidebar
-            and conflicts with the editor view). When that page is
-            extracted into a component, swap to setTab('outfits') here. */}
-        <button
-          onClick={() => router.push('/admin/recreate-source')}
-          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}
-          title="Open the Outfit Library (reel sources + outfit closet)">
-          Outfit Library ↗
+        {/* Outfit Library — embedded inline as a tab so AI editors
+            (who can't see /admin/*) get the same view admins do at
+            /admin/recreate-source?tab=outfits. Same LibrarySection
+            component, outfitsOnly={true}. */}
+        <button onClick={() => setTab('outfits')}
+          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'outfits' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'outfits' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+          Outfit Library
         </button>
         {/* Carousel tab is intentionally NOT in the strip — it's the
             workflow Evan is still iterating on and clutter for editors.
@@ -1105,6 +1102,16 @@ export default function AiEditorPage() {
       {tab === 'create' && (
         <>
           <StageBPanel initialCreatorId={creatorId} initialReelRecordId={urlReel} initialProjectId={urlProject} />
+          <ModalHost />
+        </>
+      )}
+
+      {/* Outfit Library — same component admins see at
+          /admin/recreate-source?tab=outfits, embedded inline so AI
+          editors (who can't reach /admin/*) get the same surface. */}
+      {tab === 'outfits' && (
+        <>
+          <OutfitLibrarySection outfitsOnly />
           <ModalHost />
         </>
       )}

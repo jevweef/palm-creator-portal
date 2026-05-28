@@ -1,13 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords, fetchAirtableRecordsByIds, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-
-function recordIdFormula(ids) {
-  if (!ids.length) return 'FALSE()'
-  return `OR(${ids.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`
-}
 
 // GET — list posts in active states (Prepping, Ready to Go, Sent to Telegram,
 // Ready to Post). 'Ready to Go' was introduced in commit 253fb1fc (Carousels
@@ -34,15 +29,16 @@ export async function GET() {
     const creatorIds = [...new Set(posts.flatMap(p => p.fields?.Creator || []))]
     const assetIds = [...new Set(posts.flatMap(p => p.fields?.Asset || []))]
 
+    // Chunked by ID — `OR(RECORD_ID()=...)` for a few hundred linked records
+    // overflowed Airtable's URL length cap (414 Request-URI Too Large) once
+    // the active queue grew past ~250 posts. See fetchAirtableRecordsByIds.
     const [creatorRecords, assetRecords] = await Promise.all([
-      creatorIds.length ? fetchAirtableRecords('Palm Creators', {
-        filterByFormula: recordIdFormula(creatorIds),
+      fetchAirtableRecordsByIds('Palm Creators', creatorIds, {
         fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Status'],
-      }) : [],
-      assetIds.length ? fetchAirtableRecords('Assets', {
-        filterByFormula: recordIdFormula(assetIds),
+      }),
+      fetchAirtableRecordsByIds('Assets', assetIds, {
         fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Stream Edit ID', 'Stream Raw ID'],
-      }) : [],
+      }),
     ])
 
     const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
@@ -188,13 +184,9 @@ export async function PATCH(request) {
           fields: ['Posts'],
         })
         const allSiblingIds = (taskList[0]?.fields?.Posts || []).filter(id => id !== postId)
-        let siblings = []
-        if (allSiblingIds.length) {
-          siblings = await fetchAirtableRecords('Posts', {
-            filterByFormula: `OR(${allSiblingIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
-            fields: ['Task', 'Telegram Sent At', 'Posted At'],
-          })
-        }
+        const siblings = await fetchAirtableRecordsByIds('Posts', allSiblingIds, {
+          fields: ['Task', 'Telegram Sent At', 'Posted At'],
+        })
         // For Status fan-out, never drag an already-sent or already-live
         // sibling backwards. Thumbnail-only fan-out is fine on any sibling.
         const isStatusChange = 'Status' in update
