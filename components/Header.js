@@ -103,15 +103,20 @@ export default function Header() {
               <Link href="/editor/inspo" style={linkStyle(pathname?.startsWith('/editor/inspo'))}>Inspo Board</Link>
             </>
           ) : (isAiEditor || isAiEditorPath) ? (
-            // AI Editor gets a single-link nav while we relocate the
-            // Outfit Library out of /admin/* into the /ai-editor workflow.
-            // Previously this had an "Outfit Library" link to
-            // /admin/recreate-source which exposed the admin sidebar
-            // (including /admin/inspo) to the ai_editor role — a real
-            // privilege leak. Hard-blocked here AND in app/admin/layout.js.
-            // Re-introduce Outfit Library as an /ai-editor tab when ready.
+            // AI Editor nav. Shown for the ai_editor role and for anyone on an
+            // /ai-editor path (e.g. an admin previewing it). Two links since
+            // SMM Batch 1 (2026-05-27):
+            // - "AI Workspace" = the TJP-feeding /ai-editor page (unchanged URL,
+            //   bookmark-safe). Still their primary day-to-day surface.
+            // - "AI Content" = the consolidated admin-shell surface at
+            //   /admin/recreate-source (role-filtered to the Workflow tab).
+            // This is NOT the old full-sidebar privilege leak (that exposed
+            // /admin/inspo): ai_editor is sandboxed to this one path by
+            // app/admin/layout.js (aiEditorAllowedPath) and the server-side
+            // role gates in lib/adminAuth.js — every other /admin/* path bounces.
             <>
-              <Link href="/ai-editor" style={linkStyle(pathname?.startsWith('/ai-editor'))}>AI Editor</Link>
+              <Link href="/ai-editor" style={linkStyle(pathname?.startsWith('/ai-editor'))}>AI Workspace</Link>
+              <Link href="/admin/recreate-source?tab=workflow" style={linkStyle(pathname?.startsWith('/admin/recreate-source'))}>AI Content</Link>
             </>
           ) : isCreatorPath ? (
             <>
