@@ -3,49 +3,54 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-// Marketing Content — admin-only at-a-glance hub introduced in SMM Batch 1.
-// Cross-stream view of in-flight content + needs-review counts + quick links
-// into the surfaces where real work happens. Not a parent route with children:
-// it's a single landing page.
+// Overview — the Social Media Hub's at-a-glance landing. Cross-stream view of
+// in-flight content + needs-review counts, with clickable KPIs and quick links
+// that route INTO the hub's sections (post-2026-05-29 restructure).
 //
-// KPI tiles read /api/admin/marketing-content/overview. Counts are aggregated
-// from existing Posts + Tasks tables — no new Airtable schema for Batch 1.
-// "Active warm-ups" returns 0 until Batch 2 ships the Warmup table.
+// KPI tiles read /api/admin/marketing-content/overview (aggregated from Posts +
+// Tasks + AI Account Profile). No emoji icons (house style).
+//
+// Deeper lenses Evan asked for — whole-team/editor workload and per-creator
+// at-a-glance — are a follow-up: the workload view already exists as the Editor
+// Dashboard (Content → Editor Dashboard), and per-creator analytics need new
+// aggregation + Publer Phase 3 data. Tracked in the hub redesign spec.
+
+const HUB = '/admin/social'
 
 const TILES = [
-  { key: 'aiInFlight',      label: 'AI posts in flight',  hint: 'Submitted to Publer, awaiting publish' },
-  { key: 'realInFlight',    label: 'Real posts in flight', hint: 'Queued / sending to Telegram (Amin)' },
-  { key: 'needsReview',     label: 'Needs your review',    hint: 'Tasks awaiting admin approval' },
-  { key: 'activeWarmups',   label: 'Active warm-ups',      hint: 'AI accounts in their 90-day warm-up' },
+  { key: 'aiInFlight',    label: 'AI posts in flight',   hint: 'Submitted to Publer, awaiting publish', href: `${HUB}?tab=outbound&sub=publer` },
+  { key: 'realInFlight',  label: 'Real posts in flight', hint: 'Queued / sending to Telegram (Amin)',    href: `${HUB}?tab=outbound&sub=postprep` },
+  { key: 'needsReview',   label: 'Needs your review',    hint: 'Content awaiting admin approval',         href: `${HUB}?tab=content&sub=review` },
+  { key: 'activeWarmups', label: 'Active warm-ups',      hint: 'AI accounts in their 90-day warm-up',     href: `${HUB}?tab=accounts&sub=warmup` },
 ]
 
-// Grouped quick links — review/decide stuff first (most-frequent admin action),
-// strategy/setup second (planning), outbound/operational third (when content
-// is moving). Order within group is most → least common.
+// Quick links route into hub sections. Order: review/decide first, plan second,
+// outbound third — most → least frequent admin action.
 const LINK_GROUPS = [
   {
     title: 'Review & Approve',
     links: [
-      { label: 'Editor — For Review',     href: '/admin/editor?tab=review',     icon: '👀' },
-      { label: 'Post Prep',               href: '/admin/editor?tab=postprep',   icon: '📝' },
-      { label: 'Carousels',               href: '/admin/editor?tab=carousels',  icon: '📸' },
-      { label: 'OFTV Projects',           href: '/admin/editor?tab=oftv',       icon: '📺' },
+      { label: 'For Review',        href: `${HUB}?tab=content&sub=review` },
+      { label: 'Post Prep',         href: `${HUB}?tab=outbound&sub=postprep` },
+      { label: 'Carousels',         href: `${HUB}?tab=content&sub=carousels` },
+      { label: 'OFTV & Long Form',  href: `${HUB}?tab=content&sub=oftv` },
     ],
   },
   {
     title: 'Strategy & Setup',
     links: [
-      { label: 'AI Content',              href: '/admin/recreate-source',                icon: '🎨' },
-      { label: 'Account Warm-Up',         href: '/admin/account-warmup',                 icon: '🔥' },
-      { label: 'Content Strategy',        href: '/admin/recreate-source?tab=strategy',   icon: '🧭' },
-      { label: 'Creator Library',         href: '/admin/editor?tab=library',             icon: '📂' },
+      { label: 'AI Workflow',       href: `${HUB}?tab=content&sub=workflow` },
+      { label: 'Account Warm-Up',   href: `${HUB}?tab=accounts&sub=warmup` },
+      { label: 'Content Strategy',  href: `${HUB}?tab=accounts&sub=strategy` },
+      { label: 'Creator Library',   href: `${HUB}?tab=content&sub=library` },
+      { label: 'Accounts',          href: `${HUB}?tab=accounts&sub=accounts` },
     ],
   },
   {
     title: 'Outbound',
     links: [
-      { label: 'Grid Planner',            href: '/admin/editor?tab=grid',  icon: '🗓️' },
-      { label: 'Publer Mappings',         href: '/admin/publer',           icon: '📅' },
+      { label: 'Grid Planner',      href: `${HUB}?tab=outbound&sub=grid` },
+      { label: 'Publer',            href: `${HUB}?tab=outbound&sub=publer` },
     ],
   },
 ]
@@ -67,7 +72,7 @@ export default function MarketingContentPage() {
     <div style={{ padding: '24px 8px' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>
-          Marketing Content
+          Overview
         </h1>
         <p style={{ marginTop: 6, color: 'var(--foreground-muted)', fontSize: 13 }}>
           At-a-glance view of both content streams — AI accounts and real-creator posts.
@@ -81,11 +86,13 @@ export default function MarketingContentPage() {
         marginBottom: 32,
       }}>
         {TILES.map(t => (
-          <div key={t.key} style={{
+          <Link key={t.key} href={t.href} style={{
+            display: 'block', textDecoration: 'none',
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 12,
             padding: '18px 18px 16px',
+            transition: '0.15s ease',
           }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {t.label}
@@ -96,7 +103,7 @@ export default function MarketingContentPage() {
             <div style={{ marginTop: 6, fontSize: 11, color: 'var(--foreground-muted)' }}>
               {t.hint}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -119,7 +126,6 @@ export default function MarketingContentPage() {
                 <Link key={l.href} href={l.href} style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
                   padding: '12px 14px',
                   background: 'rgba(232,160,160,0.04)',
                   border: '1px solid rgba(255,255,255,0.06)',
@@ -130,7 +136,6 @@ export default function MarketingContentPage() {
                   fontWeight: 500,
                   transition: '0.15s ease',
                 }}>
-                  <span style={{ fontSize: 17 }}>{l.icon}</span>
                   {l.label}
                 </Link>
               ))}
@@ -141,13 +146,13 @@ export default function MarketingContentPage() {
 
       {error && (
         <div style={{ marginTop: 28, padding: 14, background: 'rgba(232,120,120,0.08)', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 8, fontSize: 12, color: '#e87878' }}>
-          Couldn't load counts: {error}
+          Couldn&apos;t load counts: {error}
         </div>
       )}
 
       <div style={{ marginTop: 36, padding: 16, border: '1px dashed rgba(255,255,255,0.10)', borderRadius: 10, fontSize: 12, color: 'var(--foreground-subtle)' }}>
-        Coming soon: reach trend sparklines, posted-this-week count, per-account engagement
-        deltas — these light up once Publer Phase 3 starts collecting analytics.
+        Coming soon: per-creator at-a-glance and editor-workload lenses, reach trend sparklines,
+        and posted-this-week — these light up once Publer Phase 3 collects analytics.
       </div>
     </div>
   )
