@@ -90,6 +90,13 @@ export async function POST(request) {
             'Reference Source URL': originalUrl,
             'Dropbox Shared Link': sharedLink,
             'Dropbox Path (Current)': dropboxPath,
+            // Explicit forward link to the source reel so the For Review card
+            // can join back to it by record ID (and render the ORIGINAL side
+            // as a playable video). Editor-uploaded reels have no Reel URL, so
+            // the old URL-based join failed and the original showed blank — the
+            // record-ID link is the reliable bridge. Don't rely on Airtable's
+            // reciprocal auto-sync of the reel's Produced Asset link for this.
+            'Recreate Reels': [reelRecordId],
           },
         }],
       }),
@@ -235,10 +242,18 @@ export async function POST(request) {
     // workflow gallery can show "✓ Uploaded" badges + the "project
     // complete" indicator when every scene under a reel has been
     // uploaded. Matched by Slug since that's the canonical bridge.
+    //
+    // Strip any "_O{nn}" variant suffix first: a multi-file freelance
+    // batch resolves each file to its own variant slug, but they all
+    // belong to the SAME parent Stage B Output (whose Slug is the bare
+    // still). Without stripping, only a file that happened to land on
+    // the bare slug would stamp the parent — the rest would silently
+    // miss. Stamping the parent for any of its variants is correct.
     if (slug) {
       try {
+        const stageBSlug = slug.replace(/_O\d{1,3}$/, '')
         const sbList = await fetch(
-          `https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs?filterByFormula=${encodeURIComponent(`{Slug} = ${quoteAirtableString(slug)}`)}&maxRecords=1`,
+          `https://api.airtable.com/v0/${OPS_BASE}/Stage%20B%20Outputs?filterByFormula=${encodeURIComponent(`{Slug} = ${quoteAirtableString(stageBSlug)}`)}&maxRecords=1`,
           { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
         )
         if (sbList.ok) {

@@ -396,7 +396,10 @@ export default function SceneUploadModal({ scene, creatorId, onClose, onSuccess 
           dropboxPath: tok.path,
           thumbnailBase64,        // null when using URL
           thumbnailSourceUrl,     // null when using base64
-          slug,
+          // Use the token route's resolved slug — it allocates a fresh
+          // "_O{nn}" variant rather than overwriting if this slug's file
+          // already exists, so the Asset name matches the written file.
+          slug: tok.slug || slug,
         }),
       })
       const fin = await safeJson(finRes)
