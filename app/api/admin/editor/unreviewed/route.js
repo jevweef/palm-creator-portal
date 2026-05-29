@@ -14,8 +14,11 @@ export async function GET() {
   try {
     // Fetch assets that are NOT from the inspo upload flow — these come from
     // the Make automation that watches 00_INCOMING_FILE_REQUEST and moves to 10_UNREVIEWED_LIBRARY
+    // Includes 'In Editing' (additive) so the library can offer an Unused vs
+    // In-editing status filter; the client defaults to Unused, preserving the
+    // original "only unused" view.
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK()), {Source Type}!='Inspo Upload')",
+      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing'), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
         'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators',
@@ -52,6 +55,8 @@ export async function GET() {
         id: a.id,
         name: f['Asset Name'] || '',
         pipelineStatus: f['Pipeline Status'] || '',
+        // Derived lifecycle status for the library filter (Used/Posted deferred).
+        status: f['Pipeline Status'] === 'In Editing' ? 'In editing' : 'Unused',
         sourceType: f['Source Type'] || '',
         assetType: f['Asset Type'] || '',
         dropboxLink: dropboxLinks[0] || '',

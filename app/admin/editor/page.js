@@ -981,7 +981,13 @@ export function UnreviewedLibrary({ showToast }) {
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('newest')
+  const [statusFilter, setStatusFilter] = useState('Unused') // 'Unused' | 'In editing'
   const [assigning, setAssigning] = useState(null)
+  // Full-row grid: measure the container and derive the column count so the
+  // page size is always an exact multiple of columns (no ragged last row).
+  const GRID_MIN = 180, GRID_GAP = 12, GRID_ROWS = 6
+  const [cols, setCols] = useState(5)
+  const gridRef = useRef(null)
 
   const fetchAssets = useCallback(async () => {
     setLoading(true)
@@ -999,17 +1005,36 @@ export function UnreviewedLibrary({ showToast }) {
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
 
-  // Reset page when creator/tab/sort changes
-  useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder])
+  // Reset page when creator/tab/sort/status/column-count changes
+  useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder, statusFilter, cols])
 
-  // Build creator list from assets
+  // Measure container width → column count (debounced via setState identity).
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const compute = () => {
+      const w = el.clientWidth
+      if (!w) return
+      const c = Math.max(1, Math.floor((w + GRID_GAP) / (GRID_MIN + GRID_GAP)))
+      setCols(prev => (prev === c ? prev : c))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Status-filter first (Unused vs In editing); creator list + grid derive from it
+  const byStatus = assets.filter(a => (a.status || 'Unused') === statusFilter)
+
+  // Build creator list from the status-filtered set
   const creators = [...new Map(
-    assets.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
+    byStatus.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
   )].sort((a, b) => a[1].localeCompare(b[1]))
 
   const filtered = selectedCreator === 'all'
-    ? assets
-    : assets.filter(a => a.creator?.id === selectedCreator)
+    ? byStatus
+    : byStatus.filter(a => a.creator?.id === selectedCreator)
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
@@ -1029,8 +1054,11 @@ export function UnreviewedLibrary({ showToast }) {
   })
 
   const shown = activeTab === 'videos' ? videos : photos
-  const totalPages = Math.max(1, Math.ceil(shown.length / LIB_PAGE_SIZE))
-  const paged = shown.slice((page - 1) * LIB_PAGE_SIZE, page * LIB_PAGE_SIZE)
+  // Local page size = full rows only. (Do NOT use the shared LIB_PAGE_SIZE —
+  // the EditorDashboard picker depends on that constant being 15.)
+  const pageSize = Math.max(cols, cols * GRID_ROWS)
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize))
+  const paged = shown.slice((page - 1) * pageSize, page * pageSize)
 
   const handleAssign = async (asset) => {
     const creatorId = asset.creator?.id
@@ -1048,8 +1076,8 @@ export function UnreviewedLibrary({ showToast }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to start edit')
       showToast('Edit started — moved to editor queue')
-      // Remove from local list so the grid updates immediately
-      setAssets(prev => prev.filter(a => a.id !== asset.id))
+      // Re-tag locally: it leaves the Unused view and appears under In editing
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: 'In editing', pipelineStatus: 'In Editing' } : a))
     } catch (err) {
       showToast(err.message, true)
     } finally {
@@ -1064,7 +1092,7 @@ export function UnreviewedLibrary({ showToast }) {
   const tabCounts = { videos: videos.length, photos: photos.length }
 
   return (
-    <div>
+    <div ref={gridRef}>
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -1077,12 +1105,30 @@ export function UnreviewedLibrary({ showToast }) {
               borderRadius: '6px', cursor: 'pointer', outline: 'none',
             }}
           >
-            <option value="all">All Creators ({assets.length})</option>
+            <option value="all">All Creators ({byStatus.length})</option>
             {creators.map(([id, name]) => {
-              const count = assets.filter(a => a.creator?.id === id).length
+              const count = byStatus.filter(a => a.creator?.id === id).length
               return <option key={id} value={id}>{name} ({count})</option>
             })}
           </select>
+
+          {/* Status: Unused vs In editing */}
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
+            {[{ key: 'Unused', label: 'Unused' }, { key: 'In editing', label: 'In editing' }].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setStatusFilter(s.key)}
+                style={{
+                  padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                  background: statusFilter === s.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                  color: statusFilter === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
 
           {/* Videos / Photos tabs */}
           <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
@@ -1150,8 +1196,11 @@ export function UnreviewedLibrary({ showToast }) {
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-            {paged.map(asset => (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '12px' }}>
+            {paged.map(asset => {
+              const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
+              const isVid = asset.assetType === 'Video' || (!asset.assetType && isVideo(link))
+              return (
               <div key={asset.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <LibraryCard
                   asset={asset}
@@ -1159,19 +1208,28 @@ export function UnreviewedLibrary({ showToast }) {
                   assigning={assigning}
                   forcePhoto={activeTab === 'photos'}
                 />
+                {asset.createdTime && (
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px' }}>
+                    {new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
                 {selectedCreator === 'all' && asset.creator?.name && (
                   <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', paddingLeft: '2px' }}>
                     {asset.creator.name}
                   </div>
                 )}
-                <CaptionSuggestions
-                  thumbnailUrl={cdnUrlAtSize(asset.cdnUrl, 400) || asset.thumbnail}
-                  videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
-                  creatorId={asset.creator?.id}
-                />
-
+                {/* On-screen-text suggestions analyze VIDEO frames — meaningless
+                    on a still, so only show on video assets. */}
+                {isVid && (
+                  <CaptionSuggestions
+                    thumbnailUrl={cdnUrlAtSize(asset.cdnUrl, 400) || asset.thumbnail}
+                    videoUrl={link.replace(/([?&])dl=[01]/, '$1raw=1')}
+                    creatorId={asset.creator?.id}
+                  />
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
