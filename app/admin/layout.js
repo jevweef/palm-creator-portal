@@ -26,8 +26,8 @@ const ADMIN_NAV = [
   // Children route to /admin/social?tab=<sectionKey>.
   { href: '/admin/social', label: 'Social Media Hub', icon: '📣', children: [
     { key: 'overview', label: 'Overview' },
-    { key: 'real', label: 'Real Content' },
-    { key: 'ai', label: 'AI Content' },
+    { key: 'content', label: 'Content' },
+    { key: 'accounts', label: 'Accounts & Setup' },
     { key: 'outbound', label: 'Outbound' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
@@ -309,7 +309,7 @@ export default function AdminLayout({ children }) {
                       const isChildActive = activeTab === child.key || (!activeTab && child === item.children[0])
                       // Count badges on specific sub-items. Currently only
                       // OFTV — extend by mapping more keys to navCounts.
-                      const childCount = (item.href === '/admin/social' && child.key === 'real') ? navCounts.oftvReview : 0
+                      const childCount = (item.href === '/admin/social' && child.key === 'content') ? navCounts.oftvReview : 0
                       return (
                         <Link
                           key={child.key}

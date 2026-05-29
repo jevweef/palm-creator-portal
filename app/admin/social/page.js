@@ -33,8 +33,6 @@ import Link from 'next/link'
 import { EditorDashboardContent } from '@/components/EditorDashboard'
 import { SubmissionsFeed, UnreviewedLibrary } from '@/app/admin/editor/page'
 import PostsPage from '@/app/admin/posts/page'
-import LongFormUpload from '@/components/LongFormUpload'
-import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CarouselsTab from '@/app/admin/editor/CarouselsTab'
 
@@ -48,28 +46,9 @@ import WarmupTab from '@/app/admin/recreate-source/WarmupTab'
 import MarketingContentPage from '@/app/admin/marketing-content/page'
 
 // Shared hub primitives — one design language across every section.
-import { HubSection, ContentReview } from './_components'
+import { HubSection, ContentReview, OftvAndLongForm } from './_components'
 
 // --- small in-hub panels for surfaces not yet built out ---------------------
-
-function AiDashboardPlaceholder() {
-  return (
-    <div style={{ padding: 32, maxWidth: 720 }}>
-      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>AI Content Dashboard</h2>
-      <p style={{ marginTop: 12, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
-        The AI mirror of the Real Content dashboard — per-creator AI pieces in flight, generated,
-        in review, and approved. AI content is kept entirely separate from real content (it routes
-        to Publer, never Telegram).
-      </p>
-      <div style={{ marginTop: 24, padding: 20, border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, background: 'rgba(255,255,255,0.02)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Coming next milestone</div>
-        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--foreground-muted)' }}>
-          Until then, use the <strong>Workflow</strong> tab to produce AI content and <strong>Outbound</strong> to review/schedule it.
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function PublerPanel() {
   return (
@@ -89,6 +68,10 @@ function PublerPanel() {
 // --- section / sub-tab config -----------------------------------------------
 // `render` receives { showToast }. Sections key off ?tab=, sub-tabs off ?sub=.
 
+// Four sections (locked 2026-05-29): Overview / Content / Accounts & Setup /
+// Outbound. The two axes (Real vs AI, Reel vs Carousel vs Photo) never blur.
+// `aiEditor: true` marks the only subtabs an ai_editor may reach (everything
+// else is real-content or admin and stays hidden from them).
 const SECTIONS = [
   {
     key: 'overview', label: 'Overview',
@@ -97,36 +80,37 @@ const SECTIONS = [
     ],
   },
   {
-    key: 'real', label: 'Real Content',
+    key: 'content', label: 'Content',
     subtabs: [
-      { key: 'dashboard',   label: 'Dashboard',       render: () => <EditorDashboardContent /> },
-      { key: 'submissions', label: 'Submissions',     render: ({ showToast }) => <SubmissionsFeed showToast={showToast} /> },
-      { key: 'library',     label: 'Creator Library', render: ({ showToast }) => <UnreviewedLibrary showToast={showToast} /> },
-      { key: 'oftv',        label: 'OFTV Projects',   render: ({ showToast }) => <OftvProjectsQueue showToast={showToast} role="admin" /> },
-      { key: 'longform',    label: 'Long Form',       render: ({ showToast }) => <LongFormUpload showToast={showToast} /> },
+      { key: 'workflow',    label: 'AI Workflow',      render: () => <WorkflowTab />, aiEditor: true },
+      { key: 'library',     label: 'Creator Library',  render: ({ showToast }) => <UnreviewedLibrary showToast={showToast} /> },
+      { key: 'review',      label: 'For Review',       render: ({ showToast }) => <ContentReview showToast={showToast} /> },
+      { key: 'submissions', label: 'Submissions',      render: ({ showToast }) => <SubmissionsFeed showToast={showToast} /> },
+      { key: 'carousels',   label: 'Carousels',        render: ({ showToast }) => <CarouselsTab showToast={showToast} /> },
+      { key: 'oftv',        label: 'OFTV & Long Form', render: ({ showToast }) => <OftvAndLongForm showToast={showToast} /> },
+      { key: 'dashboard',   label: 'Editor Dashboard', render: () => <EditorDashboardContent /> },
     ],
   },
   {
-    key: 'ai', label: 'AI Content',
+    key: 'accounts', label: 'Accounts & Setup',
     subtabs: [
-      { key: 'dashboard', label: 'Dashboard', render: () => <AiDashboardPlaceholder /> },
-      { key: 'workflow',  label: 'Workflow',  render: () => <WorkflowTab /> },
-      { key: 'setup',     label: 'Setup',     render: () => <SetupTab containerMaxWidth="none" />, adminOnly: true },
-      { key: 'strategy',  label: 'Strategy',  render: () => <StrategyTab maxWidth="none" />, adminOnly: true },
-      { key: 'warmup',    label: 'Warm-Up',   render: () => <WarmupTab /> },
+      { key: 'warmup',   label: 'Warm-Up',  render: () => <WarmupTab />, aiEditor: true },
+      { key: 'setup',    label: 'Setup',    render: () => <SetupTab containerMaxWidth="none" /> },
+      { key: 'strategy', label: 'Strategy', render: () => <StrategyTab maxWidth="none" /> },
     ],
   },
   {
     key: 'outbound', label: 'Outbound',
     subtabs: [
-      { key: 'review',    label: 'For Review', render: ({ showToast }) => <ContentReview showToast={showToast} /> },
-      { key: 'postprep',  label: 'Post Prep',  render: () => <PostsPage /> },
-      { key: 'carousels', label: 'Carousels',  render: ({ showToast }) => <CarouselsTab showToast={showToast} /> },
+      { key: 'postprep',  label: 'Post Prep',    render: () => <PostsPage /> },
       { key: 'grid',      label: 'Grid Planner', render: () => <GridPlanner /> },
-      { key: 'publer',    label: 'Publer',     render: () => <PublerPanel /> },
+      { key: 'publer',    label: 'Publer',       render: () => <PublerPanel /> },
     ],
   },
 ]
+
+// Back-compat: old deep links used ?tab=real|ai (the pre-2026-05-29 sections).
+const SECTION_ALIAS = { real: 'content', ai: 'content' }
 
 function SocialHubInner() {
   const { user } = useUser()
@@ -137,9 +121,14 @@ function SocialHubInner() {
   const router = useRouter()
   const pathname = usePathname()
 
-  // ai_editor only sees the AI Content section.
-  const visibleSections = isAiEditor ? SECTIONS.filter(s => s.key === 'ai') : SECTIONS
-  const defaultSectionKey = isAiEditor ? 'ai' : 'overview'
+  // ai_editor may ONLY reach aiEditor:true subtabs (AI Workflow + Warm-Up) —
+  // never real-content or admin surfaces. Pre-filter subtabs, then drop any
+  // section left with nothing visible.
+  const subtabAllowed = (t) => (isAiEditor ? !!t.aiEditor : true)
+  const visibleSections = SECTIONS
+    .map(s => ({ ...s, subtabs: s.subtabs.filter(subtabAllowed) }))
+    .filter(s => s.subtabs.length > 0)
+  const defaultSectionKey = isAiEditor ? 'content' : 'overview'
 
   const [toast, setToast] = useState(null)
   const showToast = useCallback((msg, error = false) => {
@@ -147,13 +136,14 @@ function SocialHubInner() {
     setTimeout(() => setToast(null), 3000)
   }, [])
 
-  const urlSection = searchParams.get('tab')
+  const rawSection = searchParams.get('tab')
+  const urlSection = SECTION_ALIAS[rawSection] || rawSection
   const urlSub = searchParams.get('sub')
 
   const activeSection = visibleSections.find(s => s.key === urlSection) || visibleSections.find(s => s.key === defaultSectionKey) || visibleSections[0]
 
-  // sub-tabs available to this role
-  const availableSubtabs = activeSection.subtabs.filter(t => !(t.adminOnly && isAiEditor))
+  // sub-tabs are already role-filtered in visibleSections
+  const availableSubtabs = activeSection.subtabs
   const activeSub = availableSubtabs.find(t => t.key === urlSub) || availableSubtabs[0]
 
   // Keep the URL canonical so deep links + sidebar highlighting stay in sync.
@@ -167,7 +157,7 @@ function SocialHubInner() {
 
   const goSection = (sectionKey) => {
     const sec = visibleSections.find(s => s.key === sectionKey)
-    const firstSub = sec?.subtabs.filter(t => !(t.adminOnly && isAiEditor))[0]
+    const firstSub = sec?.subtabs[0]
     router.replace(`${pathname}?tab=${sectionKey}&sub=${firstSub?.key || ''}`, { scroll: false })
   }
   const goSub = (subKey) => {
