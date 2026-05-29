@@ -46,7 +46,7 @@ import WarmupTab from '@/app/admin/recreate-source/WarmupTab'
 import MarketingContentPage from '@/app/admin/marketing-content/page'
 
 // Shared hub primitives — one design language across every section.
-import { HubSection, ContentReview, OftvAndLongForm } from './_components'
+import { HubSection, ContentReview, OftvAndLongForm, AccountsPanel } from './_components'
 
 // --- small in-hub panels for surfaces not yet built out ---------------------
 
@@ -94,6 +94,7 @@ const SECTIONS = [
   {
     key: 'accounts', label: 'Accounts & Setup',
     subtabs: [
+      { key: 'accounts', label: 'Accounts', render: () => <AccountsPanel /> },
       { key: 'warmup',   label: 'Warm-Up',  render: () => <WarmupTab />, aiEditor: true },
       { key: 'setup',    label: 'Setup',    render: () => <SetupTab containerMaxWidth="none" /> },
       { key: 'strategy', label: 'Strategy', render: () => <StrategyTab maxWidth="none" /> },
