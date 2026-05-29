@@ -527,17 +527,43 @@ function ReelProjectCard({ group, creatorId, onChange, akaName }) {
   // generation that preceded it.
   const sourceThumb = (reel?.streamUid && buildStreamPosterUrl(reel.streamUid, { width: 240, fit: 'crop' }))
     || reel?.thumbnail || null
+  // One slide per ACTUAL uploaded video. A freelance project has a single
+  // Stage B Output but the editor can submit several AI videos against it —
+  // expand each scene's uploadedVariations into its own slide so he sees
+  // everything he shipped (not just one), and can Remove a wrong one.
+  // Scenes with no upload yet still show their pre-upload scene image.
   const slides = [
     { kind: 'source', src: sourceThumb, label: 'Source reel', step: null, source: null },
-    ...scenes.map(s => ({
-      kind: 'variation',
-      src: s.uploadedThumbnail || s.image || null,
-      label: s.slug || `Variation ${s.index ?? ''}`.trim(),
-      step: sceneStep(s),
-      uploaded: !!s.uploadedAt,
-      source: s.source || 'bedroom',
-    })),
+    ...scenes.flatMap(s => {
+      const ups = Array.isArray(s.uploadedVariations) ? s.uploadedVariations : []
+      if (ups.length) {
+        return ups.map((u, i) => ({
+          kind: 'variation',
+          src: u.thumbnail || s.image || null,
+          label: u.name || s.slug || `Variation ${i + 1}`,
+          step: sceneStep(s),
+          uploaded: true,
+          source: s.source || 'bedroom',
+          taskId: u.taskId || null,
+          reviewStatus: u.reviewStatus || null,
+          // Editor can pull a wrong upload back out — but only while the
+          // admin hasn't approved it (server enforces this too).
+          canRemove: !!u.taskId && u.reviewStatus !== 'Approved',
+        }))
+      }
+      return [{
+        kind: 'variation',
+        src: s.uploadedThumbnail || s.image || null,
+        label: s.slug || `Variation ${s.index ?? ''}`.trim(),
+        step: sceneStep(s),
+        uploaded: !!s.uploadedAt,
+        source: s.source || 'bedroom',
+        taskId: null,
+        canRemove: false,
+      }]
+    }),
   ]
+  const variationCount = slides.length - 1
   const [slideIdx, setSlideIdx] = useState(0)
   const slide = slides[Math.min(slideIdx, slides.length - 1)] || slides[0]
   const prev = () => setSlideIdx(i => (i - 1 + slides.length) % slides.length)
@@ -598,6 +624,33 @@ function ReelProjectCard({ group, creatorId, onChange, akaName }) {
     } catch {}
   }
 
+  // Undo a single wrong upload: pulls that one video out of admin review
+  // (deletes its Task + Asset). Server blocks this once an admin approved
+  // it; canRemove already hides the button in that case. Dropbox file stays.
+  const removeUpload = async (taskId) => {
+    if (!taskId) return
+    const ok = await uiConfirm(
+      'Remove this uploaded video from the project? It leaves admin review and your project view. (The file stays in Dropbox.)',
+      { danger: true, okLabel: 'Remove upload' }
+    )
+    if (!ok) return
+    try {
+      const r = await fetch('/api/ai-editor/cancel-upload', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        await uiConfirm(d.error || 'Could not remove this upload.', { okLabel: 'OK' })
+        return
+      }
+      setSlideIdx(0)
+      onChange?.()
+    } catch (e) {
+      console.warn('[removeUpload] failed:', e.message)
+    }
+  }
+
   return (
     <div style={{ border: `1px solid ${sc}40`, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.25)' }}>
       <div style={{ position: 'relative', aspectRatio: '9/16', background: '#000' }}>
@@ -638,7 +691,7 @@ function ReelProjectCard({ group, creatorId, onChange, akaName }) {
             sees that this reel has Bedroom AND Custom Edit work. */}
         <div style={{ position: 'absolute', top: 6, left: 6, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
           <div style={{ padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.7)', borderRadius: 4 }}>
-            {scenes.length} variation{scenes.length === 1 ? '' : 's'}
+            {variationCount} variation{variationCount === 1 ? '' : 's'}
           </div>
           <div style={{ display: 'flex', gap: 3 }}>
             {hasBedroom && (
@@ -667,6 +720,16 @@ function ReelProjectCard({ group, creatorId, onChange, akaName }) {
             </div>
           )}
         </div>
+        {/* Per-upload Remove — only on a submitted variation the admin hasn't
+            approved yet. Lets the editor undo a wrong upload without nuking
+            the whole project. */}
+        {slide.kind === 'variation' && slide.canRemove && (
+          <button onClick={() => removeUpload(slide.taskId)}
+            title="Remove this upload"
+            style={{ position: 'absolute', bottom: 8, right: 8, padding: '4px 10px', fontSize: 10, fontWeight: 700, background: 'rgba(180,40,40,0.85)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            ✕ Remove
+          </button>
+        )}
       </div>
       <div style={{ padding: 10, fontSize: 11 }}>
         {/* Step pill — derived from real editor-step, not the misleading

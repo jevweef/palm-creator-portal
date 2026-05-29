@@ -67,6 +67,7 @@ export async function GET(request) {
     // scene image for the actual uploaded video's CDN thumbnail. Single
     // batched filterByFormula query; falls back silently to the scene
     // image if the lookup fails or the Asset has no thumbnail yet.
+    const rawLink = (s) => s ? String(s).split('\n')[0].replace(/([?&])dl=[01]/, '$1raw=1') : null
     const uploadedSlugs = [...new Set(
       outputs
         .filter(o => o.fields?.['Uploaded At'] && o.fields?.Slug)
@@ -79,14 +80,22 @@ export async function GET(request) {
     // editor's perspective) once this is 'Approved'. Falls back to null
     // when the task hasn't been reviewed yet or the lookup fails.
     const slugToAdminReview = {}
+    // Every uploaded variation per project, keyed by parent slug. A freelance
+    // project gets ONE Stage B Output but the editor can submit several AI
+    // videos against it — each becomes its own Asset named "{slug}_O{nn}".
+    // The card renders one carousel slide per entry here (with a per-upload
+    // Remove button driven by taskId + reviewStatus).
+    const uploadsBySlug = {}
     if (uploadedSlugs.length > 0) {
       try {
-        const assetFormula = `OR(${uploadedSlugs.map(s => `{Asset Name}=${quoteAirtableString(s)}`).join(',')})`
-        // Tasks are named "AI Review: {slug}" per the upload finalize route.
-        const taskFormula = `OR(${uploadedSlugs.map(s => `{Name}=${quoteAirtableString('AI Review: ' + s)}`).join(',')})`
+        // Match by PREFIX so a project's slug catches both a bare upload
+        // (Amelia_R046_S01) and every variation (Amelia_R046_S01_O01, _O02…).
+        // FIND(slug, name)=1 ⇒ the asset/task name starts with slug.
+        const assetFormula = `OR(${uploadedSlugs.map(s => `FIND(${quoteAirtableString(s)}, {Asset Name})=1`).join(',')})`
+        const taskFormula = `OR(${uploadedSlugs.map(s => `FIND(${quoteAirtableString('AI Review: ' + s)}, {Name})=1`).join(',')})`
         const [assets, tasks] = await Promise.all([
           fetchAirtableRecords(ASSETS, {
-            fields: ['Asset Name', 'CDN URL', 'Thumbnail'],
+            fields: ['Asset Name', 'CDN URL', 'Thumbnail', 'Dropbox Shared Link', 'Source Type', 'Pipeline Status'],
             filterByFormula: assetFormula,
           }),
           fetchAirtableRecords(TASKS, {
@@ -94,19 +103,41 @@ export async function GET(request) {
             filterByFormula: taskFormula,
           }),
         ])
+        // Review status + task id keyed by the asset NAME the task reviews
+        // (tasks are named "AI Review: {assetName}" per the upload route).
+        const taskByAssetName = {}
+        for (const t of tasks) {
+          const nm = t.fields?.Name || ''
+          const an = nm.startsWith('AI Review: ') ? nm.slice('AI Review: '.length) : null
+          if (an) taskByAssetName[an] = { taskId: t.id, reviewStatus: sel(t.fields?.['Admin Review Status']) }
+        }
+        // Longest slug first so a variation maps to its true parent.
+        const slugsByLen = [...uploadedSlugs].sort((a, b) => b.length - a.length)
         for (const a of assets) {
           const name = a.fields?.['Asset Name']
           if (!name) continue
+          if (a.fields?.['Source Type'] !== 'AI Generated') continue
+          if (sel(a.fields?.['Pipeline Status']) === 'Discarded') continue
+          const parent = slugsByLen.find(s => name === s || name.startsWith(s + '_O'))
+          if (!parent) continue
           const cdn = a.fields?.['CDN URL']
           const thumb = att(a.fields?.Thumbnail)
-          if (cdn || thumb) slugToUploadedThumb[name] = cdn || thumb
+          const t = taskByAssetName[name] || {}
+          ;(uploadsBySlug[parent] ||= []).push({
+            assetId: a.id,
+            taskId: t.taskId || null,
+            name,
+            video: rawLink(a.fields?.['Dropbox Shared Link']),
+            thumbnail: cdn || thumb || null,
+            reviewStatus: t.reviewStatus || null,
+          })
+          // Back-compat: first upload feeds the scene's single thumb/status.
+          if (!(parent in slugToUploadedThumb) && (cdn || thumb)) slugToUploadedThumb[parent] = cdn || thumb
+          if (!(parent in slugToAdminReview) && t.reviewStatus) slugToAdminReview[parent] = t.reviewStatus
         }
-        for (const t of tasks) {
-          const taskName = t.fields?.Name || ''
-          const slug = taskName.startsWith('AI Review: ') ? taskName.slice('AI Review: '.length) : null
-          if (!slug) continue
-          const status = t.fields?.['Admin Review Status']
-          slugToAdminReview[slug] = (status?.name || status || null)
+        // Stable order: bare first, then _O01, _O02…
+        for (const k of Object.keys(uploadsBySlug)) {
+          uploadsBySlug[k].sort((x, y) => x.name.localeCompare(y.name))
         }
       } catch (e) {
         console.warn('[stage-b outputs] uploaded asset/task lookup failed:', e.message)
@@ -166,6 +197,10 @@ export async function GET(request) {
           // 'Approved' = truly done.
           // 'Rejected' = needs revision (already surfaces in /revisions).
           adminReviewStatus: (f['Uploaded At'] && f.Slug) ? (slugToAdminReview[f.Slug] || null) : null,
+          // Every AI video the editor submitted against this project (bare +
+          // _O variations), each with its own video/thumb/review status and
+          // the taskId the card needs to offer a per-upload Remove button.
+          uploadedVariations: (f['Uploaded At'] && f.Slug) ? (uploadsBySlug[f.Slug] || []) : [],
           room: roomId ? roomById[roomId] || '' : '',
           reel: reel ? {
             id: reelId,
