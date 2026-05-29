@@ -10,8 +10,8 @@
 // textual state line in the consuming surface ("Reviewing: AI Reels — Amelia").
 
 const SIDES = {
-  real: { label: 'Real', color: 'var(--palm-pink)', fill: 'rgba(232,160,160,0.16)', icon: '🎬' },
-  ai: { label: 'AI', color: '#a78bfa', fill: 'rgba(167,139,250,0.18)', icon: '🤖' },
+  real: { label: 'Real', color: 'var(--palm-pink)', fill: 'rgba(232,160,160,0.16)' },
+  ai: { label: 'AI', color: '#a78bfa', fill: 'rgba(167,139,250,0.18)' },
 }
 
 export default function RealAiToggle({ value = 'real', onChange, size = 'md' }) {
@@ -42,7 +42,6 @@ export default function RealAiToggle({ value = 'real', onChange, size = 'md' }) 
               transition: 'all 0.15s ease',
             }}
           >
-            <span aria-hidden="true" style={{ fontSize: font + 1, filter: active ? 'none' : 'grayscale(1) opacity(0.6)' }}>{s.icon}</span>
             {s.label}
           </button>
         )

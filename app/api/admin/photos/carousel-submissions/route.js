@@ -17,9 +17,13 @@ export async function GET(request) {
     const url = new URL(request.url)
     const status = url.searchParams.get('status') || 'Pending'
     const validStatus = ['Pending', 'Approved', 'Rejected'].includes(status) ? status : 'Pending'
+    // source=ai (default) → AI Generated carousels; source=real → human-made
+    // carousels (any non-AI source) through the same batch-review flow.
+    const source = url.searchParams.get('source') === 'real' ? 'real' : 'ai'
+    const sourceClause = source === 'real' ? "{Source Type}!='AI Generated'" : "{Source Type}='AI Generated'"
 
     const rows = await fetchAirtableRecords('Photos', {
-      filterByFormula: `AND({Source Type}='AI Generated',{Review Status}='${validStatus}',NOT({Submission Batch ID}=''))`,
+      filterByFormula: `AND(${sourceClause},{Review Status}='${validStatus}',NOT({Submission Batch ID}=''))`,
       fields: ['Source Type', 'Creator', 'Review Status', 'Submission Batch ID', 'Submission Title', 'Uploaded By', 'CDN URL', 'Image', 'Carousel Index', 'Dropbox Link'],
     })
 

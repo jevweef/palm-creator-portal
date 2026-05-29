@@ -31,13 +31,12 @@ import Link from 'next/link'
 // Real Content + Outbound surfaces (reused from the Editor page — three of
 // these are newly `export`ed inline components; the rest were already modules).
 import { EditorDashboardContent } from '@/components/EditorDashboard'
-import { ForReview, SubmissionsFeed, UnreviewedLibrary } from '@/app/admin/editor/page'
+import { SubmissionsFeed, UnreviewedLibrary } from '@/app/admin/editor/page'
 import PostsPage from '@/app/admin/posts/page'
 import LongFormUpload from '@/components/LongFormUpload'
 import OftvProjectsQueue from '@/components/OftvProjectsQueue'
 import GridPlanner from '@/components/GridPlanner'
 import CarouselsTab from '@/app/admin/editor/CarouselsTab'
-import CarouselSubmissionsReview from '@/app/admin/editor/CarouselSubmissionsReview'
 
 // AI Content surfaces (reused from /admin/recreate-source).
 import SetupTab from '@/app/admin/recreate-source/SetupTab'
@@ -49,7 +48,7 @@ import WarmupTab from '@/app/admin/recreate-source/WarmupTab'
 import MarketingContentPage from '@/app/admin/marketing-content/page'
 
 // Shared hub primitives — one design language across every section.
-import { HubSection } from './_components'
+import { HubSection, ContentReview } from './_components'
 
 // --- small in-hub panels for surfaces not yet built out ---------------------
 
@@ -120,7 +119,7 @@ const SECTIONS = [
   {
     key: 'outbound', label: 'Outbound',
     subtabs: [
-      { key: 'review',    label: 'For Review', render: ({ showToast }) => (<><CarouselSubmissionsReview showToast={showToast} /><ForReview showToast={showToast} /></>) },
+      { key: 'review',    label: 'For Review', render: ({ showToast }) => <ContentReview showToast={showToast} /> },
       { key: 'postprep',  label: 'Post Prep',  render: () => <PostsPage /> },
       { key: 'carousels', label: 'Carousels',  render: ({ showToast }) => <CarouselsTab showToast={showToast} /> },
       { key: 'grid',      label: 'Grid Planner', render: () => <GridPlanner /> },

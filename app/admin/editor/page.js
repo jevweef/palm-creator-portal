@@ -1983,7 +1983,7 @@ function VideoModal({ streamUid, url, onClose }) {
 
 const REVIEW_PAGE_SIZE = 10
 
-export function ForReview({ showToast }) {
+export function ForReview({ showToast, sourceFilter }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
@@ -2067,9 +2067,14 @@ export function ForReview({ showToast }) {
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   })()
-  const filteredTasks = creatorFilter === 'all'
-    ? tasks
-    : tasks.filter(t => t.creator?.id === creatorFilter)
+  const filteredTasks = tasks.filter(t => {
+    if (creatorFilter !== 'all' && t.creator?.id !== creatorFilter) return false
+    // sourceFilter (from the Content review split): 'ai' | 'real' | undefined.
+    const isAi = t.asset?.sourceType === 'AI Generated'
+    if (sourceFilter === 'ai' && !isAi) return false
+    if (sourceFilter === 'real' && isAi) return false
+    return true
+  })
 
   return (
     <div>

@@ -3,7 +3,9 @@
 // EmptyState — consistent "nothing here" panel. Used so an empty quadrant in
 // the Content review split (or any filtered list) reads as intentional rather
 // than looking broken.
-export default function EmptyState({ icon = '✨', title = 'Nothing here yet', message, action }) {
+// `icon` is optional and expects a React node (e.g. a minimal inline SVG) —
+// NOT an emoji. Omit it for a clean text-only empty state.
+export default function EmptyState({ icon = null, title = 'Nothing here yet', message, action }) {
   return (
     <div
       style={{
@@ -13,7 +15,7 @@ export default function EmptyState({ icon = '✨', title = 'Nothing here yet', m
         background: 'rgba(255,255,255,0.015)',
       }}
     >
-      <div aria-hidden="true" style={{ fontSize: 30, opacity: 0.7 }}>{icon}</div>
+      {icon && <div aria-hidden="true" style={{ opacity: 0.7 }}>{icon}</div>}
       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>{title}</div>
       {message && <div style={{ fontSize: 13, color: 'var(--foreground-muted)', maxWidth: 420, lineHeight: 1.5 }}>{message}</div>}
       {action && <div style={{ marginTop: 8 }}>{action}</div>}

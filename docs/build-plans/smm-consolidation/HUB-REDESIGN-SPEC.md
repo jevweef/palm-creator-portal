@@ -15,6 +15,7 @@ Many content sources → one automated post-prep-and-schedule funnel. This featu
 
 1. **Never break existing functionality.** Every current surface is wanted EXCEPT the explicit changes below. When "removing" something (e.g. the Long Form tab), preserve its underlying capability by folding it elsewhere — don't delete the function, just declutter the navigation.
 2. **One design language — no per-page reinvention.** All sections must look and feel like the same product: shared container width, spacing, headers, cards, buttons, filter bars, empty states, toasts, pagination. Build/extract **shared primitives** and reuse them everywhere. Moving between tabs should feel seamless, not like landing on a different app.
+   - **NO cheap-looking emoji icons** anywhere in the hub (Evan, hard preference). Differentiate with clean typography, weight, and color; use a minimal inline SVG only where an icon genuinely adds clarity. Strip existing emoji icons (nav chips, section headers like "📸"/"✨", toggles) from any surface as it's reworked.
 3. **Think like Evan — proactively add what helps.** This is a high-volume content tool. For every surface ask: *what would Evan want here?* Bias toward:
    - **Filterability:** by creator, by content type (reel/carousel/photo), by Real/AI, by status, by date.
    - **Sorting:** newest/oldest, by creator, by status.

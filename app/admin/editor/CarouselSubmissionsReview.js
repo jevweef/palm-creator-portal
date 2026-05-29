@@ -1,12 +1,14 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import EmptyState from '@/app/admin/social/_components/EmptyState'
 
 // AI Carousel Submissions — pending batches uploaded via /ai-editor.
 // Lives alongside the existing reel For Review queue. Approve flips each
 // photo in the batch to Review Status=Approved (surfaces in Carousels
 // picker under AI Generated); Reject flips to Rejected (Photo stays in
 // Airtable for audit but the picker filter hides it).
-export default function CarouselSubmissionsReview({ showToast }) {
+export default function CarouselSubmissionsReview({ showToast, sourceFilter = 'ai', embedded = false }) {
+  const sourceLabel = sourceFilter === 'real' ? 'Real' : 'AI'
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(null)
@@ -23,7 +25,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
   const fetchSubmissions = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/photos/carousel-submissions')
+      const res = await fetch(`/api/admin/photos/carousel-submissions?source=${sourceFilter}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load')
       setSubmissions(data.submissions || [])
@@ -32,7 +34,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
     } finally {
       setLoading(false)
     }
-  }, [showToast])
+  }, [showToast, sourceFilter])
 
   useEffect(() => { fetchSubmissions() }, [fetchSubmissions])
 
@@ -87,7 +89,13 @@ export default function CarouselSubmissionsReview({ showToast }) {
   }
 
   if (loading) return null
-  if (!submissions.length) return null  // Hide the whole section when empty.
+  // Standalone: hide when empty. Embedded in the Content review split: show a
+  // clear empty state so the quadrant doesn't look broken.
+  if (!submissions.length) {
+    return embedded
+      ? <EmptyState title={`No ${sourceLabel.toLowerCase()} carousels to review`} message={`When ${sourceLabel} carousel submissions are pending, they'll appear here.`} />
+      : null
+  }
 
   return (
     <div style={{ marginBottom: 32 }}>
@@ -96,7 +104,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
         textTransform: 'uppercase', letterSpacing: '0.08em',
         margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        📸 AI Carousel Submissions
+        {sourceLabel} Carousel Submissions
         <span style={{
           padding: '2px 8px', fontSize: 10, fontWeight: 700, borderRadius: 10,
           background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)',
@@ -335,7 +343,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
                     textTransform: 'uppercase', color: 'var(--foreground-muted)',
                     marginBottom: 8,
-                  }}>📷 Source · {proj.sourcePhotos?.length || 0}</div>
+                  }}>Source · {proj.sourcePhotos?.length || 0}</div>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
@@ -375,7 +383,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
                     textTransform: 'uppercase', color: 'var(--palm-pink)',
                     marginBottom: 8,
-                  }}>✨ AI Submission · {sub.photos.length}</div>
+                  }}>{sourceLabel} Submission · {sub.photos.length}</div>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
