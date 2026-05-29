@@ -2,9 +2,10 @@
 
 // Placeholder until Batch 3 ships the "what's next for [creator]" engine.
 // Plan: docs/build-plans/smm-consolidation/batch-3-content-strategy.md
-export default function StrategyTab() {
+export default function StrategyTab({ maxWidth = 760 } = {}) {
+  const widthStyle = maxWidth === 'none' || maxWidth == null ? { width: '100%' } : { maxWidth }
   return (
-    <div style={{ padding: 32, maxWidth: 760 }}>
+    <div style={{ padding: 32, ...widthStyle }}>
       <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Content Strategy</h2>
       <p style={{ marginTop: 12, color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
         "What's next for [creator]?" — the engine that picks the next carousel or reel to feed

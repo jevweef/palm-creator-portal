@@ -48,6 +48,9 @@ import WarmupTab from '@/app/admin/recreate-source/WarmupTab'
 // Overview (reused from /admin/marketing-content).
 import MarketingContentPage from '@/app/admin/marketing-content/page'
 
+// Shared hub primitives — one design language across every section.
+import { HubSection } from './_components'
+
 // --- small in-hub panels for surfaces not yet built out ---------------------
 
 function AiDashboardPlaceholder() {
@@ -109,8 +112,8 @@ const SECTIONS = [
     subtabs: [
       { key: 'dashboard', label: 'Dashboard', render: () => <AiDashboardPlaceholder /> },
       { key: 'workflow',  label: 'Workflow',  render: () => <WorkflowTab /> },
-      { key: 'setup',     label: 'Setup',     render: () => <SetupTab />, adminOnly: true },
-      { key: 'strategy',  label: 'Strategy',  render: () => <StrategyTab />, adminOnly: true },
+      { key: 'setup',     label: 'Setup',     render: () => <SetupTab containerMaxWidth="none" />, adminOnly: true },
+      { key: 'strategy',  label: 'Strategy',  render: () => <StrategyTab maxWidth="none" />, adminOnly: true },
       { key: 'warmup',    label: 'Warm-Up',   render: () => <WarmupTab /> },
     ],
   },
@@ -235,8 +238,9 @@ function SocialHubInner() {
         })}
       </div>
 
-      {/* Active panel */}
-      <div>{activeSub.render({ showToast })}</div>
+      {/* Active panel — routed through HubSection so every section body is
+          full-width and consistent (no per-component maxWidth divergence). */}
+      <HubSection>{activeSub.render({ showToast })}</HubSection>
 
       {toast && (
         <div style={{

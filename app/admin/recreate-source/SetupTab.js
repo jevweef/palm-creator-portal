@@ -94,7 +94,7 @@ function LibraryReel({ reel, onRemove }) {
   )
 }
 
-export default function SetupTab() {
+export default function SetupTab({ containerMaxWidth = 1200 } = {}) {
   const [sources, setSources] = useState([])
   const [reels, setReels] = useState([])
   const [handles, setHandles] = useState('')
@@ -267,9 +267,16 @@ export default function SetupTab() {
     return true
   })
 
+  // Width container: defaults to 1200-centered for the standalone
+  // /admin/recreate-source route; the hub passes 'none' for full-width parity
+  // with the other Social Media Hub sections.
+  const wrap = containerMaxWidth === 'none' || containerMaxWidth == null
+    ? { width: '100%' }
+    : { maxWidth: containerMaxWidth, margin: '0 auto' }
+
   if (tab === 'rooms') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={wrap}>
         <TabBar tab={tab} setTab={setTab} />
         <RoomsPanel />
         <ModalHost />
@@ -278,7 +285,7 @@ export default function SetupTab() {
   }
   if (tab === 'avatar') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={wrap}>
         <TabBar tab={tab} setTab={setTab} />
         <CreatorAvatarPanel />
         <ModalHost />
@@ -287,7 +294,7 @@ export default function SetupTab() {
   }
   if (tab === 'photos') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={wrap}>
         <TabBar tab={tab} setTab={setTab} />
         <PhotosPanel />
         <ModalHost />
@@ -296,7 +303,7 @@ export default function SetupTab() {
   }
   if (tab === 'stageb') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={wrap}>
         <TabBar tab={tab} setTab={setTab} />
         <StageBPanel />
         <ModalHost />
@@ -305,7 +312,7 @@ export default function SetupTab() {
   }
   if (tab === 'freeform') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={wrap}>
         <TabBar tab={tab} setTab={setTab} />
         <FreeformGenPanel />
         <ModalHost />
@@ -314,7 +321,7 @@ export default function SetupTab() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <div style={wrap}>
       <TabBar tab={tab} setTab={setTab} />
       <ModalHost />
       <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>AI Recreate Library</h1>
