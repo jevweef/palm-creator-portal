@@ -378,7 +378,7 @@ export default function CarouselsTab({ showToast }) {
             opacity: visible.length < 4 ? 0.5 : 1,
           }}
         >
-          {analyzingClusters ? 'Analyzing…' : '🔮 Find Similar Photo Clusters'}
+          {analyzingClusters ? 'Analyzing…' : 'Find Similar Photo Clusters'}
         </button>
       </div>
 

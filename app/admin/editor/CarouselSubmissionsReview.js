@@ -92,9 +92,11 @@ export default function CarouselSubmissionsReview({ showToast, sourceFilter = 'a
   // Standalone: hide when empty. Embedded in the Content review split: show a
   // clear empty state so the quadrant doesn't look broken.
   if (!submissions.length) {
-    return embedded
-      ? <EmptyState title={`No ${sourceLabel.toLowerCase()} carousels to review`} message={`When ${sourceLabel} carousel submissions are pending, they'll appear here.`} />
-      : null
+    if (!embedded) return null
+    const msg = sourceFilter === 'real'
+      ? "Real carousels are assembled under Carousels and don't route through this review queue yet — only AI carousels are reviewed here for now."
+      : 'When AI carousel submissions are pending, they\'ll appear here.'
+    return <EmptyState title={`No ${sourceLabel.toLowerCase()} carousels to review`} message={msg} />
   }
 
   return (

@@ -1056,7 +1056,7 @@ export function UnreviewedLibrary({ showToast }) {
   const shown = activeTab === 'videos' ? videos : photos
   // Local page size = full rows only. (Do NOT use the shared LIB_PAGE_SIZE —
   // the EditorDashboard picker depends on that constant being 15.)
-  const pageSize = Math.max(cols, cols * GRID_ROWS)
+  const pageSize = cols * GRID_ROWS
   const totalPages = Math.max(1, Math.ceil(shown.length / pageSize))
   const paged = shown.slice((page - 1) * pageSize, page * pageSize)
 

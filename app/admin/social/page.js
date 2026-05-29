@@ -76,7 +76,9 @@ const SECTIONS = [
   {
     key: 'overview', label: 'Overview',
     subtabs: [
-      { key: 'home', label: 'Overview', render: () => <MarketingContentPage /> },
+      { key: 'home',      label: 'Overview',        render: () => <MarketingContentPage /> },
+      // Lens A — whole-team / editor workload (the existing editor dashboard).
+      { key: 'workload',  label: 'Editor Workload', render: () => <EditorDashboardContent /> },
     ],
   },
   {
@@ -88,7 +90,6 @@ const SECTIONS = [
       { key: 'submissions', label: 'Submissions',      render: ({ showToast }) => <SubmissionsFeed showToast={showToast} /> },
       { key: 'carousels',   label: 'Carousels',        render: ({ showToast }) => <CarouselsTab showToast={showToast} /> },
       { key: 'oftv',        label: 'OFTV & Long Form', render: ({ showToast }) => <OftvAndLongForm showToast={showToast} /> },
-      { key: 'dashboard',   label: 'Editor Dashboard', render: () => <EditorDashboardContent /> },
     ],
   },
   {
@@ -150,7 +151,7 @@ function SocialHubInner() {
   // Keep the URL canonical so deep links + sidebar highlighting stay in sync.
   useEffect(() => {
     if (!activeSection || !activeSub) return
-    if (urlSection !== activeSection.key || urlSub !== activeSub.key) {
+    if (rawSection !== activeSection.key || urlSub !== activeSub.key) {
       router.replace(`${pathname}?tab=${activeSection.key}&sub=${activeSub.key}`, { scroll: false })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

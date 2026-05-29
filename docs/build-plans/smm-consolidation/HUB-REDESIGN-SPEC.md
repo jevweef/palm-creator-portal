@@ -117,5 +117,26 @@ Each phase ends with a compile/sanity check. Preserve functionality throughout.
 - **Phase 7 — Strategy engine:** Content Strategy Engine (separate, larger track; can run independently).
 - **Pass 2 — Holistic UX review:** walk every section as Evan; log improvements (filters, expand/collapse, interactions, consistency gaps) into this file's "Pass 2 findings" section, then build them.
 
-## Pass 2 findings
-*(populated during the holistic review pass)*
+## Pass 2 findings (3-agent review, 2026-05-29)
+
+**Correctness verdict:** build passes (next build EXIT=0) AND no high/medium logic bugs. Shared components are backward-compatible at `/admin/editor`; ai_editor scoping is correct (no privilege leak); no circular-import hazard; ContentReview never co-renders Real+AI.
+
+### Fixed in this pass
+- Dead `Math.max(cols, cols*GRID_ROWS)` → `cols*GRID_ROWS` (UnreviewedLibrary).
+- Aliased `?tab=real|ai` now rewrites to canonical `?tab=content` (sidebar highlight + URL normalize). 
+- Overview no longer self-pads (`24px 8px` removed) → matches sibling section widths.
+- Editor Dashboard moved Content → **Overview** as "Editor Workload" (delivers Overview Lens A; trims Content to 6 subtabs).
+- Real-Carousel review empty state now explains real carousels aren't routed here yet (won't read as broken).
+- Removed `🔮` emoji from CarouselsTab "Find Similar Photo Clusters".
+
+### Queue for Evan (ranked) — not yet done
+1. **Lift creator (+Real/AI) filter to URL/hub state** so it persists across subtabs and across the ContentReview quadrants (today each surface holds its own; selection resets). Wire the built-but-unused `CreatorPicker`. (M) — highest-felt friction.
+2. **Wire the unused primitives**: `CreatorPicker` (replaces 3 ad-hoc `<select>`s in UnreviewedLibrary/ForReview/SubmissionsFeed), `Paginator`, `ContentCard`. Converts UnreviewedLibrary's status/sort pink pills to neutral `Segmented` (pink should mean "Real", not a status filter). (M)
+3. **Emoji sweep (house style)** — remaining emoji icons in reused surfaces: `components/GridPlanner.js` (🗓 📸 🗂️ 🖼 🎲 🗑 🔗), `app/admin/editor/page.js` (📸 🖼 🔔 ♫), `components/OftvProjectsQueue.js` (🎬 👀 ✗ 🎨 ✅ ⚠️ 📨 🎞️ ✏️ 📝 file-type icons), `app/admin/recreate-source/SetupTab.js` (✨ 🎬 📋 ✏️ 🎲 📐 🗂 🗑 ✅ ❌), `app/admin/posts/page.js` (📸 🎞 ▦ ☀ 🌙), and the **shared admin sidebar** `app/admin/layout.js` (📣 🎨 + all nav icons — app-wide decision). Dingbats (✓ ✕ → ↗) left as-is unless Evan wants them gone too. (S each, do as a batch)
+4. **SubmissionsFeed**: add status filter + Paginator + optional date filter. (S)
+5. **ForReview grid**: replace hard-coded `repeat(4,1fr)` with the responsive column logic used in the library. (S)
+6. **Close cross-surface loops**: Library card → "view in editor queue"; approve toast → route badge ("Approved → Publer" vs Telegram). (M)
+7. **AccountsPanel**: surface per-account Bitwarden **vault item ID/deep-link** (needs confirming the field exists on AI Account Profile; additive Airtable field if not). (S/M)
+8. **Overview Lens B** (per-creator at-a-glance) — needs new aggregation + Publer Phase 3 analytics. Deferred. (L)
+9. **Real Carousel pipeline**: real carousels don't currently flow as Photos batches with Review Status — decide whether they should be reviewed at all, or keep the quadrant informational. (needs Evan)
+10. **Content Strategy Engine** (Phase 7): confirm the 7-pillar taxonomy, then build backfill + daily pre-fill. (L, needs Evan)
