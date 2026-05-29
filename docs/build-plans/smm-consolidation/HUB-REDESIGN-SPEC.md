@@ -83,8 +83,28 @@ Use a **Real/AI segmented toggle** + a **creator picker**, both unmistakable, in
 
 ---
 
+## Execution mode: AUTONOMOUS (2026-05-29)
+Evan opted to run ALL phases autonomously (no mid-build review checkpoints), followed by a multi-agent review pass that checks the work and proposes improvements. Build every phase in order, commit after each, then run the review. List anything not visually verifiable for Evan to eyeball on return.
+
+### Autonomous run prompt (for resuming in a fresh session / as a goal)
+```
+Continue the Social Media Hub redesign on branch smm-hub-redesign. Source of
+truth: docs/build-plans/smm-consolidation/HUB-REDESIGN-SPEC.md and the plan at
+~/.claude/plans/foamy-meandering-elephant.md. Phases 0,1,1b are committed.
+Build ALL remaining phases (2->7) in order, AUTONOMOUSLY (no pausing for
+review). Commit after each phase. Honor the PRINCIPLES (never break existing
+functionality; one design language via app/admin/social/_components primitives;
+real/AI never mix; Real/AI toggle unmistakable). Decisions are locked (D1-D4 +
+real-carousel wired in + Workflow in Content). Keep the dev server on :3000
+healthy (stale .next 500 -> kill, rm -rf .next, restart). When all phases are
+done, run a final `next build`, fix any compile errors, then launch 2-3 review
+agents to audit the whole hub for correctness, broken functionality,
+consistency, and improvements; log findings into "Pass 2 findings" and fix the
+high-confidence ones. Do NOT push to any remote.
+```
+
 ## Phased build order
-Each phase ends with a `:3000` check before moving on. Preserve functionality throughout.
+Each phase ends with a compile/sanity check. Preserve functionality throughout.
 
 - **Phase 0 — Foundations:** extract shared primitives (`HubSection`, `FilterBar`, `CreatorPicker`, `RealAiToggle`, `ContentCard`, `Paginator`, `EmptyState`); normalize all sections to equal full-width. *(enables consistency for everything after)*
 - **Phase 1 — Creator Library:** date-on-card, hide AI-suggest on photos, full-row grid, filters (creator/type/status-phase1/sort).
