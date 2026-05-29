@@ -87,6 +87,13 @@ export default function FreelanceSubmitModal({
       setStatus({ status: 'error', message: tok.error || 'token failed' })
       return { ok: false, error: tok.error || 'token failed' }
     }
+    // The token route resolves the slug to a fresh "_O{nn}" variant when
+    // the requested path is already taken — which is exactly the multi-file
+    // batch case, where every file arrives with the same project slug.
+    // Carry the RESOLVED slug into finalize so each Asset/Task is named
+    // after the file we actually wrote, instead of N cards all reading the
+    // bare project slug (the "3 of the same" bug).
+    const resolvedSlug = tok.slug || slug || null
 
     setStatus({ status: 'dropbox', message: `Uploading ${(file.size / (1024*1024)).toFixed(1)} MB to Dropbox…` })
     const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -114,7 +121,7 @@ export default function FreelanceSubmitModal({
         creatorId,
         dropboxPath: tok.path,
         thumbnailBase64,
-        slug: slug || null,
+        slug: resolvedSlug,
       }),
     })
     const fin = await finRes.json()

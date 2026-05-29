@@ -32,7 +32,7 @@ export async function GET() {
     const [assetRecords, creatorRecords, inspoRecords] = await Promise.all([
       assetIds.length ? fetchAirtableRecords('Assets', {
         filterByFormula: recordIdFormula(assetIds),
-        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Palm Creators', 'Source Type', 'Reference Source URL'],
+        fields: ['Asset Name', 'Pipeline Status', 'Dropbox Shared Link', 'Edited File Link', 'Thumbnail', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Palm Creators', 'Source Type', 'Reference Source URL', 'Recreate Reels'],
       }) : [],
       creatorIds.length ? fetchAirtableRecords('Palm Creators', {
         filterByFormula: recordIdFormula(creatorIds),
@@ -48,12 +48,37 @@ export async function GET() {
     const creatorMap = Object.fromEntries(creatorRecords.map(r => [r.id, r.fields]))
     const inspoMap = Object.fromEntries(inspoRecords.map(r => [r.id, r.fields]))
 
-    // AI Generated assets don't link to an Inspiration record — instead they
-    // carry the original Instagram reel URL in `Reference Source URL`. Join
-    // back to Recreate Reels by URL match so the review card can show the
-    // original side-by-side as a playable Stream video (not just a text link).
+    // AI Generated assets don't link to an Inspiration record — they carry
+    // their source reel two ways: (1) the `Recreate Reels` linked-record
+    // field (record-ID link, set at upload time) and (2) historically a
+    // `Reference Source URL` text match against the reel's `Reel URL`.
+    //
+    // The record-ID link is the RELIABLE join: editor-uploaded reels have an
+    // EMPTY `Reel URL` (and the asset's `Reference Source URL` is empty too),
+    // so the URL match silently returns nothing and the ORIGINAL side renders
+    // blank — even though the linked reel has a perfectly good Stream UID +
+    // Dropbox Video Link. We join by record ID first and keep the URL match
+    // as a fallback for any legacy asset that only has the URL.
+    const reelFields = ['Reel URL', 'Stream UID', 'Thumbnail', 'Dropbox Video Link']
+
+    const aiReelIds = [...new Set(assetRecords
+      .filter(r => r.fields?.['Source Type'] === 'AI Generated' && r.fields?.['Recreate Reels']?.length)
+      .flatMap(r => r.fields['Recreate Reels']))]
+    let reelByRecordId = {}
+    if (aiReelIds.length) {
+      const reelRecords = await fetchAirtableRecords('Recreate Reels', {
+        filterByFormula: recordIdFormula(aiReelIds),
+        fields: reelFields,
+      })
+      reelByRecordId = Object.fromEntries(reelRecords.map(r => [r.id, r.fields]))
+    }
+
+    // Fallback URL join — only for AI assets that have a Reference Source URL
+    // but no usable record-ID link (older rows predating the link field).
     const aiUrls = [...new Set(assetRecords
-      .filter(r => r.fields?.['Source Type'] === 'AI Generated' && r.fields?.['Reference Source URL'])
+      .filter(r => r.fields?.['Source Type'] === 'AI Generated'
+        && r.fields?.['Reference Source URL']
+        && !r.fields?.['Recreate Reels']?.length)
       .map(r => r.fields['Reference Source URL']))]
     let reelByUrl = {}
     if (aiUrls.length) {
@@ -61,10 +86,19 @@ export async function GET() {
       const reelFormula = `OR(${aiUrls.map(u => `{Reel URL} = ${quoteAirtableString(escape(u))}`).join(',')})`
       const reelRecords = await fetchAirtableRecords('Recreate Reels', {
         filterByFormula: reelFormula,
-        fields: ['Reel URL', 'Stream UID', 'Thumbnail', 'Dropbox Video Link'],
+        fields: reelFields,
       })
       reelByUrl = Object.fromEntries(reelRecords.map(r => [r.fields?.['Reel URL'], r.fields]))
     }
+
+    // Shape a reel's raw fields into the sourceReel object the ORIGINAL cell
+    // consumes. Stream UID drives in-card playback (CF Stream serves its own
+    // poster); Dropbox Video Link is the fallback while Stream mirrors.
+    const toSourceReel = (rf) => rf ? {
+      streamUid: rf['Stream UID'] || null,
+      thumbnail: rf.Thumbnail?.[0]?.thumbnails?.large?.url || rf.Thumbnail?.[0]?.url || null,
+      dropboxVideoLink: rf['Dropbox Video Link'] || null,
+    } : null
 
     const result = tasks.map(t => {
       const f = t.fields || {}
@@ -104,17 +138,13 @@ export async function GET() {
           streamRawId: asset['Stream Raw ID'] || null,
           sourceType: asset['Source Type'] || '',
           referenceSourceUrl: asset['Reference Source URL'] || '',
-          // Only populated for AI Generated assets where we found a matching
-          // Recreate Reel by URL. Used to render the original IG reel as the
-          // side-by-side playable reference (instead of a text-only link).
-          sourceReel: (asset['Source Type'] === 'AI Generated' && asset['Reference Source URL'] && reelByUrl[asset['Reference Source URL']])
-            ? {
-                streamUid: reelByUrl[asset['Reference Source URL']]['Stream UID'] || null,
-                thumbnail: reelByUrl[asset['Reference Source URL']].Thumbnail?.[0]?.thumbnails?.large?.url
-                  || reelByUrl[asset['Reference Source URL']].Thumbnail?.[0]?.url
-                  || null,
-                dropboxVideoLink: reelByUrl[asset['Reference Source URL']]['Dropbox Video Link'] || null,
-              }
+          // Populated for AI Generated assets so the ORIGINAL side renders the
+          // source reel as a playable reference (not a text-only link). Prefer
+          // the record-ID link (works for editor-uploaded reels with no URL),
+          // fall back to the legacy URL match for older rows.
+          sourceReel: asset['Source Type'] === 'AI Generated'
+            ? (toSourceReel(reelByRecordId[asset['Recreate Reels']?.[0]])
+               || toSourceReel(reelByUrl[asset['Reference Source URL']]))
             : null,
         },
         inspo: {

@@ -178,7 +178,9 @@ function ReelCard({ reel, creatorId, selected, onToggle, onUploaded, autoOpen, o
           creatorId,
           dropboxPath: tok.path,
           thumbnailBase64,
-          slug,
+          // Use the token route's resolved slug — it may have allocated a
+          // fresh "_O{nn}" variant to avoid overwriting an existing upload.
+          slug: tok.slug || slug,
         }),
       })
       const data = await res.json()
