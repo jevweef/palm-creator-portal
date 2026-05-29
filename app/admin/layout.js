@@ -17,27 +17,18 @@ const ADMIN_NAV = [
     { key: 'suggest', label: 'Suggest' },
     { key: 'recreate', label: 'AI Recreate' },
   ]},
-  // NEW (SMM consolidation Batch 1): admin-only at-a-glance hub for both
-  // content streams. Slots between Inspo Board and AI Content so it's the
-  // first SMM-adjacent entry the admin sees.
-  { href: '/admin/marketing-content', label: 'Marketing Content', icon: '📱' },
-  // Relabeled 2026-05-27 (was "AI Source"). Route unchanged for back-compat —
-  // existing bookmarks + the Phase 1+2 Publer flow reference /admin/recreate-source.
-  // Page now renders a 3-tab strip (Setup / Workflow / Strategy). Warm-Up
-  // was originally a tab here but was promoted to a top-level item — see
-  // the next nav entry.
-  { href: '/admin/recreate-source', label: 'AI Content', icon: '🎨' },
-  // Account Warm-Up promoted to top-level (owner directive 2026-05-27).
-  // It's social-media account management + strategy, not AI content per se.
-  { href: '/admin/account-warmup', label: 'Account Warm-Up', icon: '🔥' },
-  { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
-    { key: 'editorview', label: 'Dashboard' },
-    { key: 'review', label: 'For Review' },
-    { key: 'postprep', label: 'Post Prep' },
-    { key: 'grid', label: 'Grid Planner' },
-    { key: 'library', label: 'Creator Library' },
-    { key: 'oftv', label: 'OFTV Projects' },
-    { key: 'longform', label: 'Long Form' },
+  // Social Media Hub — single home for all social-media content work.
+  // Collapses the former Marketing Content / AI Content / Account Warm-Up /
+  // Editor items into ONE hub (intentionally reverses the 2026-05-27 "no
+  // single parent" decision — see docs/build-plans/smm-consolidation/ + the
+  // social-media-hub master plan memory). The four legacy routes still
+  // resolve by URL for back-compat; they're just no longer in the sidebar.
+  // Children route to /admin/social?tab=<sectionKey>.
+  { href: '/admin/social', label: 'Social Media Hub', icon: '📣', children: [
+    { key: 'overview', label: 'Overview' },
+    { key: 'real', label: 'Real Content' },
+    { key: 'ai', label: 'AI Content' },
+    { key: 'outbound', label: 'Outbound' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
     { key: 'earnings', label: 'Earnings' },
@@ -93,7 +84,10 @@ export default function AdminLayout({ children }) {
   // guards in lib/adminAuth.js are the actual security boundary; this just
   // hides the rest of the admin sidebar from them.
   const isAiEditor = role === 'ai_editor'
-  const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
+  // ai_editor lands in the Social Media Hub's AI Content section. The legacy
+  // /admin/recreate-source route stays allowed for back-compat bookmarks.
+  const aiEditorAllowedPath = pathname?.startsWith('/admin/social')
+    || pathname?.startsWith('/admin/recreate-source')
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -160,7 +154,7 @@ export default function AdminLayout({ children }) {
   // role-filters which tabs they see. For any other path they'd be bounced
   // to /ai-editor by the redirect effect above.
   const AI_EDITOR_NAV = [
-    { href: '/admin/recreate-source', label: 'AI Content', icon: '🎨' },
+    { href: '/admin/social', label: 'AI Content', icon: '🎨' },
   ]
   const NAV_ITEMS = (isAiEditor
       ? AI_EDITOR_NAV
@@ -300,7 +294,7 @@ export default function AdminLayout({ children }) {
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {/* Parent-level pulse dot — surfaces nested counts so the
                       admin notices even from a different section. */}
-                  {item.href === '/admin/editor' && navCounts.oftvReview > 0 && !isActive && (
+                  {item.href === '/admin/social' && navCounts.oftvReview > 0 && !isActive && (
                     <span style={{
                       width: '7px', height: '7px', borderRadius: '50%',
                       background: '#E87878', flexShrink: 0,
@@ -315,7 +309,7 @@ export default function AdminLayout({ children }) {
                       const isChildActive = activeTab === child.key || (!activeTab && child === item.children[0])
                       // Count badges on specific sub-items. Currently only
                       // OFTV — extend by mapping more keys to navCounts.
-                      const childCount = (item.href === '/admin/editor' && child.key === 'oftv') ? navCounts.oftvReview : 0
+                      const childCount = (item.href === '/admin/social' && child.key === 'real') ? navCounts.oftvReview : 0
                       return (
                         <Link
                           key={child.key}

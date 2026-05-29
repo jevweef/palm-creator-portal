@@ -974,7 +974,7 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
 
 // ─── Unreviewed Library ───────────────────────────────────────────────────────
 
-function UnreviewedLibrary({ showToast }) {
+export function UnreviewedLibrary({ showToast }) {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCreator, setSelectedCreator] = useState('all')
@@ -1925,7 +1925,7 @@ function VideoModal({ streamUid, url, onClose }) {
 
 const REVIEW_PAGE_SIZE = 10
 
-function ForReview({ showToast }) {
+export function ForReview({ showToast }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
@@ -2351,7 +2351,7 @@ function ImageLightbox({ src, label, onClose }) {
 // revisions, that's when the editor resubmitted (not when the original task
 // was created).
 
-function SubmissionsFeed({ showToast }) {
+export function SubmissionsFeed({ showToast }) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all') // all | Initial | Revision

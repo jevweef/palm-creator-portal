@@ -156,6 +156,10 @@ export async function GET() {
       const assetId = (task.fields?.Asset || [])[0]
       const inspoId = (task.fields?.Inspiration || [])[0]
       const asset = assetId ? (assetMap[assetId] || {}) : {}
+      // AI-generated content lives in the AI Content hub — keep it out of the
+      // human editor's dashboard so counts (in review / approved / open) reflect
+      // real, human-filmed content only.
+      if (asset['Source Type'] === 'AI Generated') continue
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
       const screenshots = (task.fields?.['Admin Screenshots'] || [])
         .map(s => s.thumbnails?.large?.url || s.url)
