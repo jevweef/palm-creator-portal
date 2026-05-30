@@ -1983,7 +1983,7 @@ function VideoModal({ streamUid, url, onClose }) {
 
 const REVIEW_PAGE_SIZE = 10
 
-export function ForReview({ showToast, sourceFilter }) {
+export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
@@ -2067,8 +2067,21 @@ export function ForReview({ showToast, sourceFilter }) {
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   })()
+
+  // When a parent (ContentReview) controls the creator filter, use its value
+  // and report our options up so it can render the picker. Otherwise self-manage.
+  const controlledCreator = creatorId !== undefined
+  const effectiveCreator = controlledCreator ? creatorId : creatorFilter
+  useEffect(() => {
+    if (!onCreatorOptions) return
+    onCreatorOptions(creatorOptions.map(([id, name]) => ({
+      id, name, count: tasks.filter(t => t.creator?.id === id).length,
+    })))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks])
+
   const filteredTasks = tasks.filter(t => {
-    if (creatorFilter !== 'all' && t.creator?.id !== creatorFilter) return false
+    if (effectiveCreator !== 'all' && t.creator?.id !== effectiveCreator) return false
     // sourceFilter (from the Content review split): 'ai' | 'real' | undefined.
     const isAi = t.asset?.sourceType === 'AI Generated'
     if (sourceFilter === 'ai' && !isAi) return false
@@ -2081,18 +2094,20 @@ export function ForReview({ showToast, sourceFilter }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: 0 }}>
           {filteredTasks.length} edit{filteredTasks.length !== 1 ? 's' : ''} waiting for your review
-          {creatorFilter !== 'all' && tasks.length !== filteredTasks.length && (
+          {effectiveCreator !== 'all' && tasks.length !== filteredTasks.length && (
             <span style={{ marginLeft: '6px' }}>· filtered from {tasks.length}</span>
           )}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <select value={creatorFilter} onChange={e => { setCreatorFilter(e.target.value); setPage(0) }}
-            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
-            <option value="all">All creators</option>
-            {creatorOptions.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
+          {!controlledCreator && (
+            <select value={creatorFilter} onChange={e => { setCreatorFilter(e.target.value); setPage(0) }}
+              style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All creators</option>
+              {creatorOptions.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          )}
           <button onClick={fetchTasks}
             style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
             Refresh

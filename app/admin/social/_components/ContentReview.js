@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { ForReview } from '@/app/admin/editor/page'
 import CarouselSubmissionsReview from '@/app/admin/editor/CarouselSubmissionsReview'
 import RealAiToggle from './RealAiToggle'
+import CreatorPicker from './CreatorPicker'
 import { Segmented } from './FilterBar'
 
 // ContentReview — the Real/AI × Reel/Carousel review surface. Two orthogonal
@@ -18,6 +19,11 @@ import { Segmented } from './FilterBar'
 export default function ContentReview({ showToast }) {
   const [mode, setMode] = useState('real')      // 'real' | 'ai'
   const [medium, setMedium] = useState('reels') // 'reels' | 'carousel'
+  // Creator selection is lifted here so it sits up top-left with the toggles
+  // and persists across the Real/AI + Reel/Carousel switches.
+  const [creator, setCreator] = useState('all')
+  const [creatorOptions, setCreatorOptions] = useState([])
+  const handleCreatorOptions = useCallback((opts) => setCreatorOptions(opts || []), [])
 
   const modeLabel = mode === 'ai' ? 'AI' : 'Real'
   const mediumLabel = medium === 'carousel' ? 'Carousels' : 'Reels'
@@ -33,6 +39,11 @@ export default function ContentReview({ showToast }) {
           ariaLabel="Reels or carousels"
           options={[{ value: 'reels', label: 'Reels' }, { value: 'carousel', label: 'Carousels' }]}
         />
+        {/* Creator filter — left, next to the toggles. Reels only (carousel
+            submissions aren't creator-filterable yet). */}
+        {medium === 'reels' && (
+          <CreatorPicker value={creator} onChange={setCreator} creators={creatorOptions} />
+        )}
       </div>
 
       {/* Explicit, unmistakable state line — what you're looking at right now. */}
@@ -41,7 +52,7 @@ export default function ContentReview({ showToast }) {
       </div>
 
       {medium === 'reels'
-        ? <ForReview showToast={showToast} sourceFilter={mode} />
+        ? <ForReview showToast={showToast} sourceFilter={mode} creatorId={creator} onCreatorOptions={handleCreatorOptions} />
         : <CarouselSubmissionsReview showToast={showToast} sourceFilter={mode} embedded />}
     </div>
   )

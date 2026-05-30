@@ -84,11 +84,12 @@ const SECTIONS = [
   {
     key: 'content', label: 'Content',
     subtabs: [
-      { key: 'workflow',    label: 'AI Workflow',      render: () => <WorkflowTab />, aiEditor: true },
-      { key: 'library',     label: 'Creator Library',  render: ({ showToast }) => <UnreviewedLibrary showToast={showToast} /> },
+      // For Review first — it's the most frequent daily action.
       { key: 'review',      label: 'For Review',       render: ({ showToast }) => <ContentReview showToast={showToast} /> },
+      { key: 'library',     label: 'Creator Library',  render: ({ showToast }) => <UnreviewedLibrary showToast={showToast} /> },
       { key: 'submissions', label: 'Submissions',      render: ({ showToast }) => <SubmissionsFeed showToast={showToast} /> },
       { key: 'carousels',   label: 'Carousels',        render: ({ showToast }) => <CarouselsTab showToast={showToast} /> },
+      { key: 'workflow',    label: 'AI Workflow',      render: () => <WorkflowTab />, aiEditor: true },
       { key: 'oftv',        label: 'OFTV & Long Form', render: ({ showToast }) => <OftvAndLongForm showToast={showToast} /> },
     ],
   },

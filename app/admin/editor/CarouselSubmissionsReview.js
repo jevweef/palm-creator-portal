@@ -113,7 +113,7 @@ export default function CarouselSubmissionsReview({ showToast, sourceFilter = 'a
         }}>{submissions.length}</span>
       </h2>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 460px))', gap: 14, alignItems: 'start' }}>
         {submissions.map(sub => (
           <div key={sub.batchId} style={{
             background: 'rgba(255,255,255,0.02)',
