@@ -2014,6 +2014,21 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
 
+  // Report creator options up to a controlling parent (ContentReview). Must
+  // live with the other hooks — before any early return — to keep hook order
+  // stable across the loading/loaded renders.
+  useEffect(() => {
+    if (!onCreatorOptions) return
+    const m = new Map()
+    for (const t of tasks) {
+      if (t.creator?.id && !m.has(t.creator.id)) m.set(t.creator.id, t.creator.name || '(unnamed)')
+    }
+    onCreatorOptions([...m.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ id, name, count: tasks.filter(t => t.creator?.id === id).length })))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, onCreatorOptions])
+
   const handleApprove = async (taskId) => {
     setUpdating(taskId)
     try {
@@ -2068,17 +2083,10 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   })()
 
-  // When a parent (ContentReview) controls the creator filter, use its value
-  // and report our options up so it can render the picker. Otherwise self-manage.
+  // When a parent (ContentReview) controls the creator filter, use its value;
+  // otherwise self-manage. (Options are reported up via the hook above.)
   const controlledCreator = creatorId !== undefined
   const effectiveCreator = controlledCreator ? creatorId : creatorFilter
-  useEffect(() => {
-    if (!onCreatorOptions) return
-    onCreatorOptions(creatorOptions.map(([id, name]) => ({
-      id, name, count: tasks.filter(t => t.creator?.id === id).length,
-    })))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks])
 
   const filteredTasks = tasks.filter(t => {
     if (effectiveCreator !== 'all' && t.creator?.id !== effectiveCreator) return false
