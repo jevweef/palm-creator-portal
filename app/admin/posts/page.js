@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
 import { buildStreamIframeUrl } from '@/lib/cfStreamUrl'
-import CaptionSuggestions from '@/components/CaptionSuggestions'
 
 const PLATFORMS = ['Instagram Reel', 'Instagram Story', 'TikTok', 'YouTube Shorts', 'X', 'OFTV']
 const STATUS_COLORS = {
@@ -913,25 +912,15 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '1px' }}>{post.creator?.name}</div>
         </div>
 
-        {/* Caption — the main thing typed on this card. Compact by default;
-            user can drag the resize handle if they want more room.
-            Caption Suggestions widget below (SMM Batch 3) — operator can
-            generate AI-drafted captions per mode/tone and click "Use" to
-            paste into the textarea. */}
+        {/* Caption — the main thing typed on this card. (On-screen-text
+            suggestions are an editor tool and live in the editor's view, not
+            Post Prep. Proper AI caption suggestions are a separate future
+            feature to add here.) */}
         <div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
             placeholder="Add caption..." rows={2}
             style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', minHeight: '48px' }} />
-          <div style={{ marginTop: '6px' }}>
-            <CaptionSuggestions
-              thumbnailUrl={thumbnailUrl || post.asset?.thumbnail || ''}
-              videoUrl={post.asset?.editedFileLink || post.asset?.dropboxLink || ''}
-              creatorId={post.creator?.id}
-              onPick={(text) => { setCaption(text); setEditing(true) }}
-              compact
-            />
-          </div>
         </div>
 
         {/* Thumbnail — swatch + Pick from video. Library + device upload

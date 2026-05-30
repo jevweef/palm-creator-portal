@@ -27,8 +27,8 @@ const ADMIN_NAV = [
   { href: '/admin/social', label: 'Social Media Hub', icon: '📣', children: [
     { key: 'overview', label: 'Overview' },
     { key: 'content', label: 'Content' },
-    { key: 'accounts', label: 'Accounts & Setup' },
     { key: 'outbound', label: 'Outbound' },
+    { key: 'accounts', label: 'Accounts & Setup' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
     { key: 'earnings', label: 'Earnings' },

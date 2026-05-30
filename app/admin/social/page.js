@@ -94,20 +94,22 @@ const SECTIONS = [
     ],
   },
   {
+    key: 'outbound', label: 'Outbound',
+    subtabs: [
+      { key: 'postprep',  label: 'Post Prep',    render: () => <PostsPage /> },
+      { key: 'grid',      label: 'Grid Planner', render: () => <GridPlanner /> },
+      { key: 'publer',    label: 'Publer',       render: () => <PublerPanel /> },
+    ],
+  },
+  // Accounts & Setup last — it's config/reference, kept out of the daily
+  // Content -> Outbound workflow.
+  {
     key: 'accounts', label: 'Accounts & Setup',
     subtabs: [
       { key: 'accounts', label: 'Accounts', render: () => <AccountsPanel /> },
       { key: 'warmup',   label: 'Warm-Up',  render: () => <WarmupTab />, aiEditor: true },
       { key: 'setup',    label: 'Setup',    render: () => <SetupTab containerMaxWidth="none" /> },
       { key: 'strategy', label: 'Strategy', render: () => <StrategyTab maxWidth="none" /> },
-    ],
-  },
-  {
-    key: 'outbound', label: 'Outbound',
-    subtabs: [
-      { key: 'postprep',  label: 'Post Prep',    render: () => <PostsPage /> },
-      { key: 'grid',      label: 'Grid Planner', render: () => <GridPlanner /> },
-      { key: 'publer',    label: 'Publer',       render: () => <PublerPanel /> },
     ],
   },
 ]
