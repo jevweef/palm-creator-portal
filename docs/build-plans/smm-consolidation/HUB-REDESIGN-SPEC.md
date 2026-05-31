@@ -140,3 +140,56 @@ Each phase ends with a compile/sanity check. Preserve functionality throughout.
 8. **Overview Lens B** (per-creator at-a-glance) — needs new aggregation + Publer Phase 3 analytics. Deferred. (L)
 9. **Real Carousel pipeline**: real carousels don't currently flow as Photos batches with Review Status — decide whether they should be reviewed at all, or keep the quadrant informational. (needs Evan)
 10. **Content Strategy Engine** (Phase 7): confirm the 7-pillar taxonomy, then build backfill + daily pre-fill. (L, needs Evan)
+
+---
+
+# v1 COMPLETION PROGRAM (2026-05-31) — "finish the hub, kill every stub"
+
+Goal: take the hub from "re-parented + audited" to a shippable v1 with **NO dangling "coming soon" stubs** — every placeholder ends up real or honestly removed. Runs as an autonomous goal.
+
+## Open decisions — DEFAULTS chosen so the goal runs unattended (Evan can override any)
+- **Pillars (Strategy):** build against the proposed 7 — Lifestyle, Fitness, Flirty, BTS, Fashion, Trend-Reaction, Q&A — read from ONE editable place so Evan can change the list.
+- **Real Carousel (#4):** REMOVE the dead quadrant — disable "Carousels" when Real is selected (no dead-end). Re-enable if real-carousel review is built later.
+- **Publer (#9):** keep the link-out; add a small "next N scheduled" summary if Posts data exists. Defer full embed.
+- **Overview analytics (#8):** REMOVE the "coming soon" analytics promise (no data yet; re-add when Publer Phase 3 lands).
+- **Naming:** do NOT auto-rename Outbound/Post Prep/Submissions — leave for Evan's explicit branding call.
+- **Strategy automation:** build the Strategy UI + "what's next" preview reading existing content; do NOT build the backfill/daily cron autonomously (needs Evan + cost sign-off) — scaffold + flag.
+
+## Hard rules
+Real/AI never mix; NO emoji icons; **preserve all existing functionality + the in-flight uncommitted work** (soft-delete/restore + "Deleted" library filter in `app/api/admin/editor/unreviewed/route.js`, photo-library AI-filtering); **additive-only Airtable** — never edit/rename fields; if a NEW field is needed, STOP and flag (do not invent schema); shared primitives, no per-page reinvention; localhost only, **do NOT push or merge**; commit after each milestone; render+verify each surface via the screenshot pipeline (`~/.claude-pw-tools/pw-shot.mjs`, see [[reference-screenshot-pipeline]]).
+
+## Milestones (commit after each)
+**M1 — For Review finish** *(in progress)*: commit current cleanup (responsive grid, flat cards, emoji gone, filename truncated). Add info — creator brief (`creatorNotes`, already loaded), relative time + >24h aging, Round badge (`revisionHistory.length`), on-screen text on card face. Add speed — keyboard shortcuts (A=approve, R=revise, ←/→), Approve-&-next. Unify reels vs carousel: one card language + one "Request Revision" verb (carousel batch-reject gets a required reason).
+
+**M2 — Coming-soon build-now bucket**: Accounts (#2,#3) real-posting account list + vault item-ID links (confirm Airtable fields first; if absent, flag). Post Prep (#5) AI caption suggestions (new `/api/admin/posts/suggest-caption`, mirror the on-screen-text API, caption-tuned). Overview (#6,#7) creator upload-volume tracker + basic per-creator at-a-glance from existing asset/post data; REMOVE analytics over-promise (#8). Apply Real-carousel (#4) + Publer (#9) defaults.
+
+**M3 — Strategy engine UI (#1)**: StrategyTab — editable pillar list (the 7), DNA-weighting controls, "what's next for [creator]" preview ranking existing content by pillar + the creator's DNA profile (Palm Creators tags). Scaffold only — no cron/backfill; flag automation for Evan.
+
+**M4 — Global creator + Real/AI switcher**: one pinned switcher in the hub header, URL-persisted (`?creator=&mode=`), passed controlled to every surface; remove the per-surface pickers.
+
+**M5 — Cross-cutting consistency**: emoji sweep (sidebar + all surfaces); shared Loading/skeleton primitive (no bare "Loading…"/`null`); unify card + empty-state onto primitives.
+
+**M6 — Stabilize**: full `next build` green; regression-check `/admin/editor` + `/admin/recreate-source`; 2-3 review agents audit; report "done vs needs-Evan". Do NOT merge.
+
+## DEFERRED (NOT in this goal — too big / need data or a decision)
+Status-tabbed review lifecycle + Rejected bucket; Calendar publishing surface; Publer full embed; Strategy automation cron; Overview deep analytics (need Publer Phase 3 data). These are the next program after v1 ships.
+
+## Autonomous run prompt (paste to start the goal / resume in a fresh session)
+```
+Execute the "v1 COMPLETION PROGRAM" in
+docs/build-plans/smm-consolidation/HUB-REDESIGN-SPEC.md on branch
+smm-hub-redesign. Read it fully first (the open-decision DEFAULTS, Hard rules,
+Milestones M1-M6, and DEFERRED list). Build M1->M6 in order, AUTONOMOUSLY,
+committing after each milestone. Honor the DEFAULTS for all open decisions
+(don't ask). Hard rules are absolute: preserve existing + in-flight uncommitted
+work, additive-only Airtable (STOP+flag if a new field is needed — never invent
+schema), no emoji, real/AI never mix, shared primitives, NO push/merge. Keep the
+dev server on :3000 healthy (stale .next 500 -> kill, rm -rf .next, restart).
+Render+verify every changed surface headlessly via
+node ~/.claude-pw-tools/pw-shot.mjs "<url>" "screenshots/<name>.png" 6000
+(reuses the logged-in session; re-login via pw-login.mjs only if it 401s).
+After M6 run a final next build + 2-3 review agents, log findings into the spec
+"Pass 2 findings", fix high-confidence ones, and post a final "DONE vs
+NEEDS-EVAN" report (esp. the pillar list, any Airtable fields you had to flag,
+and the merge decision). Do NOT push or merge anything.
+```

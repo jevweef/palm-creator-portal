@@ -981,8 +981,10 @@ export function UnreviewedLibrary({ showToast }) {
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('newest')
-  const [statusFilter, setStatusFilter] = useState('Unused') // 'Unused' | 'In editing'
+  const [statusFilter, setStatusFilter] = useState('Unused') // 'Unused' | 'In editing' | 'Discarded'
   const [assigning, setAssigning] = useState(null)
+  const [selected, setSelected] = useState(() => new Set()) // asset IDs picked for bulk action
+  const [busy, setBusy] = useState(false) // a soft-delete / restore request is in flight
   // Full-row grid: measure the container and derive the column count so the
   // page size is always an exact multiple of columns (no ragged last row).
   const GRID_MIN = 180, GRID_GAP = 12, GRID_ROWS = 6
@@ -1007,6 +1009,54 @@ export function UnreviewedLibrary({ showToast }) {
 
   // Reset page when creator/tab/sort/status/column-count changes
   useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder, statusFilter, cols])
+  // Clear the bulk selection whenever the visible set changes underneath it,
+  // so we never act on assets the user can no longer see.
+  useEffect(() => { setSelected(new Set()) }, [selectedCreator, activeTab, statusFilter])
+
+  const toggleSelect = useCallback((id) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  // Soft-delete (hide) or restore assets. Optimistically re-tag locally so the
+  // card leaves the current view immediately; the server flips Pipeline Status.
+  const mutateVisibility = useCallback(async (ids, action) => {
+    if (!ids.length) return
+    if (action === 'discard') {
+      const n = ids.length
+      const ok = window.confirm(
+        `Delete ${n} asset${n > 1 ? 's' : ''} from the library?\n\n` +
+        `They’re hidden from the library and every picker, but the Dropbox files stay put and any linked posts are untouched. ` +
+        `You can bring them back any time from the “Deleted” filter.`
+      )
+      if (!ok) return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/editor/unreviewed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetIds: ids, action }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Request failed')
+      const newStatus = action === 'restore' ? 'Unused' : 'Discarded'
+      const newPipeline = action === 'restore' ? 'Uploaded' : 'Discarded'
+      const idSet = new Set(ids)
+      setAssets(prev => prev.map(a => idSet.has(a.id) ? { ...a, status: newStatus, pipelineStatus: newPipeline } : a))
+      setSelected(new Set())
+      showToast(action === 'restore'
+        ? `Restored ${data.updated} to the library`
+        : `Deleted ${data.updated} from the library`)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setBusy(false)
+    }
+  }, [showToast])
 
   // Measure container width → column count (debounced via setState identity).
   useEffect(() => {
@@ -1114,7 +1164,7 @@ export function UnreviewedLibrary({ showToast }) {
 
           {/* Status: Unused vs In editing */}
           <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
-            {[{ key: 'Unused', label: 'Unused' }, { key: 'In editing', label: 'In editing' }].map(s => (
+            {[{ key: 'Unused', label: 'Unused' }, { key: 'In editing', label: 'In editing' }, { key: 'Discarded', label: 'Deleted' }].map(s => (
               <button
                 key={s.key}
                 onClick={() => setStatusFilter(s.key)}
@@ -1188,9 +1238,31 @@ export function UnreviewedLibrary({ showToast }) {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', padding: '10px 14px', background: 'var(--card-bg-solid)', borderRadius: '10px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground-muted)' }}>
+            {selected.size} selected
+          </span>
+          <button
+            onClick={() => mutateVisibility([...selected], statusFilter === 'Discarded' ? 'restore' : 'discard')}
+            disabled={busy}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+            {statusFilter === 'Discarded' ? `Restore ${selected.size}` : `Delete ${selected.size}`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={busy}
+            style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+            Clear
+          </button>
+        </div>
+      )}
+
       {shown.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {selectedCreator === 'all'
+          {statusFilter === 'Discarded'
+            ? 'No deleted assets.'
+            : selectedCreator === 'all'
             ? `No unreviewed ${activeTab} in library.`
             : `No ${activeTab} for this creator.`}
         </div>
@@ -1204,9 +1276,15 @@ export function UnreviewedLibrary({ showToast }) {
               <div key={asset.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <LibraryCard
                   asset={asset}
-                  onAssign={handleAssign}
+                  onAssign={statusFilter === 'Discarded' ? undefined : handleAssign}
                   assigning={assigning}
                   forcePhoto={activeTab === 'photos'}
+                  selectable
+                  selected={selected.has(asset.id)}
+                  onToggleSelect={toggleSelect}
+                  busy={busy}
+                  onSoftDelete={statusFilter === 'Discarded' ? undefined : (a => mutateVisibility([a.id], 'discard'))}
+                  onRestore={statusFilter === 'Discarded' ? (a => mutateVisibility([a.id], 'restore')) : undefined}
                 />
                 {asset.createdTime && (
                   <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px' }}>
@@ -2134,7 +2212,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
         const safePage = Math.min(page, totalPages - 1)
         const pagedTasks = filteredTasks.slice(safePage * REVIEW_PAGE_SIZE, (safePage + 1) * REVIEW_PAGE_SIZE)
         return (<>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
           {pagedTasks.map(task => {
             const isExpanded = expanded.has(task.id)
             const fmtDate = task.completedAt
@@ -2149,7 +2227,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
             const isAiGenerated = task.asset.sourceType === 'AI Generated'
 
             return (
-              <div key={task.id} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
                 {/* Video strip
                     - Regular tasks: RAW | EDIT | INSPO (3 cells)
                     - AI Generated tasks: ORIGINAL | OUTPUT (2 cells, same per-cell
@@ -2251,9 +2329,16 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                 {/* Content */}
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>{task.creator.name}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{task.inspo.title || task.name}</div>
+                      {/* Secondary line = inspo title for real content, but falls
+                          back to the raw asset filename (long, dash-laden) for
+                          AI/uploaded assets. Keep to ONE truncated line, dimmed,
+                          full value on hover — low-value, never dominates. */}
+                      <div title={task.inspo.title || task.name}
+                        style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {task.inspo.title || task.name}
+                      </div>
                     </div>
                     {fmtDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
                   </div>
@@ -2280,7 +2365,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                         type="button"
                         onClick={() => setImageModal({ src: task.asset.thumbnail, label: 'Post thumbnail' })}
                         style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: '4px', cursor: 'pointer' }}>
-                        🖼 Thumbnail
+                        Thumbnail
                       </button>
                     )}
                   </div>
@@ -2364,7 +2449,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       onClick={() => handleApprove(task.id)}
                       disabled={updating === task.id}
                       style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                      {updating === task.id ? 'Saving...' : 'Approve ✓'}
+                      {updating === task.id ? 'Saving...' : 'Approve'}
                     </button>
                   </div>
                 </div>
