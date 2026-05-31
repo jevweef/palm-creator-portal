@@ -2218,6 +2218,14 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
             const fmtDate = task.completedAt
               ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
               : null
+            // Aging + round, for faster triage. Stale = waiting > 24h.
+            const ageHrs = task.completedAt ? (Date.now() - new Date(task.completedAt).getTime()) / 3600000 : null
+            const relTime = ageHrs == null ? null
+              : ageHrs < 1 ? `${Math.max(1, Math.round(ageHrs * 60))}m ago`
+              : ageHrs < 24 ? `${Math.round(ageHrs)}h ago`
+              : `${Math.round(ageHrs / 24)}d ago`
+            const isStale = ageHrs != null && ageHrs > 24
+            const round = (task.revisionHistory?.length || 0) + 1
 
             const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, (m) => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
             const rawClipUrl = toRawUrl((task.asset.dropboxLink || '').split('\n').filter(Boolean)[0] || '')
@@ -2330,7 +2338,13 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>{task.creator.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>{task.creator.name}</span>
+                        {/* Resubmission round — instantly flags "this came back". */}
+                        {round > 1 && (
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#E8C36A', background: 'rgba(232,195,106,0.12)', border: '1px solid rgba(232,195,106,0.3)', padding: '1px 7px', borderRadius: 9999, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>Round {round}</span>
+                        )}
+                      </div>
                       {/* Secondary line = inspo title for real content, but falls
                           back to the raw asset filename (long, dash-laden) for
                           AI/uploaded assets. Keep to ONE truncated line, dimmed,
@@ -2340,7 +2354,14 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                         {task.inspo.title || task.name}
                       </div>
                     </div>
-                    {fmtDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+                    {/* Relative age — "3h ago"; turns red + "stale" past 24h so
+                        nothing rots in the queue. Full timestamp on hover. */}
+                    {relTime && (
+                      <span title={fmtDate ? `Submitted ${fmtDate}` : ''}
+                        style={{ fontSize: '10px', color: isStale ? '#E87878' : 'var(--foreground-muted)', fontWeight: isStale ? 700 : 400, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        {relTime}{isStale ? ' · stale' : ''}
+                      </span>
+                    )}
                   </div>
 
                   {/* Quick links */}
@@ -2369,6 +2390,25 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       </button>
                     )}
                   </div>
+
+                  {/* Creator brief — what the creator/brief asked for; the
+                      reviewer judges the edit against this. Already returned by
+                      the API (creatorNotes), previously never shown. */}
+                  {task.creatorNotes && (
+                    <div style={{ background: 'rgba(232,160,160,0.05)', border: '1px solid rgba(232,160,160,0.15)', borderRadius: '6px', padding: '10px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Creator Brief</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.4 }}>{task.creatorNotes}</div>
+                    </div>
+                  )}
+
+                  {/* Planned on-screen text — a core review criterion, pulled
+                      onto the card face instead of being buried in the toggle. */}
+                  {task.inspo.onScreenText && (
+                    <div style={{ background: 'rgba(232,200,120,0.06)', border: '1px solid rgba(232,200,120,0.18)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#E8C878', opacity: 0.85 }}>On-screen text</div>
+                      <div style={{ fontSize: '12px', color: '#E8C878', lineHeight: 1.4, marginTop: '3px' }}>&ldquo;{task.inspo.onScreenText}&rdquo;</div>
+                    </div>
+                  )}
 
                   {/* Editor notes */}
                   {task.editorNotes && (
