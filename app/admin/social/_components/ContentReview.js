@@ -32,13 +32,18 @@ export default function ContentReview({ showToast }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 8 }}>
-        <RealAiToggle value={mode} onChange={setMode} />
-        <Segmented
-          value={medium}
-          onChange={setMedium}
-          ariaLabel="Reels or carousels"
-          options={[{ value: 'reels', label: 'Reels' }, { value: 'carousel', label: 'Carousels' }]}
-        />
+        <RealAiToggle value={mode} onChange={(m) => { setMode(m); if (m === 'real') setMedium('reels') }} />
+        {/* Reels/Carousels selector only for AI. Real carousels don't route
+            through this review queue yet, so 'Real + Carousels' was a permanent
+            dead-end — for Real, only Reels exists, so no selector is shown. */}
+        {mode === 'ai' && (
+          <Segmented
+            value={medium}
+            onChange={setMedium}
+            ariaLabel="Reels or carousels"
+            options={[{ value: 'reels', label: 'Reels' }, { value: 'carousel', label: 'Carousels' }]}
+          />
+        )}
         {/* Creator filter — left, next to the toggles. Reels only (carousel
             submissions aren't creator-filterable yet). */}
         {medium === 'reels' && (

@@ -149,11 +149,6 @@ export default function MarketingContentPage() {
           Couldn&apos;t load counts: {error}
         </div>
       )}
-
-      <div style={{ marginTop: 36, padding: 16, border: '1px dashed rgba(255,255,255,0.10)', borderRadius: 10, fontSize: 12, color: 'var(--foreground-subtle)' }}>
-        Coming soon: per-creator at-a-glance and editor-workload lenses, reach trend sparklines,
-        and posted-this-week — these light up once Publer Phase 3 collects analytics.
-      </div>
     </div>
   )
 }
