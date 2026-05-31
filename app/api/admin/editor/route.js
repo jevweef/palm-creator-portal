@@ -418,7 +418,7 @@ export async function PATCH(request) {
           const archivable = linkedPosts.filter(p => {
             const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
             if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+            return s === 'Prepping' || s === 'Ready to Go' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
           })
           if (archivable.length) {
             await Promise.all(archivable.map(p =>
@@ -463,7 +463,7 @@ export async function PATCH(request) {
           const archivable = linkedPosts.filter(p => {
             const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
             if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed' || s === 'Queued for Telegram'
+            return s === 'Prepping' || s === 'Ready to Go' || s === 'Staged' || s === 'Sending' || s === 'Send Failed' || s === 'Queued for Telegram'
           })
           if (archivable.length) {
             await Promise.all(archivable.map(p =>
@@ -536,7 +536,7 @@ export async function PATCH(request) {
           const archivable = linkedPosts.filter(p => {
             const s = (typeof p.fields?.Status === 'string' ? p.fields.Status : p.fields?.Status?.name) || ''
             if (p.fields?.['Telegram Sent At'] || p.fields?.['Posted At']) return false
-            return s === 'Prepping' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
+            return s === 'Prepping' || s === 'Ready to Go' || s === 'Staged' || s === 'Sending' || s === 'Send Failed'
           })
           if (archivable.length) {
             await Promise.all(archivable.map(p =>
