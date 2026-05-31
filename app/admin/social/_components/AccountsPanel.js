@@ -22,6 +22,10 @@ function statusStyle(s) {
 }
 
 const VAULT_URL = 'https://vault.bitwarden.com'
+// Deep-link to a specific Bitwarden item (the stored ID is NOT the secret).
+function vaultItemUrl(id) {
+  return id ? `${VAULT_URL}/#/vault?itemId=${encodeURIComponent(id)}` : VAULT_URL
+}
 
 function SectionHeader({ title, count }) {
   return (
@@ -91,6 +95,19 @@ export default function AccountsPanel() {
                     {a.fbProfileSlot && <div>FB slot · {a.fbProfileSlot}</div>}
                     {Array.isArray(a.publerAccountIds) && a.publerAccountIds.length > 0 && <div>Publer · {a.publerAccountIds.length} linked</div>}
                   </div>
+                  {/* Vault items present for this account — each links to the
+                      specific Bitwarden item (IDs, never the secret). */}
+                  {a.vaultRefs && (a.vaultRefs.ig || a.vaultRefs.fb || a.vaultRefs.gmail || a.vaultRefs.recovery) && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11, alignItems: 'center' }}>
+                      <span style={{ color: 'var(--foreground-subtle)' }}>Vault:</span>
+                      {[['IG', a.vaultRefs.ig], ['FB', a.vaultRefs.fb], ['Gmail', a.vaultRefs.gmail], ['Recovery', a.vaultRefs.recovery]]
+                        .filter(([, id]) => id)
+                        .map(([label, id]) => (
+                          <a key={label} href={vaultItemUrl(id)} target="_blank" rel="noopener noreferrer" title="Open in Bitwarden vault"
+                            style={{ padding: '2px 8px', borderRadius: 9999, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', color: '#a78bfa', textDecoration: 'none', fontWeight: 600 }}>{label}</a>
+                        ))}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
                     {a.beaconsUrl && <a href={a.beaconsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#a78bfa', textDecoration: 'none', fontWeight: 600 }}>Beacons ↗</a>}
                     <a href={VAULT_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--foreground-muted)', textDecoration: 'none', fontWeight: 600 }}>Vault ↗</a>

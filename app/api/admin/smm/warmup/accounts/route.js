@@ -25,6 +25,10 @@ export async function GET() {
         'Warmup Status', 'Warmup Start Date', 'Days Paused',
         'Beacons URL', 'FB Profile Slot', 'Pixel Device',
         'Persona Notes', 'Linked Publer Accounts',
+        // Vault item IDs (NOT secrets) so the Accounts surface can show which
+        // logins are stored in Bitwarden + link out. Same fields the per-account
+        // route already exposes.
+        'IG Vault Item ID', 'FB Vault Item ID', 'Gmail Vault Item ID', 'Recovery Codes Vault Item ID',
       ],
     })
 
@@ -41,6 +45,12 @@ export async function GET() {
       pixelDevice:    r.fields['Pixel Device']    || '',
       personaNotes:   r.fields['Persona Notes']   || '',
       publerAccountIds: r.fields['Linked Publer Accounts'] || [],
+      vaultRefs: {
+        ig:       r.fields['IG Vault Item ID']    || '',
+        fb:       r.fields['FB Vault Item ID']    || '',
+        gmail:    r.fields['Gmail Vault Item ID'] || '',
+        recovery: r.fields['Recovery Codes Vault Item ID'] || '',
+      },
     }))
 
     return NextResponse.json({ accounts })
