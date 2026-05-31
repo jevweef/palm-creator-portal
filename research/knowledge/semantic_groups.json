@@ -1,0 +1,40 @@
+{"groups":[
+  {"department":"pricing","title":"Free/low-entry subs and a cheap first PPV to build the spending habit","member_ids":["f0019","f0109"]},
+  {"department":"pricing","title":"Price per fan by traffic source, proven spend, and purchase history","member_ids":["f0011","f0111"]},
+  {"department":"pricing","title":"Sell via an escalating PPV price ladder, not one flat ask","member_ids":["f0085","f0110"]},
+  {"department":"pricing","title":"Flex deal structure to creator tier instead of a one-size split","member_ids":["f0041","f0068"]},
+
+  {"department":"chatting","title":"Build rapport and let the fan initiate before selling; never open with the sale","member_ids":["f0106","f0107","f0054"]},
+  {"department":"chatting","title":"Run every fan through a fixed pre-sale funnel: collect data, then scripted escalating PPV","member_ids":["f0070","f0008","f0071"]},
+  {"department":"chatting","title":"Segment/tag fans by spender tier and personalize instead of mass blasts","member_ids":["f0009","f0108"]},
+
+  {"department":"acquisition","title":"Cold outreach signs creators as a high-volume, consistent, tracked system","member_ids":["f0039","f0040","f0067"]},
+  {"department":"acquisition","title":"Productized paid-ad funnel makes creator signing predictable","member_ids":["f0023","f0025"]},
+  {"department":"acquisition","title":"Lead with intrigue/curiosity and push to a call rather than selling in DMs","member_ids":["f0081","f0080"]},
+  {"department":"acquisition","title":"Qualify creators against an ideal-client profile; disqualify red flags","member_ids":["f0082","f0083","f0065"]},
+  {"department":"acquisition","title":"Optimize acquisition on ROI/LTV, not cost-per-lead","member_ids":["f0026","f0102"]},
+
+  {"department":"instagram","title":"Reels/short-form are the primary growth lever with hook-retention-payoff","member_ids":["f0021","f0051"]},
+
+  {"department":"platform-risk","title":"Warm new accounts before adding any direct OF/adult link","member_ids":["f0013","f0060"]},
+
+  {"department":"traffic","title":"Run a multi-platform/multi-account traffic mix; no single source carries it","member_ids":["f0007","f0089"]},
+  {"department":"traffic","title":"Snapchat as an under-exploited OF traffic and monetization channel","member_ids":["f0020","f0063"]},
+
+  {"department":"delegation","title":"Master/document each role yourself first, then delegate via SOPs","member_ids":["f0015","f0058"]},
+  {"department":"delegation","title":"Delegate outcomes/ownership up an accountability ladder, not just tasks","member_ids":["f0044","f0035","f0093"]},
+  {"department":"delegation","title":"Split the agency into departments under managers on a revenue-gated hiring ladder","member_ids":["f0092","f0057"]},
+
+  {"department":"systems","title":"Run ops off central databases/trackers so detail lives in systems, not the owner's head","member_ids":["f0064","f0099","f0014"]},
+  {"department":"systems","title":"Treat the vault/scripts as inventory with a weekly refresh-and-prune cadence","member_ids":["f0022","f0045"]},
+  {"department":"systems","title":"Same-day documented onboarding that also manages creator expectations","member_ids":["f0090","f0091"]},
+
+  {"department":"content","title":"A defined niche/persona built on the creator's strengths separates earners","member_ids":["f0003","f0088","f0043","f0002"]},
+  {"department":"content","title":"Volume and reduced record-to-publish friction beat production polish","member_ids":["f0030","f0032"]},
+  {"department":"content","title":"Give every model a written character/persona to lift LTV via parasocial bond","member_ids":["f0104","f0061"]},
+
+  {"department":"ai-ofm","title":"Keep AI/real hybrid on OnlyFans because full-AI loses conversion on Fanvue","member_ids":["f0047","f0048","f0001","f0077"]},
+  {"department":"ai-ofm","title":"AI bot handles new-sub volume/24-7 chat; route spenders to humans","member_ids":["f0078","f0079"]},
+
+  {"department":"founder-discipline","title":"Learn and systemize each role personally before scaling/delegating","member_ids":["f0075","f0095"]}
+]}

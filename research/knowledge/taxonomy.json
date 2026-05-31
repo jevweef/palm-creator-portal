@@ -1,0 +1,90 @@
+{
+  "_comment": "Department -> sub-topic tree for the OFM research knowledge base. Findings are tagged with a department key + free-form topic; this tree gives the top-level navigation and maps each department to the matching Palm baseline section (docs/palm-operating-system.md). Editable.",
+  "departments": [
+    {
+      "key": "acquisition",
+      "label": "Acquisition & Signing",
+      "blurb": "Finding and signing creators/models: cold outreach, DMs, offers, niches, qualification.",
+      "palm_section": "§6 (THIN — Josh-DM-led, no systematic machine)",
+      "subtopics": ["cold outreach", "DM scripts", "signing offers", "ideal creator profile", "paid ads", "referrals", "qualification"]
+    },
+    {
+      "key": "instagram",
+      "label": "Instagram Marketing",
+      "blurb": "IG growth, reels, account warming, shadowbans/flagging, conversion to OF.",
+      "palm_section": "§1/§4 (MATURE social pipeline; warmup mature for AI)",
+      "subtopics": ["reels strategy", "account warming", "shadowban/flagging", "hashtags", "conversion", "trial reels", "scaling accounts"]
+    },
+    {
+      "key": "traffic",
+      "label": "Traffic & Distribution",
+      "blurb": "Driving fans to OF across platforms: Reddit, X/Twitter, TikTok, Snapchat, Threads, mass-DM.",
+      "palm_section": "§5/§8 (GAP — no documented traffic strategy)",
+      "subtopics": ["reddit", "x/twitter", "tiktok", "snapchat", "threads", "mass dm", "S4S", "funnels"]
+    },
+    {
+      "key": "content",
+      "label": "Content Production",
+      "blurb": "Producing social + OF content: productized sets, character/persona, reskinning, volume vs branding.",
+      "palm_section": "§1 social MATURE / §2 OF-vault THIN",
+      "subtopics": ["productized sets", "character/persona", "reskin/remake", "volume vs branding", "AI content", "content cadence"]
+    },
+    {
+      "key": "chatting",
+      "label": "Chatting / DM Monetization",
+      "blurb": "Selling in DMs: funnels, scripts, fan tiers, PPV sequencing, objection handling, sexting.",
+      "palm_section": "§8 (OUTSOURCED — capture as build-toward for in-house + AI chat)",
+      "subtopics": ["sales funnel", "scripts", "fan tiering", "PPV sequencing", "objection handling", "training chatters", "automation/AI chat"]
+    },
+    {
+      "key": "pricing",
+      "label": "Pricing & PPV",
+      "blurb": "What to charge: PPV ladders, anchoring, tip menus, commission/deal structure.",
+      "palm_section": "§7 (GAP — no documented pricing model)",
+      "subtopics": ["ppv pricing ladder", "anchoring", "tip menus", "commission/deal structure", "whales"]
+    },
+    {
+      "key": "retention",
+      "label": "Retention & Churn",
+      "blurb": "Keeping creators (and fans): model retention, win-back, success cadence, churn signals.",
+      "palm_section": "§9 (GAP — no written retention strategy)",
+      "subtopics": ["model retention", "fan retention", "win-back", "churn signals", "success cadence"]
+    },
+    {
+      "key": "systems",
+      "label": "Agency Systems & Ops",
+      "blurb": "How the agency runs: productization, SOPs, dashboards/KPIs, software stack, fulfillment.",
+      "palm_section": "§1/§5/§11 (productized social MATURE; SMM hub in-flight)",
+      "subtopics": ["productization", "SOPs", "dashboards/KPIs", "software stack", "fulfillment", "tracking revenue/traffic"]
+    },
+    {
+      "key": "founder-discipline",
+      "label": "Founder & Scaling",
+      "blurb": "Operator-level: financial modeling, revenue quality, plateaus ($100k/$300k/$1M), mindset.",
+      "palm_section": "§0/§7/§10 (no documented financial model or unit economics)",
+      "subtopics": ["financial modeling", "revenue quality", "scaling plateaus", "decision-making", "mindset", "delegation triggers"]
+    },
+    {
+      "key": "delegation",
+      "label": "Hiring & Delegation",
+      "blurb": "Building the team: hiring VAs/chatters/closers, A-players, replacing yourself, org structure.",
+      "palm_section": "§10 (THIN — roles in Clerk, no hiring playbook)",
+      "subtopics": ["hiring VAs", "hiring chatters", "A-players/stage-fit", "replace yourself", "org structure", "outsourcing"]
+    },
+    {
+      "key": "platform-risk",
+      "label": "Platform Risk & Compliance",
+      "blurb": "Bans, account creation at scale, trust scores, proxies, reddit/email account farming.",
+      "palm_section": "§3/§4 (hardware-isolated warmup MATURE for AI)",
+      "subtopics": ["account creation", "trust score", "proxies", "ban avoidance", "reddit/email farming", "appeals"]
+    },
+    {
+      "key": "ai-ofm",
+      "label": "AI Creators (Future)",
+      "blurb": "AI/synthetic creators on Fanvue etc. Not Palm's current business — kept as build-toward. Note overlaps with real-creator work.",
+      "palm_section": "§3 (AI personas funnel to OF; full AI-creator/Fanvue line is future)",
+      "subtopics": ["ai model creation", "lora/face consistency", "fanvue", "ai chatting", "ai content automation", "real-creator overlap"]
+    }
+  ],
+  "applicability_tags": ["real-creator", "ai-only", "both"]
+}

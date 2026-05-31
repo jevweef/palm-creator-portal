@@ -1,0 +1,194 @@
+{
+  "run": "smalls",
+  "findings": [
+    {
+      "department": "systems",
+      "topic": "standardized content format",
+      "title": "Standardized weekly content box per model",
+      "claim": "Standardizing creator output into a fixed weekly content format lets an agency scale production across many models with minimal model and founder time.",
+      "what_they_do": "Hive Media (faceless francis interview) requires two 'sets' per model per week, each composed of part A casual SFW realism content, part B sexy social content, and part C a sexting set or PPV, so every model drops into the same box that feeds both the marketing and the sales machines on four-to-six hours of model time.",
+      "vs_us": "Palm has a mature, data-driven SOCIAL ideation pipeline (§1) but no standardized OF vault/PPV content format (§2 THIN). Partial gap on type-2 content.",
+      "recommendation": "Define a standard weekly content-set format for Palm creators (SFW realism / sexy social / vault-or-PPV) so vault production scales the same way the social pipeline already does.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 2128, "quote": "every week the models have to deliver two sets. A set consists of A, B, and C"}
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "spreadsheet-as-database",
+      "title": "Spreadsheet/Airtable backend at scale",
+      "claim": "Running account and content operations off spreadsheet-style databases with front-end interfaces is the pragmatic backbone for managing accounts at scale.",
+      "what_they_do": "Hive Media stores 10,000+ social accounts (proxy, 2FA, status, creation date) in Excel/Sheets as the database with front-end interfaces on top, updated automatically by bots, and explicitly says Airtable is just a prettier version of the same database approach.",
+      "vs_us": "Palm already runs on Airtable (HQ + Content Ops bases) with a Next.js admin front end (§0), so Palm is aligned with this best practice. Validation, not a gap.",
+      "recommendation": "Keep the Airtable-as-database plus admin-UI pattern; ensure account-status fields (proxy, ban status, creation date) are tracked and auto-updated as rigorously as Hive does.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 965, "quote": "the only thing better than a spreadsheet might be a slightly prettier spreadsheet in something like Air Table"}
+      ]
+    },
+    {
+      "department": "platform-risk",
+      "topic": "account burn & redundancy",
+      "title": "Provision reserve accounts for burn",
+      "claim": "Assuming a baseline account-ban burn rate and pre-provisioning reserve accounts is required to run social acquisition at scale without interruption.",
+      "what_they_do": "Hive Media issues 200 accounts per platform per model (about 100 active immediately, 100 in reserve), runs a daily script using public profile views to auto-detect bans, and accepts that even fully organic operations always carry some burn.",
+      "vs_us": "Palm runs hardware-isolated AI account warmup (§3/§4 MATURE) but has no documented reserve-account or burn-rate provisioning model. Gap.",
+      "recommendation": "Adopt a reserve-account buffer per AI persona plus an automated daily ban-detection check, sized to an expected burn rate, so a ban never stalls a creator's funnel.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 124, "quote": "100 that become active immediately when they start then 100 for reserve... there's always the risk of having some bans"}
+      ]
+    },
+    {
+      "department": "delegation",
+      "topic": "founder replaceability",
+      "title": "Build so the founder can disappear",
+      "claim": "Heavy supervision layers and clear workflows let the founder step away while the business keeps running, which is the real test of a scaled agency.",
+      "what_they_do": "Hive Media (300 employees, 60 models) layers supervisors into category managers into shift/market managers per department, and the founder says if he disappeared for six months the company would still run profitably.",
+      "vs_us": "Palm has a thin org with many decisions through the founder and no org chart or scaling plan (§10 THIN). Direct gap.",
+      "recommendation": "Build a supervision layer (team leads / managers) per Palm function with explicit workflows so the founder can step out without the operation stalling.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 2936, "quote": "if I disappear for 6 months right now, will my company grow? Maybe not exponentially, but it will run"}
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "topic": "CAC:LTV not vanity metrics",
+      "title": "Steer on CAC:LTV and margin, not followers",
+      "claim": "Allocating resources by cost-per-acquisition versus LTV and target margin, rather than by follower counts or a raw LTV number, is how a scaled agency decides where to invest.",
+      "what_they_do": "Hive Media tracks free and paid LTV over 7 and 30 days against a roughly $1 Reddit CAC, targets a 50% margin on base traffic (accepting 20-30% on low-effort purchased traffic), and color-codes models so investment flows to the highest CAC:LTV returns; the founder calls 'what is a good LTV' the wrong question.",
+      "vs_us": "Palm collects fan/whale data but leadership reporting is in-flight and there is no standard CAC:LTV or margin-per-creator view (§9 PARTIAL, §7 THIN). Gap.",
+      "recommendation": "Adopt a per-creator CAC:LTV dashboard with a target margin, and allocate posting/acquisition spend by that ratio instead of by follower vanity metrics.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 2997, "quote": "we are always monitoring free LTV and paid LTV over a 7-day and 30-day period"},
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 3340, "quote": "what is a good LTV... it's just the wrong question... what we actually care about is cac to ltv"}
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "topic": "AI chat QA at scale",
+      "title": "AI scores chat transcripts daily",
+      "claim": "An AI model trained on past chats can read every chatter's transcripts daily and surface buy-signals, missed offers, and coaching feedback that human supervisors cannot cover at scale.",
+      "what_they_do": "Hive Media pulls Infloww message-board exports into an LLM trained on two years of their own chats to produce daily per-chatter reports (interest/buy signals vs offers sent, left-on-read counts, missed opportunities, KPIs vs peers) because even five supervisors cannot watch 30-40 chatters live.",
+      "vs_us": "Chatting is outsourced and Palm owns no QA loop (§8 OUTSOURCED), but AI chatting is an active Palm project. Direct build-toward for that roadmap.",
+      "recommendation": "For Palm's AI-chatting project, design an AI transcript-QA layer that scores every conversation daily (buy-signal capture, offers sent, misses) and feeds coaching back to chatters.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 3776, "quote": "an AI LLM model that we train... based on two years worth of data of our own chats... how many interest signals... opportunities they missed"}
+      ]
+    },
+    {
+      "department": "content",
+      "topic": "character-driven content",
+      "title": "Give every model a written character",
+      "claim": "Building a written character/persona for each creator and aligning all content to it raises LTV by enabling a parasocial relationship rather than generic thirst traps.",
+      "what_they_do": "Hive Media sits each new model down to create an in-depth character sheet (occupation, personality, persona, backstory) and aligns outfits, scenes, and PPVs to it, deliberately targeting spending demographics by the model's look so chatters can monetize a fleshed-out character.",
+      "vs_us": "Palm's social pipeline drives content from viral inspo data (§1) but there is no documented per-creator character/persona layer tying content to a sales story. Gap on branding/type-2.",
+      "recommendation": "Add a per-creator character sheet (persona, backstory, target fan demographic) that both content and the chat team work from, so content ladders into monetization.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 2627, "quote": "you're actually a character with a story and depth... build a better parasocial relationship with them"}
+      ]
+    },
+    {
+      "department": "traffic",
+      "topic": "Reddit is skill-based",
+      "title": "Reddit needs manual niche targeting",
+      "claim": "Reddit traffic must be run manually with niche-matched content and captions per subreddit because, unlike IG/X, the poster is effectively the algorithm choosing the audience.",
+      "what_they_do": "Hive Media keeps 100 manual Reddit VAs (each issued a physical phone within four weeks) matching niche content and captioning to specific subreddits while fully automating IG/X/Threads; Reddit free subs cost $0.25-$1 and return $4-$8.",
+      "vs_us": "Palm's traffic/distribution strategy (Reddit, paid, mass-DM) is undocumented with no standing playbook (§5 GAP). Direct gap.",
+      "recommendation": "Build a manual Reddit playbook with niche-matched subreddit targeting and per-subreddit captioning, tracking cost-per-free-sub against LTV.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 1784, "quote": "On Reddit, you are the algorithm essentially. You are determining which subreddits"},
+        {"video_id": "bklo6HZBxRY", "timestamp_seconds": 1879, "quote": "cost per acquisition of a Reddit subscriber is anywhere from 25 cents to a dollar... getting anywhere from $4 to $8 a return"}
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "three-phase conversation",
+      "title": "Rapport, transition, then sell",
+      "claim": "Every chat should build rapport and let the customer initiate the sexual turn before selling, never opening with the sale.",
+      "what_they_do": "Luca Pritchard trains chatters on a fixed framework (general conversation/rapport, transition to a sexual conversation, then dirty talk leading into PPV) and lets the customer initiate so the model holds the power position; habibi similarly builds rapport and conserves energy rather than blasting horny messages or mass-message bundles.",
+      "vs_us": "Chatting is outsourced; Palm does not own script flow (§8 OUTSOURCED). Build-toward for the in-house and AI chat roadmap. Cross-creator consensus (Luca + habibi).",
+      "recommendation": "Adopt a mandated rapport-then-transition-then-sell chat framework as the backbone script when chatting comes in-house or is automated.",
+      "applicability": "real-creator",
+      "sources": [
+        {"video_id": "7hC3TsQ1lqg", "timestamp_seconds": 92, "quote": "Step One is General conversation building report... step two is transitioning to a more sexual conversation"},
+        {"video_id": "o_Gs5DY8PzY", "timestamp_seconds": 1222, "quote": "conserving your energy you should never be throwing all of your energy away"}
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "let the fan initiate",
+      "title": "Make the fan chase to hold power",
+      "claim": "Letting the fan initiate and withholding rather than over-giving keeps the model in the power position and increases buying.",
+      "what_they_do": "Luca Pritchard plays hot-and-cold and sends non-nude teasers so the customer initiates, putting the chatter in the power position; habibi withholds (tells a fan asking for photos 'no, you're going to have to wait') to drive desire before selling.",
+      "vs_us": "Outsourced chatting; Palm owns no objection/power-dynamic playbook (§8 OUTSOURCED). Build-toward. Cross-creator consensus (Luca + habibi).",
+      "recommendation": "Encode push-pull and let-the-fan-initiate tactics into the in-house chatting SOP rather than leaving tone to the vendor.",
+      "applicability": "real-creator",
+      "sources": [
+        {"video_id": "7hC3TsQ1lqg", "timestamp_seconds": 247, "quote": "we always want to let the customer initiate... we are the ones that are in the power position"},
+        {"video_id": "o_Gs5DY8PzY", "timestamp_seconds": 1222, "quote": "even if a guy says hey can you send me photos of your tits you just say simply no you're going to have to wait"}
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "fan personalization",
+      "title": "Use the fan's name, kill mass-messages",
+      "claim": "Personalizing chats with the fan's name and avoiding generic mass-message bundle blasts is a high-leverage, underused driver of spend and LTV.",
+      "what_they_do": "Habibi stresses using the fan's actual name instead of 'babe' (people respond to their own name) and refuses mass-message bundle blasts and odd-number 'flea market' pricing, taking a new account from $33 to $500+ days with one-to-one personalized chatting.",
+      "vs_us": "Palm has a Fan Tracker CRM (§9 PARTIAL) but personalization data and tone live with outsourced chatters (§8). Build-toward plus owning the data.",
+      "recommendation": "Ensure Palm's own per-fan CRM captures the name and interests, and bar generic mass-message bundle blasts, so personalization survives any chatting-vendor change and feeds future AI chat.",
+      "applicability": "both",
+      "sources": [
+        {"video_id": "o_Gs5DY8PzY", "timestamp_seconds": 61, "quote": "people get aroused by their name... it's very underutilized even by chatters"},
+        {"video_id": "o_Gs5DY8PzY", "timestamp_seconds": 215, "quote": "we were sending no stupid... bundle deals... I don't advise mass messages at all"}
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "cheap first PPV",
+      "title": "First PPV is cheap to build the habit",
+      "claim": "Pricing the first PPV low (roughly $5-$20) exists to get the fan used to spending, not to make money on that sale.",
+      "what_they_do": "Luca Pritchard caps the first PPV at $5-$20, never higher, to get the customer used to the habit of buying on the platform before laddering up; habibi tests a brand-new buyer with a small first buy (e.g. $9) to read his boundaries.",
+      "vs_us": "Palm has no documented PPV pricing model; pricing is set loosely by the outsourced agency (§7 THIN). Direct gap. Cross-creator consensus (Luca + habibi).",
+      "recommendation": "Define a standard low entry-PPV band ($5-$20) whose explicit goal is first-purchase conversion, separate from profit PPVs.",
+      "applicability": "real-creator",
+      "sources": [
+        {"video_id": "JXLdjNmHL-8", "timestamp_seconds": 92, "quote": "price the very first pbv between $5 to $20 let's say not go any higher than that... get them used to spending"},
+        {"video_id": "o_Gs5DY8PzY", "timestamp_seconds": 437, "quote": "the last one nine bucks this was a first buy for him... I wanted to test his boundaries"}
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "price ladder",
+      "title": "Ladder PPV prices upward in sequence",
+      "claim": "Selling via an escalating price ladder rather than one high ask raises total spend while keeping each step psychologically easy.",
+      "what_they_do": "Luca Pritchard runs a default ladder of 15, 25, 45, 65, then 100-120, and warns that hitting a warmed-up fan with a single $80 PPV makes him leave for no money, where the same total is extracted reliably in small rising steps.",
+      "vs_us": "No formal price ladder at Palm (§7 THIN). Direct gap.",
+      "recommendation": "Publish a standard Palm PPV ladder with rising steps and trigger conditions, instead of single high asks.",
+      "applicability": "real-creator",
+      "sources": [
+        {"video_id": "JXLdjNmHL-8", "timestamp_seconds": 30, "quote": "We'll start at 15 we'll then go to 25 we'll then go to 45 we'll then go to 65 and... 100 or 120"}
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "dynamic / per-fan pricing",
+      "title": "Price dynamically off purchase history",
+      "claim": "Setting price per fan from their purchase history, backing off after a no and pushing higher for proven whales, beats one fixed price for all.",
+      "what_they_do": "Luca Pritchard uses dynamic pricing read from each subscriber's unlock history via tools like Infloww: if a fan stalled at $65 he offers 17/27/47/59 next time, but if a fan will pay $150-$200 for what others pay $20 for he sells at that willingness, and he keeps explicit content premium-priced so perceived value stays high.",
+      "vs_us": "No per-fan price discipline or perceived-value rule at Palm (§7 THIN). Direct gap.",
+      "recommendation": "Adopt a dynamic per-fan pricing rule keyed to unlock history, plus a floor that keeps explicit content premium-priced to protect perceived value.",
+      "applicability": "real-creator",
+      "sources": [
+        {"video_id": "JXLdjNmHL-8", "timestamp_seconds": 156, "quote": "you pick a different selling strategy for every single subscriber"},
+        {"video_id": "JXLdjNmHL-8", "timestamp_seconds": 311, "quote": "the low price might make him not want to buy instead of buy... keep the content premium priced"}
+      ]
+    }
+  ]
+}
