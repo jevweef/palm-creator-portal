@@ -58,8 +58,9 @@ your **own git worktree**, not the shared main checkout. One session per dir.
 ## 🗄️ Commit early and often (the real safety net)
 Branch switches only endanger **uncommitted** work; committed work is safe.
 - Don't accumulate large uncommitted changes — commit each coherent chunk.
-- Never push to `origin/main`. Feature work targets `dev` (or a branch off it)
-  unless the user says otherwise.
+- Feature work targets `dev` (or a branch off it). Don't push to `origin/main`
+  on your own — `main` is the LIVE site. Push to `main` only when the user
+  explicitly asks (see "Staying current & shipping" below for the creator rule).
 - In a shared tree, stage **only your own files** (explicit paths) — never
   `git add -A` — other sessions' WIP may be present.
 
@@ -67,6 +68,28 @@ Branch switches only endanger **uncommitted** work; committed work is safe.
 1. Commit (or stash) **your** in-progress work first.
 2. Then switch / pull / merge.
 3. Verify your files are intact afterward.
+
+## 🔄 Staying current & shipping (every session, automatic)
+Many named sessions run in parallel, each on its own worktree/branch. The shared
+trunk everyone syncs through is `origin/dev` (GitHub) — Vercel builds the dev
+preview from it. Goal: hop into any session, work, leave, come back always
+current, with nothing reaching the website by accident.
+
+**Auto-grab — do this WITHOUT being asked.** At the start of any new task, before
+editing, bring this branch up to date with the shared trunk:
+- Only when the working tree is **clean** (commit or stash your work first).
+- `git fetch origin && git merge origin/dev`
+- Safe and silent. NEVER grab mid-edit — it can yank the floor out from a build.
+
+**Ship only on request.** Default to localhost iteration; never push on your own
+(see [[feedback_localhost_not_dev]]). When the user says "ship it" / "push it" /
+"put it on the website":
+- Default target → `dev` (updates the Vercel dev preview, ~1 min build).
+- If the change is **creator-facing** (anything on the creator view), ASK whether
+  to push to `dev`, `main`, or both — never assume.
+- `main` = the LIVE site. Confirm explicitly before any `main` push.
+- Commit first (your own files, explicit paths), then push the branch / merge
+  into the chosen target.
 
 ---
 
