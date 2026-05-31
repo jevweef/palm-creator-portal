@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import OffboardModal from '../OffboardModal'
+import OnboardingDrawer from './OnboardingDrawer'
 
 const STATUS_COLORS = {
   'Not Started': { bg: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)' },
@@ -29,6 +30,7 @@ export default function AdminOnboarding() {
   const [surveyModal, setSurveyModal] = useState(null) // { creatorName, hqId, sections, loading }
   const [offboardTarget, setOffboardTarget] = useState(null) // { hqId, name, aka }
   const [offboardResult, setOffboardResult] = useState(null)
+  const [drawerCreator, setDrawerCreator] = useState(null) // opens the 4-phase checklist drawer
 
   const sigCanvasRef = useRef(null)
   const [isSigDrawing, setIsSigDrawing] = useState(false)
@@ -364,7 +366,12 @@ export default function AdminOnboarding() {
                 </tr>
               ) : (
                 filtered.map(c => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <tr
+                    key={c.id}
+                    onClick={() => setDrawerCreator(c)}
+                    title="Open onboarding checklist"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+                  >
                     <td style={tdStyle}>
                       <div style={{ fontWeight: 500 }}>{c.name || '—'}</div>
                       {c.aka && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{c.aka}</div>}
@@ -414,12 +421,18 @@ export default function AdminOnboarding() {
                         {c.tokenCreatedAt ? new Date(c.tokenCreatedAt).toLocaleDateString() : '—'}
                       </span>
                     </td>
-                    <td style={tdStyle}>
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={() => setDrawerCreator(c)}
+                          style={{ ...actionBtnStyle, background: 'rgba(232, 160, 160, 0.12)', color: 'var(--palm-pink)', fontWeight: 600 }}
+                        >
+                          Checklist
+                        </button>
                         {(!c.onboardingStatus || c.onboardingStatus === 'Not Started') && (
                           <button
                             onClick={() => openEditModal(c)}
-                            style={{ ...actionBtnStyle, background: 'rgba(232, 160, 160, 0.12)', color: 'var(--palm-pink)' }}
+                            style={actionBtnStyle}
                           >
                             Start Onboarding
                           </button>
@@ -1011,6 +1024,14 @@ export default function AdminOnboarding() {
             )}
           </div>
         </div>
+      )}
+
+      {drawerCreator && (
+        <OnboardingDrawer
+          creator={drawerCreator}
+          onClose={() => setDrawerCreator(null)}
+          onWentLive={() => { fetchCreators() }}
+        />
       )}
 
       {offboardTarget && (
