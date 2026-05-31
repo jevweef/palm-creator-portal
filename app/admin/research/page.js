@@ -86,6 +86,59 @@ function Row({ label, text, color }) {
   </div>
 }
 
+// Minimal markdown renderer for the mentor report — handles the features the report
+// actually uses: # / ## / ### headings, **bold**, [text](url) links, - bullets,
+// --- rules, and paragraphs. Deliberately tiny (no dependency) and safe (no raw HTML).
+function mdInline(text, keyPrefix) {
+  // Split on **bold** and [label](url); render the rest as plain text.
+  const parts = []
+  let rest = text
+  let i = 0
+  const re = /\*\*(.+?)\*\*|\[([^\]]+)\]\((https?:\/\/[^)]+)\)/
+  let m
+  while ((m = rest.match(re))) {
+    if (m.index > 0) parts.push(rest.slice(0, m.index))
+    if (m[1] != null) {
+      parts.push(<strong key={`${keyPrefix}-b${i}`}>{m[1]}</strong>)
+    } else {
+      parts.push(<a key={`${keyPrefix}-a${i}`} href={m[3]} target="_blank" rel="noreferrer"
+        style={{ color: 'var(--palm-pink)' }}>{m[2]}</a>)
+    }
+    rest = rest.slice(m.index + m[0].length)
+    i++
+  }
+  if (rest) parts.push(rest)
+  return parts
+}
+
+function Markdown({ text }) {
+  if (!text) return null
+  const lines = text.split('\n')
+  const out = []
+  let bullets = null
+  const flush = () => {
+    if (bullets) {
+      out.push(<ul key={`ul-${out.length}`} style={{ margin: '6px 0 12px', paddingLeft: 20 }}>
+        {bullets.map((b, j) => <li key={j} style={{ fontSize: 13.5, lineHeight: 1.6, marginBottom: 4 }}>{mdInline(b, `li${out.length}-${j}`)}</li>)}
+      </ul>)
+      bullets = null
+    }
+  }
+  lines.forEach((raw, idx) => {
+    const line = raw.trimEnd()
+    if (/^\s*-\s+/.test(line)) { (bullets ||= []).push(line.replace(/^\s*-\s+/, '')); return }
+    flush()
+    if (!line.trim()) return
+    if (line.startsWith('### ')) out.push(<h3 key={idx} style={{ fontSize: 15, fontWeight: 800, margin: '18px 0 6px' }}>{mdInline(line.slice(4), `h3${idx}`)}</h3>)
+    else if (line.startsWith('## ')) out.push(<h2 key={idx} style={{ fontSize: 17, fontWeight: 800, margin: '22px 0 8px' }}>{mdInline(line.slice(3), `h2${idx}`)}</h2>)
+    else if (line.startsWith('# ')) out.push(<h1 key={idx} style={{ fontSize: 20, fontWeight: 800, margin: '0 0 10px' }}>{mdInline(line.slice(2), `h1${idx}`)}</h1>)
+    else if (line.trim() === '---') out.push(<hr key={idx} style={{ border: 0, borderTop: '1px solid rgba(255,255,255,0.1)', margin: '16px 0' }} />)
+    else out.push(<p key={idx} style={{ fontSize: 13.5, lineHeight: 1.65, margin: '0 0 10px' }}>{mdInline(line, `p${idx}`)}</p>)
+  })
+  flush()
+  return <div>{out}</div>
+}
+
 function AskMentor({ stats }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
@@ -247,7 +300,7 @@ export default function ResearchPage() {
         {data && <> · <strong>{data.corpus?.findings || 0}</strong> findings from <strong>{data.corpus?.creators || 0}</strong> creators</>}
       </p>
       <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        {[['mentor', 'Mentor'], ['today', 'Today’s Brief'], ['browse', 'Browse all']].map(([v, label]) => (
+        {[['mentor', 'Mentor'], ['ask', 'Ask the mentor'], ['today', 'Today’s Brief'], ['browse', 'Browse all']].map(([v, label]) => (
           <button key={v} onClick={() => { setView(v); setDept(null); setQ('') }}
             style={{
               padding: '6px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
@@ -279,6 +332,11 @@ export default function ResearchPage() {
             No mentor report yet. Generate it with <code>scripts</code> + the synthesis pipeline.
           </div>}
     </div>
+  }
+
+  // ASK THE MENTOR — Q&A over the corpus. A search overrides it.
+  if (view === 'ask' && !needle) {
+    return <div style={{ width: '100%' }}>{Header}<AskMentor stats={stats} /></div>
   }
 
   // TODAY'S BRIEF — the daily "what's new" digest. A search overrides it.
