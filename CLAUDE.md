@@ -1,47 +1,80 @@
-# Palm Creator Portal — house rules for Claude sessions
+# Palm Creator Portal — Claude rule book
 
-Read this first. The most important rules here are about **not losing work when
-more than one Claude session is open at the same time.**
+This repo is the **Next.js web app** (`app.palm-mgmt.com`): Clerk auth (admin /
+creator / editor / chat_manager / social_media roles), Airtable + Dropbox, Vercel.
+
+The Python **inspo-pipeline** lives in `pipeline/` and has its own detailed rule
+book at `pipeline/CLAUDE.md` — read that one when working inside `pipeline/`.
+
+---
+
+## 🚨 CRITICAL — Account separation (read first)
+**NEVER put any Palm Management content on the `flylisted` GitHub account or any
+flylisted-associated infrastructure.** Evan runs two separate businesses and
+`flylisted` must have zero knowledge of or connection to Palm Management.
+- Palm Management GitHub: use `jevweef` — NEVER `flylisted`.
+- Palm Management Vercel: team `evan-5378's projects` (hosts `palm-creator-portal`, `palm-website`, `palm-website-v2`).
+- Commit email: `evan@palm-mgmt.com`.
+- Before ANY `gh repo create`, `git remote add`, or `vercel` command, run
+  `gh auth status` and confirm it is NOT `flylisted`. If unsure, STOP and ask.
+
+## 🚨 CRITICAL — React Hooks placement
+All `useState` / `useMemo` / `useEffect` hooks MUST be placed BEFORE any
+conditional `return`. Hooks after `if (loading) return ...` cause React error
+#310 (different hook count between renders) — this has crashed the entire admin
+section twice. Always: hooks first, early returns after.
+
+## 🚨 CRITICAL — Airtable REST API, linked records
+- **Writing** `multipleRecordLinks`: use plain string arrays — `["recXXX"]`,
+  NOT `[{"id":"recXXX"}]` (the object form 422s via REST; it's SDK-only).
+- **Matching/filtering** a link by record ID: you CANNOT use
+  `FIND("recXXX", ARRAYJOIN({Link}))` — a formula sees the link as its primary
+  *display value*, not the ID, so it never matches and silently creates
+  duplicates. Narrow by a text field, then JS-match the link array (the REST API
+  returns links as arrays of ID strings). See `lib/onboarding/checklist.js` and
+  the `reference-airtable-linked-record-filter` memory.
+
+## OnlyFans time conventions (earnings & invoicing)
+- Transaction-sheet times (Google Sheets) are **ET**, not UTC.
+- OF's daily graph buckets by **UTC** day; the boundary = midnight UTC = **8 PM ET** (EDT).
+- To match OF's UI: treat sheet timestamps as ET, end-of-day cutoff = 20:00 ET.
+- Invoice periods in Airtable use ET-aligned dates.
+
+---
 
 ## 🪑 One builder per desk (avoid the shared-tree mixup)
+This repo is often worked on by **several Claude sessions at once**, sharing one
+working directory. When one session switches branches/merges, git stashes/clears
+the shared tree, making another session's *uncommitted* work appear to vanish
+(recoverable, but scary — happened 2026-05-31).
 
-This repo is often worked on by **several Claude sessions at once**. They share
-one working directory by default, and when one session switches git branches it
-can stash/clear the shared tree — which makes another session's *uncommitted*
-work look like it vanished. (It's recoverable, but it's scary and wastes time.)
-
-**Rule:** If it's plausible another Claude session is active in this repo at the
-same time as you, **work in your own git worktree**, not the shared main
-checkout. One session per working directory.
-
-- Preferred: use the **EnterWorktree** tool to get an isolated worktree+branch.
-- Or manually: `git worktree add ../pcp-<feature> -b <feature>` and work there.
+**Rule:** If another Claude session may be active here at the same time, work in
+your **own git worktree**, not the shared main checkout. One session per dir.
+- Preferred: the **EnterWorktree** tool. Or: `git worktree add ../pcp-<feature> -b <feature>`.
 - Existing parallel worktrees live under `.claude/worktrees/`.
-- Exception: a background job may be explicitly configured to "work in place."
-  Honor that, **but commit early and often** (see below) so nothing is at risk.
+- Exception: a background job explicitly configured to "work in place" — honor
+  that, but commit early and often.
 
 ## 🗄️ Commit early and often (the real safety net)
+Branch switches only endanger **uncommitted** work; committed work is safe.
+- Don't accumulate large uncommitted changes — commit each coherent chunk.
+- Never push to `origin/main`. Feature work targets `dev` (or a branch off it)
+  unless the user says otherwise.
+- In a shared tree, stage **only your own files** (explicit paths) — never
+  `git add -A` — other sessions' WIP may be present.
 
-Branch switches and tree-clears only ever endanger **uncommitted** work. Saved
-(committed) work cannot be lost this way.
-
-**Rule:** Don't accumulate large uncommitted changes. Commit each coherent
-chunk as you go. If you're about to hand off, pause, or the user steps away,
-commit first. When working in the shared tree alongside other sessions, treat
-"commit often" as mandatory, not optional.
-
-- Branch policy: never push to `origin/main`. Feature work targets `dev` (or a
-  feature branch off it) unless the user says otherwise.
-- When committing in a shared tree, stage **only your own files** (explicit
-  paths), never `git add -A` — other sessions' uncommitted WIP may be present.
-
-## ✅ Safe order when you must change branches in a shared tree
-
+## ✅ Safe order when changing branches in a shared tree
 1. Commit (or stash) **your** in-progress work first.
-2. Then switch branches / pull / merge.
+2. Then switch / pull / merge.
 3. Verify your files are intact afterward.
 
-## End-of-commit message convention
+---
 
-End git commit messages with:
+## Detailed per-area context
+Lives in memory files (admin surfaces, earnings, fan CRM, per-account coverage,
+invoicing, onboarding, music selector, editor slots, website). `pipeline/CLAUDE.md`
+holds the canonical pointer list. Capture WHY/decisions/gotchas in memory, not here.
+
+## Commit message convention
+End commit messages with:
 `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
