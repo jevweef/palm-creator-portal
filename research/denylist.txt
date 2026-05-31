@@ -1,0 +1,21 @@
+# Video IDs intentionally excluded from the library (flagged non-teaching,
+# off-topic, or junk). The ingest + backfill scripts skip these.
+# One video_id per line.
+sUtc51ikmOA
+MAedIn5cD44
+I9jvJTFexGc
+fwQB3cn3l5U
+Ksbxqq4c46w
+gRrbUCyFx4E
+FNvgwCKOco8
+nnHUpZOeALI
+FhtaZAWCx4c
+eCOGf1YUNHQ
+kka1tqwQ3uQ
+plznWztd764
+btfO6arP5B4
+
+# pre-2025 (older than date window, kept reappearing)
+rhxBUvXYQ8Y
+J8xXbY1WxDY
+7TyvJFWLIEw

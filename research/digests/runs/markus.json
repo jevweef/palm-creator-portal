@@ -1,0 +1,401 @@
+{
+  "run": "markus",
+  "findings": [
+    {
+      "department": "acquisition",
+      "topic": "personal-account outreach",
+      "title": "DM prospects from a personal-looking account, not an agency page",
+      "claim": "Run creator outreach from a personal-looking profile rather than a branded agency account so messages get read.",
+      "what_they_do": "Send from your personal/duplicated account (lifestyle pics, normal-person vibe), never an 'OFM manager' agency account, because models skim their request folder and skip anything that reads as an agency. Stop labeling yourself 'OFM manager' anywhere; call it 'talent/influencer management' instead so you aren't lumped in with the spam.",
+      "vs_us": "Palm acquisition is Josh-DM-led + referrals with no documented outreach-profile standard (\u00a76 THIN/GAP).",
+      "recommendation": "Standardize an outreach profile spec (personal-style account, lifestyle content, non-'OFM' positioning) as part of Palm's acquisition playbook.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "6KS2UMEY84U",
+          "timestamp_seconds": 62,
+          "quote": "most people send their messages out from like an agency account... I would actually highly advise you to do your personal account."
+        },
+        {
+          "video_id": "6KS2UMEY84U",
+          "timestamp_seconds": 283,
+          "quote": "please stop saying OFM manager in either your username, your bio... try to be a little bit different... talent management agency."
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "DM message framework",
+      "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
+      "claim": "Structure the first cold DM to intrigue, spark curiosity, and end with a clear call-to-action, then move to a call instead of selling in DMs.",
+      "what_they_do": "ICC framework: first 4-5 visible words must intrigue (no 'hey hope you're having a great day'), then say something that piques curiosity, then a CTA (reply / send number / book a call). Don't treat DMs as a Q&A; get to the point and get them on a call. Type every message manually, personalize lightly, space sends (~20-30/hr, ~400-500/day across many accounts), and follow up daily for up to 2 weeks ('the money is in the follow-up').",
+      "vs_us": "No documented DM script, send-rate discipline, or follow-up cadence for acquisition (\u00a76 GAP).",
+      "recommendation": "Adopt an ICC opener template, a manual-typed/personalized/spaced sending SOP to avoid bans, and a 2-week daily follow-up rule; track per-step conversion.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "6KS2UMEY84U",
+          "timestamp_seconds": 503,
+          "quote": "I stands for intrigue. C... stands for curiosity and the next C stands for call to action."
+        },
+        {
+          "video_id": "6KS2UMEY84U",
+          "timestamp_seconds": 658,
+          "quote": "what you're trying to do is get their phone number and call them as soon as possible."
+        },
+        {
+          "video_id": "6KS2UMEY84U",
+          "timestamp_seconds": 658,
+          "quote": "The money is always in the follow-up... you have to follow up every day. Do it for about 2 weeks max."
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "ideal-client qualification",
+      "title": "Qualify creators against a checklist and disqualify on red flags",
+      "claim": "Sign only creators who fit a defined ideal-client profile and screen out predictable red-flag situations rather than chasing anyone with a link in bio.",
+      "what_they_do": "Ideal client: already on OnlyFans, has/open to a niche, posts consistently, communicates, pays on time, has some IG/Twitter/TikTok/Reddit presence, and is coachable. Qualify briefly in DMs then on a call. Red flags that get declined or probed: under 3-4 months on OF, about to travel/move/have a baby, just had a breakup, churned through 5+ agencies recently, know-it-all who rejects all advice, asks zero questions, takes weeks to sign.",
+      "vs_us": "Palm onboarding captures admin fields but has no documented fit scorecard or red-flag screen (\u00a76 GAP).",
+      "recommendation": "Add an ideal-client checklist plus a red-flag screen to the onboarding/intake step so Palm signs for fit and retention, not just availability.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "WRe_1foPug4",
+          "timestamp_seconds": 92,
+          "quote": "Here's my ideal client checklist. Number one, already on Only Fans... willingness to actually create content consistently... communication... payments... a bit coachable."
+        },
+        {
+          "video_id": "WRe_1foPug4",
+          "timestamp_seconds": 558,
+          "quote": "if they've gone through tons of agencies, especially in the last like 3 to 6 months... probably the common denominator is the creator."
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "sourcing channels",
+      "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
+      "claim": "Find creators by searching niche keywords across multiple platforms, but treat satisfied-client referrals as the highest-quality channel.",
+      "what_they_do": "Search 'only fans' / niche terms (e.g. gamer girl) on Instagram, Twitter, Reddit, TikTok and filter for link-in-bio + recent activity. TikTok surfaces up-and-comers; Reddit is where whales and creators already are. Best channel = referrals: after a great first month in the green, ask the happy creator who else does OnlyFans.",
+      "vs_us": "Palm already uses referrals (\u00a76) but has no documented multi-platform sourcing process or a systematic referral ask.",
+      "recommendation": "Document a multi-platform sourcing process and bake a structured referral ask into the post-first-month creator-success cadence.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "WRe_1foPug4",
+          "timestamp_seconds": 154,
+          "quote": "first one of course is Instagram... Your other option is going to be Twitter... The next one is going to be Reddit... You can also find them on Tik Tok."
+        },
+        {
+          "video_id": "WRe_1foPug4",
+          "timestamp_seconds": 247,
+          "quote": "by far the best is referrals... after you've delivered a great service... ask, do you know of anybody else who's also doing Only Fans."
+        }
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "commission split",
+      "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
+      "claim": "Charge around 50% for full-service management rather than discounting to a low percentage to win clients.",
+      "what_they_do": "Treats 50/50 as industry standard for doing everything (marketing + chatting); explicitly warns beginners against charging 20-30% out of desperation. Nuance: when starting with sub-$1k creators, stay around 40-60% (default 50%); higher 30-40% can fit only specific larger cases. Logic: getting a creator 1k->10k is harder than 37k->120k, so don't give away margin on the hard early work.",
+      "vs_us": "Palm sets commission % per-creator at onboarding but has no documented split rationale/tiers (\u00a77 GAP).",
+      "recommendation": "Write Palm's commission rationale with a 50% default anchor and explicit guidance on when to deviate, so splits aren't negotiated ad hoc.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 743,
+          "quote": "charging like 20, 30, 35% when you're just starting out... the industry standard, go with 50% and you can't go wrong with that."
+        },
+        {
+          "video_id": "O4LFyA89ZIA",
+          "timestamp_seconds": 217,
+          "quote": "a 50/50 deal is quite common in the only fans management industry."
+        }
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "PPV script price ladder",
+      "title": "Sell content as an escalating PPV script ladder",
+      "claim": "Monetize via a scripted sequence where each stage is more explicit and priced higher than the last, rather than flat pricing.",
+      "what_they_do": "A 'script' is pre-made content starting safe-for-work and escalating; price rises each stage, e.g. ~$10-15, then ~$35, ~$70, ~$140, ~$200. Between paid stages, send free photos at the level the fan already unlocked to over-deliver and stand out from other creators.",
+      "vs_us": "Palm has no documented PPV pricing model (\u00a77 GAP) and is thin on OF-vault/PPV content (\u00a72); chatting is outsourced (\u00a78) so the sequence is build-toward for in-house/AI chat.",
+      "recommendation": "Capture a default PPV script ladder (stage prices + free-content-between-stages tactic) as a starting pricing position and as build-toward content for the AI-chat project.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 155,
+          "quote": "the first one is fairly cheap, like $10, $15, then it goes to about 35, then maybe 70, 140, and then 200."
+        },
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 218,
+          "quote": "you can send a bunch of pictures for free... it's going to seem like you're providing so much more value."
+        }
+      ]
+    },
+    {
+      "department": "retention",
+      "topic": "whale nurturing",
+      "title": "Give high spenders 1:1 personalized treatment, never mass messages",
+      "claim": "Retain top spenders by excluding them from mass blasts and giving escalating personalized touches as they cross spend thresholds.",
+      "what_they_do": "Tier fans by spend on a smart list; anyone over a threshold (e.g. $1,500) gets zero mass messages/PPVs, only personalized 1:1. Touches escalate: >$500 first night = personalized voice note (real or ElevenLabs AI); always call them by their saved nickname; >$2,500/mo = a short safe-for-work selfie video saying their name; occasional physical-prize raffles. One client made $56,500 in 30 days from her top 5 fans.",
+      "vs_us": "Palm has whale tooling (Fan Tracker, going-cold detection, smart-list-style data) but no written whale-nurture playbook (\u00a79 PARTIAL/GAP); chatting is outsourced (\u00a78), so the tactics are build-toward.",
+      "recommendation": "Turn whale data into an operating playbook: spend-threshold tiers, exclude-from-mass rule, nickname use, voice-note/selfie-video escalations (AI voice where applicable), raffles \u2014 build-toward for in-house/AI chat.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 374,
+          "quote": "for big spending fans. You don't send them mass messages or mass pay-per-views... you want to give them that one-on-one personal interaction."
+        },
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 280,
+          "quote": "Anybody over $500 in their first night should get personalized voice notes... we can use AI voice notes... 11 Labs."
+        },
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 466,
+          "quote": "If the fan has spent more than $2.5,000 in one month, record a short personalized safer work selfie video saying his name."
+        }
+      ]
+    },
+    {
+      "department": "retention",
+      "topic": "win-back expired subs",
+      "title": "Win back expired subscribers with a discounted mass message on day one",
+      "claim": "Immediately re-activate a new creator's expired/lapsed subscribers with a discounted or trial-link mass message before chasing new traffic.",
+      "what_they_do": "On signing a creator, mass-message her expired subs (often already in the following list via auto-follow) with a trial/discount link; expect a spike of returning subs in the first week. Framed as the easy first win because retaining/reactivating is cheaper than finding new viral reels.",
+      "vs_us": "No documented win-back/reactivation routine (\u00a79 GAP); chatting outsourced (\u00a78), so this is build-toward intelligence.",
+      "recommendation": "Build-toward: make a day-one expired-subs win-back blast a standard onboarding step in the in-house/AI chat workflow.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 92,
+          "quote": "send out a mass message to all of her existing expired subscribers... put together a trial link or a discount link... you should see a big spike of these expired subs coming back."
+        }
+      ]
+    },
+    {
+      "department": "content",
+      "topic": "niche-fit content",
+      "title": "Build content around the creator's niche and her own strengths",
+      "claim": "Choose content by giving each creator a defined niche and building around her individual strengths, not by copying others' viral clips bar-for-bar.",
+      "what_they_do": "Calls 'no niche' the #1 agency mistake; with 4M+ creators you must stand out. For each creator, identify strengths/weaknesses (some are confident on camera, some shy-but-flexible) and create content that is easy for her to replicate and doesn't feel like work, rather than blindly recreating another creator's viral reel.",
+      "vs_us": "Palm's social pipeline is data-driven and mature for ideation (\u00a71), but niche/positioning and creator-strength fit are not explicit fields in the flow.",
+      "recommendation": "Add a niche + creator-strengths step feeding the inspo pipeline so promoted ideas are filtered for fit, not just virality.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 61,
+          "quote": "within literally one or two seconds I can see exactly what's wrong, which is there is no niche."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 155,
+          "quote": "you must understand what are their strengths and weaknesses and play into their strengths. create content that is simple for them to do."
+        }
+      ]
+    },
+    {
+      "department": "traffic",
+      "topic": "backup accounts + multi-platform",
+      "title": "Spin up backup/secondary accounts and post across many platforms",
+      "claim": "Multiply reach by creating multiple secondary social accounts and posting across many platforms, then funnel all of it to OnlyFans.",
+      "what_they_do": "Beyond the creator's main IG, create 2nd/3rd/4th IG accounts plus Reddit, Snapchat, threads, Facebook; even if a backup only adds 15k-100k views/mo it yields net-new paid subs you can attribute with a tracking link \u2014 distinct from the creator's existing audience. Post daily/multiple times, organize content a week in advance.",
+      "vs_us": "Palm's distribution strategy (Reddit, multi-account, S4S) is an explicit GAP (\u00a75); cadence is partially uncodified (\u00a71). Note: this overlaps Palm's AI warmup multi-account capability (\u00a73/\u00a74).",
+      "recommendation": "Document a multi-account/multi-platform traffic strategy with tracking links for attribution and a week-ahead scheduling cadence; reuse AI-warmup account infrastructure.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 494,
+          "quote": "are you actually creating new accounts? Like... a second, third, fourth, fifth Instagram account... an extra 15, 20, 30, 100,000 views per month, it's better than nothing."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 556,
+          "quote": "you can have a tracking link and all of a sudden you can show the client... extra 20, 50, 100 paid subscribers just from these backup accounts."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "onboarding speed + SOP",
+      "title": "Onboard with a documented same-day process and a welcome video",
+      "claim": "Convert a signed creator into active service the same day via a documented onboarding process that also manages expectations.",
+      "what_they_do": "No-onboarding-process is called the #2 fatal mistake. Use a pre-recorded welcome video (so you don't repeat yourself) that sets expectations: when/where to message, how to pay invoices, what content is required; then connect OF to Infloww and run an audit. Act with Amazon-like speed \u2014 even a 1-2 day delay risks the creator leaving in the first days.",
+      "vs_us": "Palm onboarding is a form wizard \u2192 Creators table (\u00a76); strong on contract automation but no documented expectation-setting welcome video or same-day activation SOP.",
+      "recommendation": "Add a standardized welcome video + same-day activation checklist to onboarding to set expectations and cut early churn.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 249,
+          "quote": "you must act with speed... you must have an entire sequence... on what happens as soon as the contract is signed."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 280,
+          "quote": "we have a pre-recorded video... which explains everything... how to pay the invoices, what content do we require from them."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "expectation management",
+      "title": "Manage creator expectations week-by-week or they invent their own",
+      "claim": "Explicitly set what will happen in week 1, month 1, and month 2 so the creator doesn't form unrealistic expectations and churn.",
+      "what_they_do": "On the onboarding call, walk through the timeline for the first week and first two months. Rationale: 'if you don't manage people's expectations, that's when they make their own,' which are usually unrealistic and lead to early departure when results don't match.",
+      "vs_us": "No documented expectation-setting framework in onboarding (\u00a76 GAP).",
+      "recommendation": "Bake a week-1/month-1/month-2 expectation script into the onboarding call to reduce early churn.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "PJh9l9TdtdY",
+          "timestamp_seconds": 278,
+          "quote": "if you don't manage people's expectations, that's when they make their own expectations, which typically is not really reasonable... they leave."
+        }
+      ]
+    },
+    {
+      "department": "delegation",
+      "topic": "three-department manager structure",
+      "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
+      "claim": "Free the owner by splitting the agency into core departments, each run by a manager the owner reports through, instead of doing everything personally.",
+      "what_they_do": "Typically three departments \u2014 client acquisition, marketing, chatting \u2014 each with a manager (e.g. chatter manager, marketing director, acquisition manager). The owner checks in with managers (not every IC) once each morning; managers run the ICs (outreach VAs, editors, chatters). Beginners can start with 3-6 chatters + one chatter manager. Trying to do it all solo makes scaling to $1M/mo 'physically impossible.'",
+      "vs_us": "Palm org is THIN (\u00a710): no management layer between founders and ICs, no org chart.",
+      "recommendation": "Define a department-and-manager org (acquisition / marketing / chatting) with the founder managing through managers as Palm scales past the current flat structure.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 835,
+          "quote": "you want to have three four main departments... Client acquisition, marketing, and chatting... have a manager in client acquisition, a manager in marketing, and a manager in chatting."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 866,
+          "quote": "once in the morning, you check in with all of the managers."
+        }
+      ]
+    },
+    {
+      "department": "delegation",
+      "topic": "accountability levels",
+      "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
+      "claim": "Scale past a plateau by training department heads to own problems end-to-end rather than escalating every decision to the owner.",
+      "what_they_do": "Five accountability levels: (1) wait to be told, (2) bring the problem, (3) bring problem + 1-2 solutions, (4) solve it and report, (5) solve it AND build an SOP so it never recurs. Most teams sit at 1-2, making the owner the bottleneck. Push C-suite heads to level 4-5; example: an acquisition manager independently bought aged warmed IG accounts and hired another VA to lift outreach capacity, then just reported it. Hold Mon-Fri morning team calls with only the department heads.",
+      "vs_us": "Palm has no hiring scorecards, accountability framework, or management cadence documented (\u00a710 GAP).",
+      "recommendation": "Adopt the five-level accountability ladder as a management standard, push leads to level 4-5 with SOP-building expectations, and run Mon-Fri morning leadership calls.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 434,
+          "quote": "there are five main levels of accountability... the first level being they just simply wait for the command on what to do."
+        },
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 680,
+          "quote": "what's different between level five and level four is they not only find the problem and solve it, but they also will build infrastructure to ensure that this problem never happens again."
+        },
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 801,
+          "quote": "making sure that you guys do morning team calls Monday to Friday."
+        }
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "staff quality gating",
+      "title": "Gate chatter hires on English, typing speed, and connection before training",
+      "claim": "Screen chatters on measurable competencies before hiring and training, since bad chatting silently destroys revenue.",
+      "what_they_do": "Before hiring a chatter, run an English skill test, a Wi-Fi speed test, and a words-per-minute test; only those who pass get hired and trained. Bad chatters (spelling/grammar errors, mispriced first PPVs like $4.99 or $200) are a top-7 agency-killing mistake.",
+      "vs_us": "Chatting is outsourced (\u00a78) so Palm doesn't run this screen today; it's build-toward intelligence for the planned in-house chat team's hiring SOP.",
+      "recommendation": "Build-toward: when standing up the in-house chat team, adopt a pre-hire screen (English / WPM / connection) and a first-PPV pricing standard.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 401,
+          "quote": "we give them an English skill test... a Wi-Fi speed test... a words per minute test. Only once they check out on all of these, that is when you hire them."
+        }
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "topic": "document before delegating",
+      "title": "Do every role yourself first, document it, then hand it off",
+      "claim": "Learn each part of the business personally and turn it into an SOP before delegating, so hires run a documented process.",
+      "what_they_do": "Owner did outreach/closing/onboarding/marketing/chatting himself first, then wrote an SOP doc + Loom video for each task so new hires self-train from the document instead of hours of live training. Hires for hunger/reliability/coachability over experience (experienced people resist the system). Tracks KPIs on every function (DMs sent, replies, calls booked, clients closed, revenue per chatter).",
+      "vs_us": "Palm is strong on productized content tooling (\u00a71) but has no stated document-before-delegate discipline; team/org THIN (\u00a710).",
+      "recommendation": "Standardize SOP + Loom documentation per role before backfilling it, hire for coachability, and attach KPIs to each function.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "yLCmzj1nzLk",
+          "timestamp_seconds": 310,
+          "quote": "you funnel all of that traffic over to Only Fans. And then the second thing is the chatting."
+        },
+        {
+          "video_id": "PJh9l9TdtdY",
+          "timestamp_seconds": 247,
+          "quote": "One of the first things that you need to do is connect their Only Fans account to your Inflow."
+        }
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "topic": "platform choice + realism",
+      "title": "Put AI creators on Fanvue and make every asset look real",
+      "claim": "AI creators can't use OnlyFans, so run them on an AI-friendly platform like Fanvue and prioritize realistic presentation over obvious perfection.",
+      "what_they_do": "OnlyFans does not allow AI; Fanvue welcomes AI, lets you label the account AI, and takes 15% vs OF's 20%. Build the persona like Build-A-Bear (face to niche, then body), batch content for both social and the paid platform, make the IG bio/handle look like a real person (uni, city, age), then funnel reels traffic to Fanvue and monetize via subscription + tips + PPV. Same can scale to ~$3-8k/mo on one model with no revenue split.",
+      "vs_us": "Palm's AI personas currently funnel to OnlyFans via social (\u00a73), distinct from the Fanvue AI-creator model; Palm's recreation/warmup pipeline (\u00a73/\u00a74) is well-suited to this future line (build-toward).",
+      "recommendation": "If Palm launches true AI creators (can't pass OF verification), plan a Fanvue home with AI labeling and realistic profiles, reusing the existing recreation + warmup pipeline; keep the real-creator\u2192OF line separate.",
+      "applicability": "ai-only",
+      "sources": [
+        {
+          "video_id": "O4LFyA89ZIA",
+          "timestamp_seconds": 371,
+          "quote": "Only Fans does not allow AI models. It takes 20% fees... Fan View... they advocate AI creators. They take 15%."
+        },
+        {
+          "video_id": "O4LFyA89ZIA",
+          "timestamp_seconds": 558,
+          "quote": "The more realistic you make it, the better your results will be... bio that maybe says which university they're in... which city that they live in."
+        }
+      ]
+    },
+    {
+      "department": "platform-risk",
+      "topic": "AI cold-start + believability risk",
+      "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
+      "claim": "Treat an AI creator's from-scratch follower build and 'too-perfect to be real' suspicion as core risks, and prefer scaling a real creator with existing momentum.",
+      "what_they_do": "Argues AI OFM is overhyped: content is limited (close-to-camera, props/Ferrari emblems look wrong, constant proof-checking, costs per generation), no real customs, no collabs/podcasts/in-person viral content, and you start from zero followers where a '10/10' new account looks suspicious. His own AI creator scaled to only ~$25k with huge effort; he prefers taking 50% of a real creator's fast growth over 100% of little.",
+      "vs_us": "Palm runs hardware-isolated AI warmup + EU AI Act labeling (\u00a73/\u00a74), which directly mitigates the cold-start/believability risk this raises; useful as a counter-view weighting Palm's real-first core (\u00a70).",
+      "recommendation": "Keep real creators as the core and treat AI as a hedge; lean on Palm's warmup/labeling stack to de-risk the cold-start and believability problems this guru flags before scaling an AI line.",
+      "applicability": "ai-only",
+      "sources": [
+        {
+          "video_id": "1G8cxNuKVuw",
+          "timestamp_seconds": 657,
+          "quote": "you're going to be starting with an AI creator from scratch. like zero followers... how suspect it looks if your AI creator is like a 10 out of 10 chick."
+        },
+        {
+          "video_id": "1G8cxNuKVuw",
+          "timestamp_seconds": 397,
+          "quote": "we scaled a creator to $25,000. But the amount of time, energy, and effort that took. It is just not worth it compared to just working with real life creators."
+        }
+      ]
+    }
+  ]
+}

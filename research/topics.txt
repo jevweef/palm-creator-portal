@@ -1,0 +1,16 @@
+# OFM Research Specialist — daily topic search terms
+# One search term per line. '#' comments and blank lines ignored.
+# Edit freely: add/remove terms to steer what the agent scours each day.
+# Keep terms specific enough to surface agency-owner "how I do it" content,
+# not generic creator vlogs.
+
+OnlyFans agency how to scale
+OFM agency chatting strategy
+OnlyFans management agency systems
+OFM agency owner
+OnlyFans chatter training
+OnlyFans agency retention
+OnlyFans agency pricing PPV strategy
+how to run an OnlyFans agency
+OFM traffic strategy
+OnlyFans agency fulfillment system

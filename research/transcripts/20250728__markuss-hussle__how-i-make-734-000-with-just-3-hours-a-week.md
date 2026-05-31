@@ -1,0 +1,43 @@
+---
+title: "How I Make $734,000 With Just 3 Hours a Week"
+channel: "Markuss Hussle"
+video_id: "PJh9l9TdtdY"
+url: "https://www.youtube.com/watch?v=PJh9l9TdtdY"
+upload_date: "20250728"
+duration: "5:59"
+transcript_source: "YouTube captions (youtube-transcript-api)"
+fetched_with: "scripts/yt_transcript.py"
+---
+
+# How I Make $734,000 With Just 3 Hours a Week
+
+**Channel:** Markuss Hussle
+**URL:** https://www.youtube.com/watch?v=PJh9l9TdtdY
+**Uploaded:** 20250728 — **Duration:** 5:59
+**Source:** YouTube captions (youtube-transcript-api)
+
+---
+
+[0:00](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=0s) In the last 90 days, we have generated over $734,000 all online whilst I've been traveling the world. Right now, I'm traveling around the Europe. But anyway, in this short video, I will teach you exactly what this is and how you can take part. This is something brand new which to be honest, you might not even know about and I've personally put in about 3 4 hours of work a week. So, the business model itself is only fans management. Essentially, what you're doing is you're managing online creators who are putting pictures and videos and social media,
+
+[0:30](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=30s) but they don't know how to monetize their audience. This is where you come in. Right now, in 2025, there is roughly around 4.5, maybe even up to 5 million actual creators. So, that basically is 4.5 million potential clients for you to work with, right? Which is pretty crazy. Your competition, well, there isn't really much of it. Think yourself watching this video right now. How many people do you know that are running an Only Fans management agency? There isn't really that many people doing this online and that is the huge gap in the market where you can take part. Now,
+
+[1:02](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=62s) maybe you watching this, you've tried e-commerce, you've tried drop shipping, you've tried SMMA or all these other different business models, but the truth of the matter is that in 2025, it's too late, my friend. Yeah. Everyone's tried them. Everyone's doing them. And the people that are winning in those business models are so much further than you can even imagine. and for you to compete with them is really difficult. Now with Vonyie fans management, I've personally been doing it for nearly 5 years. I started in 2020 around the pandemic crazy time and really I was the first person like one of the first
+
+[1:33](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=93s) people to do this and I've simply established myself over these uh years where I'm able to actually teach people on what we do and how we do it. By the way, if you're interested and you want a free course on exactly what I'm about to teach, but in more detail, you can find the links down below or message me on Instagram, Marcus Hustle. I'm happy to talk to you guys and perhaps jump on a call. So the five main key pillars, let's go through them. The first part will actually be to set up the business itself. So you can register it in your home country or you can register it overseas. It doesn't really matter ultimately. Then you obviously need to
+
+[2:03](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=123s) think of a name, you need to think of a logo and then you need a couple of softwares such as Zoom, you might need Panda, you might need go high level or pipe travel, any of these kind of softwares to keep things organized. Okay. Now within our free course that I mentioned earlier, we actually do show you what you need and so on. So again, you can check all of that out below. The setup should not take you too long at all, right? You should get started within about a week. Step number two out of the five is outreach. Is getting your first couple of clients. Okay? Now, believe it or not, this is actually one of the easiest parts. Um, simply because
+
+[2:34](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=154s) like I mentioned earlier, there's around 4.5 to 5 million of creators, right, in the world, and there isn't really that many agencies. So, you would be one of the first people reaching out to them. And if you just put the right message together that piqus curiosity and gets the person to actually reply and jump on a call with you, well, it's going to be pretty easy for you to actually start getting people on a Zoom call. And then once you've got them on a Zoom call, it honestly isn't that difficult to sign a client. You're not dealing with 40, 50, 60 year old business owners that have been in business longer than you've been alive, right? You're dealing with girls
+
+[3:05](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=185s) that are probably the same age as you and me and they don't really ask like hard questions and so on. you're just having a general chat with them, having a little bit of a laugh, but obviously keeping it serious because it is business at the end of the day. You need to figure out what are they struggling with right now, how you can help them fix that, and then obviously position that offer as a solution, and then boom, they'll be happy to work with you. And honestly, within a in a circle, there's around 250 plus people. On average, it takes them 2 weeks to get their first client. Step three is onboarding. Once a client has said, "Yes, okay, let's do
+
+[3:35](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=215s) it. Let's work together." You will then need to uh obviously get them set up within your business. Now, when you're just starting out and it's just you, it's okay. You can genuinely do this all just by yourself. One of the first things that you need to do is connect their Only Fans account to your Inflow. If you don't know what Inflow is, I have an entire YouTube video just about it. You can also get I think it's a 2 week free trial if I remember correctly uh with the link down below as well. It's the best software in this industry. So, you need to use it, but it's absolute go-to. So, you can check that out. And basically inflow, think of it this way.
+
+[4:07](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=247s) Only fans just by itself. It's kind of like using a flip phone. It works, but it's old. It's janky. It doesn't really work that well. And then using Inflow with Only Fans is kind of like the newest iPhone, right? The 16 Pro Max. It's super fast. It has so many more features and it's a better experience. So yeah, you definitely want to do that. And then obviously on the onboarding call with the client, you just want to explain, here's what's going to happen next. Now, you watching this, you maybe don't even know what's going to happen next. This is exactly why you need to be a part of our community. Watch my videos, leave a like on this video,
+
+[4:38](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=278s) subscribe, and so on and so on so you can learn. But you want to manage the expectations on here's what's going to happen in the first week, the first month, the second month. Because if you don't manage people's expectations, that's when they make their own expectations, which typically is not really reasonable and you might not be able to reach it. And because your results don't meet their expectations, they leave. This is why it's absolutely paramount and super super important for you to manage expectations from the get- go. The fourth part is the marketing. To make a girl that is half naked go viral on social media, it's not really
+
+[5:09](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=309s) rocket science, right? Attractive girls always get loads of attention on social media. So, it's going to be pretty easy for you to start um getting some likes, some followers, and then you obviously funnel that traffic over to Only Fans. And most of the time, the people that you already sign up and start working with, they are already doing it. So, they already understand it. You just need to give them some content ideas. Make sure they're consistent. Make sure they're posting every single day, if not multiple times, on more platforms. And that's how you're going to get more and more subscribers over and then you're going to start making more money. And then last but not least, number five, is
+
+[5:40](https://www.youtube.com/watch?v=PJh9l9TdtdY&t=340s) the actual chatting and the sales. So this is where you can hire people from third world countries from all around the world that can actually do the chatting and the replying to messages for you and your client. This is honestly one of the easiest business models in the world. Message me on Instagram, Marcus Hustle, for more information. You can check out more links down below and I'll see you on the next

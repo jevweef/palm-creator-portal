@@ -1,0 +1,9 @@
+# OFM Research Specialist — channel watchlist
+# One channel per line: a @handle, a channel URL, or a /videos URL.
+# '#' comments and blank lines ignored.
+# The agent pulls each channel's most recent uploads daily and transcribes
+# anything new. Add the OFM agency owners you want to track here.
+#
+# Seeded from a real OFM agency channel found this session; add more.
+
+@DylanOFM
