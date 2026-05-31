@@ -103,7 +103,8 @@ export default function AccountsPanel() {
                       {[['IG', a.vaultRefs.ig], ['FB', a.vaultRefs.fb], ['Gmail', a.vaultRefs.gmail], ['Recovery', a.vaultRefs.recovery]]
                         .filter(([, id]) => id)
                         .map(([label, id]) => (
-                          <a key={label} href={vaultItemUrl(id)} target="_blank" rel="noopener noreferrer" title="Open in Bitwarden vault"
+                          <a key={label} href={vaultItemUrl(id)} target="_blank" rel="noopener noreferrer"
+                            title="Open in Bitwarden vault" aria-label={`Open ${label} login in Bitwarden vault`}
                             style={{ padding: '2px 8px', borderRadius: 9999, background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', color: '#a78bfa', textDecoration: 'none', fontWeight: 600 }}>{label}</a>
                         ))}
                     </div>

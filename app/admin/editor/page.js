@@ -2066,7 +2066,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
   const [videoModal, setVideoModal] = useState(null)
-  // Lightbox for the "🖼 Thumbnail" peek button on AI Generated cards.
+  // Lightbox for the "Thumbnail" peek button on AI Generated cards.
   // The editor curates this in the upload modal and it lands as the
   // post's thumbnail in Post Prep — this lets the reviewer verify it
   // without it cluttering the autoplay strip.
@@ -2203,7 +2203,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
 
       {filteredTasks.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {creatorFilter === 'all' ? 'No edits waiting for review.' : 'No edits from this creator waiting for review.'}
+          {effectiveCreator === 'all' ? 'No edits waiting for review.' : 'No edits from this creator waiting for review.'}
         </div>
       ) : (() => {
         // Paginate to REVIEW_PAGE_SIZE per page; clamp the page if approvals
@@ -2405,7 +2405,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       onto the card face instead of being buried in the toggle. */}
                   {task.inspo.onScreenText && (
                     <div style={{ background: 'rgba(232,200,120,0.06)', border: '1px solid rgba(232,200,120,0.18)', borderRadius: '6px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#E8C878', opacity: 0.85 }}>On-screen text</div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#E8C878', opacity: 0.85 }}>On-screen text</div>
                       <div style={{ fontSize: '12px', color: '#E8C878', lineHeight: 1.4, marginTop: '3px' }}>&ldquo;{task.inspo.onScreenText}&rdquo;</div>
                     </div>
                   )}
@@ -2534,7 +2534,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
   )
 }
 
-// Simple image lightbox — used for the "🖼 Thumbnail" peek button on AI
+// Simple image lightbox — used for the "Thumbnail" peek button on AI
 // Generated review cards. Click outside or the × to dismiss. Aspect-fit so
 // any size works (the editor might upload landscape or portrait).
 function ImageLightbox({ src, label, onClose }) {

@@ -68,6 +68,7 @@ export default function StrategyTab({ maxWidth = 760 } = {}) {
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPillar() } }}
             placeholder="Add a pillar…"
+            aria-label="Add a content pillar"
             style={{ padding: '7px 12px', fontSize: 13, borderRadius: 8, background: 'var(--background)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', outline: 'none', minWidth: 180 }}
           />
           <button onClick={addPillar}
