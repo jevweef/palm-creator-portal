@@ -50,7 +50,14 @@ the shared tree, making another session's *uncommitted* work appear to vanish
 
 **Rule:** If another Claude session may be active here at the same time, work in
 your **own git worktree**, not the shared main checkout. One session per dir.
-- Preferred: the **EnterWorktree** tool. Or: `git worktree add ../pcp-<feature> -b <feature>`.
+
+**At the START of a session, before any work**, isolate yourself:
+1. Pick a short, descriptive kebab-case name for the task (`onboarding-checklist`,
+   `invoicing-pdf-fix`) — not generic, not random.
+2. `git fetch origin`, then create the worktree **based on the latest `dev`**.
+   - Preferred: the **EnterWorktree** tool, passing that name explicitly.
+   - Or: `git worktree add ../pcp-<name> -b <name> origin/dev`.
+3. Work from that worktree for the rest of the session.
 - Existing parallel worktrees live under `.claude/worktrees/`.
 - Exception: a background job explicitly configured to "work in place" — honor
   that, but commit early and often.
