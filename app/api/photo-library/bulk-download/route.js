@@ -150,8 +150,8 @@ export async function POST(request) {
   let assets
   try {
     assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{Used By Chat Manager At}='')`,
-      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'File Extension'],
+      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{Used By Chat Manager At}='',{Source Type}!='AI Generated')`,
+      fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'File Extension', 'Source Type'],
     })
   } catch (err) {
     return NextResponse.json({ error: 'Failed to load assets', detail: err.message }, { status: 500 })

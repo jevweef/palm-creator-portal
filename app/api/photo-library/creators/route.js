@@ -81,8 +81,8 @@ export async function GET(request) {
         sort: [{ field: 'Creator', direction: 'asc' }],
       }),
       fetchAirtableRecords('Assets', {
-        filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()))`,
-        fields: ['Palm Creators', 'Asset Type', 'File Extension', 'Dropbox Shared Link'],
+        filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{Source Type}!='AI Generated')`,
+        fields: ['Palm Creators', 'Asset Type', 'File Extension', 'Dropbox Shared Link', 'Source Type'],
       }),
     ])
 

@@ -74,6 +74,12 @@ export async function POST(request) {
         if (f['Dropbox Link']) assetFields['Dropbox Shared Link'] = f['Dropbox Link']
         if (f['Dropbox Path']) assetFields['Dropbox Path (Current)'] = f['Dropbox Path']
         if (f['CDN URL']) assetFields['CDN URL'] = f['CDN URL']
+        // Carry the source Photo's Source Type onto the mirror Asset. AI
+        // carousel slides come in as Source Type='AI Generated'; without this
+        // the mirror lands blank and leaks into chat-manager surfaces (the
+        // /photo-library wall filters {Source Type}!='AI Generated'). Real
+        // Creator Upload slides keep their own Source Type and stay visible.
+        if (f['Source Type']) assetFields['Source Type'] = f['Source Type']
         const rec = await createAirtableRecord('Assets', assetFields, { typecast: true })
         mirroredAssetIds.push(rec.id)
       }
