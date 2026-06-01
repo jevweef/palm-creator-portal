@@ -39,6 +39,11 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
+  // Research — OFM competitive-intelligence briefs (how other agencies operate,
+  // synthesized from their YouTube content, compared to how Palm works). Fed by
+  // the research pipeline (scripts/yt_discover.py → yt_transcript.py → synthesis)
+  // reading research/digests/*.json + research/meta/*.json.
+  { href: '/admin/research', label: 'Research', icon: '🔭' },
   { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
   { href: '/admin/publer', label: 'Publer', icon: '📅' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },

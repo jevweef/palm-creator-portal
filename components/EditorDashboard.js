@@ -127,7 +127,13 @@ export function isPhoto(url) { return !!url && /\.(jpe?g|png|gif|webp|heic|heif|
 
 export const LIB_PAGE_SIZE = 15
 
-export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) {
+export function LibraryCard({
+  asset, onAssign, assigning, forcePhoto = false,
+  // Optional library-management controls. When omitted (e.g. the editor
+  // asset picker), the card behaves exactly as before — selection checkbox
+  // and delete/restore buttons only render when their props are provided.
+  onSoftDelete, onRestore, selectable = false, selected = false, onToggleSelect, busy = false,
+}) {
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
@@ -148,7 +154,25 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
 
   return (
     <div style={{ background: 'var(--background)', border: '1px solid transparent', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: 'var(--background)' }}>
+      <div style={{ position: 'relative', aspectRatio: videoFile ? '9/16' : '3/4', maxHeight: '320px', overflow: 'hidden', background: 'var(--background)', outline: selected ? '2px solid var(--palm-pink)' : 'none', outlineOffset: '-2px' }}>
+        {selectable && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleSelect?.(asset.id) }}
+            aria-pressed={selected}
+            title={selected ? 'Deselect' : 'Select'}
+            style={{
+              position: 'absolute', top: '6px', left: '6px', zIndex: 2,
+              width: '22px', height: '22px', borderRadius: '5px', cursor: 'pointer',
+              border: selected ? 'none' : '1.5px solid rgba(255,255,255,0.85)',
+              background: selected ? 'var(--palm-pink)' : 'rgba(0,0,0,0.45)',
+              color: '#fff', fontSize: '14px', fontWeight: 700, lineHeight: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {selected ? '✓' : ''}
+          </button>
+        )}
         {imgSrc ? (
           <img src={imgSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : videoFile ? (
@@ -177,10 +201,24 @@ export function LibraryCard({ asset, onAssign, assigning, forcePhoto = false }) 
               View ↗
             </a>
           )}
-          <button onClick={() => onAssign(asset)} disabled={!!assigning}
-            style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? 'rgba(232, 160, 160, 0.05)' : 'rgba(232, 160, 160, 0.05)', color: assigning === asset.id ? 'rgba(212, 160, 176, 0.3)' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
-            {assigning === asset.id ? 'Starting…' : 'Start Edit'}
-          </button>
+          {onAssign && (
+            <button onClick={() => onAssign(asset)} disabled={!!assigning}
+              style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: assigning === asset.id ? 'rgba(232, 160, 160, 0.05)' : 'rgba(232, 160, 160, 0.05)', color: assigning === asset.id ? 'rgba(212, 160, 176, 0.3)' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: assigning ? 'default' : 'pointer', opacity: assigning && assigning !== asset.id ? 0.5 : 1 }}>
+              {assigning === asset.id ? 'Starting…' : 'Start Edit'}
+            </button>
+          )}
+          {onRestore && (
+            <button onClick={() => onRestore(asset)} disabled={busy}
+              style={{ width: '100%', padding: '7px', fontSize: '11px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+              Restore
+            </button>
+          )}
+          {onSoftDelete && (
+            <button onClick={() => onSoftDelete(asset)} disabled={busy}
+              style={{ width: '100%', padding: '7px', fontSize: '11px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid transparent', borderRadius: '6px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>

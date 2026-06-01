@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
-import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireAdminOrEditor, fetchAirtableRecords, batchUpdateRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 // GET — fetch unreviewed library assets (clips dumped into 00_INCOMING_FILE_REQUEST)
@@ -17,8 +17,11 @@ export async function GET() {
     // Includes 'In Editing' (additive) so the library can offer an Unused vs
     // In-editing status filter; the client defaults to Unused, preserving the
     // original "only unused" view.
+    // 'Discarded' is additive so the library can offer a "Deleted" filter +
+    // restore. The client defaults to Unused, so discarded assets stay hidden
+    // unless the admin explicitly switches to the Deleted view.
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing'), {Source Type}!='Inspo Upload')",
+      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing', {Pipeline Status}='Discarded'), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
         'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators',
@@ -56,7 +59,9 @@ export async function GET() {
         name: f['Asset Name'] || '',
         pipelineStatus: f['Pipeline Status'] || '',
         // Derived lifecycle status for the library filter (Used/Posted deferred).
-        status: f['Pipeline Status'] === 'In Editing' ? 'In editing' : 'Unused',
+        status: f['Pipeline Status'] === 'In Editing' ? 'In editing'
+          : f['Pipeline Status'] === 'Discarded' ? 'Discarded'
+          : 'Unused',
         sourceType: f['Source Type'] || '',
         assetType: f['Asset Type'] || '',
         dropboxLink: dropboxLinks[0] || '',
@@ -80,6 +85,44 @@ export async function GET() {
     return NextResponse.json({ assets: result, total: result.length })
   } catch (err) {
     console.error('[Unreviewed] GET error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// POST — soft-delete (hide) or restore library assets in bulk.
+// Body: { assetIds: string[], action?: 'discard' | 'restore' }
+//   action 'discard' (default) → Pipeline Status = 'Discarded' (the canonical
+//     hidden state, already excluded from every library/picker query). The
+//     Dropbox file + Cloudflare CDN copy are untouched, so this is reversible
+//     and never breaks linked Posts — they just stop surfacing in the library.
+//   action 'restore' → Pipeline Status = 'Uploaded' (back into the Unused view).
+// Supports single (one ID) and bulk (many IDs) from the same call.
+export async function POST(request) {
+  try {
+    await requireAdminOrEditor()
+  } catch (e) { return e }
+
+  try {
+    const { assetIds, action } = await request.json()
+    if (!Array.isArray(assetIds) || assetIds.length === 0) {
+      return NextResponse.json({ error: 'assetIds (non-empty array) required' }, { status: 400 })
+    }
+    if (assetIds.length > 200) {
+      return NextResponse.json({ error: 'Too many assets in one request (max 200)' }, { status: 400 })
+    }
+    const ids = [...new Set(assetIds.filter(id => typeof id === 'string' && /^rec[A-Za-z0-9]{14}$/.test(id)))]
+    if (!ids.length) {
+      return NextResponse.json({ error: 'No valid asset IDs' }, { status: 400 })
+    }
+
+    const status = action === 'restore' ? 'Uploaded' : 'Discarded'
+    const updates = ids.map(id => ({ id, fields: { 'Pipeline Status': status } }))
+    await batchUpdateRecords('Assets', updates)
+
+    console.log(`[Unreviewed] ${action === 'restore' ? 'Restored' : 'Soft-deleted'} ${ids.length} asset(s) → ${status}`)
+    return NextResponse.json({ ok: true, updated: ids.length, status })
+  } catch (err) {
+    console.error('[Unreviewed] POST error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

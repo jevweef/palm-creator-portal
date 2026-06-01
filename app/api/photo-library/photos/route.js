@@ -64,7 +64,7 @@ export async function GET(request) {
     // than the scan. The scan stays — narrowed by Asset Type when possible
     // to cut payload.
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()))`,
+      filterByFormula: `AND(NOT({Dropbox Shared Link}=''),OR({Asset Type}='Photo',{Asset Type}='Image',{Asset Type}=BLANK()),{Source Type}!='AI Generated')`,
       fields: [
         'Asset Name',
         'Dropbox Shared Link',
@@ -78,6 +78,7 @@ export async function GET(request) {
         'Used By Chat Manager',
         'Used By Chat Manager For',
         'Used In Carousel',
+        'Source Type',
       ],
     })
 
