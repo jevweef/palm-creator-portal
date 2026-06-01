@@ -255,6 +255,26 @@ def build_report(token: str, week_start: str) -> str:
     return "\n".join(out)
 
 
+def maybe_imessage(report: str) -> None:
+    """Text the report via iMessage (Messages.app) if SAM_IMESSAGE_TO is set. Mac-only; needs
+    Automation permission for Messages granted once."""
+    import os
+    import subprocess
+    to = os.getenv("SAM_IMESSAGE_TO") or read_env("SAM_IMESSAGE_TO")
+    if not to:
+        return
+    try:
+        subprocess.run(
+            ["osascript",
+             "-e", "on run {h, m}", "-e", "tell application \"Messages\"",
+             "-e", "set s to 1st service whose service type = iMessage",
+             "-e", "set b to buddy h of s", "-e", "send m to b",
+             "-e", "end tell", "-e", "end run", to, report],
+            capture_output=True, timeout=30)
+    except Exception:
+        pass
+
+
 def maybe_telegram(report: str) -> None:
     token = read_env("TELEGRAM_BOT_TOKEN") or read_env("TELEGRAM_TOKEN")
     chat = read_env("SAM_TELEGRAM_CHAT_ID") or read_env("RESEARCH_TELEGRAM_CHAT_ID")
@@ -273,6 +293,7 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Sam — content-supply quota monitor (read-only).")
     ap.add_argument("--week-start", choices=["monday", "sunday"], default="monday")
     ap.add_argument("--no-telegram", action="store_true")
+    ap.add_argument("--no-imessage", action="store_true")
     args = ap.parse_args(argv[1:])
 
     token = read_env("AIRTABLE_PAT") or read_env("AIRTABLE_API_KEY")
@@ -285,6 +306,8 @@ def main(argv: list[str]) -> int:
         print(f"SAM — Airtable API error HTTP {e.code}: {e.read()[:200]!r}", file=sys.stderr)
         return 1
     print(report)
+    if not args.no_imessage:
+        maybe_imessage(report)
     if not args.no_telegram:
         maybe_telegram(report)
     return 0
