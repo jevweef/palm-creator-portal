@@ -1,40 +1,310 @@
-{"groups":[
-  {"department":"pricing","title":"Free/low-entry subs and a cheap first PPV to build the spending habit","member_ids":["f0019","f0109"]},
-  {"department":"pricing","title":"Price per fan by traffic source, proven spend, and purchase history","member_ids":["f0011","f0111"]},
-  {"department":"pricing","title":"Sell via an escalating PPV price ladder, not one flat ask","member_ids":["f0085","f0110"]},
-  {"department":"pricing","title":"Flex deal structure to creator tier instead of a one-size split","member_ids":["f0041","f0068"]},
-
-  {"department":"chatting","title":"Build rapport and let the fan initiate before selling; never open with the sale","member_ids":["f0106","f0107","f0054"]},
-  {"department":"chatting","title":"Run every fan through a fixed pre-sale funnel: collect data, then scripted escalating PPV","member_ids":["f0070","f0008","f0071"]},
-  {"department":"chatting","title":"Segment/tag fans by spender tier and personalize instead of mass blasts","member_ids":["f0009","f0108"]},
-
-  {"department":"acquisition","title":"Cold outreach signs creators as a high-volume, consistent, tracked system","member_ids":["f0039","f0040","f0067"]},
-  {"department":"acquisition","title":"Productized paid-ad funnel makes creator signing predictable","member_ids":["f0023","f0025"]},
-  {"department":"acquisition","title":"Lead with intrigue/curiosity and push to a call rather than selling in DMs","member_ids":["f0081","f0080"]},
-  {"department":"acquisition","title":"Qualify creators against an ideal-client profile; disqualify red flags","member_ids":["f0082","f0083","f0065"]},
-  {"department":"acquisition","title":"Optimize acquisition on ROI/LTV, not cost-per-lead","member_ids":["f0026","f0102"]},
-
-  {"department":"instagram","title":"Reels/short-form are the primary growth lever with hook-retention-payoff","member_ids":["f0021","f0051"]},
-
-  {"department":"platform-risk","title":"Warm new accounts before adding any direct OF/adult link","member_ids":["f0013","f0060"]},
-
-  {"department":"traffic","title":"Run a multi-platform/multi-account traffic mix; no single source carries it","member_ids":["f0007","f0089"]},
-  {"department":"traffic","title":"Snapchat as an under-exploited OF traffic and monetization channel","member_ids":["f0020","f0063"]},
-
-  {"department":"delegation","title":"Master/document each role yourself first, then delegate via SOPs","member_ids":["f0015","f0058"]},
-  {"department":"delegation","title":"Delegate outcomes/ownership up an accountability ladder, not just tasks","member_ids":["f0044","f0035","f0093"]},
-  {"department":"delegation","title":"Split the agency into departments under managers on a revenue-gated hiring ladder","member_ids":["f0092","f0057"]},
-
-  {"department":"systems","title":"Run ops off central databases/trackers so detail lives in systems, not the owner's head","member_ids":["f0064","f0099","f0014"]},
-  {"department":"systems","title":"Treat the vault/scripts as inventory with a weekly refresh-and-prune cadence","member_ids":["f0022","f0045"]},
-  {"department":"systems","title":"Same-day documented onboarding that also manages creator expectations","member_ids":["f0090","f0091"]},
-
-  {"department":"content","title":"A defined niche/persona built on the creator's strengths separates earners","member_ids":["f0003","f0088","f0043","f0002"]},
-  {"department":"content","title":"Volume and reduced record-to-publish friction beat production polish","member_ids":["f0030","f0032"]},
-  {"department":"content","title":"Give every model a written character/persona to lift LTV via parasocial bond","member_ids":["f0104","f0061"]},
-
-  {"department":"ai-ofm","title":"Keep AI/real hybrid on OnlyFans because full-AI loses conversion on Fanvue","member_ids":["f0047","f0048","f0001","f0077"]},
-  {"department":"ai-ofm","title":"AI bot handles new-sub volume/24-7 chat; route spenders to humans","member_ids":["f0078","f0079"]},
-
-  {"department":"founder-discipline","title":"Learn and systemize each role personally before scaling/delegating","member_ids":["f0075","f0095"]}
-]}
+{
+  "groups": [
+    {
+      "department": "instagram",
+      "title": "7-day IG warm-up: algorithm training, niche engagement, delayed link",
+      "member_ids": [
+        "f0018",
+        "f0013"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Differentiate every signal across repurposing accounts to prevent IG cluster-ban",
+      "member_ids": [
+        "f0031",
+        "f0032"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Strip AI metadata before posting or reach is throttled",
+      "member_ids": [
+        "f0070",
+        "f0017"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Build a fan profile through scripted questions before any PPV",
+      "member_ids": [
+        "f0090",
+        "f0089"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Rapport, transition, then sell",
+      "member_ids": [
+        "f0125",
+        "f0126",
+        "f0010"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Pre-built escalating sexting scripts are the sales unit",
+      "member_ids": [
+        "f0008",
+        "f0074"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Tag every fan by relationship type and price accordingly",
+      "member_ids": [
+        "f0009",
+        "f0127"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Sell content as an escalating PPV script ladder",
+      "member_ids": [
+        "f0104",
+        "f0129"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "First PPV is cheap to build the habit",
+      "member_ids": [
+        "f0128",
+        "f0019"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Hard floor of 50/50 revenue split \u2014 never go lower",
+      "member_ids": [
+        "f0038",
+        "f0103"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Price dynamically off purchase history",
+      "member_ids": [
+        "f0130",
+        "f0011"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
+      "member_ids": [
+        "f0102",
+        "f0086"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "DM prospects from a personal-looking account, not an agency page",
+      "member_ids": [
+        "f0099",
+        "f0100"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Qualify creators against a checklist and disqualify on red flags",
+      "member_ids": [
+        "f0101",
+        "f0084"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Cold outreach is a volume-consistency-conversation game",
+      "member_ids": [
+        "f0059",
+        "f0060"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Target mid-tier creators (10K followers, ~$1-3K/mo) not top earners",
+      "member_ids": [
+        "f0036",
+        "f0037"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Replace yourself via ownership ladder, not task delegation",
+      "member_ids": [
+        "f0064",
+        "f0112",
+        "f0120"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
+      "member_ids": [
+        "f0077",
+        "f0028"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
+      "member_ids": [
+        "f0111",
+        "f0026"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Delegate menial work to protect creative output",
+      "member_ids": [
+        "f0055",
+        "f0015"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Loom-video SOPs to eliminate training misinterpretation",
+      "member_ids": [
+        "f0078",
+        "f0093"
+      ]
+    },
+    {
+      "department": "systems",
+      "title": "Convert founder gut-reactions into SOPs so the team executes your standards without you",
+      "member_ids": [
+        "f0025",
+        "f0065"
+      ]
+    },
+    {
+      "department": "systems",
+      "title": "Central account/team/finance trackers to remove owner from ops",
+      "member_ids": [
+        "f0083",
+        "f0118"
+      ]
+    },
+    {
+      "department": "systems",
+      "title": "Treat the vault as inventory: weekly script refresh and analytics pruning",
+      "member_ids": [
+        "f0022",
+        "f0117"
+      ]
+    },
+    {
+      "department": "systems",
+      "title": "Manage creator expectations week-by-week or they invent their own",
+      "member_ids": [
+        "f0110",
+        "f0109"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Two-funnel X system: paid retweet drops plus comment-baiting",
+      "member_ids": [
+        "f0006",
+        "f0073"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Main brand account fed by disposable burner accounts",
+      "member_ids": [
+        "f0072",
+        "f0108"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Snapchat + read-only Telegram channel as a ban-resilient backup funnel",
+      "member_ids": [
+        "f0020",
+        "f0082"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Never mention OnlyFans by name on social \u2014 use clean indirect CTAs",
+      "member_ids": [
+        "f0040",
+        "f0013"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "Real creator + AI clone, kept on OnlyFans",
+      "member_ids": [
+        "f0067",
+        "f0068"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
+      "member_ids": [
+        "f0097",
+        "f0098"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "AI personas remove model-dependency risk and keep 100% of revenue",
+      "member_ids": [
+        "f0001",
+        "f0096"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "A defined niche, not looks or tech, separates earners",
+      "member_ids": [
+        "f0003",
+        "f0107"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "Give every model a written character",
+      "member_ids": [
+        "f0123",
+        "f0080"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "Done beats perfect; minimize record-to-publish friction",
+      "member_ids": [
+        "f0052",
+        "f0050"
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "title": "Do every role yourself first, document it, then hand it off",
+      "member_ids": [
+        "f0114",
+        "f0094"
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "title": "Take a week off at $100k/month to expose founder dependency before it becomes a ceiling",
+      "member_ids": [
+        "f0024",
+        "f0054"
+      ]
+    },
+    {
+      "department": "platform-risk",
+      "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
+      "member_ids": [
+        "f0116",
+        "f0017"
+      ]
+    }
+  ]
+}

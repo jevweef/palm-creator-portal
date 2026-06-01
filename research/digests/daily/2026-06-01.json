@@ -1,5 +1,8 @@
 {
-  "findings": [
+  "date": "2026-06-01",
+  "kind": "daily",
+  "headline": "91 new finding(s), 0 rose in consensus.",
+  "new_findings": [
     {
       "id": "m0017",
       "department": "delegation",
@@ -2266,46 +2269,6 @@
       }
     },
     {
-      "id": "f0012",
-      "department": "retention",
-      "topic": "social proofing",
-      "title": "Manufacture social proof on the paid page to lift conversion",
-      "variants": [
-        {
-          "claim": "Conversion on the paid platform is treated like buying any product: visible likes/reviews validate purchase, so operators manufacture social proof before driving traffic.",
-          "what_they_do": "Compares a profile with no likes to a one-star restaurant; boosts likes (e.g. creating throwaway Fanvue accounts via temp-mail to like wall posts) so the page looks established and trusted, alongside an optimized profile pic and multi-angle banner that show the model fully before subscribing.",
-          "run": "aipimpin"
-        }
-      ],
-      "sources": [
-        {
-          "video_id": "gRwy2rxtWQc",
-          "timestamp_seconds": 1676,
-          "quote": "Perform a like boost to give more social proofing"
-        },
-        {
-          "video_id": "gRwy2rxtWQc",
-          "timestamp_seconds": 1803,
-          "quote": "no likes equals poor conversion"
-        }
-      ],
-      "creators": [
-        "Ai Pimpin"
-      ],
-      "consensus": {
-        "creators": 1,
-        "label": "low",
-        "contested": false
-      },
-      "applicability": [
-        "both"
-      ],
-      "palm_comparison": {
-        "vs_us": "Palm's fan intelligence/retention is partial (\u00a79) and there is no documented profile-conversion or social-proof playbook for the paid page; OF vault/profile presentation is thin (\u00a72).",
-        "recommendation": "Document a paid-page conversion checklist (profile-pic/banner optimization, social-proof signals) for real creators; treat artificial-like tactics as platform-risk and exclude, keeping the legitimate optimization parts."
-      }
-    },
-    {
       "id": "f0014",
       "department": "systems",
       "topic": "attribution tracking",
@@ -4116,18 +4079,9 @@
       }
     }
   ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
-  ]
+  "consensus_risers": [],
+  "new_evidence": [],
+  "totals": {
+    "findings": 92
+  }
 }
