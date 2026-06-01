@@ -100,6 +100,19 @@ editing, bring this branch up to date with the shared trunk:
 
 ---
 
+## 🌐 Site Bible — read first, keep current (do this without being asked)
+The **Site Bible** is the source of truth for how the app works TODAY. It lives in
+`~/.claude/projects/-Users-jevanleith-palm-creator-portal/memory/`: `MEMORY.md` is the
+index, and the `reference_site_*` files describe each admin surface (auth/roles, creators,
+earnings/invoicing, editor, fan CRM, integrations, onboarding, photo library, inspo,
+posts/outbound, publer, research, social hub, warmup).
+- **Before changing a surface, READ its `reference_site_*` file** — it captures the current
+  behavior, invariants, and gotchas so you don't relearn them the hard way.
+- **When you add / change / remove a surface, route, table, or invariant, UPDATE its
+  `reference_site_*` file in the SAME session** (don't defer to "later"). New surface → new
+  `reference_site_<name>.md` + one index line in `MEMORY.md`. Fix stale entries in place.
+- Detail/WHY/decisions/gotchas go in the memory file, NOT in this CLAUDE.md.
+
 ## Detailed per-area context
 Lives in memory files (admin surfaces, earnings, fan CRM, per-account coverage,
 invoicing, onboarding, music selector, editor slots, website). `pipeline/CLAUDE.md`
