@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palm Management — Agent Organization</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1b1f2b; --ink:#e8eaf0; --muted:#9aa3b2; --faint:#6b7385;
+    --line:#2a2f3d; --boss:#3b82f6; --cos:#8b5cf6;
+    --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --slate:#64748b;
+    --chip:#222735;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 620px at 50% -10%,#1c2233,transparent),var(--bg);
+       color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       padding:42px 22px 90px}
+  .wrap{max-width:1160px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 3px;letter-spacing:.2px}
+  .tagline{color:var(--muted);margin:0 0 4px;font-size:15px}
+  .stamp{color:var(--faint);font-size:12.5px;margin:0 0 22px}
+
+  .insight{background:linear-gradient(180deg,#1a1530,#15131f);border:1px solid #34294f;
+           border-radius:12px;padding:14px 18px;margin:0 0 26px;color:#d7d2e8;font-size:14.5px}
+  .insight b{color:#fff}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 26px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .g{background:var(--green)} .a{background:var(--amber)} .r{background:var(--red)}
+  .c{background:var(--cos)} .s{background:var(--slate)}
+
+  .row{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;position:relative}
+  .stem{width:2px;height:24px;background:var(--line);margin:0 auto}
+
+  .boss{width:250px;border:1px solid var(--boss);border-radius:14px;text-align:center;
+        background:linear-gradient(180deg,#16203a,#141722);padding:12px 16px}
+  .boss .nm{font-size:17px;font-weight:700}
+  .boss .sub{color:var(--muted);font-size:12.5px}
+
+  .cos-card{width:330px;border:1px solid var(--cos);border-radius:14px;text-align:center;
+            background:linear-gradient(180deg,#1d1733,#141722);padding:13px 18px}
+  .cos-card .nm{font-size:16px;font-weight:700}
+  .cos-card .ro{color:#c9bff0;font-size:12.5px;margin:2px 0 7px}
+  .cos-card .du{color:#cdd3df;font-size:12.5px;line-height:1.55}
+
+  .label{margin:34px 0 14px;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+         color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:16px}
+  .label small{display:block;letter-spacing:0;text-transform:none;color:var(--faint);font-size:12px;margin-top:3px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-top-width:3px;border-radius:13px;
+        padding:14px 15px 13px;box-shadow:0 6px 20px rgba(0,0,0,.25);position:relative;display:flex;flex-direction:column}
+  .card.tg{border-top-color:var(--green)} .card.ta{border-top-color:var(--amber)}
+  .card.tr{border-top-color:var(--red)} .card.tc{border-top-color:var(--cos)}
+  .card .hd{display:flex;align-items:center;gap:8px}
+  .card .nm{font-weight:700;font-size:15.5px}
+  .card .tier{margin-left:auto;width:10px;height:10px;border-radius:50%}
+  .card .ro{color:var(--muted);font-size:12.5px;margin:1px 0 9px}
+  .card ul{margin:0 0 10px;padding-left:16px}
+  .card li{font-size:12.6px;color:#d5dae4;margin:3px 0}
+  .card .covers{margin-top:auto;border-top:1px dashed var(--line);padding-top:8px;font-size:11.6px;color:#aab2c0}
+  .card .covers b{color:var(--faint);font-weight:600}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;background:var(--chip);
+         color:var(--muted);margin-left:6px;vertical-align:middle}
+  .badge.live{background:#10301c;color:#5bd98a;border:1px solid #1c5233}
+  .ribbon{position:absolute;top:-9px;right:12px;background:#3a1620;color:#ff9aa6;border:1px solid #5e2330;
+          font-size:9.5px;letter-spacing:.08em;padding:2px 8px;border-radius:999px;text-transform:uppercase}
+
+  .tools{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .tool{background:#13161f;border:1px dashed #34394a;border-radius:10px;padding:8px 13px;font-size:12.5px;color:#c3c9d6}
+  .tool b{color:#fff;font-weight:600}
+
+  .band{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .ext{background:#141821;border:1px solid #283042;border-radius:11px;padding:11px 13px}
+  .ext .nm{font-weight:600;font-size:13.5px;color:#cdd6e2}
+  .ext .ro{color:var(--faint);font-size:12px;margin-top:2px}
+  .ghost{background:transparent;border:1px dashed #333a49;border-radius:11px;padding:11px 13px;opacity:.85}
+  .ghost .nm{font-weight:600;font-size:13.5px;color:#9aa3b2}
+  .ghost .ro{color:var(--faint);font-size:11.5px;margin-top:2px}
+  .bandnote{text-align:center;color:var(--faint);font-size:12px;margin:10px 0 0}
+
+  .bugs{background:#1f1416;border:1px solid #5e2a2a;border-radius:12px;padding:13px 17px;margin-top:14px}
+  .bugs .t{color:#ff9c9c;font-weight:700;font-size:13.5px;margin-bottom:6px}
+  .bugs li{font-size:12.8px;color:#e7cccc;margin:3px 0}
+
+  details{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 15px;margin:10px 0}
+  summary{cursor:pointer;font-weight:600;font-size:13.5px;color:#d3d8e2}
+  details[open] summary{margin-bottom:8px}
+  details .body{font-size:12.6px;color:#c3c9d6;line-height:1.65}
+  details .body b{color:#e8eaf0}
+  .foot{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:12.8px;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Palm Management — Agent Organization</h1>
+  <p class="tagline">A <b>remembering machine</b>: it watches the business and puts one prioritized to-do list on your desk each morning.</p>
+  <p class="stamp">Current build · 6 core teammates + 1 recommended · agents draft &amp; remind — you approve &amp; act</p>
+
+  <div class="insight">
+    <b>The core problem it solves:</b> your website <b>records</b> everything but <b>reminds</b> you of nothing — onboarding setup, content requests, posting gaps, earnings uploads, whales going cold, leads going stale, crons breaking. It all lives in your head. This crew is the reminder layer.
+  </div>
+
+  <div class="legend">
+    <span><i class="dot c"></i> Chief of Staff</span>
+    <span><i class="dot g"></i> Tier 1 — read-only / safe</span>
+    <span><i class="dot a"></i> Tier 2 — drafts, you approve</span>
+    <span><i class="dot r"></i> Recommended add / future</span>
+    <span><i class="dot s"></i> Outsourced — not us</span>
+  </div>
+
+  <!-- Owner -->
+  <div class="row"><div class="boss"><div class="nm">Evan</div><div class="sub">Owner · gets one morning text</div></div></div>
+  <div class="stem"></div>
+
+  <!-- Chief of Staff -->
+  <div class="row">
+    <div class="cos-card">
+      <div class="nm">🧭 Maya — Chief of Staff</div>
+      <div class="ro">the only one you talk to</div>
+      <div class="du">Runs the morning standup · fact-checks every head so nothing false reaches you · sits on top of your existing inbox-task extractor · writes your ONE prioritized to-do text.</div>
+    </div>
+  </div>
+  <div class="stem"></div>
+
+  <div class="label">The 5 department heads — fat roles, few names<small>each does one full sweep of its domain and reports what needs you</small></div>
+
+  <div class="grid">
+
+    <div class="card ta">
+      <div class="hd"><span class="nm">Vivian</span><span class="tier a"></span></div>
+      <div class="ro">Creator Lifecycle</div>
+      <ul>
+        <li>Lead / sales pipeline — chase stale leads, draft outreach</li>
+        <li>Onboarding progress + the full per-creator setup checklist</li>
+        <li>Quota gaps + content-request nags</li>
+        <li>Check-ins, at-risk creators, offboarding</li>
+      </ul>
+      <div class="covers"><b>covers:</b> Sales · Onboarding · Talent · Retention</div>
+    </div>
+
+    <div class="card tg">
+      <div class="hd"><span class="nm">Theo</span><span class="tier g"></span></div>
+      <div class="ro">Content Operations</div>
+      <ul>
+        <li>Editor pipeline — QA, review queue, posting runway</li>
+        <li>AI studio oversight — recreate / carousel / warmup gates</li>
+        <li>Posting cadence &amp; coverage; failed-send watchdog</li>
+        <li>"What to post next" strategy</li>
+      </ul>
+      <div class="covers"><b>covers:</b> Production · AI Studio · Distribution · Pipeline Monitor</div>
+    </div>
+
+    <div class="card ta">
+      <div class="hd"><span class="nm">Marcus</span><span class="tier a"></span></div>
+      <div class="ro">Revenue</div>
+      <ul>
+        <li>Invoice-cycle conductor (after the 1st/15th cron)</li>
+        <li>Earnings-upload + coverage-gap reminders</li>
+        <li>Whale "going-cold" sweep across <b>all</b> creators (today: hardcoded to 4)</li>
+        <li>Collections drafts · fee/commission audit</li>
+      </ul>
+      <div class="covers"><b>covers:</b> Whale · Earnings · Invoicing · briefs Josh</div>
+    </div>
+
+    <div class="card tg">
+      <div class="hd"><span class="nm">Nova</span><span class="tier g"></span></div>
+      <div class="ro">Intelligence</div>
+      <ul>
+        <li>Inspo scrape → promote → analysis health</li>
+        <li>The stuck "Ready for Analysis" backlog + external-repo handoff</li>
+        <li>Trend analysis per creator · review-queue assistant</li>
+      </ul>
+      <div class="covers"><b>covers:</b> Inspo · Analytics</div>
+    </div>
+
+    <div class="card tg">
+      <div class="hd"><span class="nm">Gil</span><span class="tier g"></span><span class="badge live">cloud-ready today</span></div>
+      <div class="ro">Reliability / IT</div>
+      <ul>
+        <li>11 crons' health + the iMessage daemon (silent single point of failure)</li>
+        <li>Publer / Telegram send failures; banned &amp; shadowbanned accounts</li>
+        <li>Auto-push-to-prod build failures (ships in ≤30 min, no gate)</li>
+        <li>Pings you the second something breaks</li>
+      </ul>
+      <div class="covers"><b>covers:</b> keep-the-lights-on (the IT lead you asked for)</div>
+    </div>
+
+    <div class="card tr">
+      <span class="ribbon">recommended</span>
+      <div class="hd"><span class="nm">Sentinel</span><span class="tier r"></span></div>
+      <div class="ro">Compliance &amp; Brand Protection</div>
+      <ul>
+        <li>Contracts / 2257 / AI-consent on file — flag what's missing</li>
+        <li>DMCA / leak monitoring + takedown drafts</li>
+        <li>A real agency department; 100% off-system today; legal exposure</li>
+      </ul>
+      <div class="covers"><b>covers:</b> Legal · Consent · Anti-piracy</div>
+    </div>
+
+  </div>
+
+  <div class="label">Theo's on-call tools<small>not on the daily roster — they fire when you're doing that task</small></div>
+  <div class="tools">
+    <div class="tool"><b>Recreate co-pilot</b> — babysits Wan/Kling reel jobs</div>
+    <div class="tool"><b>Caption drafter</b> — pre-fills captions/hashtags/thumbs</div>
+    <div class="tool"><b>Carousel QA</b> — pre-screens AI slides vs. source</div>
+  </div>
+
+  <div class="label">Outsourced — not us (scope boundary)<small>we detect, package, route &amp; reconcile — we never chat or run the accounts</small></div>
+  <div class="band">
+    <div class="ext"><div class="nm">Chat team (ManageHer / "A-Team")</div><div class="ro">runs all OF DMs, PPV &amp; sales</div></div>
+    <div class="ext"><div class="nm">Amin</div><div class="ro">runs the AI personas' phones — we instruct &amp; approve, he executes</div></div>
+    <div class="ext"><div class="nm">Josh</div><div class="ro">internal finance contact (cc'd on invoices)</div></div>
+    <div class="ext"><div class="nm">Freelance AI editors (Yassine)</div><div class="ro">produce the AI scenes</div></div>
+  </div>
+
+  <div class="label">Off-system departments — can't hire a teammate yet<small>no data exists to manage — build a little first, then staff it</small></div>
+  <div class="band">
+    <div class="ghost"><div class="nm">Creator payouts</div><div class="ro">banking / payout destination not stored</div></div>
+    <div class="ghost"><div class="nm">Staff management</div><div class="ro">chat team &amp; editors — scheduling / QA / payroll are black boxes</div></div>
+    <div class="ghost"><div class="nm">Agency P&amp;L</div><div class="ro">tool-cost &amp; margin dashboard — spend is invisible</div></div>
+    <div class="ghost"><div class="nm">Tax docs</div><div class="ro">W-9 / 1099 collection &amp; filing</div></div>
+  </div>
+
+  <div class="bugs">
+    <div class="t">⚠ Two onboarding bugs the research found (worth fixing regardless)</div>
+    <ul>
+      <li><b>run-setup is orphaned</b> — the code that creates a new creator's Dropbox folders &amp; upload links exists, but nothing ever calls it.</li>
+      <li><b>Default "Palm IG" rows are never created</b> — yet go-live requires them, so social setup silently breaks for every new creator until you hand-make them.</li>
+    </ul>
+  </div>
+
+  <details>
+    <summary>📋 Vivian's per-creator setup checklist (~48 items) — what must be collected &amp; set up for every creator</summary>
+    <div class="body">
+      <b>Identity &amp; legal (HQ base):</b> name, AKA, birthday, location, timezone, contract signed + commission %. <i>(off-system: 2257/ID, model release)</i><br>
+      <b>Accounts &amp; creds (HQ):</b> OF/Fansly logins, social handles, credential records.<br>
+      <b>Brand survey (60+ Q):</b> pricing, dos/don'ts, prohibited words, voice, pet-names → for the chat team.<br>
+      <b>Back-end provisioning (the orphaned run-setup):</b> Dropbox folder tree, 2 file-request links, HQ account rows, SM Setup Request.<br>
+      <b>Social go-live:</b> default "Palm IG" rows (the broken bit), 3 IG usernames, <b>Telegram IG + FB Topic IDs</b> (Grid Planner errors without both), Social Media Editing toggle.<br>
+      <b>Content intelligence:</b> profile docs → Run Analysis → tags/voice/dos-don'ts, content pillars, inspo handles, tag weights, Weekly Reel Quota, Music DNA.<br>
+      <b>AI (if enabled):</b> AI ref images (front/back/face) + clone approval, Kling element, persona profile + warmup + vault IDs.<br>
+      <b>Publishing:</b> Publer sync → map account → AI consent on file.<br>
+      <b>Finance:</b> Revenue Account named to match the Google-Sheet tab exactly, management start date, whale Telegram topic.
+    </div>
+  </details>
+
+  <div class="foot">
+    <b>How it holds together:</b> Maya is the switchboard — specialists report to her, she fact-checks &amp; dedupes, you get one list.
+    Rule of thumb: one agent = one coherent context. Fat roles, few names.
+    Money &amp; anything creator/fan-facing is always draft-and-approve — a teammate never sends on its own.
+  </div>
+
+</div>
+</body>
+</html>
