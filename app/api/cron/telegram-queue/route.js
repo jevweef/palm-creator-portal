@@ -195,8 +195,21 @@ async function processOnePost(postId) {
   })
   const text = await res.text()
   let data = {}
-  try { data = JSON.parse(text) } catch { data = { error: text.slice(0, 300) } }
-  if (!res.ok) throw new Error(data.error || `send failed (${res.status})`)
+  let parsedJson = false
+  try { data = JSON.parse(text); parsedJson = true } catch { data = { error: text.slice(0, 300) } }
+  if (!res.ok) {
+    const e = new Error(data.error || `send failed (${res.status})`)
+    // DEFINITIVE = the send route returned a JSON {error} body, i.e. a real
+    // Telegram/app rejection (file too large, bad topic, etc.) → safe to mark
+    // Send Failed. NON-DEFINITIVE = a non-JSON body (Vercel HTML error page /
+    // FUNCTION_INVOCATION_TIMEOUT / "An error occurred with your deployment"):
+    // the send route runs in its OWN 800s function and very likely kept going
+    // and DELIVERED after our 300s call to it timed out. Those must NOT be
+    // hard-failed — that's the "says FAILED but actually sent" bug.
+    e.definitive = parsedJson && !!data.error
+    e.httpStatus = res.status
+    throw e
+  }
   return { sent: true }
 }
 
@@ -269,17 +282,54 @@ export async function GET(request) {
       // success and stamps Telegram Sent At, so we don't double-write here.
     } catch (err) {
       results.push({ postId: post.id, error: err.message })
-      // Mark Send Failed + record the actual error so the operator can see
-      // WHY without digging through logs. Includes a timestamp so a stale
-      // error doesn't look fresh after a manual retry.
       const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z'
+
+      // VERIFY BEFORE FAILING. The send route runs in its own 800s function and
+      // may have delivered + stamped 'Sent to Telegram' even though our wait=true
+      // call to it timed out at the cron's 300s budget. Re-fetch ground truth
+      // before declaring failure — this is the direct fix for the dozens of
+      // "Send Failed" rows that are actually Status='Sent to Telegram'.
+      let alreadySent = false
       try {
-        await patchAirtableRecord('Posts', post.id, {
-          'Status': 'Send Failed',
-          'Send Error': `[${stamp}] ${err.message}`,
-        }, { typecast: true })
+        const check = await fetchAirtableRecords('Posts', {
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(post.id)}`,
+          fields: ['Status', 'Telegram Message ID'],
+        })
+        const cf = check[0]?.fields || {}
+        const st = typeof cf.Status === 'string' ? cf.Status : (cf.Status?.name || '')
+        alreadySent = st === 'Sent to Telegram' && !!cf['Telegram Message ID']
+      } catch (checkErr) {
+        console.warn('[telegram-queue] post-error status check failed:', checkErr.message)
+      }
+
+      if (alreadySent) {
+        // False alarm — it landed. Don't overwrite a successful send.
+        console.log(`[telegram-queue] ${post.id} reported "${err.message}" but is already Sent — treating as delivered (false timeout).`)
+        results[results.length - 1] = { postId: post.id, sent: true, recovered: true }
+        if (i < queued.length - 1) await new Promise(r => setTimeout(r, GAP_BETWEEN_POSTS_MS))
+        continue
+      }
+
+      try {
+        if (err.definitive) {
+          // Real Telegram/app rejection — mark Send Failed so the operator acts.
+          await patchAirtableRecord('Posts', post.id, {
+            'Status': 'Send Failed',
+            'Send Error': `[${stamp}] ${err.message}`,
+          }, { typecast: true })
+        } else {
+          // Infrastructure timeout, NOT confirmed delivered. Leave the post at
+          // 'Sending' (don't show a false FAILED). The stale-lock sweeper resets
+          // it to 'Queued for Telegram' after 10 min so it retries on its own —
+          // by which time any still-running send function will have stamped Sent
+          // (caught by the alreadySent check above) and we won't double-send.
+          await patchAirtableRecord('Posts', post.id, {
+            'Send Error': `[${stamp}] transient (left for auto-retry): ${err.message}`,
+          })
+          console.log(`[telegram-queue] ${post.id} transient error — left at 'Sending' for stale-lock retry, not failed.`)
+        }
       } catch (e) {
-        console.warn('[telegram-queue] failed to mark Send Failed:', e.message)
+        console.warn('[telegram-queue] failed to record send outcome:', e.message)
       }
     }
     // Pacing between sends within a single cron tick. The send route's
