@@ -1481,7 +1481,7 @@ export default function AdminDashboard() {
                           e.stopPropagation()
                           window.location.href = `/admin/creators?tab=communication`
                         }}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'stretch' }}
                       >
                         <ReadinessBadge
                           ok={!!pipe.hasCommunicationChat}
