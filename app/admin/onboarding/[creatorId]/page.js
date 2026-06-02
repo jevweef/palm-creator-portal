@@ -164,9 +164,10 @@ export default function OnboardingWorkspace() {
     )
   }
 
-  const { groups = [], counts = { done: 0, total: 0 }, readiness } = data || {}
+  const { groups = [], counts = { done: 0, total: 0 }, readiness, nextKey } = data || {}
   const isActive = creator?.status === 'Active'
   const pct = counts.total ? Math.round((counts.done / counts.total) * 100) : 0
+  const nextTile = nextKey ? groups.flatMap((g) => g.tiles).find((t) => t.key === nextKey) : null
 
   return (
     <div style={{ paddingBottom: '60px' }}>
@@ -194,6 +195,40 @@ export default function OnboardingWorkspace() {
           </div>
         </div>
       </div>
+
+      {/* do this next */}
+      {!isActive && nextTile && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+          background: 'rgba(232,160,160,0.10)', border: '1px solid rgba(232,160,160,0.3)',
+          borderRadius: '12px', padding: '14px 16px', marginBottom: '22px',
+        }}>
+          <span style={{
+            fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+            color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.16)', padding: '3px 9px', borderRadius: '999px', flexShrink: 0,
+          }}>Do this next</span>
+          <div style={{ flex: 1, minWidth: '180px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>{nextTile.label}</div>
+            {nextTile.instructions && (
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.45 }}>{nextTile.instructions}</div>
+            )}
+          </div>
+          {nextTile.action && nextTile.action.type !== 'set-chat-team' && (
+            <button
+              onClick={() => runAction(nextTile)}
+              disabled={busy === `${nextTile.key}:${nextTile.action.type}`}
+              style={{
+                flexShrink: 0, padding: '9px 16px', fontSize: '13px', fontWeight: 700, borderRadius: '8px', border: 'none',
+                background: 'var(--palm-pink)', color: '#060606',
+                cursor: busy === `${nextTile.key}:${nextTile.action.type}` ? 'default' : 'pointer',
+                opacity: busy === `${nextTile.key}:${nextTile.action.type}` ? 0.6 : 1,
+              }}
+            >
+              {busy === `${nextTile.key}:${nextTile.action.type}` ? 'Working…' : actionLabel(nextTile)}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* groups */}
       {groups.map((g) => (
@@ -238,23 +273,35 @@ export default function OnboardingWorkspace() {
 function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
   const a = tile.action
   const isNa = tile.status === 'na'
+  const blocked = tile.blocked
   const Icon = tile.status === 'done' ? CheckIcon : isNa ? NaIcon : WarnIcon
   const actionBusy = a && busy === `${tile.key}:${a.type}`
 
   return (
     <div style={{
       background: 'var(--card-bg-solid)',
-      border: `1px solid ${tile.status === 'done' ? 'rgba(67,160,71,0.25)' : 'rgba(255,255,255,0.06)'}`,
-      borderRadius: '12px', padding: '12px 13px', opacity: isNa ? 0.55 : 1,
+      border: `1px solid ${tile.isNext ? 'var(--palm-pink)' : tile.status === 'done' ? 'rgba(67,160,71,0.25)' : 'rgba(255,255,255,0.06)'}`,
+      boxShadow: tile.isNext ? '0 0 0 1px var(--palm-pink)' : 'none',
+      borderRadius: '12px', padding: '12px 13px', opacity: isNa ? 0.55 : blocked ? 0.7 : 1,
       display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '92px',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <Icon />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>{tile.label}</div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {tile.label}
+            {tile.isNext && (
+              <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.16)', padding: '1px 6px', borderRadius: '4px' }}>Next</span>
+            )}
+          </div>
           {tile.detail && (
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tile.detail}>
               {tile.detail}
+            </div>
+          )}
+          {tile.instructions && (
+            <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginTop: '5px', lineHeight: 1.4 }}>
+              {tile.instructions}
             </div>
           )}
         </div>
@@ -262,7 +309,11 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
 
       {/* action row */}
       <div style={{ marginTop: 'auto' }}>
-        {a?.type === 'set-chat-team' ? (
+        {blocked ? (
+          <div style={{ fontSize: '11px', color: '#F9A825', padding: '5px 0' }}>
+            Waiting on: {tile.blockedBy.join(', ')}
+          </div>
+        ) : a?.type === 'set-chat-team' ? (
           <select
             value={chatTeam || ''}
             onChange={(e) => onChatTeam(e.target.value)}
