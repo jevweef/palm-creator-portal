@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import OffboardModal from '../OffboardModal'
-import OnboardingDrawer from './OnboardingDrawer'
 
 const STATUS_COLORS = {
   'Not Started': { bg: 'rgba(255,255,255,0.03)', color: 'var(--foreground-muted)' },
@@ -13,6 +13,7 @@ const STATUS_COLORS = {
 }
 
 export default function AdminOnboarding() {
+  const router = useRouter()
   const { user } = useUser()
   const adminName = user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Agency Representative'
   const [creators, setCreators] = useState([])
@@ -36,7 +37,6 @@ export default function AdminOnboarding() {
   const [surveyModal, setSurveyModal] = useState(null) // { creatorName, hqId, sections, loading }
   const [offboardTarget, setOffboardTarget] = useState(null) // { hqId, name, aka }
   const [offboardResult, setOffboardResult] = useState(null)
-  const [drawerCreator, setDrawerCreator] = useState(null) // opens the 4-phase checklist drawer
 
   const sigCanvasRef = useRef(null)
   const [isSigDrawing, setIsSigDrawing] = useState(false)
@@ -414,8 +414,8 @@ export default function AdminOnboarding() {
                 filtered.map(c => (
                   <tr
                     key={c.id}
-                    onClick={() => setDrawerCreator(c)}
-                    title="Open onboarding checklist"
+                    onClick={() => router.push(`/admin/onboarding/${c.id}`)}
+                    title="Open onboarding workspace"
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
                   >
                     <td style={tdStyle}>
@@ -470,7 +470,7 @@ export default function AdminOnboarding() {
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
-                          onClick={() => setDrawerCreator(c)}
+                          onClick={() => router.push(`/admin/onboarding/${c.id}`)}
                           style={{ ...actionBtnStyle, background: 'rgba(232, 160, 160, 0.12)', color: 'var(--palm-pink)', fontWeight: 600 }}
                         >
                           Checklist
@@ -1160,14 +1160,6 @@ export default function AdminOnboarding() {
             )}
           </div>
         </div>
-      )}
-
-      {drawerCreator && (
-        <OnboardingDrawer
-          creator={drawerCreator}
-          onClose={() => setDrawerCreator(null)}
-          onWentLive={() => { fetchCreators() }}
-        />
       )}
 
       {offboardTarget && (
