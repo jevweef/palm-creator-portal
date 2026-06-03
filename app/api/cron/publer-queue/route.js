@@ -13,11 +13,19 @@ import {
 } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { importMediaFromUrl, schedulePosts } from '@/lib/publer'
+import {
+  resolvePublerState,
+  isForceDraft,
+  computeScheduledAt,
+  formatPublerScheduledAt,
+  stripBannedHashtags,
+} from '@/lib/publerSchedule'
 
-// Phase 2: DRAFT ONLY. The worker submits posts to Publer with state='draft'
-// so we can verify the round-trip (Publer dashboard shows the draft, our
-// Airtable reflects status correctly) without anything actually posting to
-// IG/FB. Phase 3 will flip to state='scheduled' + jitter + hashtag rotation.
+// Phase 3: LIVE SCHEDULING, gated per-account. The worker submits posts to
+// Publer with state='scheduled' + a jittered scheduled_at ONLY for accounts
+// whose Live Mode='Scheduled' (graduated past warmup). Every other account —
+// and the whole pipeline when PUBLER_FORCE_DRAFT is set — stays state='draft',
+// preserving the Phase 2 round-trip-only behavior. See lib/publerSchedule.js.
 
 const POSTS_PER_TICK = 1   // mirror telegram-queue conservatism for now
 const GAP_BETWEEN_POSTS_MS = 6000
@@ -69,8 +77,10 @@ function mapPostTypeForPubler(type) {
 }
 
 // Build the Publer schedule envelope for ONE post.
-// state='draft' is hardcoded — Phase 3 will parametrize.
-function buildEnvelope({ caption, hashtags, mediaIds, mediaKind, channel, publerAccountId, postType }) {
+// `state` is 'draft' or 'scheduled' (resolved per-account by the caller).
+// `scheduledAtIso` is attached to the account entry only when scheduling —
+// drafts carry no time (Publer ignores it for drafts).
+function buildEnvelope({ caption, hashtags, mediaIds, mediaKind, channel, publerAccountId, postType, state, scheduledAtIso }) {
   const typeSpec = mapPostTypeForPubler(postType)
   const networkBranch = {
     type: typeSpec.type,
@@ -86,6 +96,11 @@ function buildEnvelope({ caption, hashtags, mediaIds, mediaKind, channel, publer
   if (channel === 'IG' && firstComment) {
     accountEntry.comments = [firstComment]
   }
+  // Per-account scheduled_at — required for state='scheduled', so each account
+  // on a multi-account post can carry its own jittered time. Omit for drafts.
+  if (state === 'scheduled' && scheduledAtIso) {
+    accountEntry.scheduled_at = scheduledAtIso
+  }
 
   const networks = {}
   if (channel === 'IG') networks.instagram = networkBranch
@@ -93,7 +108,7 @@ function buildEnvelope({ caption, hashtags, mediaIds, mediaKind, channel, publer
 
   return {
     bulk: {
-      state: 'draft',
+      state,
       posts: [
         {
           networks,
@@ -111,7 +126,7 @@ async function processOnePost(postId) {
     filterByFormula: `RECORD_ID() = ${quoteAirtableString(postId)}`,
     fields: [
       'Post Name', 'Status', 'Type', 'Caption', 'Hashtags', 'Channel',
-      'Creator', 'Asset', 'Thumbnail', 'Publer Status',
+      'Creator', 'Asset', 'Thumbnail', 'Publer Status', 'Scheduled Date',
     ],
   })
   const post = postList[0]
@@ -137,7 +152,7 @@ async function processOnePost(postId) {
   //  through enqueue — defense in depth.)
   const publerAccounts = await fetchAirtableRecords('Publer Accounts', {
     filterByFormula: `AND({Status}='Active', {Account Type}='AI')`,
-    fields: ['Publer Account ID', 'Channel', 'Creator', 'Account Type'],
+    fields: ['Publer Account ID', 'Channel', 'Creator', 'Account Type', 'Live Mode'],
   })
   const acct = publerAccounts.find(a => {
     const af = a.fields || {}
@@ -147,6 +162,23 @@ async function processOnePost(postId) {
   if (!acct) throw new Error(`No Active+AI Publer account for Creator+Channel=${channel}`)
   const publerAccountId = acct.fields['Publer Account ID']
   if (!publerAccountId) throw new Error('Mapped Publer Accounts row has empty Publer Account ID')
+
+  // Resolve the live gate: per-account Live Mode (default Draft), with a global
+  // PUBLER_FORCE_DRAFT emergency override. Draft accounts keep the Phase 2
+  // round-trip-only behavior; only a graduated ('Scheduled') account publishes.
+  const publerState = resolvePublerState(acct.fields, { forceDraft: isForceDraft() })
+  const scheduledAt = publerState === 'scheduled'
+    ? computeScheduledAt(f['Scheduled Date'], postId)
+    : null
+  const scheduledAtIso = scheduledAt ? formatPublerScheduledAt(scheduledAt) : null
+
+  // Hashtag hygiene: strip OF-adjacent/banned tags and enforce IG's 5-tag cap
+  // BEFORE submit. Reach-suppressors are dropped silently (one banned tag can
+  // cut reach ~90%) — we log what was removed for the operator.
+  const hashtagResult = stripBannedHashtags(f.Hashtags || '')
+  if (hashtagResult.removed.length || hashtagResult.capped.length) {
+    console.log(`[publer-queue] ${postId} hashtag scrub — removed:[${hashtagResult.removed.join(' ')}] capped:[${hashtagResult.capped.join(' ')}]`)
+  }
 
   // CRITICAL: claim the post BEFORE network I/O. Same pattern as
   // telegram-queue — without this, a 504 mid-submit could leave the post
@@ -226,12 +258,14 @@ async function processOnePost(postId) {
   // Build envelope + submit.
   const envelope = buildEnvelope({
     caption: f.Caption || '',
-    hashtags: f.Hashtags || '',
+    hashtags: hashtagResult.cleaned,
     mediaIds: importedMediaIds,
     mediaKind,
     channel,
     publerAccountId,
     postType,
+    state: publerState,
+    scheduledAtIso,
   })
   const submitRes = await schedulePosts(envelope)
   const jobId = submitRes?.job_id || submitRes?.data?.job_id || submitRes?.id
@@ -247,7 +281,7 @@ async function processOnePost(postId) {
     'Publer Last Error': '',
   }, { typecast: true })
 
-  return { submitted: true, jobId }
+  return { submitted: true, jobId, state: publerState, scheduledAt: scheduledAtIso }
 }
 
 export async function GET(request) {
