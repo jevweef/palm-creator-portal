@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/adminAuth'
 import { google } from 'googleapis'
 import { quoteAirtableString } from '@/lib/airtableFormula'
+import { inflowwMonthlyFee } from '@/lib/inflowwFee'
 
 export const maxDuration = 60
 
@@ -38,6 +39,7 @@ const INV_FIELDS = {
   accountNameLink: 'fldvQyOlJFfsWUODU',  // multipleRecordLinks → Revenue Accounts
   pdfAttachment: 'fldDrn5gbFp03ngNC',    // multipleAttachments
   commissionLookup: 'fldpZWDIqalRtHmas', // multipleLookupValues — Commission % from Creator
+  inflowwForecast: 'fld5Aybnv8UHfPXjN',  // currency — forecasted Infloww fee (2nd-half invoices only)
 }
 const RA_FIELDS = {
   accountName: 'fldkEi3jW9tUXSTc5',
@@ -295,6 +297,15 @@ export async function POST(request) {
     const [pyEnd, pmEnd, pdEnd] = periodEnd.split('-').map(Number)
     const periodEndUTC = new Date(Date.UTC(pyEnd, pmEnd - 1, pdEnd, 24, 0)) // = next-day midnight UTC = 8 PM ET on periodEnd
 
+    // Infloww bills once a month (on the 1st) based on each account's FULL
+    // calendar-month gross. We only charge it on the SECOND invoice of the month
+    // (15th–EOM); first-half (1st–14th) invoices carry $0. Periods are always
+    // 1–14 and 15–EOM, so the 2nd half is exactly the one starting on the 15th.
+    const [, , pdStart] = periodStart.split('-').map(Number)
+    const isSecondHalf = pdStart === 15
+    // Calendar-month start (1st) as UTC boundary = midnight UTC on the 1st.
+    const monthFirst = `${String(pyEnd).padStart(4, '0')}-${String(pmEnd).padStart(2, '0')}-01`
+
     // 5. Fetch sheet auth once
     const sheetsClient = google.sheets({ version: 'v4', auth: getSheetsAuth() })
 
@@ -364,6 +375,23 @@ export async function POST(request) {
         patchFields[INV_FIELDS.chatFeeSnap] = DEFAULT_CHAT_FEE_OF_REVENUE
       }
 
+      // Infloww platform-fee forecast. Infloww bills once a month (on the 1st)
+      // off each account's FULL calendar-month GROSS, so only the 2nd-half
+      // (15th–EOM) invoice carries it; first-half invoices are $0. We re-sum
+      // gross from the 1st of the month (clamped to management start) through
+      // period end — for the 2nd half that window is the whole month.
+      let inflowwFee = 0
+      let inflowwGross = null
+      if (isSecondHalf) {
+        const monthStartDate = accountStart && accountStart > monthFirst ? accountStart : monthFirst
+        const [msy, msm, msd] = monthStartDate.split('-').map(Number)
+        const monthStartUTC = new Date(Date.UTC(msy, msm - 1, msd, 0, 0))
+        const monthEarnings = await getEarningsForPeriod(sheetsClient, accountName, monthStartUTC, periodEndUTC)
+        inflowwGross = Number(monthEarnings.gross.toFixed(2))
+        inflowwFee = inflowwMonthlyFee(inflowwGross)
+      }
+      patchFields[INV_FIELDS.inflowwForecast] = inflowwFee
+
       if (dryRun) {
         results.push({
           id: inv.id, aka, accountName, dryRun: true,
@@ -379,6 +407,9 @@ export async function POST(request) {
           wouldSetCommissionSnapshot: patchFields[INV_FIELDS.commissionSnap] != null,
           wouldSetChatFeeSnapshot: patchFields[INV_FIELDS.chatFeeSnap] != null,
           chatFeeSnap: patchFields[INV_FIELDS.chatFeeSnap] || null,
+          isSecondHalf,
+          inflowwGross,
+          inflowwFee,
         })
         continue
       }
@@ -393,6 +424,9 @@ export async function POST(request) {
           chargebackNet: Number(earnings.chargebackNet.toFixed(2)),
           txnCount: earnings.txnCount,
           missingTab: earnings.missingTab,
+          isSecondHalf,
+          inflowwGross,
+          inflowwFee,
           updated: true,
         })
       } catch (err) {

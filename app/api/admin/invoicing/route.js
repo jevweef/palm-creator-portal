@@ -23,6 +23,8 @@ const FIELDS = [
   'fldk9uXcTQmkb897y', // Total Commission
   'fldirfRJlik40tnde', // Chat Team Cost
   'fldwTZKgEwLm9N3qW', // Net Profit
+  'fld5Aybnv8UHfPXjN', // Infloww Fee (Forecast)
+  'fldMMCgCEiZzgM3DY', // Net Profit (after Infloww)
   'fldBaIZAsl08bJoCq', // Invoice Name
   'fldQEjYB0DxpNWxhU', // Invoice Status
   'fldl3FDN3H4pr2nIY', // Invoice Number
@@ -161,6 +163,8 @@ export async function GET(request) {
       totalCommission: f['fldk9uXcTQmkb897y'] || 0,
       chatTeamCost: f['fldirfRJlik40tnde'] || 0,
       netProfit: f['fldwTZKgEwLm9N3qW'] || 0,
+      inflowwFee: f['fld5Aybnv8UHfPXjN'] || 0,
+      netAfterInfloww: f['fldMMCgCEiZzgM3DY'] || 0,
       invoiceName: f['fldBaIZAsl08bJoCq'] || '',
       status,
       invoiceNumber: f['fldl3FDN3H4pr2nIY'] || null,
