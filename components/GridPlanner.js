@@ -1881,6 +1881,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
               smmTopicId: account.telegramTopicId,
               caption: [p.caption, p.hashtags].filter(Boolean).join('\n\n') || undefined,
               thumbnailUrl: p.thumbnailUrl || undefined,
+              // Deterministic thumbnail-pool cleanup on send: without this the
+              // send route falls back to a lossy filename match that misses, so
+              // used thumbnails never leave the pool.
+              thumbnailAssetId: p.thumbnailAssetId || undefined,
               assetId: p.asset?.id || undefined,
               rawCaption: p.caption || undefined,
               rawHashtags: p.hashtags || undefined,
@@ -1980,6 +1984,8 @@ export default function GridPlanner({ smmMode = false } = {}) {
           smmTopicId: account.telegramTopicId,
           caption: [post.caption, post.hashtags].filter(Boolean).join('\n\n') || undefined,
           thumbnailUrl: post.thumbnailUrl || undefined,
+          // Deterministic thumbnail-pool cleanup on send (see runAccountBulkSend).
+          thumbnailAssetId: post.thumbnailAssetId || undefined,
           assetId: post.asset?.id || undefined,
           rawCaption: post.caption || undefined,
           rawHashtags: post.hashtags || undefined,
