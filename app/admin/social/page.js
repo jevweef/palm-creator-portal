@@ -46,7 +46,7 @@ import WarmupTab from '@/app/admin/recreate-source/WarmupTab'
 import MarketingContentPage from '@/app/admin/marketing-content/page'
 
 // Shared hub primitives — one design language across every section.
-import { HubSection, ContentReview, OftvAndLongForm, AccountsPanel } from './_components'
+import { HubSection, ContentReview, OftvAndLongForm, AccountsPanel, ContentMovement } from './_components'
 
 // --- small in-hub panels for surfaces not yet built out ---------------------
 
@@ -76,9 +76,15 @@ const SECTIONS = [
   {
     key: 'overview', label: 'Overview',
     subtabs: [
-      { key: 'home',      label: 'Overview',        render: () => <MarketingContentPage /> },
+      { key: 'home', label: 'Overview', render: () => (
+        <div>
+          <ContentMovement />
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 32px 8px' }} />
+          <MarketingContentPage />
+        </div>
+      ) },
       // Lens A — whole-team / editor workload (the existing editor dashboard).
-      { key: 'workload',  label: 'Editor Workload', render: () => <EditorDashboardContent /> },
+      { key: 'workload',  label: 'Editor Workload',  render: () => <EditorDashboardContent /> },
     ],
   },
   {
