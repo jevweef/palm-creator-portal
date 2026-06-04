@@ -70,11 +70,8 @@ export default function MarketingContentPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, color: 'var(--foreground)' }}>
-          Overview
-        </h1>
-        <p style={{ marginTop: 6, color: 'var(--foreground-muted)', fontSize: 13 }}>
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ margin: 0, color: 'var(--foreground-muted)', fontSize: 13 }}>
           At-a-glance view of both content streams — AI accounts and real-creator posts.
         </p>
       </div>
