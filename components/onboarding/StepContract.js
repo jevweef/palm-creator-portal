@@ -373,6 +373,25 @@ export default function StepContract({ hqId, onComplete }) {
           </button>
         )}
       </div>
+
+      {/* Skip — creator can move on; manager follows up if the contract is still unsigned */}
+      <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <button
+          type="button"
+          onClick={onComplete}
+          style={{
+            padding: '8px 20px',
+            background: 'transparent',
+            color: 'var(--foreground-muted)',
+            border: 'none',
+            fontSize: '13px',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+        >
+          Skip for now
+        </button>
+      </div>
     </div>
   )
 }

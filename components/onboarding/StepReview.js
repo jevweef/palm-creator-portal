@@ -247,7 +247,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
         </div>
       )}
 
-      {/* Submit */}
+      {/* Submit — always allowed; anything left incomplete is followed up on by the manager */}
       {!allComplete && (
         <div style={{
           background: 'rgba(232, 200, 120, 0.06)',
@@ -258,7 +258,7 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
           fontSize: '13px',
           color: '#E8A878',
         }}>
-          Please complete all steps before submitting.
+          You can submit now. Anything left incomplete above, your manager will follow up with you about — you won’t be stuck here.
         </div>
       )}
 
@@ -279,16 +279,16 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
 
       <button
         onClick={handleSubmit}
-        disabled={!allComplete || submitting}
+        disabled={submitting}
         style={{
           padding: '12px 40px',
-          background: (!allComplete || submitting) ? 'transparent' : 'var(--palm-pink)',
+          background: submitting ? 'transparent' : 'var(--palm-pink)',
           color: 'var(--foreground)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '15px',
           fontWeight: 600,
-          cursor: (!allComplete || submitting) ? 'not-allowed' : 'pointer',
+          cursor: submitting ? 'not-allowed' : 'pointer',
           width: '100%',
         }}
       >

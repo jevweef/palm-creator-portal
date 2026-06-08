@@ -125,7 +125,6 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
             onChange={e => update('birthday', e.target.value)}
             max={new Date().toISOString().split('T')[0]}
             style={{ ...inputStyle, color: form.birthday ? 'var(--foreground)' : '#999' }}
-            required
           />
         </div>
 
