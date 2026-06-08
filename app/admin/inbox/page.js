@@ -212,12 +212,20 @@ function TaskCard({ task, onUpdate, toast }) {
   async function dismissWithFeedback(includeFeedback) {
     setDismissOpen(false)
     const updates = { status: 'Dismissed' }
-    if (includeFeedback) {
+    if (includeFeedback && (feedbackType || feedbackReason)) {
       if (feedbackType) updates.feedbackType = feedbackType
       if (feedbackReason) updates.feedbackReason = feedbackReason
+    } else {
+      // A plain dismiss still means "I didn't want this notification" — record a
+      // light signal so EVERY dismiss feeds the training rating (just lower-info
+      // than picking a specific reason).
+      updates.feedbackType = 'Other'
+      updates.feedbackReason = '(quick dismiss)'
     }
     const ok = await patchTask(updates, {
-      successMsg: includeFeedback ? 'Dismissed + feedback saved (will train AI)' : 'Dismissed',
+      successMsg: (includeFeedback && (feedbackType || feedbackReason))
+        ? 'Dismissed + feedback saved (will train AI)'
+        : 'Dismissed (logged for training)',
     })
     if (ok) onUpdate()
   }

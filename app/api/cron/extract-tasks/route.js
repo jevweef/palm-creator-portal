@@ -218,9 +218,14 @@ function applyBusinessFilter(messages, vocab, contextWindow = 2) {
 let _feedbackCache = null
 let _feedbackCacheTs = 0
 const FEEDBACK_CACHE_MS = 24 * 60 * 60 * 1000
-const FEEDBACK_LOOKBACK_DAYS = 30
-const FEEDBACK_MAX_EXAMPLES = 8
+const FEEDBACK_LOOKBACK_DAYS = 90      // accumulate a durable rating, not just "recent"
+const FEEDBACK_MAX_RECORDS = 400       // how many dismissals we tally
+const FEEDBACK_MAX_PATTERNS = 12       // top offenders shown to the model
 
+// Turn Evan's dismissals into a WEIGHTED rating: group by (Topic, Feedback Type)
+// and count. The more times he's rejected a kind of notification, the stronger
+// the "don't surface this" signal — so things he repeatedly dismisses get
+// suppressed harder over time, instead of all dismissals counting equally.
 async function loadFeedbackBlock() {
   if (_feedbackCache !== null && Date.now() - _feedbackCacheTs < FEEDBACK_CACHE_MS) {
     return _feedbackCache
@@ -231,20 +236,35 @@ async function loadFeedbackBlock() {
     const records = await fetchAirtableRecords(TASKS_TABLE, {
       filterByFormula: `AND(NOT({Feedback Type}=''), IS_AFTER({Detected At}, '${cutoff}'))`,
       sort: [{ field: 'Detected At', direction: 'desc' }],
-      maxRecords: FEEDBACK_MAX_EXAMPLES,
+      maxRecords: FEEDBACK_MAX_RECORDS,
     })
     if (records.length > 0) {
-      const lines = records.map(r => {
-        const t = r.fields?.Task || ''
-        const type = r.fields?.['Feedback Type'] || ''
-        const reason = r.fields?.['Feedback Reason'] || ''
-        const reasonPart = reason ? ` — Evan said: "${reason.slice(0, 200)}"` : ''
-        return `  • [${type}] "${t.slice(0, 120)}"${reasonPart}`
+      // tally by (Topic · Feedback Type), keep a couple of example task texts each
+      const groups = new Map()
+      for (const r of records) {
+        const topic = (r.fields?.Topic || 'Other').trim()
+        const type = (r.fields?.['Feedback Type'] || 'dismissed').trim()
+        const key = `${topic} · ${type}`
+        let g = groups.get(key)
+        if (!g) { g = { topic, type, count: 0, examples: [] }; groups.set(key, g) }
+        g.count++
+        const t = (r.fields?.Task || '').slice(0, 80)
+        if (t && g.examples.length < 2) g.examples.push(t)
+      }
+      const ranked = [...groups.values()].sort((a, b) => b.count - a.count).slice(0, FEEDBACK_MAX_PATTERNS)
+      const lines = ranked.map(g => {
+        const ex = g.examples.length ? `  e.g. ${g.examples.map(e => `"${e}"`).join('; ')}` : ''
+        const strength = g.count >= 5 ? 'ALMOST NEVER surface' : g.count >= 3 ? 'rarely surface' : 'avoid'
+        return `  • ${g.topic} → [${g.type}] — dismissed ${g.count}× (${strength}).${ex}`
       })
-      block = `\n\n# RECENT CORRECTIONS FROM EVAN — DO NOT REPEAT THESE PATTERNS\n` +
-        `These are tasks Evan dismissed with feedback in the last ${FEEDBACK_LOOKBACK_DAYS} days.\n` +
-        `Learn from them: don't generate tasks matching these patterns.\n\n` +
-        lines.join('\n')
+      block = `\n\n# EVAN'S TRAINED PREFERENCES — what he does NOT want notified\n` +
+        `Each line is a kind of notification and HOW MANY TIMES Evan has dismissed it. The higher\n` +
+        `the count, the more certain you must be NOT to surface it. He has dismissed ` +
+        `${records.length} tasks in ${FEEDBACK_LOOKBACK_DAYS} days; the most-rejected kinds:\n\n` +
+        lines.join('\n') +
+        `\n\nIf a candidate task matches a high-count pattern above, DO NOT create it unless it is ` +
+        `clearly materially different AND genuinely time-sensitive. Repeatedly-dismissed patterns ` +
+        `should essentially stop appearing.`
     }
   } catch (err) {
     console.warn('[extract] feedback load failed:', err.message)
@@ -491,21 +511,29 @@ async function loadMessagesForChat(chat) {
 
   if (source === 'imessage' && isDaemonConfigured()) {
     const dmsgs = await fetchDaemonMessages(chatId, MESSAGES_PER_CHAT)
-    if (dmsgs == null) return null  // daemon FAIL — caller must NOT stamp
-    return dmsgs.map(d => ({
-      messageKey: d.messageKey,
-      text: d.text || '',
-      senderUsername: d.senderHandle || (d.isFromMe ? 'jevweef' : ''),
-      senderName: d.isFromMe ? 'Evan' : (d.senderName || ''),
-      isFromMe: !!d.isFromMe,
-      sentAt: d.sentAt,
-      airtableRecordId: null, // not in Airtable
-    }))
+    if (dmsgs != null) {
+      return dmsgs.map(d => ({
+        messageKey: d.messageKey,
+        text: d.text || '',
+        senderUsername: d.senderHandle || (d.isFromMe ? 'jevweef' : ''),
+        senderName: d.isFromMe ? 'Evan' : (d.senderName || ''),
+        isFromMe: !!d.isFromMe,
+        sentAt: d.sentAt,
+        airtableRecordId: null, // not in Airtable
+      }))
+    }
+    // Daemon/tunnel unreachable → DON'T give up. The daemon also PUSHes every
+    // iMessage into this same Airtable table (Source='imessage'), so they're
+    // already here and current. Fall through to the Airtable read below instead
+    // of returning null (which skipped iMessage chats silently for ~33 days when
+    // the cloudflared tunnel went down). Airtable is the robust source of truth.
   }
 
-  // Telegram → Airtable
+  // Airtable read — Telegram, or iMessage when the daemon pull is unavailable.
+  // iMessage rows share this table, tagged Source='imessage'.
+  const srcClause = source === 'imessage' ? `, {Source} = 'imessage'` : ''
   const records = await fetchAirtableRecords(MESSAGES_TABLE, {
-    filterByFormula: `{Chat} = ${quoteAirtableString(String(chatId))}`,
+    filterByFormula: `AND({Chat} = ${quoteAirtableString(String(chatId))}${srcClause})`,
     sort: [{ field: 'Sent At', direction: 'desc' }],
     maxRecords: MESSAGES_PER_CHAT,
   })
