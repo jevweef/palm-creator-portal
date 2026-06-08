@@ -40,9 +40,11 @@ const PLATFORMS = [
   { key: 'fansly', label: 'Fansly', prefix: 'fansly.com/' },
 ]
 
-function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
+function PlatformCard({ platform, data, prefilled, onUpdate, onRemove, onSendDirect }) {
   const sendDirect = data.sendDirect || false
   const [showPassword, setShowPassword] = useState(false)
+  // Saved on a previous visit and not re-typed this session
+  const passwordOnFile = prefilled && !data.password
 
   return (
     <div style={{
@@ -133,7 +135,7 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
                 type={showPassword ? 'text' : 'password'}
                 value={data.password || ''}
                 onChange={e => onUpdate('password', e.target.value)}
-                placeholder="Account password"
+                placeholder={passwordOnFile ? 'Saved — leave blank to keep it' : 'Account password'}
                 style={{ ...inputStyle, paddingRight: '40px' }}
                 autoComplete="off"
               />
@@ -167,8 +169,10 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
                 )}
               </button>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
-              Only your account manager has access to your password. It&apos;s stored securely and encrypted.
+            <div style={{ fontSize: '11px', color: passwordOnFile ? '#43A047' : 'var(--foreground-muted)', marginTop: '6px' }}>
+              {passwordOnFile
+                ? 'Your password is already saved — you can leave this blank, or type a new one to update it.'
+                : 'Only your account manager has access to your password. It’s stored securely and encrypted.'}
             </div>
           </div>
         ) : (
@@ -191,6 +195,10 @@ function PlatformCard({ platform, data, onUpdate, onRemove, onSendDirect }) {
 export default function StepAccounts({ initialData = {}, onSave, saving }) {
   const [selectedPlatforms, setSelectedPlatforms] = useState([])
   const [platformData, setPlatformData] = useState({})
+  // Platforms whose account already existed on load — their password is on file
+  // (we never send it back to the browser), so the password box shows blank but
+  // leaving it blank keeps the saved one.
+  const [prefilledPlatforms, setPrefilledPlatforms] = useState([])
   const [socials, setSocials] = useState({
     tiktok: '',
     twitter: '',
@@ -245,6 +253,9 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
       if (restored.length > 0) {
         setSelectedPlatforms(restored)
         setPlatformData(restoredData)
+        // Any platform restored with an email/username had its account saved
+        // already, so its password is on file even though the box shows blank.
+        setPrefilledPlatforms(Object.keys(restoredData))
       }
     }
   }, [initialData])
@@ -357,6 +368,7 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
             key={key}
             platform={platform}
             data={platformData[key] || {}}
+            prefilled={prefilledPlatforms.includes(key)}
             onUpdate={(field, value) => updatePlatform(key, field, value)}
             onRemove={() => removePlatform(key)}
             onSendDirect={(checked) => setSendDirect(key, checked)}
