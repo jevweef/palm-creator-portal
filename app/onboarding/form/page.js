@@ -105,6 +105,7 @@ export default function OnboardingForm() {
   const [currentStep, setCurrentStep] = useState(getInitialStep)
   const [completedSteps, setCompletedSteps] = useState([])
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -182,6 +183,7 @@ export default function OnboardingForm() {
   const saveStep = async (step, data) => {
     if (!hqId) return false
     setSaving(true)
+    setSaveError(null)
     try {
       const res = await fetch('/api/onboarding/save', {
         method: 'POST',
@@ -193,8 +195,11 @@ export default function OnboardingForm() {
         await fetchProfile()
         return true
       }
+      const body = await res.json().catch(() => ({}))
+      setSaveError(body.error || 'We couldn’t save this step. Please check your details and try again.')
     } catch (err) {
       console.error('Save error:', err)
+      setSaveError('We couldn’t save your progress — this can happen if the connection drops. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -315,6 +320,21 @@ export default function OnboardingForm() {
           completedSteps={completedSteps}
           onStepClick={(step) => goToStep(step)}
         />
+
+        {saveError && (
+          <div style={{
+            background: 'rgba(229, 57, 53, 0.08)',
+            border: '1px solid rgba(229, 57, 53, 0.3)',
+            color: '#E57373',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            fontSize: '13px',
+            lineHeight: '1.4',
+            marginBottom: '16px',
+          }}>
+            {saveError}
+          </div>
+        )}
 
         <div style={{
           background: currentStep === 'survey' ? 'transparent' : 'rgba(255,255,255,0.08)',

@@ -12,6 +12,7 @@ const STEPS = [
 
 export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitted }) {
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -23,17 +24,25 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
       fetch(`/api/creator-profile?hqId=${hqId}`).then(r => r.json()),
       fetch(`/api/onboarding/voice-memo?hqId=${hqId}`).then(r => r.json()),
       fetch(`/api/onboarding/contract/generate?hqId=${hqId}`).then(r => r.json()),
-    ]).then(([profile, voiceMemo, contract]) => {
+      fetch(`/api/onboarding/survey?hqId=${hqId}`).then(r => r.json()).catch(() => ({})),
+    ]).then(([profile, voiceMemo, contract, survey]) => {
       const vmStatus = voiceMemo.voiceMemoStatus
+      const surveyAnswers = survey?.answers || {}
+      const surveyAnswered = Object.values(surveyAnswers).filter(a => a?.answer).length
+      const p = profile.profile || {}
       setProfileData({
-        name: profile.profile?.name || '',
-        aka: profile.profile?.aka || '',
-        email: profile.profile?.communicationEmail || '',
+        name: p.name || '',
+        aka: p.aka || '',
+        email: p.communicationEmail || '',
+        // Durable evidence each step was done, so a page reload can't lock Submit
+        hasBasicInfo: !!p.name,
+        hasAccounts: !!(p.ofEmail || p.onlyfansUrl || p.secondOfUrl || p.fanslyUsername),
+        surveyAnswered,
         hasContract: contract.alreadySigned || false,
         hasVoiceMemo: voiceMemo.hasVoiceMemo || false,
         voiceMemoStatus: vmStatus || null,
         voiceMemoComplete: voiceMemo.hasVoiceMemo || vmStatus === 'Skipped' || vmStatus === 'Confirmed Sent',
-        onboardingStatus: profile.profile?.onboardingStatus || '',
+        onboardingStatus: p.onboardingStatus || '',
       })
       if (profile.profile?.onboardingStatus === 'Completed') {
         setSubmitted(true)
@@ -42,16 +51,24 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
     }).catch(() => setLoading(false))
   }, [hqId])
 
-  // Use real completion data from Airtable for contract/voice memo instead of just click-through tracking
+  // A step counts as done if EITHER it was clicked through this session OR Airtable
+  // shows durable evidence it was completed. OR-ing means a reload (which wipes the
+  // in-memory click history) can never lock a creator out of submitting.
   const getStepComplete = (key) => {
-    if (key === 'contract') return profileData?.hasContract || false
-    if (key === 'voice-memo') return profileData?.voiceMemoComplete || false
-    return completedSteps.includes(key)
+    const clicked = completedSteps.includes(key)
+    if (!profileData) return clicked
+    if (key === 'basic-info') return clicked || profileData.hasBasicInfo
+    if (key === 'accounts') return clicked || profileData.hasAccounts
+    if (key === 'survey') return clicked || profileData.surveyAnswered > 0
+    if (key === 'contract') return clicked || profileData.hasContract
+    if (key === 'voice-memo') return clicked || profileData.voiceMemoComplete
+    return clicked
   }
   const allComplete = !loading && profileData && STEPS.every(s => getStepComplete(s.key))
 
   const handleSubmit = async () => {
     setSubmitting(true)
+    setSubmitError(null)
     try {
       const res = await fetch('/api/onboarding/complete', {
         method: 'POST',
@@ -61,9 +78,13 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
       if (res.ok) {
         setSubmitted(true)
         if (onSubmitted) onSubmitted()
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setSubmitError(body.error || 'We couldn’t finish submitting. Please try again in a moment.')
       }
     } catch (err) {
       console.error('Submit error:', err)
+      setSubmitError('We couldn’t finish submitting — this can happen if the connection drops. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -238,6 +259,21 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
           color: '#E8A878',
         }}>
           Please complete all steps before submitting.
+        </div>
+      )}
+
+      {submitError && (
+        <div style={{
+          background: 'rgba(229, 57, 53, 0.08)',
+          border: '1px solid rgba(229, 57, 53, 0.3)',
+          color: '#E57373',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '13px',
+          lineHeight: '1.4',
+        }}>
+          {submitError}
         </div>
       )}
 
