@@ -220,10 +220,12 @@ export default function AdminOnboarding() {
   const handleStartExisting = async (e) => {
     e.preventDefault()
     if (!editCreator) return
-    if (!hasSigDrawn) return
+    // Agency signature only required when not uploading an already-signed contract
+    if (!hasSigDrawn && !contractFile) return
     setSubmitting(true)
+    setContractError(null)
     try {
-      const agencySignature = sigCanvasRef.current?.toDataURL('image/png') || null
+      const agencySignature = hasSigDrawn ? (sigCanvasRef.current?.toDataURL('image/png') || null) : null
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,10 +240,26 @@ export default function AdminOnboarding() {
       })
       const data = await res.json()
       if (res.ok) {
+        if (contractFile && data.hqId) {
+          const fd = new FormData()
+          fd.append('hqId', data.hqId)
+          fd.append('contract', contractFile, contractFile.name)
+          const up = await fetch('/api/admin/onboarding/contract-upload', { method: 'POST', body: fd })
+          if (!up.ok) {
+            const body = await up.json().catch(() => ({}))
+            await navigator.clipboard.writeText(data.onboardingUrl)
+            setContractError(`Onboarding link created and copied, but the contract upload failed: ${body.error || 'unknown error'}. Try the upload again.`)
+            setSubmitting(false)
+            fetchCreators()
+            return
+          }
+        }
         await navigator.clipboard.writeText(data.onboardingUrl)
         setCopied('new')
         setTimeout(() => setCopied(null), 3000)
         setEditCreator(null)
+        setContractFile(null)
+        setHasSigDrawn(false)
         fetchCreators()
       }
     } catch (err) {
@@ -905,10 +923,44 @@ export default function AdminOnboarding() {
                 />
               </div>
 
-              {/* Agency Signature */}
+              {/* Already-signed contract upload (optional) */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature ({adminName})
+                  Already-signed contract (optional)
+                </label>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
+                  If you already have a signed PDF for this creator, upload it here — she&apos;ll skip signing in-app, and the agency signature below isn&apos;t needed.
+                </div>
+                {contractFile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'rgba(125, 211, 164, 0.08)', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '12px', color: '#43A047', fontWeight: 600 }}>✓ {contractFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setContractFile(null); setContractError(null) }}
+                      style={{ padding: '2px 8px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) { setContractFile(f); setContractError(null) } }}
+                    style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
+                  />
+                )}
+                {contractError && (
+                  <div style={{ marginTop: '8px', background: 'rgba(229, 57, 53, 0.08)', border: '1px solid rgba(229, 57, 53, 0.3)', color: '#E57373', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', lineHeight: '1.4' }}>
+                    {contractError}
+                  </div>
+                )}
+              </div>
+
+              {/* Agency Signature */}
+              <div style={{ marginBottom: '14px', opacity: contractFile ? 0.5 : 1 }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Agency Signature ({adminName}){contractFile ? ' — not needed (contract uploaded)' : ''}
                 </label>
                 <canvas
                   ref={sigCanvasRef}
@@ -948,7 +1000,7 @@ export default function AdminOnboarding() {
                       Clear Saved
                     </button>
                   )}
-                  {!hasSigDrawn && (
+                  {!hasSigDrawn && !contractFile && (
                     <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>Signature required</span>
                   )}
                 </div>
@@ -957,23 +1009,23 @@ export default function AdminOnboarding() {
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setEditCreator(null); setHasSigDrawn(false) }}
+                  onClick={() => { setEditCreator(null); setHasSigDrawn(false); setContractFile(null); setContractError(null) }}
                   style={{ padding: '9px 18px', background: 'rgba(255,255,255,0.03)', color: 'rgba(240, 236, 232, 0.75)', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !hasSigDrawn}
+                  disabled={submitting || (!hasSigDrawn && !contractFile)}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
+                    background: (submitting || (!hasSigDrawn && !contractFile)) ? 'transparent' : 'var(--palm-pink)',
                     color: 'var(--foreground)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: (submitting || !hasSigDrawn) ? 'not-allowed' : 'pointer',
+                    cursor: (submitting || (!hasSigDrawn && !contractFile)) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {submitting ? 'Starting...' : 'Start & Copy Link'}
