@@ -79,7 +79,7 @@ const SECTIONS = [
       { key: 'home', label: 'Overview', render: () => (
         <div>
           <ContentMovement />
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 32px 8px' }} />
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0 8px' }} />
           <MarketingContentPage />
         </div>
       ) },
