@@ -253,9 +253,14 @@ export default function StepAccounts({ initialData = {}, onSave, saving }) {
       if (restored.length > 0) {
         setSelectedPlatforms(restored)
         setPlatformData(restoredData)
-        // Any platform restored with an email/username had its account saved
-        // already, so its password is on file even though the box shows blank.
-        setPrefilledPlatforms(Object.keys(restoredData))
+        // A platform's password is on file only when the profile returns a masked
+        // value ('********'). Base the "saved" hint on that — not just email/username —
+        // so a creator who chose "send password directly" doesn't see a false hint.
+        const withSavedPassword = []
+        if (restoredData.freeOf && initialData.ofPassword) withSavedPassword.push('freeOf')
+        if (restoredData.vipOf && initialData.secondOfPassword) withSavedPassword.push('vipOf')
+        if (restoredData.fansly && initialData.fanslyPassword) withSavedPassword.push('fansly')
+        setPrefilledPlatforms(withSavedPassword)
       }
     }
   }, [initialData])
