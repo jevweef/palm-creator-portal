@@ -110,7 +110,7 @@
       }
     },
     {
-      "id": "f0248",
+      "id": "f0289",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -151,7 +151,7 @@
       }
     },
     {
-      "id": "f0249",
+      "id": "f0290",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -563,7 +563,7 @@
       }
     },
     {
-      "id": "f0208",
+      "id": "f0249",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -608,7 +608,7 @@
       }
     },
     {
-      "id": "f0213",
+      "id": "f0254",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -653,7 +653,7 @@
       }
     },
     {
-      "id": "f0229",
+      "id": "f0270",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -698,7 +698,7 @@
       }
     },
     {
-      "id": "f0236",
+      "id": "f0277",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -3904,6 +3904,851 @@
     },
     {
       "id": "f0167",
+      "department": "traffic",
+      "topic": "Reddit account creation vs. buying",
+      "title": "Create & organically warm Reddit accounts to reduce chain-ban risk",
+      "variants": [
+        {
+          "claim": "Creating Reddit accounts from scratch and warming them organically produces longer-lasting accounts than buying, because device-fingerprint mismatches on purchased accounts trigger faster bans.",
+          "what_they_do": "Agency creates accounts fresh, runs a 3\u20135 day warmup (scroll, join subreddits, 1\u20132 upvotes/downvotes/comments per day), then begins posting. Bought accounts are acknowledged as faster but riskier. Each account gets a unique tracking/trial link, unique content (spoofed), and unique captions so no two accounts can be chain-banned via shared signals.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 124,
+          "quote": "we run the accounts on mobile\u2026 mobile Reddit is a lot safer and the accounts last a lot longer than they would on web"
+        },
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 250,
+          "quote": "the link should be different every account\u2026 nothing should link a different account to another because that's how you can get chain banned"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Reddit traffic system (\u00a75 \ud83d\udd32 GAP \u2014 traffic/distribution strategy not documented). This is a concrete, zero-ad-spend channel Palm is not running.",
+        "recommendation": "Build a Reddit playbook: create accounts fresh, enforce per-account unique links + spoofed assets, run 3\u20135 day warmup, start at 1 post/day scaling to 20 subreddits over a month. Assign a VA to run and rotate accounts. Prioritize for real creators immediately; applicable to AI personas too once OF funnels are live."
+      }
+    },
+    {
+      "id": "f0169",
+      "department": "platform-risk",
+      "topic": "Reddit asset spoofing to prevent cross-account detection",
+      "title": "Spoof every reused image via @spoofsybot; use RedGIFs re-upload to spoof videos",
+      "variants": [
+        {
+          "claim": "Reusing un-spoofed images or videos across Reddit accounts links them and triggers chain bans; spoofing tools strip the metadata/hash that Reddit uses to connect accounts.",
+          "what_they_do": "For images: run all reused assets through @spoofsybot on Telegram (paid, cheap, offers free trial) before posting. For videos/GIFs: upload fresh to RedGIFs each time \u2014 RedGIFs auto-generates a new file fingerprint, functionally spoofing the video. Never repost raw files across accounts.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 466,
+          "quote": "spoofsybot on Telegram\u2026 you can spoof images there and you reuse content. Make sure you always do if you want to ever reuse content, you have to always spoof it"
+        },
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 497,
+          "quote": "Red GFs technically does it for you because all you have to do in red gifs is just upload the video again and use a different link"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a mature AI-persona account isolation system (\u00a73 \u2014 hardware-isolated, separate SIMs, GrapheneOS) but no documented asset-spoofing workflow for Reddit or any platform. This is a direct gap when scaling multi-account Reddit traffic.",
+        "recommendation": "Add asset-spoofing as a mandatory step in any Reddit posting SOP: integrate @spoofsybot into the content-prep checklist for images and enforce RedGIFs-only video uploads. Document this in the platform-risk runbook alongside existing device-isolation procedures."
+      }
+    },
+    {
+      "id": "f0170",
+      "department": "traffic",
+      "topic": "Twitter/X automated retweet-for-retweet traffic",
+      "title": "Automate X/Twitter R4R via Xbox bot + antidetect browser for passive low-effort traffic",
+      "variants": [
+        {
+          "claim": "Twitter R4R (retweet-for-retweet) automated via the Xbox bot is the easiest traffic source for beginners and runs 24/7 with minimal setup, though it delivers lower-quality fans than Reddit.",
+          "what_they_do": "Create X account, warm for 24 hours, purchase X Premium, join retweet groups, set up antidetect browser, install Xbox bot. Make one post, pin it, start the bot \u2014 it handles R4R continuously. The agency positions this as a side channel, not primary, due to lower subscriber quality.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 527,
+          "quote": "Twitter, all we do is just retweet for retweet using Xbox\u2026 the bot does the rest for you. Does route 24/7"
+        },
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 558,
+          "quote": "Twitter isn't the highest quality, but it is the easiest. So it's definitely good to do on the side"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal Twitter/X traffic strategy documented at Palm (\u00a75 \ud83d\udd32 GAP). This is a zero-marginal-cost automation layer Palm could layer on top of existing content.",
+        "recommendation": "Test X R4R as a low-priority side channel for 2\u20133 real creators: one account each, Xbox bot + antidetect browser, run for 30 days and measure OF click-throughs via unique tracking links. If CTR justifies the account management overhead, systematize. Keep expectation low \u2014 use as supplementary, not primary."
+      }
+    },
+    {
+      "id": "f0171",
+      "department": "instagram",
+      "topic": "IG account warmup \u2014 buying aged accounts with short warmup",
+      "title": "Buy aged IG accounts and run only 3\u20135 day warmup by engaging OF creator content",
+      "variants": [
+        {
+          "claim": "Bought aged IG accounts need only a 3\u20135 day warmup (engaging OF creator posts, scrolling) before going live \u2014 longer warmups recommended by others are unnecessary in practice.",
+          "what_they_do": "Purchase aged IG accounts to skip karma/history building. Warmup = 3\u20135 days of scrolling and engaging with OF creator content only. Then set up bio with link.me or Linktree, profile photo (face + slight chest), pin three posts showing key body parts relevant to niche. Post 2 Reels/day. For account isolation: UK/US/AU/CA creators can use home Wi-Fi unless ban rate exceeds ~10 accounts; otherwise use VPN/proxy.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 590,
+          "quote": "we buy our accounts aged and then we do a warm up for around like\u2026 3 to 5 day warm up of just interacting OF creators engaging with the posts scrolling and that's it"
+        },
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 686,
+          "quote": "IG is not as strict as people think it is\u2026 if you're in the UK, US, Australia, Canada\u2026 then you can use mobile Wi-Fi"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI-account warmup is mature and fully specified at 90 days (\u00a74 MATURE for AI). Real-creator IG warmup is flagged as a \ud83d\udd32 GAP (\u00a74 THIN for real). This competitor uses a much faster, buy-then-brief-warmup approach for real creators specifically.",
+        "recommendation": "For real-creator IG scaling, trial the buy-aged-account + 3\u20135 day warmup approach on 2\u20133 accounts. Compare survival rate and early engagement vs. any accounts Palm currently creates from scratch. If aged accounts perform comparably, formalize as the real-creator IG onboarding SOP \u2014 it compresses time-to-post dramatically."
+      }
+    },
+    {
+      "id": "f0172",
+      "department": "instagram",
+      "topic": "Reel virality engineering via controversy and hidden props",
+      "title": "Embed subtle controversial or shocking background elements in Reels to drive comment engagement",
+      "variants": [
+        {
+          "claim": "Adding a small unexpected or slightly explicit prop in the background of an otherwise standard Reel triggers curiosity comments that boost algorithmic reach, even without the foreground content being unusual.",
+          "what_they_do": "When replicating a standard trend (e.g. turn-and-twerk), place a mildly provocative item visibly in the background (example given: a pink dildo on the floor or wall). Viewers comment asking what the object is, generating engagement volume that the algorithm interprets as high interest. Agency frames this as 'adding your own twist' to existing trends to make content more controversial, funny, or anger-inducing.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 810,
+          "quote": "anger and twisted trends really does help a lot\u2026 you can put in the background a dildo where when she bends over you can see it\u2026 people comment like what was that"
+        },
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 779,
+          "quote": "adding your own twist to it to make it more controversial or funny or weird or make people mad\u2026 any type of engagement is good engagement"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) scores viral potential and instructs creators to recreate top-performing inspo reels. However, the pipeline does not appear to include a 'twist/controversy injection' step \u2014 it focuses on replication fidelity. This tactic adds an engagement-amplification layer on top of trend-replication.",
+        "recommendation": "Add a 'controversy twist' prompt to the content brief generated in \u00a71's Promote step: when a filming idea is sent to a creator, include a suggested subtle background prop or scene element designed to provoke curiosity comments. This is low-cost to implement in the brief template and could meaningfully lift engagement rates."
+      }
+    },
+    {
+      "id": "f0174",
+      "department": "traffic",
+      "topic": "Threads account setup",
+      "title": "Bootstrap Threads from existing IG account for follower carry-over",
+      "variants": [
+        {
+          "claim": "Creating a Threads account from an existing Instagram account gives an immediate follower boost that accelerates early growth.",
+          "what_they_do": "TDM connects each creator's existing IG account to Threads so that existing Instagram followers automatically carry over at account creation, providing an instant audience base rather than starting from zero.",
+          "run": "daily-2026-06-08"
+        },
+        {
+          "claim": "High early posting frequency on Threads accelerates follower growth because the platform still incentivises new content volume.",
+          "what_they_do": "TDM posts 5\u20138 times per day per Threads account in the first weeks. Once the account hits 1,000 followers (or after a couple of weeks), they reduce cadence to 3\u20135 posts per day. They mix carousel posts (highest performers) with shorter comment/text posts as filler.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 30,
+          "quote": "use an account that you already have on Instagram to make the threads account because this will give you a boost, a kickstart from all the followers that you have coming over"
+        },
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 94,
+          "quote": "5 to eight posts per day per account. Now, after a couple of weeks or when you reach 1,000 followers, you can back off a little bit to three, maybe five posts a day"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Threads strategy (\u00a75 GAP \u2014 traffic/distribution not documented). Palm does run IG accounts for creators (\u00a71) but there is no recorded practice of extending those to Threads.",
+        "recommendation": "When Palm sets up IG accounts for real creators, simultaneously create a linked Threads account to capture the follower carry-over benefit at no extra cost. Add Threads to the Phase 3 distribution rollout (batch-5)."
+      }
+    },
+    {
+      "id": "f0180",
+      "department": "founder-discipline",
+      "topic": "Agency scaling model selection",
+      "title": "Vertical vs. horizontal scale: choose model before building ops",
+      "variants": [
+        {
+          "claim": "OFM agencies must consciously choose between vertical scale (few creators, salary model, high margin, high risk) and horizontal scale (many creators, rev-share, lower margin, lower risk) because the ops, team size, and marketing obligations are fundamentally different.",
+          "what_they_do": "Hunter maps two distinct agency architectures: vertical = 1\u2013few salary creators, agency keeps ~90% of revenue, agency owns all marketing; horizontal = many rev-share creators who self-market with agency-provided SOPs, agency takes ~30% cut plus upsell fees. He recommends starting horizontal, then using that cash flow to fund a vertical page for higher margins.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 0,
+          "quote": "There are two ways that you can scale an OFM company. Okay? You can either vertically scale."
+        },
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 658,
+          "quote": "I would take the income that I'm making from that operation and then start injecting it into vertical scale models on a vertical scale page and have the best of both worlds."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm currently operates as a hybrid leaning vertical \u2014 real creators with a revenue-split model, Palm owning social/content and outsourcing chat. Palm's commission structure is per-creator at onboarding (\u00a77) but no documented strategic rationale for vertical vs. horizontal positioning. No explicit decision framework exists.",
+        "recommendation": "Document Palm's explicit strategic choice between vertical and horizontal, or define a hybrid model. If Palm wants to scale to many creators, formalize the horizontal SOP-provision model (optimize what creators already have). If Palm stays vertical with fewer high-value creators, document the salary-vs-split decision criteria. At minimum, use this framework in founder strategy sessions."
+      }
+    },
+    {
+      "id": "f0182",
+      "department": "acquisition",
+      "topic": "Micro-influencer affiliate / lead getter system",
+      "title": "Pay micro-influencers flat rate or % to refer creators to the agency",
+      "variants": [
+        {
+          "claim": "Partnering with micro-influencers (10K\u2013200K followers) as paid lead-getters via a Loom pitch and flat-rate or rev-share referral fee is an efficient bootstrap acquisition channel.",
+          "what_they_do": "Hunter identifies chatting agencies and micro-influencers with 10K\u2013200K followers. He sends a personalized Loom video explaining the agency's value proposition with no extra work required from the influencer. Payment is either a flat rate per creator referred or a percentage of that creator's ongoing revenue. Once a creator is signed and gets results, she is also converted into a lead-getter who refers her friends, creating a compounding referral loop.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 534,
+          "quote": "I would reach out to micro influencers between 10,000 and 200,000 followers. I would send them all a loom breakdown of my proposal."
+        },
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 564,
+          "quote": "After the exponential results, I would ask her to refer me to any friends that she has and offer her the same proposal as the initial lead getter."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led outreach and referrals (\u00a76) with no systematic referral incentive program or micro-influencer partnership channel documented. No Loom-based pitch process exists. This is a direct gap (\u00a76 GAP).",
+        "recommendation": "Build a formal lead-getter program: (1) identify 20\u201330 micro-influencers or OFM adjacent accounts; (2) create a 3\u20135 min Loom template covering Palm's value prop; (3) define referral compensation (flat $500\u2013$1,000 per signed creator OR 5\u201310% of Palm's monthly take from that creator for 6 months); (4) after first successful creator, pitch her as a lead-getter with same terms. Document as an acquisition SOP in \u00a76."
+      }
+    },
+    {
+      "id": "f0183",
+      "department": "pricing",
+      "topic": "LTV upselling via add-on services",
+      "title": "Add DMCA takedowns and other services as monthly invoice line items to increase creator LTV",
+      "variants": [
+        {
+          "claim": "Adding recurring service upsells (e.g. DMCA takedowns at ~$2,500/mo per creator) to monthly invoices is an effective way to increase LTV without signing new creators.",
+          "what_they_do": "Hunter charges existing creators an additional flat monthly fee for DMCA takedown services on top of the standard commission split. At 16 creators \u00d7 $2,500 = $40,000/mo in additional recurring revenue layered on top of the rev-share income. He frames this as a high-LTV, low-churn upsell.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 345,
+          "quote": "Each one of these creators, I can charge an un on top fee of, let's say, an extra $2,500 a month for DMCA takedowns, increasing the LTV up here."
+        },
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 595,
+          "quote": "I would then start adding cost of new services to the monthly invoices such as DMCA takedowns to start increasing the LTB of my creators."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's invoicing system auto-computes commission % per creator (\u00a77) but no upsell service tiers or add-on line items are documented. LTV expansion beyond the base split is a \u00a77 GAP.",
+        "recommendation": "Define a Palm services menu with priced add-ons: DMCA monitoring/takedowns, enhanced analytics reporting, paid traffic management, etc. Add these as optional line items in the invoice system (\u00a77). Start by piloting DMCA takedown service (partner with an existing vendor) and offer to all current creators at a flat monthly fee. This requires no new creator acquisition to increase revenue."
+      }
+    },
+    {
+      "id": "f0184",
+      "department": "delegation",
+      "topic": "Early-stage delegation sequencing",
+      "title": "Hire one operations person per 10\u201320 creators to handle client comms and daily duties",
+      "variants": [
+        {
+          "claim": "A practical delegation trigger for a horizontal agency is one account manager hired for every 10\u201320 creators, focused purely on client communication and routine tasks.",
+          "what_they_do": "Hunter's explicit hiring cadence: start solo, outsource chatting/content to a chatting agency immediately, hire first internal person when workload is unmanageable (focused on creator comms and daily duties), then scale at 1 hire per 10\u201320 creators. At 16 creators with in-house chatting, he calculates ~48 chatters (3 per creator) plus 4+ managers for oversight pods of 10.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 627,
+          "quote": "Once I surpass the 10 model mark, I'm going to start hiring one person for every 10 models to keep up with the client communication and all the duties that they need to take on."
+        },
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 441,
+          "quote": "You need about 48 people that you need to manage. Of those 48 people, you're going to need pods of 10 with management."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's org is currently Josh + Evan + Amin + editors + external chat team (\u00a710) with no documented hiring trigger, org scaling plan, or headcount ratios. \u00a710 GAP on org chart and scaling plan.",
+        "recommendation": "Define Palm's hiring trigger thresholds: (1) at what creator count does Palm hire a dedicated client-success/account-manager role; (2) document the chatter-to-creator ratio Palm's external team operates at; (3) use this as input for the in-house chat team roadmap (\u00a78). A 1:10\u201320 creator-to-account-manager ratio is a concrete benchmark to adopt."
+      }
+    },
+    {
+      "id": "f0187",
+      "department": "content",
+      "topic": "Creator brand identity vs. volume posting",
+      "title": "Stop volume-posting; define creator persona/brand before scaling content",
+      "variants": [
+        {
+          "claim": "Posting high volume of content (10 TikToks/day, 10 IG Reels/day) plateaus revenue at ~$10K/mo; defining who the creator actually is \u2014 her vibe, niche, audience, and what makes her different \u2014 is what breaks past that ceiling.",
+          "what_they_do": "Griffin forced Barry to stop posting entirely and answer 'who is this model?' before resuming. They built a persona/brand sheet for each creator covering identity, vibe, niche, and differentiator. Content strategy only resumes once that identity is locked. They report LTV increases of 20\u201330% and improved CVR after implementing this.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 309,
+          "quote": "Stop posting for a second and tell me who the model actually is"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 402,
+          "quote": "figuring out her identity such as her vibe her audience her niche and then yeah just what makes her different"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is data-driven and inspo-scraped \u2014 strong on WHAT to film virally, but the baseline doc flags no formalized creator persona/brand identity step before content ideation. We may be optimizing delivery of content without first defining who the creator is to her fans, which is the same trap Barry fell into.",
+        "recommendation": "Add a 'Creator Identity' step zero to Palm's 8-step content pipeline: before any inspo scraping or filming brief is issued for a new creator, complete a persona sheet (niche, vibe, audience archetype, key differentiators, tone of voice). Gate content production on this being signed off. This is especially relevant for real-creator onboarding (\u00a76) where it can be captured at the form wizard stage."
+      }
+    },
+    {
+      "id": "f0188",
+      "department": "content",
+      "topic": "Virality pattern recognition as a learnable skill",
+      "title": "Train agency operators to diagnose WHY specific video moments drive views/comments",
+      "variants": [
+        {
+          "claim": "Learning to identify the precise moment in a video responsible for views or comments \u2014 not just copying formats \u2014 is the analytical skill that scales organic revenue past $10K/mo.",
+          "what_they_do": "Griffin reviews videos with operators on calls and annotates specific timestamps: 'this point in the video is why it got views; this point is why it got comments.' Over 4\u20136 months of repeated exposure, operators internalize the pattern and can evaluate new content without needing external input. It is described as time + experience compressed through deliberate coaching.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 464,
+          "quote": "every single one of our calls I would try and underline exactly what made a video go viral like why some videos worked why some didn't"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 495,
+          "quote": "you can look at a video and be like this point in the video is why I got so many views or this point in the video is why I got so many comments"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's pipeline (\u00a71) uses AI vision analysis to score viral potential (step 3: transcript, visual breakdown, hook, viral score). This is automated signal \u2014 but the human analytical skill of diagnosing WHY a specific moment works is not documented as a training output for Palm staff. Palm has the data layer; the interpretive training layer is a gap.",
+        "recommendation": "Build a lightweight 'virality annotation' training protocol for Palm editors and content managers: when reviewing top-performing reels, require annotators to tag the exact frame/moment that drove the metric and the mechanism (hook, pattern interrupt, comment bait, etc.). Accumulate these as a labeled training set both for future AI scoring refinement and for human operator skill-building."
+      }
+    },
+    {
+      "id": "f0189",
+      "department": "retention",
+      "topic": "Fan connection before subscription as LTV driver",
+      "title": "Build parasocial fan connection via social persona BEFORE the OF subscribe to raise LTV",
+      "variants": [
+        {
+          "claim": "Fans who feel connected to a creator's persona \u2014 trusting her, finding her funny, being attracted to her personality \u2014 before they subscribe spend more and stay longer, measurably raising LTV 20\u201330% vs. content-first pages.",
+          "what_they_do": "Griffin's agency builds a distinct social persona for each creator so fans are 'invested before they even spend money.' The persona is expressed across IG/TikTok (top-of-funnel), and the brand promise is consistent with what fans find on OF. This is tracked: they observe LTV and CVR lift of 20\u201330% after implementing persona-first strategy.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 340,
+          "quote": "if you can create that connection before the only fans like they're invested already before they even spend money that's what creates retention"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 371,
+          "quote": "I've seen my LTV go up like 20 30% along with CVR along with all these other metrics"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's social pipeline (\u00a71) is strong on viral content distribution but the baseline doc does not document a persona-consistency check between social identity and OF page experience. Fan retention strategy (\u00a79) tracks whales and going-cold signals but no written retention playbook exists. The persona-to-LTV linkage is not captured.",
+        "recommendation": "Formalize a 'brand continuity' checkpoint: after the Creator Identity step (see content finding above), ensure the OF bio, welcome message, and pinned PPV messaging reflect the same persona defined in social. Document this in the onboarding SOP (\u00a76). For \u00a79 fan retention, add persona-fit as a variable when analyzing whale and churn data."
+      }
+    },
+    {
+      "id": "f0190",
+      "department": "chatting",
+      "topic": "Chatting audit: script-persona correlation + right-sizing chatter count",
+      "title": "Audit chatter scripts for persona alignment and cut excess chatters to unlock revenue",
+      "variants": [
+        {
+          "claim": "The single highest-impact revenue intervention at $50K+/mo is an audit of chatting: verify mass messages and scripts match the creator's personality sheet, and fire chatters whose pages are underutilized \u2014 this caused a same-day revenue spike.",
+          "what_they_do": "Griffin and Jason logged into Barry's Inflow (chatting platform) as admins and ran a three-part audit: (1) identified what was wrong with chatting mechanics; (2) verified all mass messages and automation scripts correlated with each creator's personality sheet; (3) identified and fired unnecessary chatters \u2014 reducing from 6 to 4 \u2014 freeing the remaining chatters to work larger, more active pages. Revenue spiked the same day.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 928,
+          "quote": "we went through all your mass messages we first identified what was wrong with your chatting and we looked at the correlation between all your personality sheets of your clients with the chatting"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 959,
+          "quote": "firing unnecessary chatters because you had like six chatters at the time when you really only needed four"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm currently outsources DM monetization to an external chat team (\u00a78). There is no documented internal SOP for auditing chatting quality, script-persona correlation, or chatter headcount optimization. This is high-value build-toward intelligence for Palm's roadmap (in-house chat team + AI chatting projects).",
+        "recommendation": "For Palm's in-house chat team roadmap (\u00a78): build a chatter audit protocol as a core management tool \u2014 (1) persona sheet \u2194 script correlation check, (2) mass message / automation review, (3) chatter-to-page load analysis with a defined optimal ratio. Even before building in-house, Palm should request this audit cadence from the current external team. Capture Inflow as a platform to evaluate."
+      }
+    },
+    {
+      "id": "f0191",
+      "department": "systems",
+      "topic": "Agency visual map (Miro board) for bottleneck visibility",
+      "title": "Use a shared Miro board per agency with employees rated, revenue targets, and per-creator ratios",
+      "variants": [
+        {
+          "claim": "A single visual Miro board showing all employees with ratings, target revenue, timeline progress, current revenue, and per-creator ratios makes every bottleneck visible and creates a clear step-by-step operating orientation for the agency owner.",
+          "what_they_do": "Griffin builds and shares a Miro board with each student/client. The board contains: all team members with a performance rating next to each, target revenue goal, timeline to hit it, current revenue, and per-model revenue ratios. It is described as 'basic tracking' \u2014 not pulling granular IG KPIs \u2014 but the visual format makes bottlenecks immediately apparent. It is credited as the primary driver of Barry's jump from $80K to $100K/mo.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1022,
+          "quote": "you built this entire like visual map of my agency that I've never seen in that way every bottleneck was just visible right there on the screen"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1053,
+          "quote": "we have every single one of your employees with a rating next to it the target revenue the progress to the timeline your current revenue your ratios for each model"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has an Airtable-based ops infrastructure (\u00a70) and a whale-hunting/fan tracker dashboard (\u00a79), but no documented single-view agency health board combining team ratings, revenue targets, timeline, and per-creator ratios. The SMM hub redesign (\u00a711) is consolidating social ops but is not the same as an agency-level performance map.",
+        "recommendation": "Create a Palm Agency Dashboard (Miro or equivalent) per managed creator that consolidates: team members and performance ratings, current vs. target revenue, timeline milestones, and per-creator revenue contribution ratio. This is low-tech but high-leverage \u2014 consider this the 'operator view' layer sitting above the existing Airtable data. Could be a new view within the Next.js admin portal."
+      }
+    },
+    {
+      "id": "f0192",
+      "department": "delegation",
+      "topic": "Structured vetting, training SOPs, and Google Forms for hiring",
+      "title": "Replace hope-based hiring with vetting process: Google Form screening + training SOPs",
+      "variants": [
+        {
+          "claim": "Replacing ad-hoc 'hire and hope' with a structured vetting process \u2014 Google Form application, defined training SOPs, and clear role expectations \u2014 results in hires who are productive from day one.",
+          "what_they_do": "Griffin's system uses Google Forms for initial applicant screening (filtering for baseline competence and fit before any call), paired with written training SOPs so hired VAs/chatters know exactly what to do from day one without hand-holding. Barry specifically credits a VA hired through this system as being immediately effective. The process is described as straightforward but most operators never implement it.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1085,
+          "quote": "before I was just hiring and hoping they were good but you showed me like a real vetting process like the proper training SOPs Google forms"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1116,
+          "quote": "the VA we hired through the system she knew exactly what she was doing from since day one"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's hiring is not documented (\u00a710 \u2014 THIN, no org chart or hiring criteria/scorecards flagged as a gap). Creator onboarding has a form wizard but team member hiring has no equivalent structured intake. This is a direct gap to fill.",
+        "recommendation": "Build Palm's hiring intake: (1) Google Form or Typeform screening questionnaire per role (editor, chatter, VA) with role-specific competency questions; (2) written onboarding SOP per role defining day-1 through day-14 tasks. Start with the editor role (most active hire) and the chatter role (critical for the in-house chat roadmap). Store SOPs in Notion or the existing Palm docs structure."
+      }
+    },
+    {
+      "id": "f0193",
+      "department": "founder-discipline",
+      "topic": "Sequential creator scaling vs. spreading across many low earners",
+      "title": "Max out one creator fully before onboarding the next; avoid managing many small creators simultaneously",
+      "variants": [
+        {
+          "claim": "Agencies stuck at $20K/mo with 8\u20139 small creators ($2\u20135K each) are less profitable and harder to scale than agencies with 3\u20134 creators each maximized sequentially; focus on one creator until capped, then move to the next.",
+          "what_they_do": "Griffin explicitly advises: sign one creator, put all focus on growing her to maximum revenue, then only take on the next creator when bandwidth permits. Barry runs 4 creators with one responsible for ~$50K alone. The agency avoids the trap of signing volume for its own sake. Paid promo layered on top of organic is used to stabilize revenue so the agency isn't 'one bad algorithm month away from losing everything.'",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1210,
+          "quote": "they have like nine creators all at like two three four five it's like just a bunch of creators"
+        },
+        {
+          "video_id": "B8enZWb_NMU",
+          "timestamp_seconds": 1241,
+          "quote": "I get one model and I'll just try to max it out as much as possible and then from there when I feel ready and I have time enough to do it I'll just move on to the next one"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's creator acquisition is Josh-DM-led (\u00a76) with no documented sequential scaling model or creator revenue concentration strategy. There is no internal guideline on how many creators to manage at once or what revenue threshold triggers signing the next creator. This is a planning/founder-discipline gap.",
+        "recommendation": "Define Palm's creator scaling model: set a minimum monthly revenue threshold per creator (e.g., $15K\u2013$20K/mo stable for 60 days) before signing the next creator. Document this as part of the acquisition SOP (\u00a76). Also evaluate current creator portfolio for revenue concentration \u2014 if one creator dominates, build a risk-mitigation plan (paid promo layer, brand depth) before pursuing new signings."
+      }
+    },
+    {
+      "id": "f0195",
+      "department": "instagram",
+      "topic": "AI reel production \u2014 full synthetic content workflow",
+      "title": "Screenshot \u2192 GPT prompt \u2192 image gen \u2192 animation \u2192 CapCut caption: full AI reel pipeline",
+      "variants": [
+        {
+          "claim": "A fully AI-generated reel (no face swap, no real footage) avoids copyright and brand risk while still achieving viral reach when built from reverse-engineered prompts of high-performing inspo reels.",
+          "what_they_do": "Operator (1) identifies high-performing AI content on IG (targeting 100k\u20131M view reels, motion reels preferred), (2) screenshots the best frame, (3) feeds screenshot to Grok or ChatGPT to generate a detailed image prompt, (4) pastes prompt into Kling/MidJourney/CR to generate the image, (5) animates it in Kling, (6) adds captions in CapCut, (7) posts one reel/day for 10 days. At 10 posts they analyze which performed best and scale that template with a 'trial reel strategy' (20 reels/day).",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 219,
+          "quote": "screenshot and ask Grok or ChatGPT to make a detailed prompt of this image and with the prompt you're going to paste it on Kling, MidJourney, or CR"
+        },
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 250,
+          "quote": "post one reel a day for 10 days\u2026 you're going to analyze the data for 10 days\u2026 see which one performs the best"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's \u00a71 pipeline is strong on inspo-driven ideation for real creators but does not include a fully synthetic reel production track. Palm does make AI social content for some real creators (\u00a70 note) and has AI persona infrastructure (\u00a73), but a codified screenshot\u2192GPT-prompt\u2192image-gen\u2192animate\u2192post workflow is not documented. This is AI-persona-relevant but the prompt-reverse-engineering technique is transferable to real-creator content ideation too.",
+        "recommendation": "For the AI persona line (\u00a73, build-toward): document this 6-step synthetic reel workflow as a standing SOP. For real creators: evaluate whether the 'screenshot inspo frame \u2192 GPT detailed prompt \u2192 recreate visually' technique can improve brief quality in step 5 (Promote as filming idea) of the existing \u00a71 pipeline. The 10-day test-then-scale cadence (post 10, pick winner, scale) is a low-cost experiment framework worth formalizing."
+      }
+    },
+    {
+      "id": "f0197",
+      "department": "instagram",
+      "topic": "AI reel animation \u2014 'secret prompt' technique for virality",
+      "title": "Extract the core action from a viral reel as the animation prompt to replicate its hook",
+      "variants": [
+        {
+          "claim": "The key to making an AI-animated reel go viral is identifying the specific physical action in the original viral reel and using that exact action as the animation prompt, rather than a generic description.",
+          "what_they_do": "When a viral reel is identified (e.g., 1M views), the operator distills the core action ('girl is doing a backflip') as the animation prompt fed into the AI tool (Kling). They then ask the AI tool to refine and make the prompt 'as realistic as possible.' The first frame of the recreated image is animated with this action prompt.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 155,
+          "quote": "the secret prompt is what the original reel is doing to make it viral\u2026 if the girl is doing a backflip the secret prompt is going to be the girl is doing a backflip"
+        },
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 187,
+          "quote": "ask the deep fake to refine the prompt and make it as much realistic as possible"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "ai-only"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's \u00a71 pipeline includes AI vision analysis of inspo reels (transcript, visual breakdown, hook, viral score) but the output is a filming idea for a real creator, not an animation prompt for synthetic video. This technique is specifically for AI content production and has no current Palm equivalent. The underlying logic \u2014 isolate the hook action, not just the aesthetic \u2014 is relevant to Palm's brief-writing for real creators too.",
+        "recommendation": "For the AI persona build-toward (\u00a73/\u00a70): incorporate 'action extraction prompt' as a named step in the synthetic reel SOP \u2014 after screenshotting inspo, explicitly ask GPT 'what is the specific physical action happening in this reel?' and use that answer as the primary animation prompt. For real creators: consider adding 'primary hook action' as a structured field in the inspo analysis output (\u00a71, step 3) to sharpen filming briefs."
+      }
+    },
+    {
+      "id": "f0199",
+      "department": "platform-risk",
+      "topic": "AI face-swap content \u2014 copyright and DMCA exposure",
+      "title": "Full face-swap of real creator content carries DMCA/ban risk; first-frame swap mitigates it",
+      "variants": [
+        {
+          "claim": "Directly cloning and face-swapping a real creator's existing reel is de facto content theft and exposes the account to DMCA takedowns and being 'burned' by the original model; animating only from a first frame or generating fully synthetic content avoids this.",
+          "what_they_do": "Operator explicitly calls out Method 1 (full video face-swap) as carrying 'brand risk' and DMCA risk because the underlying video belongs to the source creator who can issue a takedown. Method 2 (first-frame face-swap + AI animation) and Method 3 (fully synthetic) are positioned as the safer alternatives because no original footage is reproduced \u2014 only a single still frame is used as reference or content is 100% generated.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 124,
+          "quote": "the only problem with this method is that it's sort of stealing content so the model can actually make you burn because you're just stealing her content and face swapping it"
+        },
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 155,
+          "quote": "it's authentic, you don't have copyright issue and there's no brand risk"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "ai-only"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI persona system (\u00a73) includes EU AI Act compliance (AI label + watermark) and hardware isolation, but does not document a content-sourcing risk framework distinguishing safe vs. risky inspo usage. Palm already makes AI social content (\u00a70), so this risk applies now.",
+        "recommendation": "Add a content-sourcing risk policy to the AI persona SOP (\u00a73): explicitly prohibit full-video face-swaps of identifiable real creators' content; permit first-frame reference or fully synthetic generation only. Document this as a platform-risk control alongside existing EU AI Act compliance measures. Flag in editor/operator training."
+      }
+    },
+    {
+      "id": "f0200",
+      "department": "instagram",
+      "topic": "High-volume posting scale strategy \u2014 trial reel method",
+      "title": "'Trial reel strategy': scale winning format to 20 reels/day in a defined posting order",
+      "variants": [
+        {
+          "claim": "Once a winning reel format is identified in the 10-day test, scaling to 20 trial reels per day in a specific sequence dramatically accelerates follower and subscriber growth beyond what single-daily posting can achieve.",
+          "what_they_do": "After the 10-day test identifies the top-performing content format, the operator switches to posting 20 reels per day using Instagram's 'trial reel' feature (which shows reels to non-followers first), in a 'specific order' the creator says he will cover in a follow-up video. This is presented as the primary scale lever once product-market fit on content is confirmed, and is credited with averaging 50+ subscribers/day.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 250,
+          "quote": "you're going to do the trial reel strategy which is posting 20 trial reels a day in a specific order"
+        },
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 0,
+          "quote": "I average more than 50 subscribers a day with my Instagram strategies"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's posting infrastructure (\u00a75) currently routes through Publer and manual Telegram/Amin posting with a cadence of roughly 2 tasks/day per creator (editor queue). A 20-reels/day volume is an entirely different operational scale \u2014 Palm has no documented framework for this. The trial reel feature (IG shows to non-followers before publishing to feed) is not referenced in Palm's pipeline documentation.",
+        "recommendation": "Investigate Instagram's native 'trial reel' feature and assess whether it applies to real creator accounts (not just AI). If applicable, prototype it with one creator at the 10-day test conclusion. For AI personas (\u00a73/\u00a74), plan the infrastructure for high-volume scheduling (Publer bulk upload, content batching) as a Phase 2 of the AI warmup cadence \u2014 the current 90-day warmup plan (\u00a74) has no provision for scaling to 20 posts/day once the account matures. Capture full 'trial reel ordering' mechanic when the follow-up video is published."
+      }
+    },
+    {
+      "id": "f0208",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -3943,7 +4788,7 @@
       }
     },
     {
-      "id": "f0168",
+      "id": "f0209",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -3983,7 +4828,7 @@
       }
     },
     {
-      "id": "f0170",
+      "id": "f0211",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -4023,7 +4868,7 @@
       }
     },
     {
-      "id": "f0171",
+      "id": "f0212",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -4063,7 +4908,7 @@
       }
     },
     {
-      "id": "f0172",
+      "id": "f0213",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -4103,7 +4948,7 @@
       }
     },
     {
-      "id": "f0173",
+      "id": "f0214",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -4143,7 +4988,7 @@
       }
     },
     {
-      "id": "f0174",
+      "id": "f0215",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -4183,7 +5028,7 @@
       }
     },
     {
-      "id": "f0175",
+      "id": "f0216",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -4223,7 +5068,7 @@
       }
     },
     {
-      "id": "f0176",
+      "id": "f0217",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -4263,7 +5108,7 @@
       }
     },
     {
-      "id": "f0177",
+      "id": "f0218",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -4303,7 +5148,7 @@
       }
     },
     {
-      "id": "f0178",
+      "id": "f0219",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -4343,7 +5188,7 @@
       }
     },
     {
-      "id": "f0179",
+      "id": "f0220",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -4383,7 +5228,7 @@
       }
     },
     {
-      "id": "f0180",
+      "id": "f0221",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -4423,7 +5268,7 @@
       }
     },
     {
-      "id": "f0181",
+      "id": "f0222",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -4463,7 +5308,7 @@
       }
     },
     {
-      "id": "f0182",
+      "id": "f0223",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -4503,7 +5348,7 @@
       }
     },
     {
-      "id": "f0183",
+      "id": "f0224",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -4543,7 +5388,7 @@
       }
     },
     {
-      "id": "f0184",
+      "id": "f0225",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -4583,7 +5428,7 @@
       }
     },
     {
-      "id": "f0185",
+      "id": "f0226",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -4623,7 +5468,7 @@
       }
     },
     {
-      "id": "f0186",
+      "id": "f0227",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -4663,7 +5508,7 @@
       }
     },
     {
-      "id": "f0187",
+      "id": "f0228",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -4703,7 +5548,7 @@
       }
     },
     {
-      "id": "f0188",
+      "id": "f0229",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -4743,7 +5588,7 @@
       }
     },
     {
-      "id": "f0189",
+      "id": "f0230",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -4783,7 +5628,7 @@
       }
     },
     {
-      "id": "f0190",
+      "id": "f0231",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -4823,7 +5668,7 @@
       }
     },
     {
-      "id": "f0209",
+      "id": "f0250",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -4863,7 +5708,7 @@
       }
     },
     {
-      "id": "f0210",
+      "id": "f0251",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -4903,7 +5748,7 @@
       }
     },
     {
-      "id": "f0211",
+      "id": "f0252",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -4943,7 +5788,7 @@
       }
     },
     {
-      "id": "f0212",
+      "id": "f0253",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -4983,7 +5828,7 @@
       }
     },
     {
-      "id": "f0214",
+      "id": "f0255",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -5023,7 +5868,7 @@
       }
     },
     {
-      "id": "f0215",
+      "id": "f0256",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -5063,7 +5908,7 @@
       }
     },
     {
-      "id": "f0216",
+      "id": "f0257",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -5103,7 +5948,7 @@
       }
     },
     {
-      "id": "f0217",
+      "id": "f0258",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -5143,7 +5988,7 @@
       }
     },
     {
-      "id": "f0218",
+      "id": "f0259",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -5183,7 +6028,7 @@
       }
     },
     {
-      "id": "f0220",
+      "id": "f0261",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -5223,7 +6068,7 @@
       }
     },
     {
-      "id": "f0221",
+      "id": "f0262",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -5263,7 +6108,7 @@
       }
     },
     {
-      "id": "f0222",
+      "id": "f0263",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -5303,7 +6148,7 @@
       }
     },
     {
-      "id": "f0223",
+      "id": "f0264",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -5343,7 +6188,7 @@
       }
     },
     {
-      "id": "f0224",
+      "id": "f0265",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -5383,7 +6228,7 @@
       }
     },
     {
-      "id": "f0225",
+      "id": "f0266",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -5423,7 +6268,7 @@
       }
     },
     {
-      "id": "f0226",
+      "id": "f0267",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -5463,7 +6308,7 @@
       }
     },
     {
-      "id": "f0227",
+      "id": "f0268",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -5503,7 +6348,7 @@
       }
     },
     {
-      "id": "f0228",
+      "id": "f0269",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -5543,7 +6388,7 @@
       }
     },
     {
-      "id": "f0231",
+      "id": "f0272",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -5583,7 +6428,7 @@
       }
     },
     {
-      "id": "f0232",
+      "id": "f0273",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -5623,7 +6468,7 @@
       }
     },
     {
-      "id": "f0233",
+      "id": "f0274",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -5663,7 +6508,7 @@
       }
     },
     {
-      "id": "f0235",
+      "id": "f0276",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -5703,7 +6548,7 @@
       }
     },
     {
-      "id": "f0238",
+      "id": "f0279",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -5743,7 +6588,7 @@
       }
     },
     {
-      "id": "f0239",
+      "id": "f0280",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -5783,7 +6628,7 @@
       }
     },
     {
-      "id": "f0240",
+      "id": "f0281",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -5823,7 +6668,7 @@
       }
     },
     {
-      "id": "f0245",
+      "id": "f0286",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -5863,7 +6708,7 @@
       }
     },
     {
-      "id": "f0250",
+      "id": "f0291",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -5903,7 +6748,7 @@
       }
     },
     {
-      "id": "f0252",
+      "id": "f0293",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -8638,7 +9483,707 @@
       }
     },
     {
-      "id": "f0169",
+      "id": "f0168",
+      "department": "traffic",
+      "topic": "Reddit subreddit and content testing cadence",
+      "title": "Test subreddits by upvote threshold; swap non-performers; prioritise content quality above all",
+      "variants": [
+        {
+          "claim": "Content quality is the single most important Reddit variable \u2014 good content can overcome mediocre subreddits, but bad content fails even in perfect subreddits.",
+          "what_they_do": "Start with a niche (e.g. feet), find subreddits by searching and crawling competitor model pages. Post in each; if a subreddit doesn't reach ~20+ upvotes, swap it for a new one. Simultaneously test content by finding top-performing posts within target subreddits and asking the creator to recreate them with a personal twist. Scale to 20 subreddits/account then plateau for a month before expanding further.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 372,
+          "quote": "we basically test the subreddit\u2026 if it doesn't get like 20 plus uploads a day then we just change them out for new ones"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content ideation engine (\u00a71) is strong for social reels but is not applied to Reddit content selection. No subreddit testing framework exists (\u00a75 \ud83d\udd32 GAP).",
+        "recommendation": "Adapt Palm's existing inspo-scrape pipeline (\u00a71) to pull top Reddit posts from target subreddits as content briefs \u2014 same viral-score logic, different surface. Add subreddit performance tracking (upvote rate per post) to Airtable so low-performing subs are rotated out systematically."
+      }
+    },
+    {
+      "id": "f0173",
+      "department": "traffic",
+      "topic": "Reddit caption strategy",
+      "title": "Model Reddit captions on top-performing posts in target subreddit, then iterate own voice",
+      "variants": [
+        {
+          "claim": "Beginners should copy the structure and tone of high-performing captions in their target subreddits (not verbatim) and only develop original voice after accumulating posting experience.",
+          "what_they_do": "Find the most-upvoted posts in the subreddits being targeted. Extract caption patterns (length, phrasing style, call-to-action type). Write similar-but-not-identical captions. After sufficient volume, the operator develops intuition for original captions. Treat caption testing as iterative \u2014 same test-and-replace logic applied to subreddits and content.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tCmgdP6aC4",
+          "timestamp_seconds": 435,
+          "quote": "we take inspiration a lot of the time from bigger models that are doing well in the subre we post in\u2026 make it similar but not the exact same"
+        }
+      ],
+      "creators": [
+        "Patryk "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's inspo pipeline (\u00a71) extracts hooks and captions from viral IG reels for social content. The same intelligence layer does not exist for Reddit. No Reddit caption SOP documented (\u00a75 \ud83d\udd32 GAP).",
+        "recommendation": "Extend the Airtable content pipeline to include a Reddit Caption Bank: a table of top-performing captions per subreddit, refreshed weekly, used as briefs for whoever manages the Reddit accounts. This reuses the same inspo-scrape logic Palm already has \u2014 just pointed at Reddit instead of Instagram."
+      }
+    },
+    {
+      "id": "f0175",
+      "department": "traffic",
+      "topic": "Threads content format mix",
+      "title": "Use carousels as growth drivers, text posts as volume filler on Threads",
+      "variants": [
+        {
+          "claim": "Carousel posts move the needle most on Threads, but text/comment posts are needed as cheap filler to hit daily volume targets.",
+          "what_they_do": "TDM designates carousel posts as their primary growth format ('goats') and text/comment posts as filler. Of the 5\u20138 daily posts, at least a couple are carousels; the rest are short text posts. They prioritise content that is shareable and/or controversial as the single biggest lever.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 124,
+          "quote": "comment posts as your fillers and then carousel posts as the goats. These are the kind of things that are really going to move the needle with your page"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is built around IG Reels and carousels but is not mapped to Threads formats. The inspo-driven pipeline could surface shareable content concepts that apply cross-platform, but there is no Threads-specific content classification.",
+        "recommendation": "Extend the content pipeline's format taxonomy to include 'Threads carousel' and 'Threads text post' types. When the AI vision analysis (Step 3) rates a reel high on shareability/controversy, flag it as a Threads carousel candidate as well."
+      }
+    },
+    {
+      "id": "f0176",
+      "department": "traffic",
+      "topic": "Threads shareability principle",
+      "title": "Prioritise shareable/controversial content over all other Threads optimisations",
+      "variants": [
+        {
+          "claim": "Shareability is the single highest-leverage variable on Threads \u2014 more important than posting time, hashtags, or any other tactic.",
+          "what_they_do": "TDM runs ongoing trial-and-error testing across content types and, once a shareable/controversial format is identified, they literally copy-paste the same post daily for weeks or months, observing linear compounding growth each time. They treat repeatability of a winning format as a scaling strategy.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 154,
+          "quote": "we've quite frankly just copy and pasted our posting every day for weeks, months at a time and seen similar linear compounding success every time we post the same thing"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's inspo pipeline (\u00a71) already scores reels on a 'viral score' metric, which partially captures shareability. However, the repeat-winning-format mechanic is not documented, and Palm has no equivalent Threads feedback loop.",
+        "recommendation": "Add a 'repeat winner' flag in the Content pipeline: when a Threads post exceeds a shareability threshold (e.g., shares > X), tag it for systematic daily re-use. Build a simple Airtable view or Publer template for repeating top Threads posts without manual re-creation."
+      }
+    },
+    {
+      "id": "f0177",
+      "department": "traffic",
+      "topic": "Threads comment baiting",
+      "title": "Run 1\u201330 on-brand comment baits per day per Threads account to boost engagement signals",
+      "variants": [
+        {
+          "claim": "Strategic comment baiting on Threads boosts engagement signals, but must look human and on-brand to avoid spam detection.",
+          "what_they_do": "TDM plants 1\u201310 comment baits per day per account (capped at 25\u201330 max) \u2014 posts or replies designed to provoke comments. They require the bait to be niche-relevant, human-sounding, and directly related to the original post to avoid spam flags. Volume is scaled based on page maturity.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 186,
+          "quote": "most important thing with comment baiting is that it looks on brand and looks human. It has to relate to the niche that the creator is in"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented engagement-baiting tactic for any platform (\u00a75 GAP). This is a traffic/distribution gap. Palm's Telegram-routed manual posting (\u00a75) could incorporate comment baiting as an Amin task.",
+        "recommendation": "Add a comment-baiting step to the Threads posting SOP: 1\u201310 baits/day for new accounts scaling to a max of 25\u201330 for mature accounts. Include a brief checklist (niche-relevant, human tone, linked to original post) in the Telegram task instructions sent to Amin."
+      }
+    },
+    {
+      "id": "f0178",
+      "department": "traffic",
+      "topic": "Threads horizontal scaling",
+      "title": "Scale to 15\u201320 Threads accounts per creator; bottleneck is manpower and hardware",
+      "variants": [
+        {
+          "claim": "A single creator can be scaled across up to 15\u201320 Threads accounts with near-linear compounding returns if content and operational capacity allow.",
+          "what_they_do": "TDM runs multiple Threads accounts per creator (up to 15\u201320), treating content volume and staff/hardware as the only real constraints. They use a phone farm for IG as the mechanism for managing Threads accounts and explicitly avoid automation tools (schedulers/outlers) due to Meta's sensitivity, preferring manual or native posting.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 217,
+          "quote": "if you've got enough content and the content performs and you see return on investment, you could run up to 15 20 accounts per creator. The bottleneck here is often times the manpower to actually run that and the hardware"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm already operates a hardware-isolated phone farm for AI personas (\u00a73/\u00a74) with per-device SIM and account separation. This infrastructure could extend to Threads multi-account scaling. However, Palm's real-creator social setup (\u00a74 GAP) is not formalised, and multi-account Threads for real creators is not documented.",
+        "recommendation": "Assess whether Palm's existing Pixel/SIM infrastructure (\u00a73) can support Threads multi-account scaling for real creators as well as AI personas. Define a Threads account-per-creator target (start at 3\u20135, test toward 10+). Add Threads account slots to the `AI Account Profile` or a parallel real-creator table in Airtable."
+      }
+    },
+    {
+      "id": "f0179",
+      "department": "traffic",
+      "topic": "Threads tool caution",
+      "title": "Avoid third-party schedulers on Threads \u2014 Meta flags automation more aggressively than newer platforms",
+      "variants": [
+        {
+          "claim": "Meta's sensitivity to automation means third-party scheduling tools underperform natively-posted Threads content, even though they technically work.",
+          "what_they_do": "TDM observed anecdotally that Threads posts made via third-party tools (they call them 'outlers'/schedulers) perform worse than those posted natively. They attribute this to Meta's heightened sensitivity to automation signals. Their recommendation is to use manual/native posting for Threads, especially early in an account's life.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "mmMzMyrqUU8",
+          "timestamp_seconds": 62,
+          "quote": "we don't recommend that you use auler. Now, it's absolutely possible and you absolutely can use them, but anecdotally, we've noticed it performed better with outulers"
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm uses Publer for scheduling IG/social content (\u00a75) and is expanding it in Phase 3. If Palm adds Threads to Publer's pipeline, this finding suggests native posting may outperform scheduled posting \u2014 creating a tension with Palm's automation-first approach. Telegram-routed manual posting via Amin (\u00a75) may actually be the better fit for Threads.",
+        "recommendation": "For Threads, route posts through Amin via Telegram (manual native posting) rather than Publer, at least during account warm-up phases. Track engagement metrics comparing native vs. Publer-scheduled Threads posts once volume allows a meaningful test. Document this as a platform-specific exception in the distribution SOP."
+      }
+    },
+    {
+      "id": "f0181",
+      "department": "pricing",
+      "topic": "Salary creator deal structure",
+      "title": "Salary creator model: pay creator fixed rate, agency keeps ~90% of revenue",
+      "variants": [
+        {
+          "claim": "In a vertical-scale agency, paying creators a fixed monthly salary (e.g. $2,500\u2013$10,000) regardless of page revenue allows the agency to retain ~90% of profits.",
+          "what_they_do": "Agency signs creators on a flat monthly salary tied to cost-of-living (e.g. $2,500\u2013$10,000/mo depending on location). If the page earns $100K/mo, the agency keeps ~$90K. Creator has no performance incentive; agency owns all marketing decisions. This is contrasted with rev-share models where creator keeps 70%+ and agency takes ~30%.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 95,
+          "quote": "I could theoretically be paying this creator $2500 every single month, depending on where she lives, upwards to $10,000 a month. I keep 90% of the profit."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm uses a commission/revenue-split model set per creator at onboarding (\u00a77) \u2014 no documented salary-creator option. Palm's split rationale is not written down (\u00a77 GAP). The salary model is a materially different deal structure Palm has not codified.",
+        "recommendation": "Add a 'salary creator' tier to Palm's deal structure documentation (\u00a77). Define eligibility criteria (e.g. creator has no existing following; Palm does all marketing) and salary bands by geography. This model makes most sense for Palm's AI personas or for raw-talent real creators with no existing audience, where Palm controls 100% of the funnel."
+      }
+    },
+    {
+      "id": "f0185",
+      "department": "chatting",
+      "topic": "Chatter selection via rotation testing",
+      "title": "A/B rotate creators across chat teams on 48-hour cycles to find best fit before locking in",
+      "variants": [
+        {
+          "claim": "Rather than committing to one chatting team immediately, rotating a new creator through multiple chat agencies on 48-hour trials surfaces the best-performing team for that creator.",
+          "what_they_do": "Hunter explicitly states: bounce the creator between chat teams with 48-hour rotations until finding the best one for her. This implies tracking per-team revenue performance over short windows and selecting the highest performer as the default team.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 564,
+          "quote": "I would bounce the creator between chat teams with 48 hour rotations until I find the best one for her."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm outsources chatting to a single external team with no documented selection or evaluation process (\u00a78 OUTSOURCED). No rotation testing, performance benchmarking, or chatter evaluation SOP exists. This is build-toward intelligence for Palm's in-house chat roadmap.",
+        "recommendation": "For the in-house chat team roadmap (\u00a78): build a chatter evaluation framework that tests new chatters or teams on a 48-hour window against a defined revenue-per-fan metric before assigning them permanently to a creator. For the near-term with the external team: define SLA metrics (revenue/day, PPV conversion %) and review at 30-day intervals to validate the external team is optimal."
+      }
+    },
+    {
+      "id": "f0186",
+      "department": "systems",
+      "topic": "Bootstrap agency ops stack",
+      "title": "Launch with a professional booking-call website before signing first creator",
+      "variants": [
+        {
+          "claim": "Building a credible website with a book-a-call feature on a tool like Lovable before acquiring any creators establishes legitimacy that accelerates creator trust and signing.",
+          "what_they_do": "Hunter recommends using Lovable (no-code web builder) to create a professional agency site with booking functionality as step one, before any creator outreach. The site signals establishment and reduces friction in creator pitches. He also recommends scanning OFM channels for chatting agencies with proven results to identify outsourcing partners immediately.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2tkcImQvlRI",
+          "timestamp_seconds": 504,
+          "quote": "I would using lovable create a website with a book a call feature and make it look established and professional."
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has an internal admin portal (\u00a70) but no documented public-facing creator acquisition website or booking funnel. Creator onboarding starts with a form wizard after a deal is agreed (\u00a76) \u2014 no self-serve discovery or booking flow exists for inbound creator leads.",
+        "recommendation": "Build a public Palm agency site (separate from the admin portal) with: agency positioning, creator success metrics/social proof, and a Calendly or similar book-a-call flow. This supports inbound acquisition from the lead-getter referral program (see acquisition finding above) and paid ads. Low cost to implement given Palm's existing tech capacity."
+      }
+    },
+    {
+      "id": "f0194",
+      "department": "instagram",
+      "topic": "AI model IG account inspiration sourcing",
+      "title": "1-to-3 ratio filter: only clone IG accounts whose views outpace follower count",
+      "variants": [
+        {
+          "claim": "Copying an Instagram model whose recent reels have a views-to-followers ratio of at least 1:3 (views \u2265 3\u00d7 followers) ensures you're piggybacking on a genuinely viral template rather than a stagnant one.",
+          "what_they_do": "Before cloning or face-swapping any source account, operator audits the last 7 reels and checks that total/average views exceed followers by a factor of 3. Accounts with views below follower count are skipped ('negative ratio'). This is the first filter before any content work begins.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 93,
+          "quote": "what you're looking for is identify someone that's actually pumping on Instagram so you can benefit from it\u2026 ratio of one to three"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) scrapes inspo reels and scores them with AI vision (viral score), but the documented filter is engagement-signal-based, not an explicit views-to-followers ratio gate. The 1:3 ratio is a fast, human-readable pre-filter that could complement or precede Palm's AI scoring step. Palm's pipeline applies to real-creator social content; this tactic is described in an AI-creator context but the ratio logic is platform-agnostic.",
+        "recommendation": "Add a views-to-followers ratio check (\u22651:3 on last 7 reels) as a hard filter in the Apify scrape \u2192 Inspiration queue step (\u00a71, step 1-2). Surface this metric in the inspo review UI alongside the existing viral score so editors and admins can triage faster. Applicable to both real and AI creator pipelines."
+      }
+    },
+    {
+      "id": "f0196",
+      "department": "instagram",
+      "topic": "Reel posting cadence \u2014 structured test window",
+      "title": "10-day / 1-reel-per-day structured test before scaling posting frequency",
+      "variants": [
+        {
+          "claim": "Posting exactly one reel per day for 10 days gives a statistically meaningful sample (10 data points) to identify the winning format before committing to high-volume posting.",
+          "what_they_do": "New accounts post 1 reel/day for 10 days across all three content methods. After the test window, the operator reviews which reel format (face-swap, first-frame face-swap, or full AI) generated the most reach and then escalates to a 'trial reel strategy' of 20 reels/day in a specific order.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 219,
+          "quote": "post one reel a day for 10 days\u2026 you're going to have 10 posts on your feed and you just going to see which one performs the best"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's real-creator posting cadence is an acknowledged gap (\u00a71, \ud83d\udd32 GAP: 'real-creator posting cadence not codified'). This provides a concrete, low-overhead testing protocol. Palm's AI warmup plan (\u00a74) has a day-by-day schedule but doesn't frame it as a format-test window leading to a scale trigger.",
+        "recommendation": "Adopt the 10-day / 1-post-per-day structured test as the standard ramp cadence for new creator accounts (both real and AI). Define a 'scale trigger' metric (e.g., \u22651 reel hits 3\u00d7 follower views within the 10 days) and document it in the account warmup playbook (\u00a74). This closes the real-creator cadence gap and creates a data-driven go/no-go gate before scaling posting volume."
+      }
+    },
+    {
+      "id": "f0198",
+      "department": "content",
+      "topic": "AI content sourcing criteria \u2014 motion reels preference",
+      "title": "Prioritize 'motion reels' (not static/photo) as AI inspo source for higher reach",
+      "variants": [
+        {
+          "claim": "Motion reels \u2014 not static image slideshows or low-movement content \u2014 consistently achieve higher reach and should be the exclusive inspo source when building an AI creator's content library.",
+          "what_they_do": "When scanning Instagram for AI reel inspo, the operator filters specifically for 'motion reels' (active movement, not static poses) in the 100k\u20131M view range. Static content is excluded from the inspo pool regardless of view count.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "khbm1L0f4IU",
+          "timestamp_seconds": 219,
+          "quote": "always go for motion reels and always aiming for 100 to 1 million views reels"
+        }
+      ],
+      "creators": [
+        "Misep Sora OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's \u00a71 scrape pipeline pulls Reels broadly from inspo sources and scores them via AI vision, but does not document a motion-vs-static filter. This is an AI persona content note (\u00a73) but the 'favor motion' heuristic is relevant to real-creator reel ideation as well given IG's algorithm preference for watchtime-driving movement.",
+        "recommendation": "Add 'content type: motion vs. static' as a tagged field in the Inspiration table (\u00a71). Filter inspo queue to surface motion reels first. For AI persona content production (\u00a73), make 'motion reel' a hard requirement in the synthetic content SOP \u2014 only animate content with clear physical movement."
+      }
+    },
+    {
+      "id": "f0201",
+      "department": "delegation",
+      "topic": "Minimum viable team structure for one creator",
+      "title": "Three core hires outside chatting: account manager, SMM, and model-facing manager",
+      "variants": [
+        {
+          "claim": "An agency running even one creator needs three non-chatter roles: an account manager (OF vault/feed), a social media manager (IG/Reddit/Twitter), and a model-facing manager who relays communication between backend and creator.",
+          "what_they_do": "Account manager owns the OF side; social media manager owns all platform posting and content direction; a 'model manager' (ideally first-world, trusted) sits between both and the creator \u2014 giving her content lists, flagging trending sounds, celebrating milestones, and fielding her daily questions. This person acts as the Swiss-army-knife ops lead who reports to the founder daily on whether Reddit posts went out, tweets sent, IG up, etc. Founder only sets direction, not execution.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 1469,
+          "quote": "account manager to just oversee the only fans account then you would have a social media manager to oversee everything that comes between all socials whether it be Instagram Tik Tok Reddit Twitter"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's org (\u00a710) is thin: Josh runs acquisition/strategy, Evan runs tech/ops, Amin handles manual posting, editors handle video, and an external chat team covers DMs. There is no documented model-facing manager role, no SMM-layer employee, and no internal account manager layer. Communication between backend ops and creators runs through Josh/Evan directly, which doesn't scale. Palm's SMM consolidation (\u00a711) is a tech fix; this is the human-layer equivalent that Palm lacks.",
+        "recommendation": "Define and hire (or designate internally) the three-role stack as Palm scales past 3-4 creators: (1) OF account manager per cluster of creators, (2) SMM coordinator owning platform execution, (3) model-facing manager as creator relationship layer. The model manager role in particular should be a priority hire before the next creator signing \u2014 it directly reduces founder bottleneck and improves creator retention (\u00a79 gap)."
+      }
+    },
+    {
+      "id": "f0202",
+      "department": "delegation",
+      "topic": "Overhiring chatters as a buffer strategy",
+      "title": "Keep chatters on paid standby to avoid panic-hire after signing a burst of creators",
+      "variants": [
+        {
+          "claim": "Deliberately overhire chatters and keep them on standby so that a sudden influx of new creator signings never forces a desperate, low-quality hire.",
+          "what_they_do": "After going through a 'firing spree' from bad chatters who couldn't adapt to a new training system, the speaker now intentionally maintains excess chatter capacity \u2014 paying people to be available rather than scrambling to hire when a new account comes online. The logic: referral/lead flow is unpredictable; you might sign two or three creators in one day, and if you're under-staffed you either drop existing clients or miss the new deal entirely.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 752,
+          "quote": "I actually overhire these days and like I'm literally putting Chatters on standby at this point because to make sure that okay whenever I need you I know that you're there"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced to an external team (\u00a78). Palm has no visibility into or control over the external team's staffing buffer. As Palm builds toward in-house chatting (~1yr roadmap), this standby-overhire model is a direct build-toward blueprint. The risk of panic-hiring bad chatters (account damage, funneling fans to PayPal/CashApp) is exactly the failure mode Palm needs to design around from day one.",
+        "recommendation": "When Palm begins standing up its in-house chat team, bake in a standby roster from the start \u2014 hire and lightly train 1-2 extra chatters beyond current account load before they're needed. Define a 'bench' policy: bench chatters get a small retainer or first-right-of-hours when new accounts activate. This prevents the panic-hire cycle the speaker describes."
+      }
+    },
+    {
+      "id": "f0203",
+      "department": "systems",
+      "topic": "Backend infrastructure readiness before signing",
+      "title": "Build backend capacity ahead of creator pipeline, not reactively after signing",
+      "variants": [
+        {
+          "claim": "An agency must have more operational infrastructure than its current client load requires at all times, so any inbound creator can be onboarded immediately without dropping balls on existing clients.",
+          "what_they_do": "The speaker frames this as a readiness posture: 'if I know that any given week there might be a creator that reaches out that I'm really interested in, I need to have more infrastructure than needed for my current client base.' Reactive hiring after signing = delayed onboarding, overwhelmed ops, damaged existing accounts, and lost creator trust. The prescription is to treat hiring/staffing as a proactive capacity investment, not a response to demand.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 659,
+          "quote": "you actually need to have a backend infrastructure ready to take on more profiles before those profiles even are coming to you"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led and opportunistic (\u00a76). There's no documented ops-readiness check before signing. The onboarding wizard captures creator info (\u00a76) but does not gate signing on whether Palm has chatter/VA/posting capacity available. As Palm scales, this gap becomes a compounding risk \u2014 each new signing without backend capacity degrades existing creator performance.",
+        "recommendation": "Add a pre-signing ops checklist to Palm's creator onboarding flow: before progressing a prospect to contract, confirm available chatter slots (external team capacity check), Publer/Amin posting bandwidth, and editor queue load. If capacity is at limit, flag for Josh to hire/expand before signing. This is a lightweight systems fix (\u00a7systems) that prevents the self-destruction loop the video describes."
+      }
+    },
+    {
+      "id": "f0204",
+      "department": "pricing",
+      "topic": "Tiered commission escalation to reduce signing friction",
+      "title": "Start at 20-30% commission and escalate by milestone to earn the full split",
+      "variants": [
+        {
+          "claim": "New agencies without proven results should offer a tiered commission structure \u2014 low percentage at signing, escalating to 50% only after hitting defined revenue milestones \u2014 to reduce creator risk and incentivize agency performance.",
+          "what_they_do": "One speaker describes his first deal: 30% upfront, moving to 40% at $15k/month, then 50/50 above $30k. The logic is explicit: 'I didn't know anything about this game' and going in at 50% without proof is unjustifiable for the creator. The escalator also creates aligned incentives \u2014 the agency is motivated to grow the account because their own take increases. A complementary tactic: for established creators already making (e.g.) $5k/month, guarantee that floor no matter what the agency does in month one, demonstrating good faith.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 4501,
+          "quote": "my first Creator I went in at 30% and I said at 30% I will start if we get past 15K it'll move to 40 and if I can get you past 30k we'll go 50/50 from there moving forward"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm sets commission % at onboarding as a fixed field (\u00a77), but there is no documented tiered/milestone-based commission model or floor-guarantee tactic for established creators. No internal baseline exists for how Palm's splits are structured or justified. This is a \u00a77 gap.",
+        "recommendation": "Develop a documented commission framework with two tracks: (1) New creator / unproven account \u2014 start at 30-35%, escalate to 50% upon hitting defined monthly revenue threshold (suggest $10k/month, consistent with the 3-month target the speakers reference). (2) Established creator already earning \u2014 offer a monthly floor guarantee equal to their current earnings; charge full split only on revenue above that floor in month one. Codify both in the onboarding contract wizard."
+      }
+    },
+    {
+      "id": "f0205",
+      "department": "retention",
+      "topic": "Creator relationship management and milestone celebration",
+      "title": "Assign a dedicated model-facing manager to celebrate creator milestones and prevent churn",
+      "variants": [
+        {
+          "claim": "Proactively recognizing creator milestones (first viral video, top 1%, highest-earning month) via a dedicated relationship manager \u2014 not the CEO \u2014 is a primary driver of creator retention and prevents the agency-creator 'butting heads' dynamic.",
+          "what_they_do": "The speakers describe a specific failure mode: the agency founder misses milestone moments (e.g., creator hits first six figures) because they're buried in ops. The fix is a model-facing manager whose explicit job includes celebrating wins, providing comfortability, and making the creator feel involved in the agency. Examples given: 'you just hit the top 1%,' 'your highest month ever,' 'first 1M video.' This person also handles weekly or daily content feedback, direction relays, and expectation-setting \u2014 keeping creators informed and emotionally invested in the partnership.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 1688,
+          "quote": "highlighting those Milestones is big for sure like hey let's say you have a new Creator right you tell her hey we just hit the top 1% like congrats or like let's say her she just hit her highest month ever"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented creator retention strategy or milestone-tracking cadence (\u00a79 gap). Whale-hunting and Fan Tracker CRM exist for fan-side retention but not creator-side. Creator communication runs through Josh directly today (\u00a710), which doesn't scale and leaves milestone moments to chance. No win-back or churn-signal framework exists.",
+        "recommendation": "As the model-manager role is built out (see delegation finding above), explicitly include milestone-celebration and retention cadence in the job spec: weekly check-in call or message, milestone alerts triggered from revenue dashboard (e.g., Airtable rule when monthly earnings hit new high), and a standard 'congrats' communication template. Add a creator-churn-risk signal to the Airtable Creators table (e.g., days since last communication, revenue trend direction) to surface at-risk creators proactively."
+      }
+    },
+    {
+      "id": "f0206",
+      "department": "acquisition",
+      "topic": "Creator vetting criteria and red-flag screening",
+      "title": "Screen creators for effort-mindset before signing; avoid purely passive-income-seekers",
+      "variants": [
+        {
+          "claim": "Agencies should qualify creators on mindset \u2014 specifically filtering out those who want purely passive income \u2014 because they disengage during the experimentation phase and waste agency resources.",
+          "what_they_do": "The speakers describe two acquisition filters: (1) prefer creators who have already tried OF themselves and seen some traction, because they understand the work involved and appreciate agency value more; (2) screen out creators who articulate 'I just want to make money passively' as their primary motivation, since they won't fulfill content obligations and the agency's marketing investment becomes a gamble. They also describe a 7-step creator vetting process for creators evaluating agencies (social proof \u2192 documented process \u2192 call \u2192 ask deliverable questions \u2192 watch for red flags like guaranteed numbers or pressure to sign quickly), which implicitly describes what a credible agency's pitch should contain.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 3070,
+          "quote": "me personally when it comes to new creators I definitely would say I'm kind of looking at the mindset that they're in before coming into this like if they're just in this I just want to make money passively then forget it it's not going to work"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is thin (\u00a76) with no documented qualification criteria or creator scoring beyond the onboarding form fields. There is no mindset screen or preference framework for experienced-vs-new creators. The onboarding wizard captures logistics (name, commission, contract) but not fit signals. Palm's 75-convo market research was acquisition discovery, not an ongoing qualification system.",
+        "recommendation": "Add a creator qualification layer before the onboarding form is sent: a 5-10 minute discovery call or async screening form with 3-4 questions targeting: (1) how long have they been on OF and what's their current monthly range, (2) what are they willing to commit to weekly in content production, (3) what's their primary goal (scale income vs. passive). Define a simple pass/fail criteria. Prioritize creators already making $1-5k/month who understand the platform \u2014 the speakers call this the ideal profile for fast results and agency appreciation."
+      }
+    },
+    {
+      "id": "f0207",
+      "department": "platform-risk",
+      "topic": "Telegram VA/service scams",
+      "title": "Beware Telegram VA marketplaces for chatters, Reddit VAs, and traffic services \u2014 high scam rate",
+      "variants": [
+        {
+          "claim": "Telegram groups advertising OFM services (chatters, Reddit VAs, DM traffic, account farms) have a high rate of fraud and low-quality delivery, and agencies hiring from them under pressure will lose money and damage creator accounts.",
+          "what_they_do": "The speakers enumerate specific scam patterns observed: Reddit VAs promising 200 subs in 24 hours for $1k then ghosting; 'DA master' selling 10k Tinder accounts for $5k; GG (girl-for-girl) swap services delivering bot traffic from India/Brazil/Mexico rather than real Western fans; Telegram users claiming years of chatter experience who turn out to be unqualified. The root cause they identify is desperation-hiring \u2014 agencies approach these services when they're already maxed out and need someone now, which makes them easy marks for too-good-to-be-true offers.",
+          "run": "daily-2026-06-08"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Mb67ivrPxag",
+          "timestamp_seconds": 877,
+          "quote": "beware because people on telegram are saying yeah I offer this service that service this and that da Reddit Twitter assistance and it's like you need to actually be careful with who you're approaching"
+        }
+      ],
+      "creators": [
+        "DarkOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's posting is handled by Amin (contractor via Telegram routing, \u00a75) and chatting is outsourced externally (\u00a78). Palm does not document a vetting process for external service providers. Traffic/distribution strategy is a documented gap (\u00a75). As Palm eventually builds Reddit, X, or other traffic channels and hires VAs for them, the scam vectors the speakers describe are directly applicable risks.",
+        "recommendation": "Before Palm expands any externally-sourced traffic or VA layer (Reddit, mass-DM, GG swaps), establish a vendor vetting SOP: require trial period with small paid test before full engagement, verify deliverables with trackable links/UTMs rather than self-reported numbers, and maintain a blacklist of known bad actors. Never hire any service provider while in a capacity crunch \u2014 the speakers' 'hire slow, fire fast' principle should be a hard policy, not a suggestion."
+      }
+    },
+    {
+      "id": "f0210",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -8673,7 +10218,7 @@
       }
     },
     {
-      "id": "f0191",
+      "id": "f0232",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -8708,7 +10253,7 @@
       }
     },
     {
-      "id": "f0192",
+      "id": "f0233",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -8743,7 +10288,7 @@
       }
     },
     {
-      "id": "f0193",
+      "id": "f0234",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -8778,7 +10323,7 @@
       }
     },
     {
-      "id": "f0194",
+      "id": "f0235",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -8813,7 +10358,7 @@
       }
     },
     {
-      "id": "f0195",
+      "id": "f0236",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -8848,7 +10393,7 @@
       }
     },
     {
-      "id": "f0196",
+      "id": "f0237",
       "department": "traffic",
       "topic": "X main + burner structure",
       "title": "Main brand account fed by disposable burner accounts",
@@ -8883,7 +10428,7 @@
       }
     },
     {
-      "id": "f0197",
+      "id": "f0238",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -8918,7 +10463,7 @@
       }
     },
     {
-      "id": "f0198",
+      "id": "f0239",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -8953,7 +10498,7 @@
       }
     },
     {
-      "id": "f0199",
+      "id": "f0240",
       "department": "chatting",
       "topic": "chatting ratio",
       "title": "Track chatting ratio; target 1:9-1:10",
@@ -8988,7 +10533,7 @@
       }
     },
     {
-      "id": "f0200",
+      "id": "f0241",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -9023,7 +10568,7 @@
       }
     },
     {
-      "id": "f0201",
+      "id": "f0242",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -9058,7 +10603,7 @@
       }
     },
     {
-      "id": "f0202",
+      "id": "f0243",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -9093,7 +10638,7 @@
       }
     },
     {
-      "id": "f0203",
+      "id": "f0244",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -9128,7 +10673,7 @@
       }
     },
     {
-      "id": "f0204",
+      "id": "f0245",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -9163,7 +10708,7 @@
       }
     },
     {
-      "id": "f0205",
+      "id": "f0246",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -9198,7 +10743,7 @@
       }
     },
     {
-      "id": "f0206",
+      "id": "f0247",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -9233,7 +10778,7 @@
       }
     },
     {
-      "id": "f0207",
+      "id": "f0248",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -9268,7 +10813,7 @@
       }
     },
     {
-      "id": "f0219",
+      "id": "f0260",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -9303,7 +10848,7 @@
       }
     },
     {
-      "id": "f0230",
+      "id": "f0271",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -9338,7 +10883,7 @@
       }
     },
     {
-      "id": "f0234",
+      "id": "f0275",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -9373,7 +10918,7 @@
       }
     },
     {
-      "id": "f0237",
+      "id": "f0278",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -9408,7 +10953,7 @@
       }
     },
     {
-      "id": "f0241",
+      "id": "f0282",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -9443,7 +10988,7 @@
       }
     },
     {
-      "id": "f0242",
+      "id": "f0283",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -9478,7 +11023,7 @@
       }
     },
     {
-      "id": "f0243",
+      "id": "f0284",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -9513,7 +11058,7 @@
       }
     },
     {
-      "id": "f0244",
+      "id": "f0285",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -9548,7 +11093,7 @@
       }
     },
     {
-      "id": "f0246",
+      "id": "f0287",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -9583,7 +11128,7 @@
       }
     },
     {
-      "id": "f0247",
+      "id": "f0288",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -9618,7 +11163,7 @@
       }
     },
     {
-      "id": "f0251",
+      "id": "f0292",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
