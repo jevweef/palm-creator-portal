@@ -538,13 +538,16 @@ export default function AdminOnboarding() {
             <form onSubmit={handleStartOnboarding}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Creator Name
+                  Creator&apos;s Full Name
                 </label>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '6px' }}>
+                  Their full legal name. They&apos;ll add their stage name / AKA themselves during onboarding.
+                </div>
                 <input
                   type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
-                  placeholder="Full name or stage name"
+                  placeholder="Full legal name"
                   required
                   style={{
                     width: '100%',
