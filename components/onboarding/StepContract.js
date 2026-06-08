@@ -8,6 +8,7 @@ export default function StepContract({ hqId, onComplete }) {
   const [signMode, setSignMode] = useState(null) // 'draw' | 'type'
   const [typedName, setTypedName] = useState('')
   const [signing, setSigning] = useState(false)
+  const [signError, setSignError] = useState(null)
   const [signed, setSigned] = useState(false)
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [pdfFilename, setPdfFilename] = useState('contract.pdf')
@@ -74,6 +75,7 @@ export default function StepContract({ hqId, onComplete }) {
 
   const handleSign = async () => {
     setSigning(true)
+    setSignError(null)
     try {
       let signatureDataUrl = null
       let name = null
@@ -102,9 +104,12 @@ export default function StepContract({ hqId, onComplete }) {
           setPdfBlobUrl(URL.createObjectURL(blob))
         }
         if (data.filename) setPdfFilename(data.filename)
+      } else {
+        setSignError(data.error || 'Something went wrong saving your signed contract. Please try again.')
       }
     } catch (err) {
       console.error('Sign error:', err)
+      setSignError('We couldn’t save your contract — this can happen if the connection drops. Please try signing again.')
     } finally {
       setSigning(false)
     }
@@ -330,6 +335,21 @@ export default function StepContract({ hqId, onComplete }) {
                 outline: 'none',
               }}
             />
+          </div>
+        )}
+
+        {signError && (
+          <div style={{
+            marginTop: '16px',
+            background: 'rgba(229, 57, 53, 0.08)',
+            border: '1px solid rgba(229, 57, 53, 0.3)',
+            color: '#E57373',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            lineHeight: '1.4',
+          }}>
+            {signError}
           </div>
         )}
 
