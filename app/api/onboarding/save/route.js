@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
-import { patchHqRecord } from '@/lib/hqAirtable'
+import { patchHqRecord, fetchHqRecord } from '@/lib/hqAirtable'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
@@ -39,6 +39,15 @@ export async function POST(request) {
         fields['Communication'] = data.communication
       }
       fields['Onboarding Status'] = 'In Progress'
+      // Stamp when the creator actually starts the wizard — first save wins, never overwrite.
+      try {
+        const existing = await fetchHqRecord(HQ_CREATORS, hqId)
+        if (!existing.fields?.['Onboarding Started At']) {
+          fields['Onboarding Started At'] = new Date().toISOString()
+        }
+      } catch (e) {
+        console.error('[onboarding/save] Onboarding Started At check failed:', e.message)
+      }
     }
 
     if (step === 'accounts') {
