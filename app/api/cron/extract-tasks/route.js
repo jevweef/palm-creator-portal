@@ -491,21 +491,29 @@ async function loadMessagesForChat(chat) {
 
   if (source === 'imessage' && isDaemonConfigured()) {
     const dmsgs = await fetchDaemonMessages(chatId, MESSAGES_PER_CHAT)
-    if (dmsgs == null) return null  // daemon FAIL — caller must NOT stamp
-    return dmsgs.map(d => ({
-      messageKey: d.messageKey,
-      text: d.text || '',
-      senderUsername: d.senderHandle || (d.isFromMe ? 'jevweef' : ''),
-      senderName: d.isFromMe ? 'Evan' : (d.senderName || ''),
-      isFromMe: !!d.isFromMe,
-      sentAt: d.sentAt,
-      airtableRecordId: null, // not in Airtable
-    }))
+    if (dmsgs != null) {
+      return dmsgs.map(d => ({
+        messageKey: d.messageKey,
+        text: d.text || '',
+        senderUsername: d.senderHandle || (d.isFromMe ? 'jevweef' : ''),
+        senderName: d.isFromMe ? 'Evan' : (d.senderName || ''),
+        isFromMe: !!d.isFromMe,
+        sentAt: d.sentAt,
+        airtableRecordId: null, // not in Airtable
+      }))
+    }
+    // Daemon/tunnel unreachable → DON'T give up. The daemon also PUSHes every
+    // iMessage into this same Airtable table (Source='imessage'), so they're
+    // already here and current. Fall through to the Airtable read below instead
+    // of returning null (which skipped iMessage chats silently for ~33 days when
+    // the cloudflared tunnel went down). Airtable is the robust source of truth.
   }
 
-  // Telegram → Airtable
+  // Airtable read — Telegram, or iMessage when the daemon pull is unavailable.
+  // iMessage rows share this table, tagged Source='imessage'.
+  const srcClause = source === 'imessage' ? `, {Source} = 'imessage'` : ''
   const records = await fetchAirtableRecords(MESSAGES_TABLE, {
-    filterByFormula: `{Chat} = ${quoteAirtableString(String(chatId))}`,
+    filterByFormula: `AND({Chat} = ${quoteAirtableString(String(chatId))}${srcClause})`,
     sort: [{ field: 'Sent At', direction: 'desc' }],
     maxRecords: MESSAGES_PER_CHAT,
   })
