@@ -1,4 +1,5 @@
 {
+  "date": "2026-06-09",
   "findings": [
     {
       "id": "m0001",
@@ -9430,19 +9431,5 @@
         "recommendation": "For Palm's AI-chatting project, design an AI transcript-QA layer that scores every conversation daily (buy-signal capture, offers sent, misses) and feeds coaching back to chatters."
       }
     }
-  ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
   ]
 }
