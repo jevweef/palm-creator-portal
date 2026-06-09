@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
+import { patchHqRecord } from '@/lib/hqAirtable'
+import { getOrCreateOnboardingRecord } from '@/lib/creatorSetup'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const SURVEY_TABLE = 'Onboarding Survey Responses'
+const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
 
 // GET — load all saved answers for a creator
 export async function GET(request) {
@@ -59,7 +62,7 @@ export async function POST(request) {
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
 
-  const { hqId, opsId, answers } = await request.json()
+  const { hqId, opsId, answers, completed } = await request.json()
   // answers: [{ key, text, answer, section, teamTag, recordId? }]
 
   if (!hqId || !answers || !Array.isArray(answers)) {
@@ -98,6 +101,23 @@ export async function POST(request) {
         }
         const created = await createAirtableRecord(SURVEY_TABLE, fields)
         results.push({ key: a.key, action: 'created', recordId: created.id })
+      }
+    }
+
+    // Mark the survey done on the onboarding record once the client signals all
+    // questions are answered. Previously NOTHING wrote "Survey Completed", so the
+    // board + Olive showed every creator's survey as not submitted. Non-blocking.
+    if (completed === true) {
+      try {
+        const ob = await getOrCreateOnboardingRecord(hqId, '')
+        if (ob?.id) {
+          await patchHqRecord(HQ_ONBOARDING, ob.id, {
+            'Survey Completed': true,
+            'Survey Completed At': new Date().toISOString(),
+          })
+        }
+      } catch (e) {
+        console.error('[survey POST] mark-complete failed:', e.message)
       }
     }
 

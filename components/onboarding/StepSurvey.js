@@ -77,6 +77,12 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
 
     setSaveStatus('saving')
 
+    // Did this answer complete the survey? If every question now has an answer,
+    // tell the server to flip "Survey Completed" on her onboarding record (the
+    // flag the board + Olive read — nothing else sets it).
+    const mergedCount = Object.values({ ...answers, [key]: { answer: value } }).filter(a => a.answer).length
+    const completed = mergedCount >= SURVEY_QUESTIONS.length
+
     try {
       const res = await fetch('/api/onboarding/survey', {
         method: 'POST',
@@ -84,6 +90,7 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
         body: JSON.stringify({
           hqId,
           opsId,
+          completed,
           answers: [{
             key,
             text: question.text,
