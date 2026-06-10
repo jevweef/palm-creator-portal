@@ -95,7 +95,9 @@ async function processOnePost(postId) {
   const isCarousel = postType === 'Carousel'
   if (!linkedAssetIds.length) throw new Error('Post has no Asset link')
   if (!creatorId) throw new Error('Post has no Creator link')
-  if (!channel) throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
+  // NOTE: Channel is required only for REAL content (it picks the IG vs FB
+  // topic). AI content routes to the creator's single AI topic regardless of
+  // channel, so the channel requirement is enforced in the real branch below.
 
   // Carousel posts link N photo Assets; reels link one video Asset. Pull all
   // linked records in a single roundtrip and key the downstream branch on
@@ -104,11 +106,11 @@ async function processOnePost(postId) {
   const [creatorList, assetList] = await Promise.all([
     fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
-      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
+      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID', 'Telegram AI Topic ID'],
     }),
     fetchAirtableRecords('Assets', {
       filterByFormula: assetFilter,
-      fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
+      fields: ['Asset Name', 'Asset Type', 'Source Type', 'Edited File Link', 'Dropbox Shared Link', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
   ])
 
@@ -116,14 +118,29 @@ async function processOnePost(postId) {
   const assetById = Object.fromEntries(assetList.map(a => [a.id, a.fields || {}]))
   const asset = assetById[assetId] || {}
 
-  // Resolve the per-channel Telegram topic for this creator.
-  // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID.
-  // Both live on Palm Creators (Ops base). If the topic ID is missing, fail
-  // loud — we'd otherwise post into the group's General topic by accident.
-  const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
-  const smmTopicId = creator[channelTopicField]
-  if (!smmTopicId) {
-    throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
+  // Resolve the Telegram topic for this creator. Source of truth for AI vs
+  // real is Assets.Source Type='AI Generated' (a carousel is AI if ANY slide
+  // is AI). AI content routes to the creator's SINGLE 'Telegram AI Topic ID'
+  // (not split by IG/FB — one AI topic per creator). Real content routes to
+  // the per-channel topic: Channel='IG' → Telegram IG Topic ID, 'FB' → FB.
+  // All live on Palm Creators (Ops base). Missing topic = fail loud, so we
+  // never post into the group's General topic by accident.
+  const isAI = linkedAssetIds.some(aid => assetById[aid]?.['Source Type'] === 'AI Generated')
+  let smmTopicId
+  if (isAI) {
+    smmTopicId = creator['Telegram AI Topic ID']
+    if (!smmTopicId) {
+      throw new Error('Creator missing Telegram AI Topic ID — set it on the Palm Creators record (AI content routes to the per-creator AI topic)')
+    }
+  } else {
+    if (!channel) {
+      throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
+    }
+    const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
+    smmTopicId = creator[channelTopicField]
+    if (!smmTopicId) {
+      throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
+    }
   }
 
   // For reels: prefer the pre-compressed file (compress-pending-assets cron),
