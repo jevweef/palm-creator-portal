@@ -171,7 +171,7 @@
       }
     },
     {
-      "id": "f0371",
+      "id": "f0384",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "f0372",
+      "id": "f0385",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -1125,7 +1125,52 @@
       }
     },
     {
-      "id": "f0331",
+      "id": "f0299",
+      "department": "delegation",
+      "topic": "chatter application filtering",
+      "title": "Multi-stage application filter: attention check + AP score + template effort scoring",
+      "variants": [
+        {
+          "claim": "Embedding a small compliance instruction in the job post (e.g. 'write I understand at the bottom') combined with checking onlinejobs.ph Application Points and requiring a filled template eliminates ~40\u201350% of low-quality applicants before any interview.",
+          "what_they_do": "Three-layer pre-screen: (1) embed a hidden instruction in the job post requiring a specific phrase to prove they read it; (2) on onlinejobs.ph, prioritize applicants who spent more Application Points (higher AP = higher motivation, lower AP = mass-applying); (3) send all applicants a structured template (name, age, experience, English level, open-ended questions like 'describe your communication style') and filter out anyone who answers lazily or skips fields.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 30,
+          "quote": "put a simple instruction next to the job post. So, if you apply, text me I understand at the bottom of your application"
+        },
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 61,
+          "quote": "you always want to look at the AP... if there's an application with just one AP, one application point, means he probably sent it to like a thousand other agencies"
+        },
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 92,
+          "quote": "they should fill out a template sent in the back to you with like the name, the age, job experience, English level, and just a couple of questions"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chatter hiring baseline (\u00a78 outsourced). This is pure build-toward intelligence for the in-house chat team roadmap.",
+        "recommendation": "Build these three filters into Palm's future chatter hiring SOP as Stage 1. The AP-score filter is onlinejobs.ph-specific and low-effort; include it as a default screen. Design the template with at least one open-ended question specifically to measure effort, not content."
+      }
+    },
+    {
+      "id": "f0344",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -1170,7 +1215,7 @@
       }
     },
     {
-      "id": "f0336",
+      "id": "f0349",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -1215,7 +1260,7 @@
       }
     },
     {
-      "id": "f0352",
+      "id": "f0365",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -1260,7 +1305,7 @@
       }
     },
     {
-      "id": "f0359",
+      "id": "f0372",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -6751,6 +6796,332 @@
     },
     {
       "id": "f0291",
+      "department": "traffic",
+      "topic": "X/Twitter multi-account architecture",
+      "title": "Main + 2-4 Burner Account Structure to Grow X Presence Fast",
+      "variants": [
+        {
+          "claim": "Running one premium 'main' account supported by 2\u20134 high-volume burner accounts is the core engine for rapid X follower growth and OF revenue.",
+          "what_they_do": "One main account is treated as the premium asset \u2014 high quality content only, no full nudity, goal of 50\u2013100K impressions per post. Two to four burner accounts run parallel at higher volume (3\u20135 posts/day vs 1\u20133 on main), used for trend testing, engagement farming, and follower accumulation. Once burners hit 1\u20135K followers, all traffic is funneled to the main via pinned tweets, bio links, and reply CTAs. Main account holds the OF link; burners never monetize directly.",
+          "run": "daily-2026-06-13"
+        },
+        {
+          "claim": "On X, a protected main brand account funneled by several disposable high-volume burner accounts maximizes growth while insulating the asset from bans.",
+          "what_they_do": "Runs one main account (2-3 quality posts/day, funnels to OF) plus 3-5 burner accounts (3-4 aggressive trend posts/day) that spam trends and pin replies funneling all traffic to the main; if a burner is banned, it's disposable.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 213,
+          "quote": "You're going to have two to four accounts in this depending on where you're at. The account one is going to be your main account."
+        },
+        {
+          "video_id": "ZLfXnMRhbp8",
+          "timestamp_seconds": 278,
+          "quote": "These are your growth engine"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both",
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's traffic/distribution strategy is a documented GAP (\u00a75). Palm has no X/Twitter presence or strategy documented. This is a fully absent channel for Palm.",
+        "recommendation": "Build a 1-main + 2-burner X account structure for each real creator. Assign a VA to run burner engagement (spam commenting, trend monitoring, retweet loop) daily. Main account managed by editor/ops. Start with one creator as a test before rolling out."
+      }
+    },
+    {
+      "id": "f0292",
+      "department": "traffic",
+      "topic": "X promotional pages / shoutout buying",
+      "title": "Pay X Promo Pages $50\u2013$150 per Post to Inject 500\u20132K Followers Fast",
+      "variants": [
+        {
+          "claim": "Third-party X 'promotional pages' (50K\u2013500K followers) that post teaser/clickbait content about a creator and then get a staged reply from the creator's account are a highly cost-effective paid acquisition channel on X.",
+          "what_they_do": "Find accounts (50K+ followers) that post blurry/frame teaser content with clickbait captions like 'Holy shit I can't believe she did this on camera \u2014 thread.' Pay them $50\u2013$150 per post. The creator's burner or main account then 'discovers' the post and replies with the real content plus an OF CTA (e.g., 'OMG that's me \u2014 I made it free on my OF for the next 17 people'). Identifies promo pages by: always mention 'thread' in caption, post multiple different models, 50K+ followers. Frequency: run a promo every 2\u20134 weeks per account that is stagnant. One promo post can yield 500\u20132,000 new followers per day.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 367,
+          "quote": "These are accounts with absolutely massive following, 50 to 500,000 followers that post teaser content for your models."
+        },
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 430,
+          "quote": "I want you to DM them saying, hey, I'm looking to promote my account. What are your rates?"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no X strategy at all (\u00a75 GAP). Palm does use paid promotion for IG (implied in pipeline), but no equivalent X promo-page tactic exists. This is a new channel + tactic combination.",
+        "recommendation": "Source 3\u20135 verified X promo pages in each creator's niche. Negotiate a test post at $50\u2013$100. Pre-script the creator's 'reply' post with OF CTA and urgency hook. Track follower gain and OF tracking link conversions per promo. Build a promo-page vendor list in Airtable (name, follower count, niche, rate, past results)."
+      }
+    },
+    {
+      "id": "f0293",
+      "department": "traffic",
+      "topic": "X trend-jacking for organic reach",
+      "title": "Trend-Jack Active X Formats Daily for Guaranteed High-Impression Posts",
+      "variants": [
+        {
+          "claim": "Hopping on a trending X format with high-quality content almost guarantees 50K\u2013200K+ impressions per post, far outperforming Instagram trend participation.",
+          "what_they_do": "Monitor X daily for trending formats in the creator's niche. As soon as a format gains traction (e.g., 'Hey Grok, put me in a bikini' AI image trend in Jan 2026), immediately produce a post in that format with high-quality creative and post it. Don't wait for certainty \u2014 first 5,000\u201310,000 participants get disproportionate reach. Historical trend formats used: POV/relatable scenery, 'Which one would you pick' poll + photos, 'Rate my outfit 1\u201310' mirror pic, AI-generated content prompts, 'This or that' polls. Cadence: check competitor/big accounts daily; if a format is getting traction, copy it fast.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 524,
+          "quote": "Trendjacking. This is the cheat code. On Twitter, trends are everything. If you hop on a trend correctly and at the right time, you're guaranteed to blow up."
+        },
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 618,
+          "quote": "If you're one of the first 5,000 people, 10,000 people to hop on a trend and do it correctly with high quality, guaranteed to blow up."
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is already data-driven and scrapes viral Reels from IG inspo accounts \u2014 this is exactly the same logic applied to X. Palm's system could theoretically be extended to scrape X trending formats. Currently Palm has no X monitoring in the Apify/inspo pipeline.",
+        "recommendation": "Add X trend monitoring to the content pipeline: include 5\u201310 X creator accounts in the Apify scrape or add a manual daily X check as a VA task. When a trending format is identified, create an X-specific task card in Airtable so the creator can produce the asset same-day. Mirror Palm's existing inspo-promote-film loop for X."
+      }
+    },
+    {
+      "id": "f0294",
+      "department": "traffic",
+      "topic": "X content rules \u2014 tease vs. reveal",
+      "title": "No Full Nudity on X \u2014 Use Tease-Only Content to Pull Higher-Spending Fans",
+      "variants": [
+        {
+          "claim": "Posting full nudity on X attracts low-spending free-content seekers; tease-only premium content attracts higher-demographic buyers who will pay on OF.",
+          "what_they_do": "Main account posts only professional photos, good angles, clean aesthetic \u2014 no full nudity. Full explicit content is reserved exclusively for the OF vault. The X page functions purely as top-of-funnel tease. No OF link on burner accounts \u2014 only on the main. Strategy is: build personality + tease body, never reveal. Explicit quote: 'Do tease, but don't reveal. People follow people, not just bodies.'",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 710,
+          "quote": "Do not post full nudity. Save that for OF. Do tease, but don't reveal."
+        },
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 153,
+          "quote": "If you post childish content or you post full nude content, you will pull lower spending fans."
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's OF vault content is a documented GAP (\u00a72 \u2014 thin). This finding reinforces a content tiering principle: social = tease, OF = explicit. Palm's social pipeline (\u00a71) produces top-of-funnel content but has no explicit rule documented about nudity levels per platform. This is a rule Palm should codify.",
+        "recommendation": "Add a content-tier rule to Palm's SOP: X/IG/TikTok = tease only (no nudity, professional quality). OF vault = exclusive explicit. Document this as a creator briefing item in onboarding and in the editor task spec so editors never post full nudity to social channels."
+      }
+    },
+    {
+      "id": "f0295",
+      "department": "traffic",
+      "topic": "X engagement farming via competitor reply hijacking",
+      "title": "Reply-Hijack Competitor X Posts With Relevant Matching Content to Steal Followers",
+      "variants": [
+        {
+          "claim": "Replying to competing creators' posts with a relevant matching photo of your model hijacks their engagement and drives profile visits and follows at zero cost.",
+          "what_they_do": "Identify 10\u201320 OF creator accounts in the same niche on X. When those accounts post (e.g., bikini beach pic), the burner account replies with a relevant matching photo of the managed creator and a natural caption (e.g., 'What about my bikini at the beach?'). Also retweet competitor posts to appear in front of their audience. Comment on any post going viral in the broader niche to farm free impressions. VA hired to execute this spam engagement loop throughout the day.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 305,
+          "quote": "Reply to that with relevant things. What about my bikini at the beach? And then attach a photo of you at your model at a beach. What this is going to do is hijack their engagement."
+        },
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 679,
+          "quote": "You guys can hire a VA to do this. I have my VAs to do this. Just make sure your spam engagement."
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no X presence (\u00a75 GAP). Palm does no competitor engagement farming on any platform currently. The VA execution model aligns with Palm's contractor model (Amin for posting) \u2014 this would be a new VA task scope.",
+        "recommendation": "When standing up X for a creator, hire or assign a VA specifically for X engagement tasks: daily competitor reply loop, retweet rotation, viral-post comment farming. Define a task card type in Airtable for 'X daily engagement' with a checklist. Budget ~1\u20132 hrs/day per creator for this role."
+      }
+    },
+    {
+      "id": "f0300",
+      "department": "delegation",
+      "topic": "chatter emotional intelligence screening",
+      "title": "Group-chat situational awareness test to screen for sales instinct before any live interview",
+      "variants": [
+        {
+          "claim": "A 10-question situational/emotional intelligence test sent to all shortlisted applicants in a single group chat efficiently identifies candidates with natural sales instinct without requiring individual calls.",
+          "what_they_do": "Create a group chat (WhatsApp or Telegram) with all applicants who passed Stage 1. Send a Google Docs with 10 situational questions designed to reveal emotional intelligence and objection-handling instinct \u2014 not chatting skill. Example: 'You own a vegan restaurant and someone asks for steak \u2014 what do you say?' The 'right' answer reframes the objection and redirects to an alternative rather than refusing. This filters out poor communicators before investing time in live interviews.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 155,
+          "quote": "create a group chat with all of the applicants and you're going to give them their first test... a situational awareness test"
+        },
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 187,
+          "quote": "you are the owner of a vegan restaurant and someone comes in asking for real meat, for a steak. What would you tell that person?"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chatter screening baseline (\u00a78 outsourced). This is build-toward for the in-house chat team. Palm's current external chat team presumably handles their own quality \u2014 Palm has no visibility into how those chatters were vetted.",
+        "recommendation": "Develop a Palm-specific situational awareness test (10 questions) as Stage 2 of the future chatter hiring pipeline. Frame questions around sales redirection rather than OF-specific knowledge. Use a group chat delivery mechanism to batch-process applicants efficiently."
+      }
+    },
+    {
+      "id": "f0301",
+      "department": "delegation",
+      "topic": "chatter live verification",
+      "title": "Discord live call with screen-share: WPM test + English test + physical setup camera reveal",
+      "variants": [
+        {
+          "claim": "A live Discord call with screen-sharing \u2014 covering typing speed, English proficiency, and a live camera reveal of the candidate's physical workspace \u2014 surfaces reliability signals that asynchronous tests cannot.",
+          "what_they_do": "Stage 3 live assessment via Discord with screen-share: (1) words-per-minute typing test (candidates will cheat; if you can't catch it, they earned it); (2) live English proficiency test using any free online tool; (3) ask the candidate to turn their camera and film their desk/setup in real time. The desk reveal is flagged as unique and highly valuable \u2014 an organized vs. disorganized desk is treated as a proxy for how they'll manage their work. Philosophy: 'how you do one thing is how you do everything.'",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 312,
+          "quote": "let them hop on a Discord live call with like a shared screen... words per minute test, how fast they can type"
+        },
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 342,
+          "quote": "ask them, 'Hey, quickly turn your camera around and show me your setup.' Because it shows you so much about what type of person they are."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal live vetting process (\u00a78 outsourced). The desk/setup reveal is a novel, zero-cost signal not commonly used. Build-toward for in-house chat hiring.",
+        "recommendation": "Include the three-part live Discord assessment as Stage 3 in Palm's future chatter hiring SOP. The setup camera reveal is especially low-effort to implement and provides a soft organizational signal. Document acceptable vs. disqualifying desk conditions loosely to avoid over-filtering."
+      }
+    },
+    {
+      "id": "f0302",
+      "department": "delegation",
+      "topic": "chatter onboarding video compliance check",
+      "title": "90-min Loom training video with embedded accountability checkpoints to filter non-completers",
+      "variants": [
+        {
+          "claim": "Embedding hidden checkpoints (emoji signals, mid-video questions) inside a mandatory 90-minute onboarding video filters out candidates who won't follow through \u2014 before they ever touch a live fan account.",
+          "what_they_do": "After passing all screening stages, selected candidates receive a 90+ minute video covering: how OnlyFans works, how the CRM (Creator Hero) works, scripts, hotkeys, and job structure. The video includes 2\u20133 embedded accountability checks \u2014 e.g., 'send me a cherry emoji if you watched to here' or answer specific questions after viewing. Anyone who fails to complete or respond is cut. Rationale: if a chatter won't watch a Loom on Day 1, they won't perform reliably in month 2.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 466,
+          "quote": "send them like a 90-minute plus video explaining the entire job... include a couple of accountability checks"
+        },
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 497,
+          "quote": "if someone isn't even watching a Loom video you sent them at their first day on the job, you can imagine how he's going to work in a month from now"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no in-house chatter onboarding (\u00a78). This tactic is directly relevant to the AI chatting roadmap project and in-house chat team buildout. Palm already uses Loom-style documentation in other workflows \u2014 this pattern is familiar.",
+        "recommendation": "Design Palm's future chatter onboarding as a video-first, checkpoint-gated flow. Use a single 60\u201390 min Loom (or similar) covering OF mechanics, Palm's CRM/tools, scripts, and KPIs, with 2\u20133 embedded compliance signals. Treat failure to complete as an automatic disqualification."
+      }
+    },
+    {
+      "id": "f0305",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -6790,7 +7161,7 @@
       }
     },
     {
-      "id": "f0292",
+      "id": "f0306",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -6830,7 +7201,7 @@
       }
     },
     {
-      "id": "f0294",
+      "id": "f0308",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -6870,7 +7241,7 @@
       }
     },
     {
-      "id": "f0295",
+      "id": "f0309",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -6910,7 +7281,7 @@
       }
     },
     {
-      "id": "f0296",
+      "id": "f0310",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -6950,7 +7321,7 @@
       }
     },
     {
-      "id": "f0297",
+      "id": "f0311",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -6990,7 +7361,7 @@
       }
     },
     {
-      "id": "f0298",
+      "id": "f0312",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -7030,7 +7401,7 @@
       }
     },
     {
-      "id": "f0299",
+      "id": "f0313",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -7070,7 +7441,7 @@
       }
     },
     {
-      "id": "f0300",
+      "id": "f0314",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -7110,7 +7481,7 @@
       }
     },
     {
-      "id": "f0301",
+      "id": "f0315",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -7150,7 +7521,7 @@
       }
     },
     {
-      "id": "f0302",
+      "id": "f0316",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -7190,7 +7561,7 @@
       }
     },
     {
-      "id": "f0303",
+      "id": "f0317",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -7230,7 +7601,7 @@
       }
     },
     {
-      "id": "f0304",
+      "id": "f0318",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -7270,7 +7641,7 @@
       }
     },
     {
-      "id": "f0305",
+      "id": "f0319",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -7310,7 +7681,7 @@
       }
     },
     {
-      "id": "f0306",
+      "id": "f0320",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -7350,7 +7721,7 @@
       }
     },
     {
-      "id": "f0307",
+      "id": "f0321",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -7390,7 +7761,7 @@
       }
     },
     {
-      "id": "f0308",
+      "id": "f0322",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -7430,7 +7801,7 @@
       }
     },
     {
-      "id": "f0309",
+      "id": "f0323",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -7470,7 +7841,7 @@
       }
     },
     {
-      "id": "f0310",
+      "id": "f0324",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -7510,7 +7881,7 @@
       }
     },
     {
-      "id": "f0311",
+      "id": "f0325",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -7550,7 +7921,7 @@
       }
     },
     {
-      "id": "f0312",
+      "id": "f0326",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -7590,7 +7961,7 @@
       }
     },
     {
-      "id": "f0313",
+      "id": "f0327",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -7630,7 +8001,7 @@
       }
     },
     {
-      "id": "f0314",
+      "id": "f0328",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -7670,7 +8041,7 @@
       }
     },
     {
-      "id": "f0332",
+      "id": "f0345",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -7710,7 +8081,7 @@
       }
     },
     {
-      "id": "f0333",
+      "id": "f0346",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -7750,7 +8121,7 @@
       }
     },
     {
-      "id": "f0334",
+      "id": "f0347",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -7790,7 +8161,7 @@
       }
     },
     {
-      "id": "f0335",
+      "id": "f0348",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -7830,7 +8201,7 @@
       }
     },
     {
-      "id": "f0337",
+      "id": "f0350",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -7870,7 +8241,7 @@
       }
     },
     {
-      "id": "f0338",
+      "id": "f0351",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -7910,7 +8281,7 @@
       }
     },
     {
-      "id": "f0339",
+      "id": "f0352",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -7950,7 +8321,7 @@
       }
     },
     {
-      "id": "f0340",
+      "id": "f0353",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -7990,7 +8361,7 @@
       }
     },
     {
-      "id": "f0341",
+      "id": "f0354",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -8030,7 +8401,7 @@
       }
     },
     {
-      "id": "f0343",
+      "id": "f0356",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -8070,7 +8441,7 @@
       }
     },
     {
-      "id": "f0344",
+      "id": "f0357",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -8110,7 +8481,7 @@
       }
     },
     {
-      "id": "f0345",
+      "id": "f0358",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -8150,7 +8521,7 @@
       }
     },
     {
-      "id": "f0346",
+      "id": "f0359",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -8190,7 +8561,7 @@
       }
     },
     {
-      "id": "f0347",
+      "id": "f0360",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -8230,7 +8601,7 @@
       }
     },
     {
-      "id": "f0348",
+      "id": "f0361",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -8270,7 +8641,7 @@
       }
     },
     {
-      "id": "f0349",
+      "id": "f0362",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -8310,7 +8681,7 @@
       }
     },
     {
-      "id": "f0350",
+      "id": "f0363",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -8350,7 +8721,7 @@
       }
     },
     {
-      "id": "f0351",
+      "id": "f0364",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -8390,7 +8761,7 @@
       }
     },
     {
-      "id": "f0354",
+      "id": "f0367",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -8430,7 +8801,7 @@
       }
     },
     {
-      "id": "f0355",
+      "id": "f0368",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -8470,7 +8841,7 @@
       }
     },
     {
-      "id": "f0356",
+      "id": "f0369",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -8510,7 +8881,7 @@
       }
     },
     {
-      "id": "f0358",
+      "id": "f0371",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -8550,7 +8921,7 @@
       }
     },
     {
-      "id": "f0361",
+      "id": "f0374",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -8590,7 +8961,7 @@
       }
     },
     {
-      "id": "f0362",
+      "id": "f0375",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -8630,7 +9001,7 @@
       }
     },
     {
-      "id": "f0363",
+      "id": "f0376",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -8670,7 +9041,7 @@
       }
     },
     {
-      "id": "f0368",
+      "id": "f0381",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -8710,7 +9081,7 @@
       }
     },
     {
-      "id": "f0373",
+      "id": "f0386",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -8750,7 +9121,7 @@
       }
     },
     {
-      "id": "f0375",
+      "id": "f0388",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -13410,7 +13781,182 @@
       }
     },
     {
-      "id": "f0293",
+      "id": "f0296",
+      "department": "traffic",
+      "topic": "X paid post boosting",
+      "title": "Boost Organically-Proven X Posts for $20\u2013$50 to Amplify Already-Working Content",
+      "variants": [
+        {
+          "claim": "Paying $20\u2013$50 to boost a tweet that already hit 10K+ impressions organically compounds reach cheaply because the algorithm signals are already proven.",
+          "what_they_do": "Let content run organically first. If a post reaches 10K impressions without paid spend, that is the signal to boost it via Twitter's native promotion tool. Spend $20\u2013$50 per boost. Logic: high organic engagement + paid boost = outsized reach because Twitter's algorithm already validated the content. Only boost proven winners, never cold content.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 774,
+          "quote": "If a post hit 10K impressions organically, promote it. Twitter will let you boost tweets for 20 to 50 bucks, and this puts your content in front of people for more reach."
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no X paid strategy (\u00a75 GAP). Palm does run IG promotions for creators but no equivalent X paid amplification. The 'prove it organically first, then pay to amplify' logic is a sound principle Palm could also apply to IG Reels.",
+        "recommendation": "Add a paid-boost rule to the X playbook: any post crossing 10K impressions organically gets a $20\u2013$50 boost within 24 hours. Track boosted-post ROI via tracking links (Palm already uses tracking links per \u00a70 context in video). Apply the same 'organic-first, then amplify' logic to IG content where Palm already promotes."
+      }
+    },
+    {
+      "id": "f0297",
+      "department": "systems",
+      "topic": "Traffic source tracking links per platform",
+      "title": "Use Per-Platform Tracking Links to Attribute OF Revenue to Traffic Sources",
+      "variants": [
+        {
+          "claim": "Using a dedicated tracking link for each traffic source (e.g., one link for Twitter) lets you measure exactly how much OF revenue each platform generates.",
+          "what_they_do": "Each traffic channel (X account, IG, promo page, etc.) gets its own tracking/inflow link. Griffin shows a single Twitter tracking link that generated $186K in OF revenue, proving channel-level attribution. This enables decisions like 'Twitter is responsible for ~40\u201350% of this creator's revenue growth' rather than guessing.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "QHDbtG0rk_c",
+          "timestamp_seconds": 61,
+          "quote": "This is a tracking link in inflow from one of our Twitter accounts on our creator using this strategy and we've generated $186,000 through this link."
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm uses tracking links (mentioned in the video's own intro showing Palm-style data). However, Palm's traffic strategy documentation is a GAP (\u00a75) \u2014 it's unclear whether Palm systematically assigns per-platform tracking links for all creators and all channels, or whether this is ad hoc.",
+        "recommendation": "Standardize per-platform OF tracking links as a mandatory step in creator setup. For every active traffic channel (IG bio, X main account, Reddit, promo pages), create a unique tracking link at onboarding. Store these in the Creators table in Airtable with a 'Traffic Source Links' field. Pull revenue-by-source into the whale-hunting / fan intelligence dashboard (\u00a79) for channel-level ROI reporting."
+      }
+    },
+    {
+      "id": "f0298",
+      "department": "delegation",
+      "topic": "chatter sourcing platforms",
+      "title": "Source chatters from onlinejobs.ph, Donut Jobs, OFM Jobs \u2014 never Telegram",
+      "variants": [
+        {
+          "claim": "The three reliable hiring platforms for chatters are onlinejobs.ph, Donut Jobs, and OFM Jobs; Telegram chatters are consistently low quality.",
+          "what_they_do": "Post job listings on onlinejobs.ph, Donut Jobs, and OFM Jobs. Explicitly avoid sourcing from Telegram groups. Also mentions some Facebook groups and other Filipino hiring sites as secondary options.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 0,
+          "quote": "post a job post on onlinejobs.ph, Donut Jobs, and OFM Jobs. Those are like the three main hiring sites. Don't get them off of Telegram."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced to an external team (\u00a78); no internal hiring process exists yet. When Palm builds its in-house chat team (~1yr out), it has no documented sourcing channels. This is a direct gap to fill.",
+        "recommendation": "When Palm begins building its in-house chat team, establish onlinejobs.ph as the primary sourcing channel. Create a blacklist policy against Telegram-sourced chatters. Document this as the first step in the future chatter hiring SOP."
+      }
+    },
+    {
+      "id": "f0303",
+      "department": "delegation",
+      "topic": "chatter ramp-up structure",
+      "title": "Supervised shadow \u2192 monitored practice \u2192 independent KPI ramp for new chatters",
+      "variants": [
+        {
+          "claim": "New chatters should follow a structured three-phase ramp: shadow existing chatters, then practice under live supervision, then work independently under KPI monitoring \u2014 rather than going live solo immediately.",
+          "what_they_do": "Phase 1 (first ~week): new chatter shadows and observes existing chatters in real shifts. Phase 2: chatter handles 2\u20133 hours of live chat themselves while a supervisor watches in real time. Phase 3: chatter works independently while a supervisor continues to monitor shifts, gives feedback, and answers questions. KPIs and quality controls are only introduced once the chatter reaches a stable independent baseline.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 528,
+          "quote": "let them watch other people, let them supervise other chatters for a couple of days for the first week. Then let them do their initial practice, let them chat for like two or three hours themselves with a supervisor watching."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal ramp-up process (\u00a78 outsourced). This structured ramp is essential for Palm's in-house chat team plan and maps well to Palm's existing supervisor/manager role structure (\u00a710 chat_manager Clerk role exists).",
+        "recommendation": "Adopt this three-phase ramp as the standard onboarding track for all in-house chatters. Define the Phase 2\u21923 promotion trigger (e.g., supervisor scores 3 consecutive satisfactory shifts). Assign the chat_manager Clerk role as the supervisor for Phase 1\u20132 monitoring. Codify KPI thresholds before Phase 3 begins."
+      }
+    },
+    {
+      "id": "f0304",
+      "department": "delegation",
+      "topic": "chatter hiring philosophy",
+      "title": "Hire for coachability and reliability, not pre-existing chatting skill",
+      "variants": [
+        {
+          "claim": "The correct chatter hiring filter is competence, reliability, and honesty \u2014 not existing chatting skill \u2014 because a motivated person can be trained to top-level in 2\u20133 weeks.",
+          "what_they_do": "Explicitly de-emphasize prior chatting experience as a hiring criterion. Instead prioritize candidates who demonstrate effort, follow-through, and personal motivation throughout the screening pipeline. Agency trains chatters to top level within 2\u20133 weeks once the right person is selected. The entire multi-stage funnel (attention checks, situational tests, live calls, Loom compliance) is designed to surface coachable, reliable people \u2014 not to find pre-trained chatters.",
+          "run": "daily-2026-06-13"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "CqMbp5MOSVA",
+          "timestamp_seconds": 559,
+          "quote": "It's about you hiring competent, reliable, and honest people that you can teach the skill of chatting. Because we taught chatters in like two or three weeks to get to a top level."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chatter hiring criteria (\u00a78 outsourced). This philosophy should anchor Palm's future hiring rubric \u2014 it means Palm can source from a much wider talent pool and doesn't need to pay a premium for 'experienced' chatters.",
+        "recommendation": "Document 'coachability, reliability, honesty' as Palm's three core chatter hiring criteria. Build the scoring rubric for each screening stage around these three traits rather than chatting knowledge. This also reduces cost \u2014 experienced chatters command higher pay; trainable reliable people do not."
+      }
+    },
+    {
+      "id": "f0307",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -13445,7 +13991,7 @@
       }
     },
     {
-      "id": "f0315",
+      "id": "f0329",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -13480,7 +14026,7 @@
       }
     },
     {
-      "id": "f0316",
+      "id": "f0330",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -13515,7 +14061,7 @@
       }
     },
     {
-      "id": "f0317",
+      "id": "f0331",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -13550,7 +14096,7 @@
       }
     },
     {
-      "id": "f0318",
+      "id": "f0332",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -13585,7 +14131,7 @@
       }
     },
     {
-      "id": "f0319",
+      "id": "f0333",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -13620,42 +14166,7 @@
       }
     },
     {
-      "id": "f0320",
-      "department": "traffic",
-      "topic": "X main + burner structure",
-      "title": "Main brand account fed by disposable burner accounts",
-      "variants": [
-        {
-          "claim": "On X, a protected main brand account funneled by several disposable high-volume burner accounts maximizes growth while insulating the asset from bans.",
-          "what_they_do": "Runs one main account (2-3 quality posts/day, funnels to OF) plus 3-5 burner accounts (3-4 aggressive trend posts/day) that spam trends and pin replies funneling all traffic to the main; if a burner is banned, it's disposable.",
-          "run": "griffin"
-        }
-      ],
-      "sources": [
-        {
-          "video_id": "ZLfXnMRhbp8",
-          "timestamp_seconds": 278,
-          "quote": "These are your growth engine"
-        }
-      ],
-      "creators": [
-        "GriffinOFM"
-      ],
-      "consensus": {
-        "creators": 1,
-        "label": "low",
-        "contested": false
-      },
-      "applicability": [
-        "both"
-      ],
-      "palm_comparison": {
-        "vs_us": "Palm has no documented traffic/distribution strategy for X (\u00a75 gap). This is a concrete account-architecture pattern Palm lacks entirely.",
-        "recommendation": "Pilot a main+burner X structure for one creator; treat burners as expendable growth engines and the main as the OF-converting asset."
-      }
-    },
-    {
-      "id": "f0321",
+      "id": "f0334",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -13690,7 +14201,7 @@
       }
     },
     {
-      "id": "f0322",
+      "id": "f0335",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -13725,7 +14236,7 @@
       }
     },
     {
-      "id": "f0323",
+      "id": "f0336",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -13760,7 +14271,7 @@
       }
     },
     {
-      "id": "f0324",
+      "id": "f0337",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -13795,7 +14306,7 @@
       }
     },
     {
-      "id": "f0325",
+      "id": "f0338",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -13830,7 +14341,7 @@
       }
     },
     {
-      "id": "f0326",
+      "id": "f0339",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -13865,7 +14376,7 @@
       }
     },
     {
-      "id": "f0327",
+      "id": "f0340",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -13900,7 +14411,7 @@
       }
     },
     {
-      "id": "f0328",
+      "id": "f0341",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -13935,7 +14446,7 @@
       }
     },
     {
-      "id": "f0329",
+      "id": "f0342",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -13970,7 +14481,7 @@
       }
     },
     {
-      "id": "f0330",
+      "id": "f0343",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -14005,7 +14516,7 @@
       }
     },
     {
-      "id": "f0342",
+      "id": "f0355",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -14040,7 +14551,7 @@
       }
     },
     {
-      "id": "f0353",
+      "id": "f0366",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -14075,7 +14586,7 @@
       }
     },
     {
-      "id": "f0357",
+      "id": "f0370",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -14110,7 +14621,7 @@
       }
     },
     {
-      "id": "f0360",
+      "id": "f0373",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -14145,7 +14656,7 @@
       }
     },
     {
-      "id": "f0364",
+      "id": "f0377",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -14180,7 +14691,7 @@
       }
     },
     {
-      "id": "f0365",
+      "id": "f0378",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -14215,7 +14726,7 @@
       }
     },
     {
-      "id": "f0366",
+      "id": "f0379",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -14250,7 +14761,7 @@
       }
     },
     {
-      "id": "f0367",
+      "id": "f0380",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -14285,7 +14796,7 @@
       }
     },
     {
-      "id": "f0369",
+      "id": "f0382",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -14320,7 +14831,7 @@
       }
     },
     {
-      "id": "f0370",
+      "id": "f0383",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -14355,7 +14866,7 @@
       }
     },
     {
-      "id": "f0374",
+      "id": "f0387",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
