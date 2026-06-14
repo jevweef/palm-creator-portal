@@ -1,4 +1,5 @@
 {
+  "date": "2026-06-14",
   "findings": [
     {
       "id": "m0001",
@@ -11472,19 +11473,5 @@
         "recommendation": "Build-toward: when standing up the in-house chat team, adopt a pre-hire screen (English / WPM / connection) and a first-PPV pricing standard."
       }
     }
-  ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
   ]
 }
