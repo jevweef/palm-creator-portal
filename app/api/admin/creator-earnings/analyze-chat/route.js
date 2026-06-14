@@ -7,7 +7,12 @@ import { quoteAirtableString } from '@/lib/airtableFormula'
 export const maxDuration = 120
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) // still used for the lightweight manager-brief summary
+// Lazy: created on first call, NOT at module load, so `next build` page-data
+// collection doesn't fail when OPENAI_API_KEY is absent in the build env (the
+// OpenAI SDK throws in its constructor without a key). Used for the lightweight
+// manager-brief summary.
+let _openai
+const getOpenAI = () => (_openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY }))
 
 // ── Airtable ───────────────────────────────────────────────────────────────
 
@@ -910,7 +915,7 @@ HARD RULES:
 
     // Run manager brief + fan tracker in parallel
     const [briefResult] = await Promise.all([
-      openai.chat.completions.create({
+      getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: `You write chat manager briefs for an OnlyFans agency. Distill the full fan analysis into a scannable brief, around 150-175 words total. Plain language, no jargon.
