@@ -43,6 +43,14 @@
     {
       "path": "/api/cron/purge-inbox-messages",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/penny-postprep",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/daily-telegram-push",
+      "schedule": "0 15 * * *"
     }
   ]
 }
