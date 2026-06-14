@@ -43,6 +43,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const postId = searchParams.get('postId')
     const doSend = searchParams.get('send') === '1'
+    const force = searchParams.get('force') === '1'
     if (!postId) return NextResponse.json({ error: 'postId required (?postId=rec...)' }, { status: 400 })
 
     // ── Fetch + validate the post ────────────────────────────────────────────
@@ -60,6 +61,14 @@ export async function GET(request) {
     const creatorId = linkedIds(f.Creator)[0]
     if (!creatorId || !linkedIds(f.Asset)[0]) { step('validate', false, 'missing Creator or Asset link'); return done(steps, 400) }
     step('validate', true, 'real-content reel, ok to process')
+
+    // Idempotency guard: refuse to re-send a reel that's already on its way out,
+    // so a re-run (or a double-click) can't duplicate it in Telegram. Override
+    // with &force=1 if you really mean to re-process + re-send.
+    if (doSend && !force && ['Queued for Telegram', 'Sending', 'Sent to Telegram'].includes(strOf(f.Status))) {
+      step('guard', false, `already ${strOf(f.Status)} — refusing to re-send (add &force=1 to override and risk a duplicate)`)
+      return done(steps, 409)
+    }
 
     // ── 1. Penny processing: caption + thumbnail decision + stage ─────────────
     const proc = await processOnePostPrep(post, { dryRun: false, log: (m) => step('process', true, m) })

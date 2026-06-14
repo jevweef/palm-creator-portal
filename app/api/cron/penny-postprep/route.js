@@ -9,8 +9,10 @@ import { fetchAirtableRecords, requireAdminOrSocialMedia } from '@/lib/adminAuth
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { processOnePostPrep, assignChannels, fillBlankThumbnails } from '@/lib/penny'
 
-// How many naked reels to process per tick. Keeps a single run under maxDuration.
-const POSTS_PER_RUN = 5
+// How many naked reels to process per tick. Each reel is ~45s, but a large reel
+// routed through Gemini's Files API can add ~60s, so 3/run keeps a worst-case
+// tick comfortably under the 300s budget. A backlog drains over a few ticks.
+const POSTS_PER_RUN = 3
 
 export async function GET(request) {
   // Vercel cron bearer OR admin/social-media (manual drain on preview).
