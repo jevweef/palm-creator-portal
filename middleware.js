@@ -24,6 +24,11 @@ const isPublicRoute = createRouteMatcher([
   // cron's internal POST gets 404'd by Clerk before the route's own auth
   // check runs.
   '/api/telegram/send(.*)',
+  // Penny immediate single-reel test+send. Reachable by an admin session (Evan
+  // in the browser) OR a Bearer CRON_SECRET (headless trigger/validation). The
+  // route enforces both itself; without this exemption Clerk 404s the bearer
+  // call before the route's own auth runs (same pattern as the cron routes).
+  '/api/admin/posts/penny-test-send(.*)',
   '/api/inbox/telegram(.*)',
   '/api/inbox/imessage(.*)',
   '/demo(.*)',
