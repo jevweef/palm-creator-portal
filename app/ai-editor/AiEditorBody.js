@@ -1264,10 +1264,14 @@ export default function AiEditorBody({ embedded = false } = {}) {
           style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'outfits' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'outfits' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
           Outfit Library
         </button>
-        {/* Carousel tab is intentionally NOT in the strip — it's the
-            workflow Evan is still iterating on and clutter for editors.
-            Admins reach it by hand-typing ?tab=carousel. Content render
-            still gated on isAdmin so non-admins typing the URL get nothing. */}
+        {/* Carousels — the scraped-IG-carousel Reference Library + upload.
+            Admin only (clutter for editors); content below is isAdmin-gated too. */}
+        {isAdmin && (
+          <button onClick={() => setTab('carousel')}
+            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600, color: tab === 'carousel' ? 'var(--foreground)' : 'var(--foreground-muted)', background: 'none', border: 'none', borderBottom: tab === 'carousel' ? '2px solid var(--palm-pink)' : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}>
+            Carousels
+          </button>
+        )}
       </div>
       </div>
       {/* /sticky header+tabs */}
