@@ -29,10 +29,11 @@ export async function GET(request) {
   const limit = Math.max(1, Math.min(Number(searchParams.get('limit')) || POSTS_PER_RUN, 5))
 
   // Naked real-content reels sitting in Post-Prep: approved (Ready to Go), no
-  // caption yet, not yet channeled. Exclude AI (Pipeline Target='Publer') — that
-  // routes to Publer, never Telegram. Oldest first.
+  // caption yet, not yet channeled. Exclude AI content — Publer-bound
+  // (Pipeline Target='Publer') AND the AI parallel track (Pipeline Target='AI').
+  // Oldest first.
   const naked = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Type}='Reel', {Status}='Ready to Go', {Caption}='', {Channel}='', {Pipeline Target}!='Publer')`,
+    filterByFormula: `AND({Type}='Reel', {Status}='Ready to Go', {Caption}='', {Channel}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
     fields: ['Post Name', 'Creator', 'Asset', 'Caption', 'Channel'],
     sort: [{ field: 'Scheduled Date', direction: 'asc' }],
     maxRecords: limit,
@@ -57,7 +58,7 @@ export async function GET(request) {
   const creatorOps = []
   if (!dryRun) {
     const pending = await fetchAirtableRecords('Posts', {
-      filterByFormula: `AND({Status}='Staged', {Channel}='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer')`,
+      filterByFormula: `AND({Status}='Staged', {Channel}='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
       fields: ['Creator'],
     })
     const creatorSet = new Set()

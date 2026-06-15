@@ -25,7 +25,7 @@ export async function GET(request) {
   // Staged, channeled, unsent, real-content posts = everything the operator has
   // (or Penny has) parked in the grid ready to go out.
   const ready = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Status}='Staged', {Channel}!='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer')`,
+    filterByFormula: `AND({Status}='Staged', {Channel}!='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
     fields: ['Post Name', 'Channel'],
     sort: [{ field: 'Scheduled Date', direction: 'asc' }],
   })

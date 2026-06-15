@@ -962,7 +962,7 @@ export async function POST(request) {
       // posts to count current IG vs FB balance for round-robin seeding.
       const allRecent = await fetchAirtableRecords('Posts', {
         filterByFormula: `OR(IS_AFTER({Scheduled Date}, DATEADD(NOW(), -60, 'days')), {Scheduled Date}=BLANK())`,
-        fields: ['Post Name', 'Creator', 'Channel', 'Asset', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
+        fields: ['Post Name', 'Creator', 'Channel', 'Asset', 'Pipeline Target', 'Telegram Sent At', 'Posted At', 'Scheduled Date'],
       })
       const creatorPosts = allRecent.filter(p =>
         (p.fields?.Creator || []).includes(creatorId) &&
@@ -976,8 +976,10 @@ export async function POST(request) {
         const c = p.fields?.Channel
         return typeof c === 'string' ? c : (c?.name || null)
       }
+      // AI content runs on its OWN grid/pipeline — never distribute it onto IG/FB.
+      const ptName = (p) => { const t = p.fields?.['Pipeline Target']; return typeof t === 'string' ? t : (t?.name || '') }
 
-      const queueItems = creatorPosts.filter(p => !channelOf(p))
+      const queueItems = creatorPosts.filter(p => !channelOf(p) && ptName(p) !== 'AI')
       if (!queueItems.length) {
         return NextResponse.json({ ok: true, distributed: 0, message: 'Queue empty' })
       }
@@ -1092,7 +1094,7 @@ export async function POST(request) {
       // by the operator in Post Prep and shouldn't be overwritten by a
       // reshuffle. 'pool' and 'auto-frame' (and empty/legacy) are fair game.
       const allPosts = await fetchAirtableRecords('Posts', {
-        filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='')`,
+        filterByFormula: `AND({Channel}!='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='AI')`,
         fields: ['Creator', 'Channel', 'Thumbnail Source'],
       })
       const sourceName = (v) => typeof v === 'string' ? v : (v?.name || '')

@@ -365,6 +365,23 @@ export async function PATCH(request) {
           console.error('[Editor] Failed to compute posting slot:', slotErr.message)
         }
 
+        // AI content runs on its OWN parallel track (AI grid / AI thumbnail
+        // queue / AI Telegram topics). Stamp AI posts Pipeline Target='AI' so
+        // Penny and the real-content grid never touch them (they filter it out)
+        // and the AI pipeline can target them. AI-ness lives on the linked
+        // Asset's Source Type='AI Generated'.
+        let isAiContent = false
+        if (assetId) {
+          try {
+            const a = await fetchAirtableRecords('Assets', {
+              filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
+              fields: ['Source Type'],
+            })
+            const st = a[0]?.fields?.['Source Type']
+            isAiContent = (typeof st === 'string' ? st : st?.name) === 'AI Generated'
+          } catch (e) { console.warn('[Editor] Source Type lookup failed:', e.message) }
+        }
+
         await createAirtableRecord('Posts', {
           'Post Name': postName,
           ...(creatorId ? { 'Creator': [creatorId] } : {}),
@@ -372,9 +389,10 @@ export async function PATCH(request) {
           'Task': [taskId],
           'Type': 'Reel',
           'Status': 'Ready to Go',
+          ...(isAiContent ? { 'Pipeline Target': 'AI' } : {}),
           ...(scheduledDate ? { 'Scheduled Date': scheduledDate.toISOString() } : {}),
         }, { typecast: true })
-        console.log(`[Editor] Post record created for task ${taskId}`)
+        console.log(`[Editor] Post record created for task ${taskId}${isAiContent ? ' (AI track)' : ''}`)
       } catch (postErr) {
         console.error('[Editor] Failed to create Post record:', postErr.message)
         // Don't fail the approval if post creation fails

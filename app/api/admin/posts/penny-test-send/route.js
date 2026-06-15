@@ -57,7 +57,7 @@ export async function GET(request) {
     step('fetch post', true, `${f['Post Name'] || postId} (Status=${strOf(f.Status)})`)
 
     if (strOf(f.Type) !== 'Reel') { step('validate', false, `Type=${strOf(f.Type)} (only Reel supported)`); return done(steps, 400) }
-    if (strOf(f['Pipeline Target']) === 'Publer') { step('validate', false, 'Pipeline Target=Publer (AI → Publer, not Telegram)'); return done(steps, 400) }
+    if (['Publer', 'AI'].includes(strOf(f['Pipeline Target']))) { step('validate', false, `Pipeline Target=${strOf(f['Pipeline Target'])} — not the real-content Telegram path`); return done(steps, 400) }
     const creatorId = linkedIds(f.Creator)[0]
     if (!creatorId || !linkedIds(f.Asset)[0]) { step('validate', false, 'missing Creator or Asset link'); return done(steps, 400) }
     step('validate', true, 'real-content reel, ok to process')
