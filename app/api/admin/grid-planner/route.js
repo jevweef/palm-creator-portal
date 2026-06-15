@@ -1043,17 +1043,18 @@ export async function POST(request) {
     // respect Airtable rate limits.
     // Body: { assetIds: ['rec...'], approved: true|false }
     if (action === 'setThumbnailApproval') {
-      const { assetIds, approved } = body
+      const { assetIds, approved, ai } = body
       if (!Array.isArray(assetIds) || typeof approved !== 'boolean') {
         return NextResponse.json({ error: 'assetIds[] and approved (bool) required' }, { status: 400 })
       }
       if (!assetIds.length) return NextResponse.json({ ok: true, updated: 0 })
-      // Sequential single-record patches — keeps it simple, throughput is
-      // fine for the typical batch size (~5-20 photos at a time).
+      // The AI thumbnail queue is a SEPARATE field from the real-content pool —
+      // ai:true toggles 'AI Approved Thumbnail', else the real 'Approved Thumbnail'.
+      const field = ai ? 'AI Approved Thumbnail' : 'Approved Thumbnail'
       let updated = 0
       for (const id of assetIds) {
         try {
-          await patchAirtableRecord('Assets', id, { 'Approved Thumbnail': approved })
+          await patchAirtableRecord('Assets', id, { [field]: approved }, { typecast: true })
           updated++
         } catch (e) {
           console.warn(`[setThumbnailApproval] failed for ${id}:`, e.message)

@@ -862,7 +862,7 @@ function ThumbnailPoolTile({ tile, isDragging, onDragStart, onDragEnd, onRemove 
 // photos via the existing /api/admin/posts/photos endpoint (with the new
 // `approvedThumbnail` flag included). Admin ticks photos to add, unticks
 // to remove. Submit batches setThumbnailApproval calls.
-function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToast }) {
+function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToast, aiMode = false }) {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -884,7 +884,7 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
       .then(r => r.json())
       .then(d => {
         setPhotos(d.photos || [])
-        const approved = new Set((d.photos || []).filter(p => p.approvedThumbnail).map(p => p.id))
+        const approved = new Set((d.photos || []).filter(p => aiMode ? p.aiApprovedThumbnail : p.approvedThumbnail).map(p => p.id))
         setSelected(approved)
         setInitialSelected(new Set(approved))
         setLoading(false)
@@ -893,7 +893,7 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
         showToast('Failed to load photos: ' + e.message, true)
         setLoading(false)
       })
-  }, [creatorId, showToast])
+  }, [creatorId, showToast, aiMode])
 
   const toggle = (id) => {
     setSelected(prev => {
@@ -917,12 +917,12 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
       if (toApprove.length) calls.push(fetch('/api/admin/grid-planner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toApprove, approved: true }),
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toApprove, approved: true, ai: aiMode }),
       }))
       if (toRevoke.length) calls.push(fetch('/api/admin/grid-planner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toRevoke, approved: false }),
+        body: JSON.stringify({ action: 'setThumbnailApproval', assetIds: toRevoke, approved: false, ai: aiMode }),
       }))
       const results = await Promise.all(calls)
       for (const r of results) {
@@ -1072,6 +1072,10 @@ export default function GridPlanner({ smmMode = false } = {}) {
   const [thumbnailPool, setThumbnailPool] = useState([])
   const [draggingThumbnail, setDraggingThumbnail] = useState(null) // { assetId, thumbnail, name }
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
+  // AI tab: when on, the thumbnail tools target the SEPARATE AI thumbnail queue
+  // ('AI Approved Thumbnail') instead of the real-content pool. AI content runs
+  // on its own track (no IG/FB channel; routes to the creator's AI topic).
+  const [aiMode, setAiMode] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [detailPost, setDetailPost] = useState(null) // { post, accountId, account }
@@ -2045,7 +2049,25 @@ export default function GridPlanner({ smmMode = false } = {}) {
             ))}
           </select>
         </div>
+        {/* Real / AI tab — flips the thumbnail tools to the AI queue. */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Content</div>
+          <div style={{ display: 'inline-flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--card-border)' }}>
+            {[{ k: false, label: 'Real' }, { k: true, label: 'AI' }].map(opt => (
+              <button
+                key={String(opt.k)}
+                onClick={() => setAiMode(opt.k)}
+                style={{
+                  padding: '7px 16px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none',
+                  background: aiMode === opt.k ? (opt.k ? '#a884e8' : 'var(--palm-pink)') : 'var(--card-bg-solid)',
+                  color: aiMode === opt.k ? '#0a0a0a' : 'var(--foreground-muted)',
+                }}
+              >{opt.label}</button>
+            ))}
+          </div>
+        </div>
         <div style={{ flex: 1 }} />
+        {aiMode && <span style={{ fontSize: '12px', fontWeight: 700, color: '#a884e8' }}>AI thumbnail queue</span>}
         {saving && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Saving…</span>}
         {refreshing && <span style={{ fontSize: '12px', color: 'var(--palm-pink)' }}>Scraping IG…</span>}
         {unassignedGroups.length > 0 && (
@@ -2368,6 +2390,7 @@ export default function GridPlanner({ smmMode = false } = {}) {
           onClose={() => setShowThumbnailModal(false)}
           onSaved={() => loadCreator(selectedCreatorId)}
           showToast={showToast}
+          aiMode={aiMode}
         />
       )}
 

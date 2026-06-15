@@ -34,7 +34,7 @@ export async function GET(request) {
     const [assets, activePostsWithThumbs] = await Promise.all([
       fetchAirtableRecords('Assets', {
         filterByFormula: `NOT({Dropbox Shared Link}='')`,
-        fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'Approved Thumbnail', 'File Extension', 'CDN URL'],
+        fields: ['Asset Name', 'Dropbox Shared Link', 'Palm Creators', 'Asset Type', 'Pipeline Status', 'Used As Reel Thumbnail', 'Approved Thumbnail', 'AI Approved Thumbnail', 'File Extension', 'CDN URL'],
       }),
       forReel ? fetchAirtableRecords('Posts', {
         // Any in-flight or completed post that has a thumbnail attached
@@ -107,6 +107,7 @@ export async function GET(request) {
         dropboxLink: a.fields['Dropbox Shared Link'] || '',
         cdnUrl: a.fields['CDN URL'] || null,
         approvedThumbnail: !!a.fields['Approved Thumbnail'],
+        aiApprovedThumbnail: !!a.fields['AI Approved Thumbnail'],
         pipelineStatus: a.fields['Pipeline Status'] || '',
         createdTime: a.createdTime,
       }))
