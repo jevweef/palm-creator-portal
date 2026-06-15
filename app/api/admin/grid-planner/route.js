@@ -300,6 +300,7 @@ export async function GET(request) {
       fields: [
         'Post Name', 'Creator', 'Channel', 'Asset', 'Task',
         'Status', 'Type', 'Platform', 'Caption', 'Hashtags', 'Thumbnail', 'Thumbnail Source',
+        'Thumbnail Asset',
         'Scheduled Date', 'Telegram Sent At', 'Posted At', 'Post Link',
         'SMM Scheduled', 'SMM Scheduled At',
       ],
@@ -610,6 +611,12 @@ export async function GET(request) {
         // Auto-fill). 'pool' = applied via Thumbnail Pool drag/auto-fill.
         // 'auto-frame' = upload-time video frame. Empty for legacy posts.
         thumbnailSource: statusName(f['Thumbnail Source']) || '',
+        // Source pool Asset of an applied thumbnail (set by applyThumbnail/
+        // autoFillThumbnails). Passed through on send so the send route can
+        // deterministically pull the used thumbnail OUT of the pool. Without
+        // this the client serial-send path fell back to a lossy filename match
+        // that never hit, so used thumbnails lingered in the pool forever.
+        thumbnailAssetId: f['Thumbnail Asset'] || null,
         thumbnailBroken: hasBrokenThumb,
         smmScheduled: !!f['SMM Scheduled'],
         smmScheduledAt: f['SMM Scheduled At'] || null,

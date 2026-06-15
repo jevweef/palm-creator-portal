@@ -17,15 +17,18 @@ const ADMIN_NAV = [
     { key: 'suggest', label: 'Suggest' },
     { key: 'recreate', label: 'AI Recreate' },
   ]},
-  { href: '/admin/recreate-source', label: 'AI Source', icon: '🎞️' },
-  { href: '/admin/editor', label: 'Editor', icon: '✂️', children: [
-    { key: 'editorview', label: 'Dashboard' },
-    { key: 'review', label: 'For Review' },
-    { key: 'postprep', label: 'Post Prep' },
-    { key: 'grid', label: 'Grid Planner' },
-    { key: 'library', label: 'Creator Library' },
-    { key: 'oftv', label: 'OFTV Projects' },
-    { key: 'longform', label: 'Long Form' },
+  // Social Media Hub — single home for all social-media content work.
+  // Collapses the former Marketing Content / AI Content / Account Warm-Up /
+  // Editor items into ONE hub (intentionally reverses the 2026-05-27 "no
+  // single parent" decision — see docs/build-plans/smm-consolidation/ + the
+  // social-media-hub master plan memory). The four legacy routes still
+  // resolve by URL for back-compat; they're just no longer in the sidebar.
+  // Children route to /admin/social?tab=<sectionKey>.
+  { href: '/admin/social', label: 'Social Media Hub', icon: '📣', children: [
+    { key: 'overview', label: 'Overview' },
+    { key: 'content', label: 'Content' },
+    { key: 'outbound', label: 'Outbound' },
+    { key: 'accounts', label: 'Accounts & Setup' },
   ]},
   { href: '/admin/creators', label: 'Creators', icon: '🎭', children: [
     { key: 'earnings', label: 'Earnings' },
@@ -36,6 +39,11 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
+  // Research — OFM competitive-intelligence briefs (how other agencies operate,
+  // synthesized from their YouTube content, compared to how Palm works). Fed by
+  // the research pipeline (scripts/yt_discover.py → yt_transcript.py → synthesis)
+  // reading research/digests/*.json + research/meta/*.json.
+  { href: '/admin/research', label: 'Research', icon: '🔭' },
   { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
   { href: '/admin/publer', label: 'Publer', icon: '📅' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
@@ -74,18 +82,17 @@ export default function AdminLayout({ children }) {
   const isAdmin = role === 'admin' || role === 'super_admin'
   const isEditor = role === 'editor'
   const isChatManager = role === 'chat_manager'
-  // AI editor: HARD-BLOCKED from all /admin/* paths. Previously scoped to
-  // /admin/recreate-source + /admin/inspo, but that surfaced the full
-  // admin sidebar (pipeline controls, scrape buttons, etc.) to a role
-  // that shouldn't see any /admin URL. Outfit Library + Inspo Board are
-  // being relocated into the /ai-editor workflow; until then, ai_editor
-  // users get bounced to /ai-editor on every /admin visit.
+  // AI editor: allowed inside /admin/recreate-source (AI Content tab strip)
+  // as of SMM Batch 1 (2026-05-27). The tab strip itself role-filters which
+  // tabs render (ai_editor sees Workflow only). For every other /admin/*
+  // path, ai_editor still gets bounced to /ai-editor. Server-side route
+  // guards in lib/adminAuth.js are the actual security boundary; this just
+  // hides the rest of the admin sidebar from them.
   const isAiEditor = role === 'ai_editor'
-  // Outfit Library lives at /admin/recreate-source — AI editors need to
-  // browse the reel source library + outfit closet. The "empty sidebar"
-  // block below renders no admin nav links for this role, so they can't
-  // see the rest of /admin/* even if they hand-type a URL.
-  const aiEditorAllowedPath = pathname?.startsWith('/admin/recreate-source')
+  // ai_editor lands in the Social Media Hub's AI Content section. The legacy
+  // /admin/recreate-source route stays allowed for back-compat bookmarks.
+  const aiEditorAllowedPath = pathname?.startsWith('/admin/social')
+    || pathname?.startsWith('/admin/recreate-source')
 
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -147,10 +154,15 @@ export default function AdminLayout({ children }) {
 
   const userEmail = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase()
   const isInboxOwner = OWNER_ONLY_EMAILS.includes(userEmail)
-  // AI editor: empty sidebar (they're being redirected anyway, but this
-  // ensures no /admin link ever renders for them).
+  // AI editor inside /admin/recreate-source (AI Content): show a single-item
+  // sidebar with just the AI Content link. The tab strip inside the page
+  // role-filters which tabs they see. For any other path they'd be bounced
+  // to /ai-editor by the redirect effect above.
+  const AI_EDITOR_NAV = [
+    { href: '/admin/social', label: 'AI Content', icon: '🎨' },
+  ]
   const NAV_ITEMS = (isAiEditor
-      ? []
+      ? AI_EDITOR_NAV
       : isAdmin ? ADMIN_NAV : EDITOR_NAV)
     .filter(item => {
       if (item.ownerOnly && !isInboxOwner) return false
@@ -287,7 +299,7 @@ export default function AdminLayout({ children }) {
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {/* Parent-level pulse dot — surfaces nested counts so the
                       admin notices even from a different section. */}
-                  {item.href === '/admin/editor' && navCounts.oftvReview > 0 && !isActive && (
+                  {item.href === '/admin/social' && navCounts.oftvReview > 0 && !isActive && (
                     <span style={{
                       width: '7px', height: '7px', borderRadius: '50%',
                       background: '#E87878', flexShrink: 0,
@@ -302,7 +314,7 @@ export default function AdminLayout({ children }) {
                       const isChildActive = activeTab === child.key || (!activeTab && child === item.children[0])
                       // Count badges on specific sub-items. Currently only
                       // OFTV — extend by mapping more keys to navCounts.
-                      const childCount = (item.href === '/admin/editor' && child.key === 'oftv') ? navCounts.oftvReview : 0
+                      const childCount = (item.href === '/admin/social' && child.key === 'content') ? navCounts.oftvReview : 0
                       return (
                         <Link
                           key={child.key}

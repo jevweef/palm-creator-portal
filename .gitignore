@@ -12,3 +12,4 @@ pipeline/
 # Claude Code session/worktree state — never deploy
 .claude/worktrees/
 .claude/jobs/
+screenshots/

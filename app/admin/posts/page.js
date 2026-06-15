@@ -912,8 +912,10 @@ function PostCard({ post, onRefresh, onSend }) {
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '1px' }}>{post.creator?.name}</div>
         </div>
 
-        {/* Caption — the main thing typed on this card. Compact by default;
-            user can drag the resize handle if they want more room. */}
+        {/* Caption — the main thing typed on this card. (On-screen-text
+            suggestions are an editor tool and live in the editor's view, not
+            Post Prep. Proper AI caption suggestions are a separate future
+            feature to add here.) */}
         <div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}

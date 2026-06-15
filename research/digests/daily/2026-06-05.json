@@ -1,0 +1,3187 @@
+{
+  "date": "2026-06-05",
+  "kind": "daily",
+  "headline": "83 new finding(s), 0 rose in consensus.",
+  "new_findings": [
+    {
+      "id": "f0115",
+      "department": "pricing",
+      "topic": "Price anchoring / escalation ladder",
+      "title": "Warm fans with a slightly discounted first PPV, then escalate price on every subsequent send",
+      "variants": [
+        {
+          "claim": "The first PPV sale is a warm-up purchase at a slight discount; once a fan buys it, every future PPV should be priced at the floor or higher, escalating as the conversation progresses.",
+          "what_they_do": "New subscribers receive an automated script that pitches a first video at $34.99 (slightly below the $39.99 floor) to reduce friction and get a first purchase. After that purchase the fan is considered 'warmed up' and all future content is priced at $40+ for video and $20+ for images, escalating upward as the sexting session progresses. The escalation is tied to emotional momentum \u2014 the longer the conversation runs, the more the fan will pay.",
+          "run": "daily-2026-06-05"
+        },
+        {
+          "claim": "Pricing the first PPV low (roughly $5-$20) exists to get the fan used to spending, not to make money on that sale.",
+          "what_they_do": "Luca Pritchard caps the first PPV at $5-$20, never higher, to get the customer used to the habit of buying on the platform before laddering up; habibi tests a brand-new buyer with a small first buy (e.g. $9) to read his boundaries.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 281,
+          "quote": "it will sell them a video for $34.99 yes it is slightly cheaper than the $40 I mentioned earlier but this is to warm them up"
+        },
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 311,
+          "quote": "once they purchase this $34.99 video then you can consider them warmed up and then whenever you sell them a piece of content after that it is going to be at least 40 and upwards"
+        },
+        {
+          "video_id": "JXLdjNmHL-8",
+          "timestamp_seconds": 92,
+          "quote": "price the very first pbv between $5 to $20 let's say not go any higher than that... get them used to spending"
+        },
+        {
+          "video_id": "o_Gs5DY8PzY",
+          "timestamp_seconds": 437,
+          "quote": "the last one nine bucks this was a first buy for him... I wanted to test his boundaries"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen",
+        "Luca Pritchard",
+        "habibi"
+      ],
+      "consensus": {
+        "creators": 3,
+        "label": "high",
+        "contested": false
+      },
+      "applicability": [
+        "both",
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No Palm-side pricing ladder or escalation logic exists (\u00a77 GAP). The external chat team sets its own approach; Palm has no documented position on warm-up pricing or escalation sequencing.",
+        "recommendation": "Define a two-phase pricing ladder for the external chat team and future in-house chatters: Phase 1 (new sub warm-up) = first video at ~$35; Phase 2 (warmed fan) = $40+ escalating. Write this into the chat team brief and eventually into Palm's in-house chatter SOP (\u00a78 build-toward)."
+      }
+    },
+    {
+      "id": "f0013",
+      "department": "platform-risk",
+      "topic": "link safety and warmup",
+      "title": "Never link OF/Fanvue directly; warm accounts before linking",
+      "variants": [
+        {
+          "claim": "To avoid bans, operators never post adult-platform links directly on social and warm new accounts before adding any link-in-bio CTA.",
+          "what_they_do": "Always route via a neutral landing page (e.g. Get All My Links) since a reported direct OF/Fanvue link can trigger strikes/bans; spend the first ~30 days on profile setup, spaced posting and trust-score building before putting links in bio; avoid rapid-burst follows/comments and automation that trip platform limits.",
+          "run": "aipimpin"
+        },
+        {
+          "claim": "New social accounts should be warmed as normal users and post content for about two weeks before adding the OnlyFans link to protect trust score.",
+          "what_they_do": "Acts as a normal user (scroll/like, follow niche on day 2, don't post day 1), waits ~2 weeks of posting before adding any link, and pre-builds accounts before signing a client so revenue never stalls.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "gRwy2rxtWQc",
+          "timestamp_seconds": 372,
+          "quote": "never post direct to Fan View. Always use the Get All My Links"
+        },
+        {
+          "video_id": "h7QPtuDZK7k",
+          "timestamp_seconds": 1182,
+          "quote": "warm up slowly, act like a human"
+        },
+        {
+          "video_id": "pae7XZ2d57c",
+          "timestamp_seconds": 806,
+          "quote": "post content for 2 weeks before adding a link"
+        }
+      ],
+      "creators": [
+        "Ai Pimpin",
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 2,
+        "label": "medium",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI warmup is mature with a 90-day cadence, Day-21 link handoff and Day-45 OF-CTA gate (\u00a74), but real-creator warmup and link-safety rules are a gap (\u00a74 THIN).",
+        "recommendation": "Codify a real-creator account-warmup plus landing-page-only link policy mirroring the AI warmup gates (\u00a74) to reduce strike/ban risk on creator socials."
+      }
+    },
+    {
+      "id": "f0204",
+      "department": "chatting",
+      "topic": "let the fan initiate",
+      "title": "Make the fan chase to hold power",
+      "variants": [
+        {
+          "claim": "Letting the fan initiate and withholding rather than over-giving keeps the model in the power position and increases buying.",
+          "what_they_do": "Luca Pritchard plays hot-and-cold and sends non-nude teasers so the customer initiates, putting the chatter in the power position; habibi withholds (tells a fan asking for photos 'no, you're going to have to wait') to drive desire before selling.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7hC3TsQ1lqg",
+          "timestamp_seconds": 247,
+          "quote": "we always want to let the customer initiate... we are the ones that are in the power position"
+        },
+        {
+          "video_id": "o_Gs5DY8PzY",
+          "timestamp_seconds": 1222,
+          "quote": "even if a guy says hey can you send me photos of your tits you just say simply no you're going to have to wait"
+        }
+      ],
+      "creators": [
+        "Luca Pritchard",
+        "habibi"
+      ],
+      "consensus": {
+        "creators": 2,
+        "label": "medium",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Outsourced chatting; Palm owns no objection/power-dynamic playbook (\u00a78 OUTSOURCED). Build-toward. Cross-creator consensus (Luca + habibi).",
+        "recommendation": "Encode push-pull and let-the-fan-initiate tactics into the in-house chatting SOP rather than leaving tone to the vendor."
+      }
+    },
+    {
+      "id": "f0162",
+      "department": "acquisition",
+      "topic": "signing call vibe and red flags",
+      "title": "Treat the signing call as a two-way interview with hard non-negotiables",
+      "variants": [
+        {
+          "claim": "Operators sign more durable creators by qualifying them on the call against work-ethic and commitment non-negotiables instead of signing whoever replies.",
+          "what_they_do": "Opens the call human-first (camera on, 'how are you', hobbies) to break barriers, then qualifies: rejects short-term-money motives and 'overly involved' creators, requires committed daily hours and a fixed content/live cadence, and walks away if the vibe or non-negotiables fail.",
+          "run": "kingsam"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "eJFgXQid4s8",
+          "timestamp_seconds": 470,
+          "quote": "work ethic trumps everything"
+        },
+        {
+          "video_id": "eJFgXQid4s8",
+          "timestamp_seconds": 904,
+          "quote": "have non-negotiables and have some respect for yourself"
+        },
+        {
+          "video_id": "5IAamM5umXA",
+          "timestamp_seconds": 66,
+          "quote": "we prefer it's between 5 and six because then that allows a lot more content to be made"
+        }
+      ],
+      "creators": [
+        "King Sam OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm acquisition is Josh-DM-led with no documented signing-call qualification framework (\u00a76 THIN); this is a build-toward script Palm lacks.",
+        "recommendation": "Adopt a documented signing-call SOP: human-first rapport, explicit work-ethic/cadence non-negotiables, and willingness to reject misaligned creators."
+      }
+    },
+    {
+      "id": "f0190",
+      "department": "delegation",
+      "topic": "accountability levels",
+      "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
+      "variants": [
+        {
+          "claim": "Scale past a plateau by training department heads to own problems end-to-end rather than escalating every decision to the owner.",
+          "what_they_do": "Five accountability levels: (1) wait to be told, (2) bring the problem, (3) bring problem + 1-2 solutions, (4) solve it and report, (5) solve it AND build an SOP so it never recurs. Most teams sit at 1-2, making the owner the bottleneck. Push C-suite heads to level 4-5; example: an acquisition manager independently bought aged warmed IG accounts and hired another VA to lift outreach capacity, then just reported it. Hold Mon-Fri morning team calls with only the department heads.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 434,
+          "quote": "there are five main levels of accountability... the first level being they just simply wait for the command on what to do."
+        },
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 680,
+          "quote": "what's different between level five and level four is they not only find the problem and solve it, but they also will build infrastructure to ensure that this problem never happens again."
+        },
+        {
+          "video_id": "fURK_IrKfz4",
+          "timestamp_seconds": 801,
+          "quote": "making sure that you guys do morning team calls Monday to Friday."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no hiring scorecards, accountability framework, or management cadence documented (\u00a710 GAP).",
+        "recommendation": "Adopt the five-level accountability ladder as a management standard, push leads to level 4-5 with SOP-building expectations, and run Mon-Fri morning leadership calls."
+      }
+    },
+    {
+      "id": "f0010",
+      "department": "chatting",
+      "topic": "sales psychology",
+      "title": "Casino psychology: keep fans in the dopamine loop and stay in control",
+      "variants": [
+        {
+          "claim": "DM selling is treated as gamified casino psychology where the chatter maintains the power dynamic, captures fan data for rapport, and never breaks the fantasy by talking price.",
+          "what_they_do": "Auto-welcome DM collects name/age/interests into fan notes for later rapport (asking about a fan's dog by name); avoid being beggy or discussing price; price-locked content keeps fans from noticing spend; keep the model 'the prize' and just out of reach; deny AI accusations and use new content plus voice notes to rebut.",
+          "run": "aipimpin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "H4n9rR1-ql0",
+          "timestamp_seconds": 1005,
+          "quote": "in a casino they do everything to make you blind to the fact you're there losing all your money"
+        },
+        {
+          "video_id": "H4n9rR1-ql0",
+          "timestamp_seconds": 319,
+          "quote": "use fan notes to store this information"
+        }
+      ],
+      "creators": [
+        "Ai Pimpin"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm collects fan intelligence via Fan Tracker (\u00a79 PARTIAL) but has no chatting SOP using it (\u00a78 OUTSOURCED); the rapport-and-psychology loop is undocumented build-toward intelligence.",
+        "recommendation": "Specify a rapport-and-control chatting playbook (onboarding DM, fan-note schema, no-price-talk, power-dynamic rules) for the in-house/AI chat roadmap, wired into Fan Tracker."
+      }
+    },
+    {
+      "id": "f0015",
+      "department": "delegation",
+      "topic": "owner-first then outsource",
+      "title": "Master each channel yourself, then delegate to cheap geo-matched VAs",
+      "variants": [
+        {
+          "claim": "Operators master each posting channel personally before delegating it to low-cost VAs with strict SOPs, reserving founder time for high-ROI work.",
+          "what_they_do": "Run IG/TikTok yourself for ~1 month to learn it, then hand off to $1-3/hr VAs with documented SOPs and image/comment banks; keep TikTok geo-matched (US/UK/AU poster, not India/Africa) because TikTok pushes by poster location; X and Threads are easily outsourced, but the high-ROI anchor (IG/TikTok) is mastered first.",
+          "run": "aipimpin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "h7QPtuDZK7k",
+          "timestamp_seconds": 219,
+          "quote": "easily outsource this to a VA for anywhere from a dollar to $3 an hour"
+        },
+        {
+          "video_id": "gRwy2rxtWQc",
+          "timestamp_seconds": 711,
+          "quote": "master this better than anyone else can"
+        }
+      ],
+      "creators": [
+        "Ai Pimpin"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's posting is partly delegated (Amin manual posting via Telegram \u00a75; editors \u00a71) but staffing/hiring criteria, scorecards and SOP standards are a gap (\u00a710 THIN).",
+        "recommendation": "Formalize a VA hiring + SOP + geo-matching playbook for posting/social roles to fill the \u00a710 staffing gap; applies to current real-creator posting ops."
+      }
+    },
+    {
+      "id": "f0021",
+      "department": "instagram",
+      "topic": "reel structure",
+      "title": "Every reel needs hook, retention, reward; 2-3/day across content pillars",
+      "variants": [
+        {
+          "claim": "Reels are the primary growth lever and each is engineered with a 3-second hook, mid retention and a payoff, produced at 2-3/day split across a few fixed content pillars.",
+          "what_they_do": "Treats reels as the top of the IG pecking order (reels > posts > stories > funnel); structures each as hook (first 3s) / retention / reward (e.g. an ugly-to-hot transformation); defines ~3 niche content pillars and split-tests them at 2-3 reels/day, doubling down on winners and cutting losers; moved from static text-on-image reels to 'clean motion' video.",
+          "run": "aipimpin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "wL1B9e3zTcI",
+          "timestamp_seconds": 1395,
+          "quote": "Every reel should have a hook, a retention and a reward"
+        },
+        {
+          "video_id": "wL1B9e3zTcI",
+          "timestamp_seconds": 339,
+          "quote": "a minimum of two quality reels per day"
+        }
+      ],
+      "creators": [
+        "Ai Pimpin"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's inspo pipeline scores viral reels and decides what to film (\u00a71 MATURE) but does not codify per-reel hook/retention/reward structure or a pillar split-test cadence; real-creator cadence is a gap (\u00a71).",
+        "recommendation": "Add a reel-structure standard (hook/retention/reward) and a pillar-based split-test posting cadence to the inspo pipeline output for real creators; complements Palm's existing scoring engine."
+      }
+    },
+    {
+      "id": "f0044",
+      "department": "systems",
+      "topic": "Model profile / chatter brief",
+      "title": "Build a model profile doc with chatting style, persona facts, and content inventory for chatters",
+      "variants": [
+        {
+          "claim": "A documented model profile \u2014 covering chatting tone, physical stats, hobbies, and personality details \u2014 is essential so chatters can maintain consistent fan relationships without breaking immersion.",
+          "what_they_do": "For every creator they build a profile that includes: existing chatting style (especially for account transitions), height, age, bra size, feet size, astrological sign, hobbies, and other facts that come up naturally in DM conversations. Chatters reference this doc before and during conversations. Content is stored in a shared Dropbox/Google Drive the model can also upload to directly.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "VSc_IzRmudk",
+          "timestamp_seconds": 713,
+          "quote": "you need to understand their chatting style if especially if they're running their existing of account and you need to transition their chatting style to your Chatters"
+        },
+        {
+          "video_id": "VSc_IzRmudk",
+          "timestamp_seconds": 744,
+          "quote": "little things like their height age bra size feet size astrological sign hobbies things that just naturally get brought up during these conversations"
+        }
+      ],
+      "creators": [
+        "Patrick Mulroy"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's external chat team operates without a documented Palm-side model profile SOP (\u00a78 \u2014 outsourced, no internal SOP). Fan Tracker CRM (\u00a79) collects fan data but there is no equivalent creator-side profile that briefs chatters on the model's persona and voice.",
+        "recommendation": "Create a 'Model Brief' Airtable record linked to each creator in the Creators table. Fields: chatting tone/style notes, physical stats, hobbies, boundaries, content categories available. Share with external chat team now; becomes the foundation for in-house chatter onboarding when that roadmap item ships (\u00a78 build-toward)."
+      }
+    },
+    {
+      "id": "f0052",
+      "department": "chatting",
+      "topic": "Scripted PPV escalation ladder",
+      "title": "Use a tiered 'script' \u2014 escalating PPV ladder from $15 to $200+ per session",
+      "variants": [
+        {
+          "claim": "A pre-built escalation script that guides the fan through progressively more explicit content at increasing price points generates $300\u2013$500 per subscriber per session vs. a one-off $50 custom video.",
+          "what_they_do": "Chatters use a fixed script structure: (1) open with small talk / lifestyle warmup, (2) send 1\u20132 free teaser images to raise arousal, (3) transition to selling with a tiered video ladder \u2014 e.g., $15 (tease only) \u2192 $30 (slightly more) \u2192 $60 (light action) \u2192 $120 (more explicit) \u2192 $200 (full action). Content explicitness scales with price. Subscriber buys each step sequentially; by the final video, the session is complete and they've spent $300\u2013$500. The same script is reused across all subscribers.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 184,
+          "quote": "you have the first video for like $15 second video for 30 then for 60 for 120 for 200... you just continuously progress"
+        },
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 246,
+          "quote": "if he buys an entire script that's about $300 to $500 you make per subscriber and that's how your channel goes to the big big levels"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented PPV pricing ladder or chat script structure (\u00a77 GAP, \u00a78 OUTSOURCED). No internal baseline exists for escalation sequencing. This is high-value build-toward intel for both the in-house chat team and AI chatting projects.",
+        "recommendation": "Build a canonical escalation script template for chatters: define 5\u20136 tiers with explicit price points, content-reveal thresholds, and transition copy at each step. Treat it as a reusable asset deployed across all creators. Price anchoring should start low ($15) to minimize entry friction. Prioritize this for the AI chatting project where scripts can be fully automated."
+      }
+    },
+    {
+      "id": "f0054",
+      "department": "chatting",
+      "topic": "Free teaser content as pre-sell warm-up",
+      "title": "Send 1\u20132 free teaser images before any PPV offer to prime the subscriber",
+      "variants": [
+        {
+          "claim": "Sending free 'outfit' or soft-tease images before the first paid offer raises arousal and reduces friction on the first purchase, making the entire escalation ladder more likely to convert.",
+          "what_they_do": "At the start of each scripted session, the chatter sends 1\u20132 free images \u2014 typically a suggestive but non-explicit 'outfit' shot \u2014 with no price attached, framed as casual sharing ('what do you think about this outfit?'). Only after the subscriber reacts positively does the chatter pivot to the paid ladder. This gates the sell behind a micro-engagement that confirms interest and builds investment.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 153,
+          "quote": "I'll maybe send you a couple pictures just for free no price attached of my outfit maybe I look cute I'm like yeah what do you think about this outfit"
+        },
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 184,
+          "quote": "ideally it's something sexual that makes the subscriber horny and he's like okay yeah that's hot... now after that you can be like yo do you want me to show a bit more"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chat SOP exists at Palm (\u00a78). This specific 'free teaser before first pitch' mechanic is a discrete, concrete tactic to encode into the future chatter SOP and AI chatting state machine.",
+        "recommendation": "Define a mandatory 'warm-up phase' in the chat SOP: 1 free teaser image sent before any PPV offer, followed by a reaction-check message. Only proceed to the $15 entry PPV after a positive subscriber response. This applies directly to AI chatting \u2014 build the state machine so it cannot enter 'sell mode' before completing the warm-up phase."
+      }
+    },
+    {
+      "id": "f0055",
+      "department": "pricing",
+      "topic": "PPV pricing ladder anchoring",
+      "title": "Anchor the PPV ladder at $15 entry point to minimize first-purchase friction",
+      "variants": [
+        {
+          "claim": "Starting the PPV ladder at a low price ($15) minimizes the psychological barrier to the first purchase, making it far more likely the subscriber enters the escalation funnel and ultimately spends $300\u2013$500.",
+          "what_they_do": "The specific ladder cited: $15 \u2192 $30 \u2192 $60 \u2192 $120 \u2192 $200 \u2192 $200. Entry price is low enough to feel trivial. Each step roughly doubles, creating anchoring where each subsequent price feels proportional to the last rather than shocking. The final $200 items are 'full action' \u2014 maximum explicitness justifying maximum price. Total session value: ~$625 at full conversion.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 184,
+          "quote": "you have the first video for like $15 second video for 30 then for 60 for 120 for 200 the next one for 200"
+        },
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 246,
+          "quote": "if he buys an entire script that's about $300 to $500 you make per subscriber"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented PPV pricing model (\u00a77 GAP \u2014 identified as #1 creator concern). This is the clearest external data point available for building Palm's first PPV pricing SOP. The doubling structure is a concrete starting model.",
+        "recommendation": "Adopt this ladder structure as the baseline for Palm's PPV pricing SOP: 6 tiers starting at $15, roughly doubling each step. Document it formally in \u00a77 pricing docs. Test against the external chat team's current pricing to see if a ladder approach could increase per-fan revenue. This also gives Palm a concrete pricing framework to share with creators during onboarding (addressing the #1 creator concern)."
+      }
+    },
+    {
+      "id": "f0056",
+      "department": "chatting",
+      "topic": "Script reusability as operational leverage",
+      "title": "One reusable script deployed across all subscribers = scalable chat ops",
+      "variants": [
+        {
+          "claim": "A single well-constructed escalation script can be reused with every subscriber, making chat operations scalable without requiring chatters to freestyle or produce new custom content daily.",
+          "what_they_do": "The script is treated as a static, reusable asset \u2014 not a custom conversation. Chatters are trained to deliver it as if it's personal and spontaneous (the 'experience' framing), but operationally it's the same sequence for every fan. This eliminates the content-production bottleneck of true custom content (where a new video must be filmed for each request) and lets chatters handle higher fan volume with consistent outcomes.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 339,
+          "quote": "it's easy to replicate you just have one script ready and you can sell it to every single subscriber"
+        },
+        {
+          "video_id": "evpirEqEcjQ",
+          "timestamp_seconds": 214,
+          "quote": "ideally the subscriber gets more and more horny he likes the script more and more he buys everything"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm outsources chatting (\u00a78) and has no internal script assets. This 'script as reusable product' model is directly applicable to the AI chatting roadmap project \u2014 the state machine should implement the script once and deploy it across all fans on a given creator's account.",
+        "recommendation": "For the AI chatting project, build the escalation script as a canonical, versioned asset per creator (not per conversation). Track which 'step' in the script each fan has reached using Fan Tracker CRM (\u00a79) so the AI resumes at the correct point. For the in-house chat team, train chatters on script delivery as a skill (making canned feel personal) rather than improv."
+      }
+    },
+    {
+      "id": "f0065",
+      "department": "chatting",
+      "topic": "chatter onboarding",
+      "title": "Set expectations via call + concise video/docs emphasizing common beginner mistakes first",
+      "variants": [
+        {
+          "claim": "New chatters must be shown explicitly what 'good' looks like via a call plus a short video and documents that lead with the most common beginner errors before anything else.",
+          "what_they_do": "Run an onboarding call with the new chatter; share a pre-recorded video and 2\u20133 concise documents. Documents are structured around the most common mistakes (dry replies that kill conversation, overly aggressive/obvious PPV transitions) and use side-by-side examples \u2014 'wrong version' vs 'right version' \u2014 for carrying conversations, captioning PPVs, transitioning, etc.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "RTL8o_shDz4",
+          "timestamp_seconds": 93,
+          "quote": "We put emphasis on common beginner mistakes"
+        },
+        {
+          "video_id": "RTL8o_shDz4",
+          "timestamp_seconds": 123,
+          "quote": "examples are king in your documents. Just show this is an example of a chatter doing it wrong. This is an example of a chatter doing it right"
+        }
+      ],
+      "creators": [
+        "Lachlan Nicholson"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chatter onboarding materials exist at Palm (\u00a78, outsourced). Build-toward for in-house team.",
+        "recommendation": "Create a 'chatter starter kit': a \u226410-min Loom walkthrough + a 1-page doc listing top 5 beginner mistakes with example chat screenshots. Prioritize mistake-first framing over comprehensive rules."
+      }
+    },
+    {
+      "id": "f0068",
+      "department": "chatting",
+      "topic": "team culture / peer learning",
+      "title": "On-shift group call + peer-authority system accelerates collective chatter improvement",
+      "variants": [
+        {
+          "claim": "An open call for all chatters currently on shift \u2014 combined with assigning subject-matter 'authorities' among chatters \u2014 creates collaborative learning that makes the whole team improve faster than top-down coaching alone.",
+          "what_they_do": "Maintain an always-open call channel for chatters on the same shift so they can ask each other for help and share mistakes in real time. Identify each chatter's main strength (e.g., scripting, PPV captioning). When another chatter needs help in that area, route them to the peer expert rather than the manager. This builds internal figures of authority and reduces manager bottleneck.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "RTL8o_shDz4",
+          "timestamp_seconds": 248,
+          "quote": "having an on shift call where the chatters who are currently working can talk to each other"
+        },
+        {
+          "video_id": "RTL8o_shDz4",
+          "timestamp_seconds": 278,
+          "quote": "Chatters tend to have one main strength. Identify what that is and then whenever a different chatter asks for help on that topic, you send them to that chatter"
+        }
+      ],
+      "creators": [
+        "Lachlan Nicholson"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chat team structure at Palm (\u00a78, outsourced). Build-toward for in-house team. Relevant also to AI chatting project's team design.",
+        "recommendation": "When standing up the in-house chat team, create a Telegram or Discord group call as an 'on-shift room.' Map each chatter's strongest skill in Airtable and use that routing table to build peer mentorship from week one."
+      }
+    },
+    {
+      "id": "f0071",
+      "department": "acquisition",
+      "topic": "Cold outreach via Instagram personal brand",
+      "title": "Build a professional IG persona to run cold outreach to creators",
+      "variants": [
+        {
+          "claim": "Setting up a credible Instagram profile with professional photos (not casual/topless) is the primary vehicle for cold-outreaching creators, and showing your face builds trust that converts to signed deals.",
+          "what_they_do": "Agency owner creates a personal IG account with polished location/lifestyle photos (real or Pinterest-sourced). Shows face for credibility; faceless is acceptable if IG photos are professional. DMs creators who appear stuck, plateaued, or post-bad-agency. Offers a free 1-week trial to prove value, then converts to 50/50. Moves promising leads to FaceTime to close.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 592,
+          "quote": "you want to just make an Instagram profile, you want to set it up some nice business photos"
+        },
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 654,
+          "quote": "you can offer if you find a model and you believe in yourself\u2026 I'll work for free for you for a week and if things improve then we can go to a 50/50 split"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led outbound (\u00a76) but no documented IG persona setup, photo standard, or structured funnel from IG profile \u2192 DM \u2192 FaceTime \u2192 sign. The free-trial-then-sign tactic is not in Palm's playbook.",
+        "recommendation": "Document a Palm acquisition IG profile standard: photo style, bio copy, niche positioning. Add a free-trial offer as a low-friction entry for creators already earning but skeptical. Build a short outreach sequence: IG DM \u2192 value hook \u2192 FaceTime close \u2192 contract. Cheap to implement, directly addresses \u00a76 gap."
+      }
+    },
+    {
+      "id": "f0073",
+      "department": "systems",
+      "topic": "Creator onboarding intake form",
+      "title": "Google Form onboarding captures creator profile, device specs, goals, and personal traits",
+      "variants": [
+        {
+          "claim": "A structured onboarding form (Google Forms) that captures age, location, device model, personal traits, and goals is the operational foundation before any work begins.",
+          "what_they_do": "Agency sends a Google Form at signing. Fields include: age, country, iPhone model (iPhone 13+ required for IG quality standard), personal traits, content style preferences, and creator goals. Login to OF account follows, then profile audit, promotions review, and a written growth plan.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 685,
+          "quote": "get up a Google Forms, fill it out \u2014 you want to know when, how old the model is, where the model's from, if the model's got an iPhone, what iPhone she's recording off"
+        },
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 716,
+          "quote": "we always do iPhone 13 or above, they have to be, because Instagram care a lot about quality"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has an onboarding form wizard (name, email, commission %, state, contract, voice memo \u2014 \u00a76) but no documented device requirement, content style intake, or goal-setting fields. The iPhone 13+ quality gate is not in Palm's onboarding.",
+        "recommendation": "Extend Palm's onboarding wizard to include: (1) device model field with a minimum spec gate (iPhone 13+ or Android equivalent), (2) content style/persona fields, (3) creator goals (revenue target, posting comfort level, explicit limits). Add an OF profile audit step as a formal onboarding milestone before first post."
+      }
+    },
+    {
+      "id": "f0074",
+      "department": "chatting",
+      "topic": "Pre-made script funnel structure",
+      "title": "Build a linear pre-made script ladder: message \u2192 soft image \u2192 message \u2192 explicit PPV",
+      "variants": [
+        {
+          "claim": "A pre-made DM script that sequences plain messages, half-nude images, and full-nude PPV in a deliberate ladder is the core chatting monetization engine.",
+          "what_they_do": "Agency writes a reusable script sequence: opener message \u2192 follow-up message \u2192 half-nude image send \u2192 bridging message \u2192 full explicit PPV offer \u2192 continuation. Recommends doing 6\u20137 hours of chatting personally first to learn the craft before hiring chatters. Treats this as the primary revenue driver (80\u201390% of OF revenue).",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 746,
+          "quote": "you want to make one message, then another, then maybe send her a half nude image, then another message, then a full nude, then blah blah blah"
+        },
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 30,
+          "quote": "80 to 90% is made through chatting \u2014 the models, they're busy creating content, so they don't actually have time to do all the chatting"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced to an external team today (\u00a78). No internal script, ladder structure, or SOP exists. This is directly relevant to Palm's roadmap item of building an in-house chat team (~1yr out) and the active AI chatting project. Frame as build-toward intelligence.",
+        "recommendation": "Begin drafting Palm's first pre-made script ladder now as a build-toward asset: (1) map a 5\u20137 step message sequence per creator persona, (2) define PPV price points per step (ties to \u00a77 pricing gap), (3) document it in Airtable as a 'Chat Scripts' table linked to each creator. This becomes the training baseline when in-house chatting launches."
+      }
+    },
+    {
+      "id": "f0083",
+      "department": "chatting",
+      "topic": "Chatter training with standardised scripts",
+      "title": "Train chatters with agency-owned PPV scripts rather than relying on their defaults",
+      "variants": [
+        {
+          "claim": "Not all chatters come with polished PPV skills; agencies that hand chatters specific scripts and strategies outperform those that leave chatters to their own methods.",
+          "what_they_do": "Black Cherry operates a chatting team internally but also licenses their PPV script framework to other agency operators. They provide PDF script playbooks, documented PPV funnels, and course-based training covering at least seven distinct PPV strategies. The agency owns the IP; chatters execute to spec.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "xvtOiY4BXGM",
+          "timestamp_seconds": 94,
+          "quote": "you need to know these strategies so that you can train shatters to be this good not all Chatters have mastered the game they know what they know but when you can give them scripts like this"
+        },
+        {
+          "video_id": "xvtOiY4BXGM",
+          "timestamp_seconds": 595,
+          "quote": "Down Below there's actually going to be a PDF attached where you can see a very precise example of how we run this"
+        }
+      ],
+      "creators": [
+        "Daniel & Bloomy The OnlyFans Goats"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced with no internal scripts or SOPs (\u00a78). When Palm builds its in-house chat team (~1yr roadmap), it will need proprietary script libraries and training material. This competitor model \u2014 agency owns the playbook, chatters execute \u2014 is the architecture Palm should adopt.",
+        "recommendation": "Begin building Palm's internal PPV script library now, drawing from competitor frameworks like this one. Structure it as: (1) welcome/intro message template, (2) conversation bait posts, (3) upsell ladder scripts per price tier, (4) objection-handling / repackaging scripts. This becomes the training corpus for both the in-house chat team and the AI chatting project."
+      }
+    },
+    {
+      "id": "f0092",
+      "department": "chatting",
+      "topic": "Qualification framework",
+      "title": "Four-axis sub qualification (profession, location, age, hobbies) to size wallet and build rapport",
+      "variants": [
+        {
+          "claim": "Systematically qualifying subscribers on four data points \u2014 profession, location, age, and hobbies \u2014 lets chatters estimate spending capacity and tailor their communication style before attempting to sell.",
+          "what_they_do": "After the personalized opener gets a response, chatters move into a structured qualification sequence. They ask about: (1) Profession \u2014 men spend 40+ hrs/week on work and will talk about it freely; also signals income level. (2) Location \u2014 dictates tone, cultural references, and timezone. (3) Age \u2014 a 52-year-old has 30 more years of earning history than a 22-year-old; older subs get more formal language, younger subs get slang. (4) Hobbies \u2014 reveals personality and gives commonality-building material. Chatters are also taught 'level two qualification' \u2014 drilling one level deeper on each topic (e.g., 'How did you get into that job?') to extract more information and signal genuine interest.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 1065,
+          "quote": "number one profession you will be talking to men okay simps Subs they are men"
+        },
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 1157,
+          "quote": "another one is age how old are they part of the reason of qualifying is that we want to see their potential as a customer"
+        }
+      ],
+      "creators": [
+        "Yalla Papi"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline at Palm for chatter qualification frameworks (\u00a78, outsourced). Build-toward for in-house chat team.",
+        "recommendation": "Build a qualification checklist into the in-house chatter training SOP: chatters must capture profession, location, age, and at least one hobby for every sub before escalating to selling. Store this data per-fan in the Fan Tracker CRM (\u00a79) to enable personalized re-engagement. Age and profession data should also feed the whale-hunting logic \u2014 a 50-year-old professional is a higher-priority cultivation target than an 18-year-old student."
+      }
+    },
+    {
+      "id": "f0093",
+      "department": "chatting",
+      "topic": "Commonality building as the core sales engine",
+      "title": "Three-tier commonality system (me-too / mutual contact / tangential connection) to manufacture emotional bond",
+      "variants": [
+        {
+          "claim": "Building plausible commonalities with subscribers \u2014 using a tiered system from direct 'me too' to loose tangential connections \u2014 is the single most important driver of repeat purchasing.",
+          "what_they_do": "After qualification, chatters build commonalities using three levels: Level 1 ('me too') \u2014 chatter claims to share the same trait directly (e.g., 'I also study psychology'). Used sparingly because it's hard to track across many subs. Level 2 ('I know someone who') \u2014 chatter links via a third party ('My little brother studies psychology'). Common but overuse feels weird. Level 3 (tangential connection) \u2014 chatter links the sub's trait to something loosely related ('I read a Harvard Business Review article about students who study under 2 hours a night\u2026'). This is the core technique \u2014 it's harder to fake, opens new conversational threads, and doesn't require the chatter to claim personal overlap. The goal is to give a 'plausible reason' for emotional connection so that future sales requests don't feel transactional.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 1377,
+          "quote": "building commonalities this is going to be the most important section in this presentation"
+        },
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 1841,
+          "quote": "oh really that's interesting I was reading an article in the Harvard Business review and it said that students who study under 2 hours a night do 50% worse"
+        }
+      ],
+      "creators": [
+        "Yalla Papi"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline at Palm (\u00a78, outsourced). Build-toward. Notably, the 'plausible reason for validation' logic is essentially applied sales psychology that Palm could encode as a training principle, not just a chatting script.",
+        "recommendation": "Make Level 3 commonality building the centrepiece of Palm's in-house chatter training. Create a worked-example library organized by profession/hobby (e.g., 'if sub says he's a nurse, here are three Level 3 connections'). Pair this with the qualification CRM data so chatters can prep connections before re-engaging a returning sub."
+      }
+    },
+    {
+      "id": "f0098",
+      "department": "delegation",
+      "topic": "Chatter hiring and performance management",
+      "title": "Commission-plus-bonus comp structure with daily ranked leaderboard drives consistent chatter output",
+      "variants": [
+        {
+          "claim": "A commission-only base combined with milestone bonuses, daily ranked leaderboards shared with the team, and regular chat reviews sustains chatter performance over time and is the structural reason revenue grew from ~$20k/month to $80k+.",
+          "what_they_do": "Daily: an assistant compiles each chatter's individual revenue and ranks them on a leaderboard shared with the whole team \u2014 publicly feeding ego and competitive instinct. Comp structure: commission only plus bonuses tied to achievable milestones (the presenter spent three days designing this mathematically; result was a ~25% revenue lift). Chat reviews: manager logs into accounts periodically, reviews a sample of conversations, records a screen-capture with verbal feedback, sends to the chatter. Every chat review correlates with a numbers increase. Pre-training filter used before formal training to screen candidates \u2014 only those who pass pre-training get to the actual training stage. Hiring criteria codified into a checklist (not all personality types are suited to the role).",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 96,
+          "quote": "every single day I have my assistant compile a report of the rankings of all of the salespeople because I give out bonuses"
+        },
+        {
+          "video_id": "68hWSiw4rDI",
+          "timestamp_seconds": 5145,
+          "quote": "my compensation and bonus structure which I believe is key to the continued motivation of my chatters\u2026 numbers have gone up about 25% as a result"
+        }
+      ],
+      "creators": [
+        "Yalla Papi"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented chatter hiring criteria, comp structure, or performance management cadence (\u00a78 outsourced, \u00a710 THIN). This is the operational skeleton Palm will need when building the in-house chat team.",
+        "recommendation": "When scoping the in-house chat team build (~1yr roadmap per \u00a78): (1) Design a commission + milestone-bonus comp structure before the first hire \u2014 do not default to hourly. (2) Implement a daily revenue leaderboard visible to the whole chat team. (3) Build a pre-training filter (written test + role-play) that candidates must pass before formal onboarding. (4) Schedule weekly chat reviews for each chatter, not just when numbers drop. These four structural elements can be planned now and should be in the in-house team design spec."
+      }
+    },
+    {
+      "id": "f0107",
+      "department": "traffic",
+      "topic": "Guaranteed Gains (GGs) for fan acquisition",
+      "title": "Use Guaranteed Gains to buy a fixed subscriber count from larger pages",
+      "variants": [
+        {
+          "claim": "Paying a larger creator or agency a flat fee to guarantee a specific number of new free fans is a cost-effective cold-traffic channel, especially for trans pages.",
+          "what_they_do": "Agency pays a page owner a fixed dollar amount (example: ~$140 for 500 GGs or 1,000 GGs) to post the new creator's page plus send a mass DM to their fan list, guaranteeing at least that many new free subscribers. ROI is tracked as: fans acquired \u00d7 LTV minus cost. Example given: 200 GGs at $500 cost, $11 LTV = $2,200 revenue, $1,700 profit. Deals are sourced through OFM Telegram groups and tracked in a spreadsheet. A dedicated 'queue manager' role schedules and verifies every promo fires on time, creates tracking links, and runs profit/loss analysis per promo to identify which partners to scale.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 216,
+          "quote": "I will give you 200 of my fans guaranteed for 500 bucks"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 560,
+          "quote": "queue managers are creating tracking links and running profit analysis on every single promo"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented traffic or paid-distribution strategy (\u00a75 GAP). No equivalent of guaranteed-gains deal-sourcing, queue-manager role, or per-promo ROI tracking exists in the Palm baseline.",
+        "recommendation": "Build a lightweight GG tracking sheet (partner, cost, fans guaranteed, fans delivered, LTV estimate, profit) even before activating this channel. For real creators in fetish-adjacent niches, test one GG deal with a Telegram-sourced partner at a small budget ($200\u2013$500) to validate LTV assumptions. Appoint or assign queue-manager responsibility to an existing ops role so timing and compliance don't slip."
+      }
+    },
+    {
+      "id": "f0108",
+      "department": "traffic",
+      "topic": "Shout-for-shout (S4S) network scaling",
+      "title": "Build a Telegram-sourced S4S network before signing creators to pre-load launch traffic",
+      "variants": [
+        {
+          "claim": "Developing a network of same-size trans creators and agencies for mutual shoutouts on OF, IG, Telegram, TikTok, and X before launch allows an agency to spike a new creator to tens of thousands of fans on day one.",
+          "what_they_do": "Agency owner joins as many OFM Telegram groups as possible, posts availability for S4S and GG collabs, and records all contacts in a spreadsheet. Matching logic: pages of roughly equal fan count do S4S (mutual shoutout); significantly larger pages are approached for paid GGs instead. Pre-launch, the agency pre-schedules promos from the entire network so that on launch day the new creator immediately receives a surge of fans. Once internal pages grow, new creator launches are boosted by the agency's own portfolio of existing creators ('internal boosting'), eliminating the need to pay for early GGs.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 276,
+          "quote": "you're going to gain most of your network through Telegram groups"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 591,
+          "quote": "when you onboard new creators, you pre-schedule promos from your entire network and all of your internal pages as well, boosting new pages to $100,000 in the first month"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented S4S or network-building playbook (\u00a75 GAP). The system is entirely absent from Palm's current ops baseline.",
+        "recommendation": "Assign a part-time 'network getter' task (could be Josh or a VA) to join 5\u201310 OFM Telegram groups and begin logging trans-creator and agency contacts into an Airtable table (Name, Platform, Fan Count, Contact Method, Last Outreach, Deal Type). Even if Palm doesn't operate trans creators today, the mechanics of S4S and launch-day pre-scheduling are transferable to any niche and should be piloted on the next real-creator launch."
+      }
+    },
+    {
+      "id": "f0109",
+      "department": "systems",
+      "topic": "Promo operations staffing model",
+      "title": "Separate 'network getter' and 'queue manager' roles to operationalize promotion at scale",
+      "variants": [
+        {
+          "claim": "A $100K/month promo machine requires two distinct ops roles: one that expands the contact network daily and one that schedules, tracks, and enforces timing on every active promotion deal.",
+          "what_they_do": "Network getters are in Telegram groups every day adding new creator and agency contacts. Queue managers hold the schedule of every live S4S and GG deal, confirm partners post on time, create unique tracking links per promo, and run profit analysis to identify high-ROI partners for reinvestment. A separate media buying team handles paid IG meme-page buys. Reddit/X contractors distribute content as an additional traffic stream. All roles are concurrent and ongoing, not launch-only.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 527,
+          "quote": "your network getters are reaching out to new leads and creators every day expanding the size of your network"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 560,
+          "quote": "your queue managers are constantly in combo with all of your network arranging shout out for shout out and GGs"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has Amin for manual posting and an external chat team but no equivalent network-getter or queue-manager role (\u00a710 THIN). Traffic strategy is an explicit GAP (\u00a75).",
+        "recommendation": "When Palm is ready to activate a distribution playbook, define these two roles explicitly in the org chart before hiring. In the short term, create a simple Airtable table ('Promo Queue') with fields: Partner, Deal Type, Cost, Scheduled Date, Confirmed Posted (Y/N), Tracking Link, Fans Delivered, Profit. This infrastructure costs nothing to build now and makes the queue-manager role immediately hirable when needed."
+      }
+    },
+    {
+      "id": "f0110",
+      "department": "traffic",
+      "topic": "Reddit and X as supplementary traffic channels",
+      "title": "Contract out Reddit and X content distribution as a low-overhead traffic stream",
+      "variants": [
+        {
+          "claim": "Outsourcing Reddit and X content distribution to a specialist contractor can yield disproportionate revenue relative to cost (cited: $1K/month spend generating ~$20K/month in revenue).",
+          "what_they_do": "Agency pays a Reddit/X specialist contractor roughly $1,000/month to distribute content across relevant subreddits and X accounts, funneling traffic to OF. The contractor is found through the agency's Telegram network. ROI is tracked as revenue attributed to that traffic source versus contractor cost.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 370,
+          "quote": "I pay him like a thousand bucks a month and he brings me like $20,000 a month"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 560,
+          "quote": "your Reddit and X contractors are distributing content and funneling into loads of subs turning into hefty profit"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Reddit or X traffic strategy (\u00a75 GAP). This is a pure learn-from-others gap that applies to real creators and is relatively easy to test at low cost.",
+        "recommendation": "Source a Reddit/X contractor via OFM Telegram groups. Start with a 30-day paid pilot (~$500\u2013$1K) for one creator, using UTM-tagged links or OF referral tracking to attribute revenue. If 5x+ ROI is confirmed, formalize as a recurring line item per creator."
+      }
+    },
+    {
+      "id": "f0111",
+      "department": "pricing",
+      "topic": "LTV-based paid traffic decision framework",
+      "title": "Gate paid cold-traffic spend on known LTV; only scale if margins are confirmed",
+      "variants": [
+        {
+          "claim": "The decision to run VA-led cold outreach or any paid cold-traffic campaign should be gated on whether the creator's LTV is high enough to make the acquisition cost profitable.",
+          "what_they_do": "Before activating VA cold-outreach or media buying, the agency calculates the estimated LTV per free fan (example used: $11/fan) and sets a maximum allowable acquisition cost per fan based on a target margin (example: willing to pay up to $5,000 for 500 GGs = $10/fan, expecting $11 LTV). Every promo deal is evaluated against this threshold before committing budget. Tactics that don't meet the margin threshold are not activated regardless of how low-cost they appear.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 591,
+          "quote": "cold traffic lead generation with VAs outreaching to cold audience and converting them \u2014 if your LTV is high enough, this will make sense"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 464,
+          "quote": "I am going to be willing to pay upwards of $5,000 for 500 GGs"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented LTV per fan figure, no PPV pricing model, and no acquisition-cost threshold (\u00a77 GAP, \u00a76 GAP). Without these numbers, Palm cannot evaluate any paid traffic channel rationally.",
+        "recommendation": "As a prerequisite to any paid traffic or GG experimentation, calculate LTV per free fan for at least one existing creator using historical OF data (total revenue \u00f7 total free fans over a rolling 90-day window). Store this in Airtable per creator. Even a rough number unlocks rational spend decisions across all traffic channels."
+      }
+    },
+    {
+      "id": "f0112",
+      "department": "acquisition",
+      "topic": "Pre-launch network building before signing creators",
+      "title": "Build distribution network of 10\u201320 partner creators before signing your first creator in a niche",
+      "variants": [
+        {
+          "claim": "An agency entering a new niche should develop a promotional network of at least 10\u201320 creators and agencies before signing any creator, so that traffic infrastructure is ready on day one.",
+          "what_they_do": "Before signing a single trans creator, the agency owner spends time in Telegram groups building relationships with 10\u201320 trans creators and several agencies that manage trans creators. Pre-launch, the agency pre-schedules GGs and S4S deals with this network so that as soon as a creator is onboarded, a surge of guaranteed fans (e.g. 10,000 on day one via $5K in GGs) can be deployed immediately. This inverts the usual sequence of 'sign creator, then figure out traffic.'",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 622,
+          "quote": "before you sign any trans girls, I'd say start developing your network \u2014 get at least like 10\u201320 trans creators that you're in contact with"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 653,
+          "quote": "as soon as you launch, have all of them pre-schedule everything so you have like $5,000 in guaranteed gains coming in"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is currently Josh-DM-led and reactive (\u00a76 THIN). There is no documented pre-signing network-building step or launch-day traffic playbook. Palm typically figures out distribution after a creator is onboarded.",
+        "recommendation": "For any new niche Palm enters (including trans if that becomes a focus), add a pre-launch checklist step: minimum N partner contacts secured in Telegram before creator onboarding begins. Document required contacts and deal commitments as a gate in the creator onboarding flow, making distribution readiness a precondition of launch rather than an afterthought."
+      }
+    },
+    {
+      "id": "f0113",
+      "department": "founder-discipline",
+      "topic": "Niche selection for scaling to $100K/month",
+      "title": "Choose fetish niches (e.g. trans) over mainstream niches to unlock paid traffic channels and reduce parasocial dependency",
+      "variants": [
+        {
+          "claim": "Trans and fetish-adjacent niches are structurally easier to scale to $100K/month because fans are content-driven rather than parasocial-relationship-driven, making cold-traffic channels like GGs and media buying viable without a warm-up funnel.",
+          "what_they_do": "Agency deliberately targets fetish-driven niches where the fan\u2013creator relationship is transactional. In these niches, cold traffic from meme pages, GGs, and S4S converts directly to paying subscribers without needing a Cupid-style warm-up sequence required for mainstream (cis) creators. This structural difference means the traffic stack is simpler, cheaper, and more scalable. The operator cites knowing multiple agencies doing million-dollar profit months exclusively via trans agencies.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 61,
+          "quote": "I know a couple guys in the OFM space that are doing million-dollar months \u2014 they're doing it with a trans agency"
+        },
+        {
+          "video_id": "2z9lD8nn9Os",
+          "timestamp_seconds": 155,
+          "quote": "in the trans community, people that are into this type of stuff don't care about the creator \u2014 they just want to get their hands on as much as they possibly can"
+        }
+      ],
+      "creators": [
+        "Hunter Ezra OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's niche strategy is not documented (\u00a76 GAP, \u00a77 GAP). Palm currently uses Cupid-style warming for cis creators (referenced in transcript as the workaround for cold traffic not converting). The structural point \u2014 that fetish niches eliminate the warm-up dependency \u2014 is a strategic insight Palm should weigh when evaluating creator acquisition targets.",
+        "recommendation": "When Palm evaluates new creator signings, add a niche-type field to the creator intake process (fetish vs. mainstream) and document the expected traffic stack per type. If Palm experiments with trans or other fetish creators, expect that GG and S4S channels will convert more efficiently and that the warm-up content requirement (\u00a71 pipeline) can be reduced or replaced with a faster paid-traffic playbook."
+      }
+    },
+    {
+      "id": "f0114",
+      "department": "pricing",
+      "topic": "PPV minimum price floor",
+      "title": "Set hard minimum PPV prices: $19.99 images, $39.99 videos, $300 customs",
+      "variants": [
+        {
+          "claim": "Selling PPV content below ~$20 for photos and ~$40 for videos trains fans to see the creator as cheap and destroys long-term monetization.",
+          "what_they_do": "This agency enforces hard price floors: no image PPV under $19.99, no video PPV under $39.99, no custom under $300. Low pricing is treated as a disqualifier, not a conversion tool. The logic is anchoring \u2014 cheap prices signal low value and attract fans who won't spend more, wasting chatter time for minimal return (framed as bad 'cash-for-effort' ratio).",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 157,
+          "quote": "you're now going to be selling pictures for no less than $19.99 each"
+        },
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 188,
+          "quote": "Customs I'm not joking no less than $300"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented PPV pricing model or price floors (\u00a77, explicit GAP). No internal baseline exists for what creators should charge for images, videos, or customs.",
+        "recommendation": "Establish Palm's standard PPV price floor as agency policy: ~$20 minimum for images, ~$40 minimum for videos, ~$300 for customs. Document this in the creator onboarding materials and share with the external chat team as a standing instruction. This is a zero-cost, immediate revenue lever."
+      }
+    },
+    {
+      "id": "f0119",
+      "department": "pricing",
+      "topic": "Bio/menu pricing as conversion killer",
+      "title": "Remove all visible price menus from the OF bio \u2014 menus make the page feel like an eBay store",
+      "variants": [
+        {
+          "claim": "Displaying a price menu in the OF bio immediately cheapens the creator's brand and signals transactionality before any relationship is built.",
+          "what_they_do": "When taking over a creator account, the first thing this agency removes is the bio price menu (e.g. '$5 photos, $10 packs'). No prices are listed publicly. Pricing is handled exclusively inside DM conversations after rapport is established, which allows for dynamic escalation and avoids anchoring fans to low numbers.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 0,
+          "quote": "the first thing I see when I take over a models only fans account are all these offers something like this there'll be a menu in the bio"
+        },
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 30,
+          "quote": "as soon as guys subscribe to the only fans account they see this and it feels like an eBay store"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented OF page setup or bio standards (\u00a77 GAP, \u00a72 THIN). No internal policy on whether price menus should or should not appear in the bio.",
+        "recommendation": "Establish a Palm account setup standard: no price menus in the OF bio. Add this to the creator onboarding checklist and to the brief given to the external chat team when taking over an account."
+      }
+    },
+    {
+      "id": "f0121",
+      "department": "acquisition",
+      "topic": "paid-ads funnel",
+      "title": "Predictable creator-signing via paid ad funnel",
+      "variants": [
+        {
+          "claim": "A productized paid-ads-to-VSL-to-call funnel turns creator acquisition from referral/DM luck into a predictable, scalable pipeline.",
+          "what_they_do": "Runs paid ads (or organic traffic) to a lead magnet, then a 5-minute direct VSL whose two jobs are to book qualified calls and pre-handle objections; a solid funnel + sales team books 20-40 calls/month at a 75-85% show rate and pre-closes 30-40%.",
+          "run": "dylan"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "lyyyMMoYDxs",
+          "timestamp_seconds": 0,
+          "quote": "how we built a funnel that books qualified creator calls on autopilot and pre-closes about 30 to 40% of them"
+        },
+        {
+          "video_id": "lyyyMMoYDxs",
+          "timestamp_seconds": 281,
+          "quote": "you can quite easily be booking 20 to 40 calls per month, and have a show rate of 75 to 85%"
+        }
+      ],
+      "creators": [
+        "DylanOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm acquisition is Josh-DM-led outbound + referrals with no systematic machine (\u00a76 THIN). No funnel, lead magnet, or VSL exists.",
+        "recommendation": "Build a creator-facing funnel: one lead magnet + a short VSL, runnable on organic traffic first (no ad spend), to convert Josh's outbound and any inbound into booked, pre-qualified calls."
+      }
+    },
+    {
+      "id": "f0133",
+      "department": "delegation",
+      "topic": "delegate menial work",
+      "title": "Delegate menial work to protect creative output",
+      "variants": [
+        {
+          "claim": "Founders should delegate menial, repeatable work (posting, editing, thumbnails) early to keep the creative/strategic brain free for high-leverage output.",
+          "what_they_do": "Delegates short-form editing, posting, and other menial tasks while keeping idea-capture and filming in-house; recommends building a light team (editors, thumbnail/caption help) early to avoid burnout from doing it all.",
+          "run": "dylan"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "nuPU_m6bdUc",
+          "timestamp_seconds": 804,
+          "quote": "you want to start delegating your editing, your anything that's like menial like posting"
+        },
+        {
+          "video_id": "nuPU_m6bdUc",
+          "timestamp_seconds": 2204,
+          "quote": "burning out from doing it all yourself. That's a very other common pitfall"
+        }
+      ],
+      "creators": [
+        "DylanOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm already delegates manual posting to a contractor (Amin, \u00a75) and editing to editors (\u00a71), but has no formalized delegation/hiring plan (\u00a710 GAP).",
+        "recommendation": "Formalize a delegation ladder (what the founder keeps vs hands off) and hiring criteria, building on Palm's existing posting/editing outsourcing."
+      }
+    },
+    {
+      "id": "f0138",
+      "department": "acquisition",
+      "topic": "outreach funnel tracking",
+      "title": "Track the full outreach funnel and fix one stage at a time",
+      "variants": [
+        {
+          "claim": "Outreach should be tracked stage-by-stage in a daily spreadsheet so the bleeding step is fixed one variable at a time after a meaningful sample.",
+          "what_they_do": "Logs source link, DMs sent, replies, qualified convos, asks-for-call, booked/showed/closed per channel; waits ~3,000 DMs before changing anything, then changes one variable at a time. Uses a 7-12 message value-first follow-up chain (most deals close on touch 5-7) including a 'red flag' breakup follow-up with ~95% response.",
+          "run": "dylan"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "o4s_nKjm2fw",
+          "timestamp_seconds": 1891,
+          "quote": "after about 3,000 DMs... you'll know which layer of your system is actually bleeding"
+        },
+        {
+          "video_id": "o4s_nKjm2fw",
+          "timestamp_seconds": 1982,
+          "quote": "Most deals happen between the fifth and seventh touch point"
+        }
+      ],
+      "creators": [
+        "DylanOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented outreach funnel metrics (reply/booking/show/close) or follow-up cadence (\u00a76 THIN, \u00a79 PARTIAL).",
+        "recommendation": "Stand up an outbound tracker (reply, qualified, booked, showed, closed) and a multi-touch follow-up sequence, mirroring the data-driven discipline Palm already applies to content."
+      }
+    },
+    {
+      "id": "f0164",
+      "department": "acquisition",
+      "topic": "outreach sourcing and message",
+      "title": "Source creators from OF-video comment sections and push to a call",
+      "variants": [
+        {
+          "claim": "Creator acquisition works by finding help-seeking creators in social comment sections, outreaching across every platform with a curiosity-driven message, and pushing for a quick call rather than closing over DMs.",
+          "what_they_do": "Searches TikTok for OnlyFans-related videos and mines the comment sections for girls asking for help (a signal they lack an agency), outreaches on every platform she's on with a short curiosity message ('100 fresh paying subs every single day'), and immediately pushes to a 5-minute call.",
+          "run": "kingsam"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "A_q_yQityrA",
+          "timestamp_seconds": 184,
+          "quote": "within the comment section will be girls doing Only Fans asking for help"
+        },
+        {
+          "video_id": "A_q_yQityrA",
+          "timestamp_seconds": 714,
+          "quote": "you basically just want to push for a call straight away"
+        }
+      ],
+      "creators": [
+        "King Sam OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm acquisition is outbound-DM + referral but with no documented sourcing method, message template, or call-booking step (\u00a76 GAP).",
+        "recommendation": "Codify a sourcing playbook (comment-section mining of help-seeking creators), a curiosity-led opener, multi-platform outreach, and call-booking as the CTA."
+      }
+    },
+    {
+      "id": "f0166",
+      "department": "pricing",
+      "topic": "no upfront fees",
+      "title": "Charge no upfront or hidden fees; earn only on a partnership split",
+      "variants": [
+        {
+          "claim": "Legitimate agencies take no money upfront and no hidden fees, charging only via the revenue split, which is itself a trust differentiator at signing.",
+          "what_they_do": "Takes nothing upfront and no hidden fees, contrasting against agencies that make creators 'buy their way in'; frames the relationship as partners not assets and lays all terms out from the beginning so they never change.",
+          "run": "kingsam"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "KilBfcIbXqU",
+          "timestamp_seconds": 498,
+          "quote": "nothing up front... I've been approached by a lot of other agencies and they all wanted me to buy my way into the agency"
+        },
+        {
+          "video_id": "KilBfcIbXqU",
+          "timestamp_seconds": 529,
+          "quote": "we really strive on being partners, you know, and not just treating you like an asset"
+        }
+      ],
+      "creators": [
+        "King Sam OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm produces a contract PDF at onboarding but has no documented fee-structure stance (\u00a77 GAP); this is a concrete trust-positioning rule to adopt.",
+        "recommendation": "Codify 'no upfront, no hidden fees, partner-not-asset' as explicit Palm acquisition trust positioning."
+      }
+    },
+    {
+      "id": "f0172",
+      "department": "founder-discipline",
+      "topic": "systemize then scale one creator at a time",
+      "title": "Systemize day-one onboarding and perfect one creator before scaling",
+      "variants": [
+        {
+          "claim": "Reaching the first 10k/month comes from running the business as a real systemized operation\u2014day-one onboarding, scripts, chatting, marketing all in place\u2014and perfecting one creator before adding the next.",
+          "what_they_do": "Insists onboarding (Drive, content sheet/niche, scripts) be completed on day one not stretched over a week, gets Infloww scripts and smart messages set up before a chatter starts, focuses one marketing channel, and only scales to the next creator once one is fully systemized.",
+          "run": "kingsam"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Z8bXYKu8znE",
+          "timestamp_seconds": 250,
+          "quote": "It needs to all be done on day one"
+        },
+        {
+          "video_id": "Z8bXYKu8znE",
+          "timestamp_seconds": 684,
+          "quote": "Perfect that for one model. Scale to the next"
+        }
+      ],
+      "creators": [
+        "King Sam OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm is multi-creator past this stage, but the 'systemize before you scale' discipline maps onto Palm's THIN/GAP areas (acquisition \u00a76, pricing \u00a77, retention \u00a79) that aren't yet documented.",
+        "recommendation": "Apply 'document and systemize before delegating/scaling' to close Palm's THIN areas before further growth."
+      }
+    },
+    {
+      "id": "f0176",
+      "department": "ai-ofm",
+      "topic": "AI + human hybrid chatting meta",
+      "title": "Let AI sort and convert new subs; route spenders to human chatters",
+      "variants": [
+        {
+          "claim": "The emerging chatting meta is a hybrid where AI handles new-subscriber volume and identifies real spenders, then hands those fans to human chatters for long-term girlfriend-experience retention.",
+          "what_they_do": "Has AI run all new subscribers and complete the first script to separate spenders from time-wasters, then moves real spenders to a human chatter who gives a daily girlfriend experience to a small client list (~20 fans each); reports ~70% unlock rate and a single whale spending $50k in 4 months.",
+          "run": "kingsam"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "T4M3pAjLJp0",
+          "timestamp_seconds": 184,
+          "quote": "I will let the AI deal with all the new subscribers... so that it can differentiate between the actual spenders and the time wasters"
+        },
+        {
+          "video_id": "T4M3pAjLJp0",
+          "timestamp_seconds": 903,
+          "quote": "we want the chatter to specifically just focus on a specific number amount of clients"
+        }
+      ],
+      "creators": [
+        "King Sam OFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Defines the target architecture for Palm's AI-chatting project and future in-house team (\u00a78 build-toward): AI for volume/sorting, humans for whale retention.",
+        "recommendation": "Design Palm's chat roadmap as a hybrid: AI for new-sub volume and spender-sorting, human chatters owning small VIP client lists for retention, with unlock-rate as a tracked KPI."
+      }
+    },
+    {
+      "id": "f0181",
+      "department": "pricing",
+      "topic": "commission split",
+      "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
+      "variants": [
+        {
+          "claim": "Charge around 50% for full-service management rather than discounting to a low percentage to win clients.",
+          "what_they_do": "Treats 50/50 as industry standard for doing everything (marketing + chatting); explicitly warns beginners against charging 20-30% out of desperation. Nuance: when starting with sub-$1k creators, stay around 40-60% (default 50%); higher 30-40% can fit only specific larger cases. Logic: getting a creator 1k->10k is harder than 37k->120k, so don't give away margin on the hard early work.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 743,
+          "quote": "charging like 20, 30, 35% when you're just starting out... the industry standard, go with 50% and you can't go wrong with that."
+        },
+        {
+          "video_id": "O4LFyA89ZIA",
+          "timestamp_seconds": 217,
+          "quote": "a 50/50 deal is quite common in the only fans management industry."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm sets commission % per-creator at onboarding but has no documented split rationale/tiers (\u00a77 GAP).",
+        "recommendation": "Write Palm's commission rationale with a 50% default anchor and explicit guidance on when to deviate, so splits aren't negotiated ad hoc."
+      }
+    },
+    {
+      "id": "f0182",
+      "department": "pricing",
+      "topic": "PPV script price ladder",
+      "title": "Sell content as an escalating PPV script ladder",
+      "variants": [
+        {
+          "claim": "Monetize via a scripted sequence where each stage is more explicit and priced higher than the last, rather than flat pricing.",
+          "what_they_do": "A 'script' is pre-made content starting safe-for-work and escalating; price rises each stage, e.g. ~$10-15, then ~$35, ~$70, ~$140, ~$200. Between paid stages, send free photos at the level the fan already unlocked to over-deliver and stand out from other creators.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 155,
+          "quote": "the first one is fairly cheap, like $10, $15, then it goes to about 35, then maybe 70, 140, and then 200."
+        },
+        {
+          "video_id": "T2LJ9cMoMEU",
+          "timestamp_seconds": 218,
+          "quote": "you can send a bunch of pictures for free... it's going to seem like you're providing so much more value."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented PPV pricing model (\u00a77 GAP) and is thin on OF-vault/PPV content (\u00a72); chatting is outsourced (\u00a78) so the sequence is build-toward for in-house/AI chat.",
+        "recommendation": "Capture a default PPV script ladder (stage prices + free-content-between-stages tactic) as a starting pricing position and as build-toward content for the AI-chat project."
+      }
+    },
+    {
+      "id": "f0185",
+      "department": "content",
+      "topic": "niche-fit content",
+      "title": "Build content around the creator's niche and her own strengths",
+      "variants": [
+        {
+          "claim": "Choose content by giving each creator a defined niche and building around her individual strengths, not by copying others' viral clips bar-for-bar.",
+          "what_they_do": "Calls 'no niche' the #1 agency mistake; with 4M+ creators you must stand out. For each creator, identify strengths/weaknesses (some are confident on camera, some shy-but-flexible) and create content that is easy for her to replicate and doesn't feel like work, rather than blindly recreating another creator's viral reel.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 61,
+          "quote": "within literally one or two seconds I can see exactly what's wrong, which is there is no niche."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 155,
+          "quote": "you must understand what are their strengths and weaknesses and play into their strengths. create content that is simple for them to do."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's social pipeline is data-driven and mature for ideation (\u00a71), but niche/positioning and creator-strength fit are not explicit fields in the flow.",
+        "recommendation": "Add a niche + creator-strengths step feeding the inspo pipeline so promoted ideas are filtered for fit, not just virality."
+      }
+    },
+    {
+      "id": "f0186",
+      "department": "traffic",
+      "topic": "backup accounts + multi-platform",
+      "title": "Spin up backup/secondary accounts and post across many platforms",
+      "variants": [
+        {
+          "claim": "Multiply reach by creating multiple secondary social accounts and posting across many platforms, then funnel all of it to OnlyFans.",
+          "what_they_do": "Beyond the creator's main IG, create 2nd/3rd/4th IG accounts plus Reddit, Snapchat, threads, Facebook; even if a backup only adds 15k-100k views/mo it yields net-new paid subs you can attribute with a tracking link \u2014 distinct from the creator's existing audience. Post daily/multiple times, organize content a week in advance.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 494,
+          "quote": "are you actually creating new accounts? Like... a second, third, fourth, fifth Instagram account... an extra 15, 20, 30, 100,000 views per month, it's better than nothing."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 556,
+          "quote": "you can have a tracking link and all of a sudden you can show the client... extra 20, 50, 100 paid subscribers just from these backup accounts."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's distribution strategy (Reddit, multi-account, S4S) is an explicit GAP (\u00a75); cadence is partially uncodified (\u00a71). Note: this overlaps Palm's AI warmup multi-account capability (\u00a73/\u00a74).",
+        "recommendation": "Document a multi-account/multi-platform traffic strategy with tracking links for attribution and a week-ahead scheduling cadence; reuse AI-warmup account infrastructure."
+      }
+    },
+    {
+      "id": "f0187",
+      "department": "systems",
+      "topic": "onboarding speed + SOP",
+      "title": "Onboard with a documented same-day process and a welcome video",
+      "variants": [
+        {
+          "claim": "Convert a signed creator into active service the same day via a documented onboarding process that also manages expectations.",
+          "what_they_do": "No-onboarding-process is called the #2 fatal mistake. Use a pre-recorded welcome video (so you don't repeat yourself) that sets expectations: when/where to message, how to pay invoices, what content is required; then connect OF to Infloww and run an audit. Act with Amazon-like speed \u2014 even a 1-2 day delay risks the creator leaving in the first days.",
+          "run": "markus"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 249,
+          "quote": "you must act with speed... you must have an entire sequence... on what happens as soon as the contract is signed."
+        },
+        {
+          "video_id": "c6KrBSIGWVI",
+          "timestamp_seconds": 280,
+          "quote": "we have a pre-recorded video... which explains everything... how to pay the invoices, what content do we require from them."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm onboarding is a form wizard \u2192 Creators table (\u00a76); strong on contract automation but no documented expectation-setting welcome video or same-day activation SOP.",
+        "recommendation": "Add a standardized welcome video + same-day activation checklist to onboarding to set expectations and cut early churn."
+      }
+    },
+    {
+      "id": "f0199",
+      "department": "founder-discipline",
+      "topic": "CAC:LTV not vanity metrics",
+      "title": "Steer on CAC:LTV and margin, not followers",
+      "variants": [
+        {
+          "claim": "Allocating resources by cost-per-acquisition versus LTV and target margin, rather than by follower counts or a raw LTV number, is how a scaled agency decides where to invest.",
+          "what_they_do": "Hive Media tracks free and paid LTV over 7 and 30 days against a roughly $1 Reddit CAC, targets a 50% margin on base traffic (accepting 20-30% on low-effort purchased traffic), and color-codes models so investment flows to the highest CAC:LTV returns; the founder calls 'what is a good LTV' the wrong question.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "bklo6HZBxRY",
+          "timestamp_seconds": 2997,
+          "quote": "we are always monitoring free LTV and paid LTV over a 7-day and 30-day period"
+        },
+        {
+          "video_id": "bklo6HZBxRY",
+          "timestamp_seconds": 3340,
+          "quote": "what is a good LTV... it's just the wrong question... what we actually care about is cac to ltv"
+        }
+      ],
+      "creators": [
+        "faceless francis ofm"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm collects fan/whale data but leadership reporting is in-flight and there is no standard CAC:LTV or margin-per-creator view (\u00a79 PARTIAL, \u00a77 THIN). Gap.",
+        "recommendation": "Adopt a per-creator CAC:LTV dashboard with a target margin, and allocate posting/acquisition spend by that ratio instead of by follower vanity metrics."
+      }
+    },
+    {
+      "id": "f0205",
+      "department": "chatting",
+      "topic": "fan personalization",
+      "title": "Use the fan's name, kill mass-messages",
+      "variants": [
+        {
+          "claim": "Personalizing chats with the fan's name and avoiding generic mass-message bundle blasts is a high-leverage, underused driver of spend and LTV.",
+          "what_they_do": "Habibi stresses using the fan's actual name instead of 'babe' (people respond to their own name) and refuses mass-message bundle blasts and odd-number 'flea market' pricing, taking a new account from $33 to $500+ days with one-to-one personalized chatting.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "o_Gs5DY8PzY",
+          "timestamp_seconds": 61,
+          "quote": "people get aroused by their name... it's very underutilized even by chatters"
+        },
+        {
+          "video_id": "o_Gs5DY8PzY",
+          "timestamp_seconds": 215,
+          "quote": "we were sending no stupid... bundle deals... I don't advise mass messages at all"
+        }
+      ],
+      "creators": [
+        "habibi"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a Fan Tracker CRM (\u00a79 PARTIAL) but personalization data and tone live with outsourced chatters (\u00a78). Build-toward plus owning the data.",
+        "recommendation": "Ensure Palm's own per-fan CRM captures the name and interests, and bar generic mass-message bundle blasts, so personalization survives any chatting-vendor change and feeds future AI chat."
+      }
+    },
+    {
+      "id": "f0207",
+      "department": "pricing",
+      "topic": "dynamic / per-fan pricing",
+      "title": "Price dynamically off purchase history",
+      "variants": [
+        {
+          "claim": "Setting price per fan from their purchase history, backing off after a no and pushing higher for proven whales, beats one fixed price for all.",
+          "what_they_do": "Luca Pritchard uses dynamic pricing read from each subscriber's unlock history via tools like Infloww: if a fan stalled at $65 he offers 17/27/47/59 next time, but if a fan will pay $150-$200 for what others pay $20 for he sells at that willingness, and he keeps explicit content premium-priced so perceived value stays high.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JXLdjNmHL-8",
+          "timestamp_seconds": 156,
+          "quote": "you pick a different selling strategy for every single subscriber"
+        },
+        {
+          "video_id": "JXLdjNmHL-8",
+          "timestamp_seconds": 311,
+          "quote": "the low price might make him not want to buy instead of buy... keep the content premium priced"
+        }
+      ],
+      "creators": [
+        "Luca Pritchard"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No per-fan price discipline or perceived-value rule at Palm (\u00a77 THIN). Direct gap.",
+        "recommendation": "Adopt a dynamic per-fan pricing rule keyed to unlock history, plus a floor that keeps explicit content premium-priced to protect perceived value."
+      }
+    },
+    {
+      "id": "f0028",
+      "department": "delegation",
+      "topic": "Incremental hiring in step with revenue milestones",
+      "title": "Add team members and build systems in proportion to revenue growth \u2014 not all at once",
+      "variants": [
+        {
+          "claim": "Agencies that scale successfully add team members and formalize systems incrementally as revenue grows (every $10k step), rather than brute-forcing revenue and attempting to retrofit structure later.",
+          "what_they_do": "TDM describes a stepwise pattern: $10k \u2192 $20k adds first team members; $20k \u2192 $30k formalizes contracts; $30k \u2192 $40k introduces KPI tracking; $40k \u2192 $50k and onward continues compounding systems. The key is that structure is built in proportion to the revenue step, not deferred.",
+          "run": "daily-2026-06-01"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "D5bFUIVUZV8",
+          "timestamp_seconds": 561,
+          "quote": "10 turned into 20 but a couple team members came on board. 20 turned into 30 which meant that you started to build out proper contracts."
+        }
+      ],
+      "creators": [
+        "TDM Business (OFM)"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's hiring and org structure are thin and undocumented (\u00a710 GAP). There is no scaling roadmap that ties headcount or system builds to specific revenue milestones. Palm risks the 'brute force' trap the video warns against if growth outpaces internal structure.",
+        "recommendation": "Create a simple revenue-milestone roadmap in Airtable or Notion: at each $X increment in monthly revenue, define the next hire, SOP, or system to be built. Even a rough version (e.g., at $X add a second editor; at $Y formalize creator KPI reporting; at $Z begin in-house chat hiring) provides the incremental discipline TDM describes."
+      }
+    },
+    {
+      "id": "f0032",
+      "department": "instagram",
+      "topic": "Multi-account content rotation \u2014 avoiding identical Reels grids",
+      "title": "Rotate which repurposed video goes to which account \u2014 never mirror the same grid",
+      "variants": [
+        {
+          "claim": "Posting identical video sequences across all repurposing accounts is the most common way agencies trigger cluster-bans.",
+          "what_they_do": "If a creator films 3 videos/day, all 3 go to the main organic account, but each repurposing account receives only ONE of the three \u2014 a different one per account. This ensures no two reposting accounts share the same Reels grid sequence.",
+          "run": "daily-2026-06-01"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "veotoUTeoPQ",
+          "timestamp_seconds": 372,
+          "quote": "if you have three different videos per day\u2026 you're going to post all three of them on the main account. One of them on the first reposting account, one of them on the second, and one of them on the third"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's current scheduling system (\u00a75) routes posts via Publer or Telegram/Amin but is designed for one primary account per creator. There is no documented logic for distributing content across a cluster of repurposing accounts for a single creator.",
+        "recommendation": "Design a distribution-rotation rule in the scheduling layer: for any creator running N repurposing accounts, assign each daily video to a unique subset of those accounts via a round-robin or modular assignment in Airtable/Publer. This prevents grid mirroring and reduces ban risk."
+      }
+    },
+    {
+      "id": "f0033",
+      "department": "instagram",
+      "topic": "Organic vs. repurposed account architecture \u2014 strict separation",
+      "title": "Never mix organic and repurposed content on the same IG account",
+      "variants": [
+        {
+          "claim": "Mixing original and repurposed content on one account cancels out the benefits of organic reach while still incurring the algorithmic penalty of repurposed content.",
+          "what_they_do": "They operate two structurally separate account tiers: (1) main organic accounts where the creator films fresh content every time \u2014 these pull the highest views; (2) repurposing-only accounts staffed by VAs, purely for volume. The two tiers are never merged.",
+          "run": "daily-2026-06-01"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "veotoUTeoPQ",
+          "timestamp_seconds": 433,
+          "quote": "you split up into both teams because you have your main chick and you have your side chicks\u2026 Never mix the two. Never."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's pipeline (\u00a71) is entirely organic/creator-filmed for the primary account. Palm does not currently run a repurposing-account layer. This finding clarifies the correct architecture IF Palm adds one: keep the existing organic pipeline untouched and stand up a separate repurposing operation alongside it.",
+        "recommendation": "If Palm scales to multi-account reposting, codify the two-tier rule in the SMM hub redesign (\u00a711): tag accounts as 'organic-primary' or 'repurpose-only' in Airtable, and enforce via posting-workflow routing so editors never schedule repurposed content to an organic-primary account."
+      }
+    },
+    {
+      "id": "f0039",
+      "department": "traffic",
+      "topic": "Beginner traffic stack",
+      "title": "Start organic on Twitter, TikTok, IG only \u2014 add Reddit/bots later",
+      "variants": [
+        {
+          "claim": "New agencies should limit traffic sources to organic short-form content on Twitter, TikTok, and Instagram, deferring Reddit, bots, and shoutouts until the funnel is proven.",
+          "what_they_do": "Recommends a three-platform organic-only traffic strategy for beginners: push short-form video content on Twitter/X, TikTok, and Instagram. Explicitly deprioritizes Reddit, paid shoutouts, and automation tools as advanced tactics \u2014 not because they don't work, but because complexity at the start obscures what's actually driving results.",
+          "run": "daily-2026-06-01"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Km3eHnrzhDw",
+          "timestamp_seconds": 217,
+          "quote": "start simple things like Twitter, Tik Tok, Instagram, and that's it. Just push organic short form content. No need to over complicate it"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's traffic/distribution strategy is not documented (\u00a75 GAP). Palm does run IG and social content production (\u00a71) but has no written playbook for multi-platform distribution sequencing or when to layer in Reddit/paid channels.",
+        "recommendation": "For new creator onboarding, define a Phase 1 traffic stack (IG + TikTok organic, consistent with Palm's existing content pipeline) and a Phase 2 expansion trigger (e.g., once a creator hits X subs or Y MRR, add Reddit and X/Twitter). Document this as a traffic phase ladder so operators know when and how to escalate."
+      }
+    },
+    {
+      "id": "f0042",
+      "department": "delegation",
+      "topic": "Chatter hiring model",
+      "title": "Hire chatters on flat rate, commission, or hybrid \u2014 reinvest first revenue",
+      "variants": [
+        {
+          "claim": "Once initial revenue is generated, the first reinvestment should be hiring chatters on a flat rate, small commission, or hybrid comp structure to free up operator time for scaling.",
+          "what_they_do": "Describes a reinvestment-first scaling loop: operator chats manually \u2192 earns first revenue \u2192 hires chatters (flat fee or commission or both) \u2192 reclaims time \u2192 signs more clients \u2192 hires more chatters \u2192 repeats. The comp structure is flexible (flat/commission/hybrid) rather than a fixed model.",
+          "run": "daily-2026-06-01"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "Km3eHnrzhDw",
+          "timestamp_seconds": 310,
+          "quote": "you can then reinvest it and you can hire what are called chatters. These are people who handle all of the DMs for you, either for a flat rate or a small commission or a mixture of both."
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced (\u00a78) so this loop is bypassed at the current stage. However, Palm has no documented chatter comp model, hiring criteria, or onboarding process for when it builds an in-house team. This is a build-toward gap.",
+        "recommendation": "Begin documenting chatter comp benchmarks now (flat rate ranges, commission % norms, hybrid structures) sourced from competitor content like this. Build a chatter job description and scoring rubric ahead of the in-house chat team launch. This prevents scrambling when the timeline moves up."
+      }
+    },
+    {
+      "id": "f0049",
+      "department": "retention",
+      "topic": "Transparent communication on account problems",
+      "title": "Proactively disclose account issues to creators \u2014 hiding problems destroys trust faster than the problem itself",
+      "variants": [
+        {
+          "claim": "Agencies that hide negative account developments lose model trust catastrophically when the model discovers the issue independently; proactive disclosure, even of bad news, strengthens the relationship.",
+          "what_they_do": "Their agency policy is to give updates on account performance whether good or bad. If something goes wrong (traffic drop, platform issue, content underperformance), they inform the model directly rather than waiting or papering over it. This is presented as a cultural value established from onboarding onwards.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "VSc_IzRmudk",
+          "timestamp_seconds": 681,
+          "quote": "you don't want to just make it seem like everything's going perfectly and them to figure out something's wrong on their own because that's going to be just relationship destroying"
+        }
+      ],
+      "creators": [
+        "Patrick Mulroy"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented creator communications policy around bad news or account issues (\u00a76 thin, \u00a79 no retention strategy). The weekly invoice cadence provides a financial signal but there is no SOP for flagging non-financial account problems to creators.",
+        "recommendation": "Add a 'bad news protocol' to Palm's creator comms SOP: define what events trigger a proactive creator notification (e.g., >20% subscriber drop, platform flag, traffic source failure) and set a response-time SLA (e.g., notify within 24 hours). Document this protocol and mention it during onboarding so creators know to expect it. Supports \u00a79 retention."
+      }
+    },
+    {
+      "id": "f0050",
+      "department": "acquisition",
+      "topic": "Onboarding as creator quality filter",
+      "title": "Use the onboarding process itself as a passive screening tool for creator quality and reliability",
+      "variants": [
+        {
+          "claim": "How a model responds during onboarding \u2014 responsiveness, receptiveness to feedback, implementation of early requests \u2014 is a leading indicator of her long-term revenue potential and whether the agency should continue investing in her.",
+          "what_they_do": "They observe model behavior during the onboarding phase as a quality signal: slow responses, failure to implement feedback, or resistance to criticism are treated as early warnings that the creator will not reach top-tier earnings. They acknowledge that new agencies must work with whoever they can get but advise building judgment over time to screen for quality clients.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "VSc_IzRmudk",
+          "timestamp_seconds": 808,
+          "quote": "if they're flaky or they don't respond very good or they take forever to respond or they don't Implement criticism you most likely don't have a very high quality client"
+        }
+      ],
+      "creators": [
+        "Patrick Mulroy"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's onboarding is a form wizard (\u00a76) \u2014 it captures data but generates no behavioral signal about the creator. There is no documented creator-quality scoring or early-stage filtering criteria.",
+        "recommendation": "Add a 30-day post-onboarding creator quality review field to the Creators Airtable table. Score creators on: (1) content submission timeliness, (2) responsiveness on Telegram, (3) implementation of feedback from first weekly call. Use scores to prioritize agency resource allocation and, as the roster scales, to inform future signing decisions."
+      }
+    },
+    {
+      "id": "f0057",
+      "department": "chatting",
+      "topic": "Chatter onboarding / VA training module",
+      "title": "Package VA chatter training as a zipped module with persona PDF",
+      "variants": [
+        {
+          "claim": "Sending a structured, zipped training module to new chatter VAs \u2014 including a persona guide, payment info, and scripts \u2014 accelerates onboarding and ensures consistency.",
+          "what_they_do": "When hiring a chatter VA, Bjorn compiles a ZIP package containing: (1) a PDF guide on the model's persona (age range, niche, typing style, pet names, emojis), (2) payment/platform instructions, (3) a pre-written script. The VA unzips and self-trains before starting.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "O-KSXbv4vHs",
+          "timestamp_seconds": 0,
+          "quote": "some training material that I prepare for our VAs so when I hire a VA for the purposes of chatting I'll input the necessary information from the model in this guide here zip it up along with a few other things and then send it to the VA the chatter as a training module"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm currently outsources chatting to an external team (\u00a78) with no documented internal SOP or onboarding material. There is no equivalent persona brief or chatter training kit. This is a direct gap to fill as Palm builds toward an in-house chat team.",
+        "recommendation": "As Palm builds its in-house chat team (~1yr roadmap), create a per-creator ZIP/Notion training module template: persona card (age, niche, tone, emojis, pet names), platform walkthrough, PPV pricing ladder, and a baseline script. Standardize this as the chatter onboarding artifact."
+      }
+    },
+    {
+      "id": "f0060",
+      "department": "pricing",
+      "topic": "PPV warm-up ladder / sequencing",
+      "title": "Start subscribers on $15\u2013$20 PPVs before escalating to $80\u2013$100+",
+      "variants": [
+        {
+          "claim": "Sending low-ticket PPVs ($15\u2013$20) first gauges a subscriber's willingness to spend and builds purchasing habit before high-ticket ($80\u2013$100+) asks.",
+          "what_they_do": "Chatter begins by offering content in the $15\u2013$20 range ('dipping a toe in the water'). After multiple purchases at this level, the chatter reads the subscriber's comfort and escalates to high-ticket PPVs ($80, $90, $100+). No high-ticket offer is sent cold to a new subscriber.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "O-KSXbv4vHs",
+          "timestamp_seconds": 123,
+          "quote": "you'll start off selling subscriber content from $15 to $20 so it's kind of like dipping into the water seeing where they're at and then after the subscribers purchase multiple pieces you can start selling PPVs for high ticket prices like 80 bucks 90 100"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented PPV pricing ladder or sequencing rules (\u00a77 GAP, \u00a78 outsourced). The external chat team may do this implicitly, but it is not a formalized Palm playbook. This is core build-toward intelligence for the in-house chat roadmap.",
+        "recommendation": "Define a 3-tier PPV ladder in the chatter SOP: Tier 1 (entry, $15\u2013$20) \u2192 Tier 2 (mid, $30\u2013$50) \u2192 Tier 3 (high-ticket, $80\u2013$100+). Require at least 2 Tier 1 purchases before a Tier 3 offer. Encode this sequencing into AI chatting logic when that project advances."
+      }
+    },
+    {
+      "id": "f0069",
+      "department": "chatting",
+      "topic": "chatter self-improvement habit",
+      "title": "Daily end-of-shift written takeaways lock in incremental chatter learning",
+      "variants": [
+        {
+          "claim": "Requiring chatters to record written takeaways at the end of every shift \u2014 specifically one actionable improvement for the next shift \u2014 accelerates skill development during the first month.",
+          "what_they_do": "For roughly the first month, each chatter writes a brief end-of-shift note answering: 'What are the actionable steps I'll take next shift to improve on what I did this shift?' This creates a self-directed feedback loop between supervised live-training sessions.",
+          "run": "daily-2026-06-03"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "RTL8o_shDz4",
+          "timestamp_seconds": 186,
+          "quote": "For the first month or so, get the chatters to record their daily takeaways. At the end of each shift, okay, what are the actionable steps you're going to take next shift"
+        }
+      ],
+      "creators": [
+        "Lachlan Nicholson"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal chatter development loop at Palm (\u00a78, outsourced). Build-toward.",
+        "recommendation": "Include a daily takeaway template in the chatter onboarding kit. A simple Airtable or Notion form ('shift date / one thing to improve / how I'll do it differently') submitted at shift-end gives managers a lightweight pulse without requiring constant live supervision."
+      }
+    },
+    {
+      "id": "f0070",
+      "department": "pricing",
+      "topic": "Commission split structure",
+      "title": "Start at 50/50 split as baseline; negotiate higher % as skills improve",
+      "variants": [
+        {
+          "claim": "50/50 is the standard baseline commission split for new OFM agencies, with room to take a higher percentage as expertise and results grow.",
+          "what_they_do": "Agency locks in 50/50 as the minimum split with every creator. As the agency proves its value and techniques mature, it renegotiates upward. No tiered structure described \u2014 purely experience-based progression.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 251,
+          "quote": "you say let's partner up, I'll take 50%, you take 50%, this is the benchmark, this is the baseline"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm sets commission % per-creator at onboarding (\u00a77) but has no documented split rationale, tiers, or progression logic. The baseline number Palm uses is not written down. This is flagged as \u00a77's #1 gap.",
+        "recommendation": "Codify 50/50 as Palm's stated baseline in the onboarding contract and pitch deck. Document criteria for when Palm negotiates above 50% (e.g., creator already earning >$X/mo, Palm providing full chatting, paid traffic spend). Gives sales clarity and creator trust."
+      }
+    },
+    {
+      "id": "f0072",
+      "department": "acquisition",
+      "topic": "Creator qualification criteria",
+      "title": "Target creators who are plateaued, overwhelmed, or burned by a bad agency",
+      "variants": [
+        {
+          "claim": "The highest-converting creator prospects are those who are stuck at a plateau, overwhelmed by workload, or have had a bad agency experience \u2014 not cold beginners.",
+          "what_they_do": "Agency explicitly looks for creators who: (a) plateaued after initial growth, (b) are overwhelmed managing content + chatting alone, (c) had a bad prior agency and are open to a better partner. Uses these pain points as the outreach hook.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 562,
+          "quote": "you're looking for models that are a bit overwhelmed, they're a bit stuck, their accounts are being plateaued, maybe they've had a bad agency before"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented ICP (ideal creator profile) or qualification criteria for outbound (\u00a76). Josh-led DM outreach is ad hoc. Targeting burned/plateaued creators is a concrete, testable filter Palm could apply immediately.",
+        "recommendation": "Define Palm's creator ICP in writing: earning $1K\u2013$10K/mo, plateaued 60+ days, active IG but not growing, or recently left an agency. Use these as DM targeting filters on IG/TikTok. Add a qualification question to the onboarding form: 'Have you worked with an agency before? What happened?'"
+      }
+    },
+    {
+      "id": "f0076",
+      "department": "systems",
+      "topic": "Weekly performance review cadence",
+      "title": "Run weekly payouts and performance check-ins as a retention and motivation tool",
+      "variants": [
+        {
+          "claim": "Weekly payouts ('weekly pouch') keep both the agency and creator motivated and signal operational professionalism early in the relationship.",
+          "what_they_do": "After onboarding, agency moves to a weekly payout cadence. Framed as both a financial rhythm and a morale tool \u2014 seeing money arrive weekly reinforces creator buy-in and agency credibility. No detailed reporting format described, but the weekly cadence is presented as standard practice.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LZatbiEKOm4",
+          "timestamp_seconds": 840,
+          "quote": "after a week or two, we do weekly pouch, just to let you know \u2014 that's just a cool little tip, enjoy the money coming in"
+        }
+      ],
+      "creators": [
+        "Matthew Oly "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm auto-computes weekly invoices (\u00a77) so the cadence matches. However, Palm has no documented creator-facing performance review or check-in tied to the payout \u2014 it's finance-only. No retention/success cadence is written down (\u00a79 GAP).",
+        "recommendation": "Attach a lightweight weekly creator report to Palm's existing invoice email: top 3 metrics (subscribers, revenue, top-performing post). Takes minimal effort given Palm's Airtable data and Resend pipeline, and transforms a finance touchpoint into a retention and upsell moment."
+      }
+    },
+    {
+      "id": "f0088",
+      "department": "content",
+      "topic": "batch shooting and scheduling",
+      "title": "Batch shoot 5 looks \u2192 batch schedule 5 days of page posts + paired PPV messages",
+      "variants": [
+        {
+          "claim": "Batching a multi-look shoot and scheduling all resulting page posts and PPV messages in one session prevents daily scramble and ensures consistent output.",
+          "what_they_do": "In a single shoot session: 5 outfits/looks, each producing ~3 photos + 2 videos. Immediately after editing, schedules each outfit's photos to post on consecutive days AND schedules the corresponding PPV video message to go out on the same day as those photos. Result: 5 days of content planned in one sitting. Uses OF's native calendar scheduler.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "E8fMIgKyhbM",
+          "timestamp_seconds": 783,
+          "quote": "say I did five different looks today I went and did my photo shoot five different looks each look I took three photos and two videos so then what I would do is I would schedule you know tomorrow these photos the next day these photos"
+        }
+      ],
+      "creators": [
+        "Alanah Cole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's social content pipeline (\u00a71) is strong on ideation and editing but posting cadence for real creators is not codified (\u00a71 \ud83d\udd32 GAP). The OF vault/PPV side (\u00a72) has no batch-scheduling SOP. This tactic bridges both gaps with a concrete daily-output model.",
+        "recommendation": "Define a batch content session standard for Palm real creators: minimum 3 looks per session, each look producing 2\u20133 photos (page) + 1 video (PPV). Ops team schedules page posts and paired PPV messages together in one Publer/OF scheduling pass. Add a 'batch session' record type to the Airtable Content Ops base to track sessions, looks, scheduled dates, and PPV prices per asset."
+      }
+    },
+    {
+      "id": "f0089",
+      "department": "chatting",
+      "topic": "subscriber list segmentation for PPV targeting",
+      "title": "Segment subscriber lists by content preference and renewal status to send targeted PPV messages",
+      "variants": [
+        {
+          "claim": "Using OF's native list feature to segment fans by content preference (feet, striptease, etc.) and renewal status enables personalized PPV sends that feel direct and increase conversion.",
+          "what_they_do": "Creates named lists inside OF (beyond defaults): VIP list for high-paying subscribers ($200/mo tier who get PPV free), preference-based lists (feet fans, striptease fans, etc.). When sending a PPV mass message, selects the relevant list as the target or excludes VIP list from paid messages. Sends preference-matched messages to niche lists with personalized copy to increase perceived intimacy.",
+          "run": "daily-2026-06-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "E8fMIgKyhbM",
+          "timestamp_seconds": 1185,
+          "quote": "you can also create lists for certain people like if you know there are certain people that really like feet pictures or there's certain group of people that really like striptease videos you can add them to that list and then whenever you do want to send out a certain type of message you can send it to everybody"
+        }
+      ],
+      "creators": [
+        "Alanah Cole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's fan intelligence layer (\u00a79) has a Fan Tracker CRM and whale-hunting module but no documented PPV targeting by content preference. Chatting is outsourced (\u00a78) so the external team may not be segmenting sends. This is build-toward for both the in-house chat team and the AI chatting project.",
+        "recommendation": "Brief the external chat team to begin using OF list segmentation immediately: at minimum, maintain a 'VIP/renewing' list excluded from paid PPV, and build 2\u20133 preference lists per creator based on DM history. Feed preference data back into the Fan Tracker CRM (\u00a79). When building the in-house chat SOP, make list maintenance a weekly chatter task. For the AI chatting project, model preference tagging as a fan-profile attribute driving automated PPV selection."
+      }
+    },
+    {
+      "id": "f0099",
+      "department": "acquisition",
+      "topic": "Cold outreach volume target",
+      "title": "Golden Ratio: 60 DMs/day for 30 days guarantees first client",
+      "variants": [
+        {
+          "claim": "Sending 60 outreach DMs per day (10/hour, 6 hours/day, 7 days/week) produces 1,680 messages per month, which is sufficient to sign at least one client.",
+          "what_they_do": "Agency instructs new operators to hit exactly 60 DMs per day split into 6 one-hour blocks. At that pace, 1,680 monthly contacts makes signing a single client near-certain. They also recommend tracking every outreach in a spreadsheet and following up with non-responders.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 1460,
+          "quote": "For 30 days, if you do six 60 outreach messages a day, you can do 10 per hour, six times a day"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led with no codified daily volume target or tracking cadence (\u00a76). No 'golden ratio' equivalent exists internally \u2014 outreach volume is ad hoc.",
+        "recommendation": "Codify a minimum daily outreach quota (e.g., 60 DMs/day) for whoever owns acquisition at Palm. Build or adopt a simple lead tracker (Airtable view or spreadsheet) to log status and follow-ups, matching the systematic volume this competitor prescribes."
+      }
+    },
+    {
+      "id": "f0100",
+      "department": "acquisition",
+      "topic": "Prospect sourcing method",
+      "title": "Cross-platform username matching: find OF creators on X, then locate on IG",
+      "variants": [
+        {
+          "claim": "Creators typically use the same username on X/Twitter and Instagram, so you can search 'only fans' on X, collect usernames, then find and DM the same accounts on Instagram.",
+          "what_they_do": "Operator searches the word 'only fans' on X to surface creator accounts, copies their username, pastes it into Instagram search, and DMs there. They also use Instagram's 'related accounts' graph \u2014 following lists, likers, and commenters of one known OF creator \u2014 to find unlimited additional prospects.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 1587,
+          "quote": "you simply go on X and you search the word only fans on the search bar... Go on to Instagram and copy and paste the same username"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented prospect-sourcing method beyond Josh's personal DMs and referrals (\u00a76). No cross-platform lookup or IG graph-traversal tactic is codified.",
+        "recommendation": "Document a prospect-sourcing SOP using both methods: (1) X keyword search \u2192 IG username lookup, and (2) IG related-accounts traversal from any known OF creator. This is low-cost and immediately actionable for whoever runs outreach at Palm."
+      }
+    },
+    {
+      "id": "f0101",
+      "department": "acquisition",
+      "topic": "Outreach message framing",
+      "title": "First DM: short curiosity-piquing message focused on a specific observable problem",
+      "variants": [
+        {
+          "claim": "The opening DM should be short, reference one specific problem visible on the creator's profile (e.g., wrong link-in-bio, no reels), and pique curiosity \u2014 never a long copy-paste paragraph.",
+          "what_they_do": "Agents identify a concrete, observable weakness on the creator's profile before messaging, then write a brief DM that names that problem implicitly or asks a curiosity-driving question. No feature-dumping or price-quoting in the first message. Outreach is sent from a personal IG account even with as few as 150 followers.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 1679,
+          "quote": "focus on the problem that specific model has. So this could be the lack of posting reels, the wrong link in bio"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented outreach message framework or script (\u00a76 GAP). First-contact approach is entirely at Josh's discretion.",
+        "recommendation": "Create a first-DM template library: short (1\u20133 lines), profile-specific observation + curiosity hook, no agency pitch. Test from a personal or agency IG account. This is a direct complement to Palm's existing pipeline \u2014 once a creator is signed the content engine (\u00a71) kicks in immediately."
+      }
+    },
+    {
+      "id": "f0102",
+      "department": "systems",
+      "topic": "Creator onboarding structure",
+      "title": "Google Drive onboarding folder: info sheet + logins + pre-made content scripts",
+      "variants": [
+        {
+          "claim": "A structured onboarding folder with three components \u2014 model info sheet, platform logins, and pre-made PPV content scripts \u2014 prevents miscommunication and enables the chatting team to start immediately.",
+          "what_they_do": "On signing, the agency shares a Google Drive folder. The model info sheet captures personal details (favorite color, food, pet names, etc.) that chatters need to maintain consistent persona in DMs. Logins for all managed platforms are collected at once. Pre-made scripts (photo/video sequences already shot) are also uploaded so chatters can sell PPV from day one. Expectations are set in writing: communication only via WhatsApp group, Monday\u2013Friday 9\u20135 local time.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 2047,
+          "quote": "within our Google Drive folder, we have three things. the model information sheets... the login... and then last but not least is the scripts"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's onboarding collects name, email, commission %, state, contract, and voice memo via a form wizard (\u00a76), but has no documented model info sheet for chatters, no platform-login collection protocol, and no pre-made content script intake. Communication boundary-setting is not formalized.",
+        "recommendation": "Add three items to Palm's onboarding wizard or a linked Google Drive template: (1) a model info sheet with personal details for the chatting team, (2) a platform-login collection step, (3) a pre-made content upload prompt. Also add a written communication expectations section (channel, hours) to the onboarding flow to reduce creator churn friction."
+      }
+    },
+    {
+      "id": "f0103",
+      "department": "content",
+      "topic": "Niche-based social content strategy",
+      "title": "Assign each creator a hobby-based niche to give the algorithm a clear target audience",
+      "variants": [
+        {
+          "claim": "Choosing a specific non-adult hobby niche for a creator (e.g., fishing, golf) allows social media algorithms to categorize and distribute content to an engaged audience, dramatically increasing viral reach compared to generic dance/lifestyle posts.",
+          "what_they_do": "Agency identifies a real hobby the creator has, then builds all social content around that niche. The algorithm can categorize the content, show it to an existing interested community, and that community's engagement triggers viral distribution. Paid shoutouts on niche pages also become cheaper and more targeted. Creator generates content organically during activities she already does.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 2636,
+          "quote": "if you find a niche for your model, that will make the social media's job a lot easier to find the target audience"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content engine (\u00a71) is strong on data-driven ideation from viral inspo reels but does not document a niche-assignment step per creator. The system scrapes what is already viral broadly; it does not codify the step of choosing one thematic niche per creator to anchor the algorithm.",
+        "recommendation": "Add a 'niche selection' step to Palm's creator onboarding and content pipeline (\u00a71, step 5 or pre-step). For each creator, define one or two content niches based on their genuine interests. Feed that niche as a filter into the Apify scrape / Inspo Sources targeting so viral reference reels are pulled from that niche's top performers, not just broadly popular content."
+      }
+    },
+    {
+      "id": "f0104",
+      "department": "chatting",
+      "topic": "PPV pricing ladder / script sequence",
+      "title": "Escalating PPV price ladder: free photo \u2192 $15 \u2192 $50 \u2192 $100 \u2192 $150 \u2192 $200",
+      "variants": [
+        {
+          "claim": "Sending a free teaser photo followed by a scripted sequence of PPV content with escalating price points ($15, $50, $100, $150, $200) converts fans into high spenders by building investment and desire incrementally.",
+          "what_they_do": "Chatters follow a pre-built content flow the creator has shot in advance. Conversation starts organically, then a free clothed photo is sent. First PPV is priced low ($15\u201320, ~15\u201320 second video). Free content interspersed between paid unlocks to maintain engagement. Each subsequent PPV increases in price and explicitness. A single fan session can yield $300\u2013400. Chatters run 24/7 in 8-hour rotating shifts (3 chatters per creator account), sourced primarily from South Africa for native English and cultural fluency.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 3317,
+          "quote": "the price goes from $15 to 50, then to 100, then to $150, then to $200, and before you know it, the person has spent maybe $300, $400"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced (\u00a78) with no internal SOP, scripts, or pricing ladder documented. This is build-toward intelligence for both the in-house chat team roadmap and the AI chatting project.",
+        "recommendation": "Capture this escalating PPV ladder as the foundational script template for Palm's future in-house chat team. Specifically: define free-teaser \u2192 low-anchor PPV \u2192 mid-tier PPV \u2192 high-tier PPV price points; have creators pre-shoot content sequences in order before chatters launch; use South Africa as primary chatter sourcing market for English-speaking creator accounts. Brief the external chat team on whether they already use this structure."
+      }
+    },
+    {
+      "id": "f0105",
+      "department": "chatting",
+      "topic": "Chatter hiring and training",
+      "title": "Do chatting yourself for 2 weeks before hiring, then hire South African chatters for cultural fluency",
+      "variants": [
+        {
+          "claim": "Agency owners should personally do DM chatting for two weeks to understand fan psychology and upsell mechanics before hiring chatters, and should prioritize South African hires over Southeast Asian for native English slang and cultural alignment.",
+          "what_they_do": "New agency operators personally handle all DMs for roughly two weeks to learn what works. They then hire chatters from South Africa (preferred) or South America, paying in local currency (favorable exchange rate). Three chatters per creator account rotate 8-hour shifts for 24/7 coverage. Chatters are trained by the operator who now understands the product firsthand.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 3041,
+          "quote": "step two, is to hire chatters... the vast majority of our team is from SA, from South Africa. Mainly because English is their first language"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm outsources chatting entirely today (\u00a78); this tactic is build-toward for the in-house chat team (~1yr roadmap). No internal SOP exists for chatter hiring geography or shift structure.",
+        "recommendation": "When Palm begins building its in-house chat team, use this framework: (1) have the team lead personally chat for 2 weeks per creator to develop training materials, (2) prioritize South African candidates for English-language creator accounts, (3) structure 3-chatter rotating 8-hour shifts per active creator account. Document this in the chat-team hiring SOP before recruitment begins."
+      }
+    },
+    {
+      "id": "f0106",
+      "department": "pricing",
+      "topic": "Offer framing vs. revenue split",
+      "title": "Position the agency offer around creator outcomes (time saved, revenue growth), not the 50% split",
+      "variants": [
+        {
+          "claim": "Stating '50% revenue split' is not a real offer \u2014 agencies must articulate specific outcomes (more time, more money, viral growth) to differentiate, because every competitor leads with the same split.",
+          "what_they_do": "Agency frames its pitch around two core creator pain points: (1) inability to grow new fans and (2) lack of time to manage everything. The offer is sold as 'save your time, make more money' with concrete evidence (screenshots of revenue growth from existing clients). The 50% figure is justified by showing the creator went from $8K to $108K/month \u2014 the split is irrelevant when absolute earnings quadruple.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qIRHYQuDzww",
+          "timestamp_seconds": 934,
+          "quote": "what not to do is... my agency takes 50% blah blah. This is not a real offer. It is instead a revenue split. There is no value to that"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented pricing/commission model or offer framing (\u00a77 GAP). Commission % is set per-creator at onboarding with no stated rationale or tiering. This is Palm's #1 identified gap.",
+        "recommendation": "Write Palm's standard offer narrative: lead with the two pain points (fan growth, time), show a concrete growth trajectory from an existing client, and frame the 50% split as a performance-aligned partnership rather than a fee. Consider creating a one-page 'offer doc' with revenue-growth evidence that can be shared during acquisition outreach."
+      }
+    },
+    {
+      "id": "f0116",
+      "department": "pricing",
+      "topic": "Avoiding packs / bundles",
+      "title": "Never sell PPV packs or bundles \u2014 sell individual pieces only",
+      "variants": [
+        {
+          "claim": "Selling content in packs commoditizes it and undermines the per-item price anchoring that drives high revenue per fan.",
+          "what_they_do": "The agency explicitly bans 'packs' as a pricing format. All PPV is sold as individual items at or above the price floors. The reasoning is that packs reframe the value proposition toward volume/discount, which is the same psychological trap as low per-item pricing.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 311,
+          "quote": "you especially don't want to sell packs no packs"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented stance on packs vs. individual PPV pricing (\u00a77 GAP). No internal policy exists.",
+        "recommendation": "Add a 'no packs' rule to the Palm pricing policy alongside the price floors. Instruct the external chat team accordingly. When building the in-house chat SOP, codify individual-item-only PPV selling as a default."
+      }
+    },
+    {
+      "id": "f0117",
+      "department": "pricing",
+      "topic": "Tip requirement before fulfilling customs",
+      "title": "Require upfront tips before producing any custom content to prevent rip-offs",
+      "variants": [
+        {
+          "claim": "Fans will request custom content and then disappear after delivery, so requiring tips before production is non-negotiable.",
+          "what_they_do": "For custom content ($300+), the agency requires the fan to tip multiple times before the creator starts filming. The rationale is to assume all fans will attempt to get content without paying, so payment must be front-loaded. No tip = no custom.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 188,
+          "quote": "they're going to tip you multiple times before you even start cuz otherwise you're going to make it and they're just going to rip you off"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No Palm policy on custom content fulfillment order exists (\u00a77 GAP, \u00a78 OUTSOURCED). The external chat team handles this ad hoc.",
+        "recommendation": "Add a customs fulfillment rule to the chat team brief: minimum $300 for customs, all payment (or at least a meaningful deposit tip) collected before any production begins. Document this in the future in-house chatter SOP."
+      }
+    },
+    {
+      "id": "f0118",
+      "department": "chatting",
+      "topic": "New subscriber automated warm-up script",
+      "title": "Deploy an automated new-subscriber script that creates a scenario and sells a first PPV at ~$35",
+      "variants": [
+        {
+          "claim": "An automated message sent to every new subscriber that creates a conversational scenario and pitches a first video purchase converts cold new fans into paying customers before a live chatter has to engage.",
+          "what_they_do": "A pre-written automated script goes to every new sub immediately after they subscribe. It creates a light interactive scenario (not specified in detail), leads the fan through a short interaction, and closes with a $34.99 video offer. Once the fan buys, they are flagged as 'warmed up' and handed to regular chat flow at full price floors.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 281,
+          "quote": "it will send to the sub it will create a little scenario it will get them to do something and then it will sell them a video for $34.99"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's DM monetization is fully outsourced (\u00a78). No automated new-subscriber script is documented on the Palm side. This is build-toward intelligence for both the in-house chat team and AI chatting roadmap.",
+        "recommendation": "For the AI chatting project and in-house chat roadmap (\u00a78): design a standardized new-subscriber automation that immediately engages the fan, creates a light scenario, and attempts a ~$35 first PPV sale. This de-risks the cold-fan problem and reduces reliance on live chatter time for conversion."
+      }
+    },
+    {
+      "id": "f0120",
+      "department": "systems",
+      "topic": "CRM for fan spend tracking to guide PPV pricing",
+      "title": "Use a fan CRM (e.g. Inflow) to read spending habits and calibrate per-fan PPV price escalation",
+      "variants": [
+        {
+          "claim": "A CRM that surfaces each fan's historical spend enables chatters to know exactly how far to push pricing on any individual fan rather than guessing.",
+          "what_they_do": "The agency uses a CRM tool called 'Inflow' that tracks per-subscriber spending history. Chatters consult this before sending a PPV to decide at what price point to pitch \u2014 fans who have spent more get higher asks. The principle is always to move price upward based on observed willingness to pay.",
+          "run": "daily-2026-06-05"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "66KfX7OVUTA",
+          "timestamp_seconds": 157,
+          "quote": "if you're using a CRM a customer relationship manager like inflow then those things are going to show you the spending habits for Subs spending habits and then based on these spending habits it shows then you can only go upwards from there"
+        }
+      ],
+      "creators": [
+        "Bjorn Olsen"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a Whale Hunting tool and Fan Tracker CRM (\u00a79, PARTIAL) that tracks fan data. However, Palm's CRM is primarily a leadership/reporting layer; there is no documented policy for chatters to use fan spend data to calibrate real-time PPV pricing. The external chat team likely does not have structured access to Palm's fan intelligence.",
+        "recommendation": "Bridge the \u00a79 fan intelligence system to the external chat team: share per-fan spend summaries so chatters can price escalate based on data rather than guesswork. For the in-house chat roadmap, build a spend-aware pricing prompt directly into the chatter workflow."
+      }
+    },
+    {
+      "id": "f0146",
+      "department": "ai-ofm",
+      "topic": "platform choice",
+      "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
+      "variants": [
+        {
+          "claim": "Full-AI creators are forced onto less-trusted third-party platforms where conversion drops 30-50% versus OnlyFans, making hybrid (real OF) structurally more profitable.",
+          "what_they_do": "Argues full AI cannot use OnlyFans (ID verification, no AI content allowed) so they go to Fansly/Fanvue/Fanfix where saved-credit-card trust is absent and conversion tanks; hybrid keeps everything on OnlyFans.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JuJ9T7AEfSc",
+          "timestamp_seconds": 217,
+          "quote": "Your conversion rates will literally drop 30 to 50% just by doing that platform rather than Only Fans"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Confirms Palm's core OnlyFans funnel as the high-conversion asset (\u00a70). Palm's AI personas use OnlyFans-via-social, so this validates Palm's choice not to go Fanvue-only.",
+        "recommendation": "Hold the OnlyFans funnel as the conversion anchor for both real and AI lines; treat Fanvue-style platforms only as fallback, never primary."
+      }
+    },
+    {
+      "id": "f0148",
+      "department": "instagram",
+      "topic": "AI metadata",
+      "title": "Strip AI metadata before posting or reach is throttled",
+      "variants": [
+        {
+          "claim": "AI-generated media carries hidden metadata that platforms read to tag/throttle content, so removing it before posting materially restores reach.",
+          "what_they_do": "Removes AI metadata from generated images/videos with a free tool or re-export before posting; reports reach went up ~40% and videos hit explore again after they started doing this.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "DzI4F-u1Tp0",
+          "timestamp_seconds": 658,
+          "quote": "there's a metadata attached to those files that says AI"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI-persona program is built for compliance (EU AI Act label + watermark, \u00a73), which is the opposite posture. This is a competitor risk tactic Palm should note but weigh against its compliance stance.",
+        "recommendation": "Note as a reach lever for non-EU/unlabeled experiments only; do NOT apply to Palm's EU-AI-Act-labeled personas. Flag the compliance tension for leadership."
+      }
+    },
+    {
+      "id": "f0151",
+      "department": "traffic",
+      "topic": "X engagement + paid promo",
+      "title": "Engagement-trap, trendjack, and paid promo pages on X",
+      "variants": [
+        {
+          "claim": "X growth is driven by reply-baiting engagement traps, fast trendjacking, and paying large promo pages to seed content with mystery hooks.",
+          "what_they_do": "Posts reply-bait ('describe me in one word'), jumps trends like Grok/Epstein image gimmicks within 15-30 min, and pays promo pages (100-500k followers) $50-200/post that hook viewers into clicking through to the creator's pinned reply.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "ZLfXnMRhbp8",
+          "timestamp_seconds": 462,
+          "quote": "the content designed to get replies"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's traffic strategy is undocumented (\u00a75 gap). These are specific paid + organic X tactics with no Palm baseline.",
+        "recommendation": "Capture as build-out menu for an X traffic SOP: engagement-trap caption library, daily trend monitoring, and a tested promo-page budget per creator."
+      }
+    },
+    {
+      "id": "f0152",
+      "department": "chatting",
+      "topic": "GFE strategy",
+      "title": "Girlfriend-experience parasocial selling, not PPV spam",
+      "variants": [
+        {
+          "claim": "The girlfriend experience (parasocial connection, scripted live-feeling sells, no PPV spam) drives the highest and most durable chatting revenue.",
+          "what_they_do": "Optimizes the OF wall to feel like 'Snapchatting,' uses 7-10 stage scripts with verification images, never initiates sexual content (lets the fan initiate), handles broke fans with ego-protecting lines, and forbids PPV spamming across the whole team.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "oodzESSr5jA",
+          "timestamp_seconds": 312,
+          "quote": "the GF experience, the only thing that I try to run in OFM"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Chatting is OUTSOURCED at Palm with no in-house SOP (\u00a78). This is direct build-toward intelligence for Palm's planned in-house and AI chat teams.",
+        "recommendation": "Capture the GFE framework (wall optimization, staged scripts, verification, no-spam rule) as the seed SOP for Palm's future in-house/AI chatting."
+      }
+    },
+    {
+      "id": "f0157",
+      "department": "platform-risk",
+      "topic": "IG ban cause",
+      "title": "Bans driven by unbranded sexual content, not IP/proxies",
+      "variants": [
+        {
+          "claim": "Instagram bans in OFM are driven mainly by unfocused overtly-sexual content and low trust score, not by IP/proxy/link setup as most operators assume.",
+          "what_they_do": "After testing 50+ accounts, concludes content (half-naked, unbranded, unfocused) is the highest-weight ban trigger; uses normal iPhone + real SIM/hotspot, no VPN/proxy, and builds a branded persona instead of bikini spam.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "pae7XZ2d57c",
+          "timestamp_seconds": 962,
+          "quote": "90% of bans initiate due to your content having zero focus"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI warmup is hardware-isolated with proxies/device separation (\u00a73/\u00a74); for REAL creators Palm has no documented IG ban-avoidance posture (\u00a74 gap). This reframes the real-creator risk as content-led.",
+        "recommendation": "For real-creator IG, prioritize branded non-explicit content and normal-user behavior over technical spoofing; document a real-creator ban-avoidance SOP."
+      }
+    },
+    {
+      "id": "f0158",
+      "department": "content",
+      "topic": "branding over volume",
+      "title": "Branded persona replacing pure volume in 2026",
+      "variants": [
+        {
+          "claim": "A distinct creator persona (identity, consistent theme, story) is replacing raw posting volume as the driver of growth, conversion, and ban-resistance.",
+          "what_they_do": "Defines a brand as persona + consistent theme + story (e.g. dominant/funny/confident); reports a branded creator going 2k to 50k/mo in two months, and writes a one-sentence persona applied to bios, captions, content, and chats.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "2-bsUHmaE5A",
+          "timestamp_seconds": 931,
+          "quote": "make it that her persona"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's pipeline optimizes for viral content ideation (\u00a71) but persona/branding is not a codified input. This argues brand should be a first-class field upstream of content selection.",
+        "recommendation": "Add a defined persona/brand brief to creator onboarding and feed it into the inspo pipeline so promoted ideas reinforce a consistent identity."
+      }
+    },
+    {
+      "id": "f0160",
+      "department": "traffic",
+      "topic": "Snapchat",
+      "title": "Snapchat as an under-saturated OF traffic + income channel",
+      "variants": [
+        {
+          "claim": "Snapchat is an under-exploited OFM channel that simultaneously drives OF subs, cross-promotes other platforms, and pays direct creator monetization.",
+          "what_they_do": "Sets up a real-looking account, posts ~5 spotlights/day plus 30-100 clickbait story snaps/day (repurposed via repurpose.io or a VA), CTAs only once a week to avoid disabling, and uses paid promoted-snap boosts; cites a creator earning as much from Snapchat as from Instagram.",
+          "run": "griffin"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "i7xwkR-iXWc",
+          "timestamp_seconds": 1057,
+          "quote": "boost your initial following"
+        }
+      ],
+      "creators": [
+        "GriffinOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's distribution is IG/TikTok via Publer + Telegram (\u00a75); Snapchat is absent from Palm's stack. New channel with no Palm baseline.",
+        "recommendation": "Pilot Snapchat for one high-output creator: repurpose existing content, weekly-only CTA, test promoted snaps; measure as a third revenue lever."
+      }
+    },
+    {
+      "id": "f0196",
+      "department": "systems",
+      "topic": "spreadsheet-as-database",
+      "title": "Spreadsheet/Airtable backend at scale",
+      "variants": [
+        {
+          "claim": "Running account and content operations off spreadsheet-style databases with front-end interfaces is the pragmatic backbone for managing accounts at scale.",
+          "what_they_do": "Hive Media stores 10,000+ social accounts (proxy, 2FA, status, creation date) in Excel/Sheets as the database with front-end interfaces on top, updated automatically by bots, and explicitly says Airtable is just a prettier version of the same database approach.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "bklo6HZBxRY",
+          "timestamp_seconds": 965,
+          "quote": "the only thing better than a spreadsheet might be a slightly prettier spreadsheet in something like Air Table"
+        }
+      ],
+      "creators": [
+        "faceless francis ofm"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm already runs on Airtable (HQ + Content Ops bases) with a Next.js admin front end (\u00a70), so Palm is aligned with this best practice. Validation, not a gap.",
+        "recommendation": "Keep the Airtable-as-database plus admin-UI pattern; ensure account-status fields (proxy, ban status, creation date) are tracked and auto-updated as rigorously as Hive does."
+      }
+    },
+    {
+      "id": "f0198",
+      "department": "delegation",
+      "topic": "founder replaceability",
+      "title": "Build so the founder can disappear",
+      "variants": [
+        {
+          "claim": "Heavy supervision layers and clear workflows let the founder step away while the business keeps running, which is the real test of a scaled agency.",
+          "what_they_do": "Hive Media (300 employees, 60 models) layers supervisors into category managers into shift/market managers per department, and the founder says if he disappeared for six months the company would still run profitably.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "bklo6HZBxRY",
+          "timestamp_seconds": 2936,
+          "quote": "if I disappear for 6 months right now, will my company grow? Maybe not exponentially, but it will run"
+        }
+      ],
+      "creators": [
+        "faceless francis ofm"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a thin org with many decisions through the founder and no org chart or scaling plan (\u00a710 THIN). Direct gap.",
+        "recommendation": "Build a supervision layer (team leads / managers) per Palm function with explicit workflows so the founder can step out without the operation stalling."
+      }
+    },
+    {
+      "id": "f0206",
+      "department": "pricing",
+      "topic": "price ladder",
+      "title": "Ladder PPV prices upward in sequence",
+      "variants": [
+        {
+          "claim": "Selling via an escalating price ladder rather than one high ask raises total spend while keeping each step psychologically easy.",
+          "what_they_do": "Luca Pritchard runs a default ladder of 15, 25, 45, 65, then 100-120, and warns that hitting a warmed-up fan with a single $80 PPV makes him leave for no money, where the same total is extracted reliably in small rising steps.",
+          "run": "smalls"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JXLdjNmHL-8",
+          "timestamp_seconds": 30,
+          "quote": "We'll start at 15 we'll then go to 25 we'll then go to 45 we'll then go to 65 and... 100 or 120"
+        }
+      ],
+      "creators": [
+        "Luca Pritchard"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No formal price ladder at Palm (\u00a77 THIN). Direct gap.",
+        "recommendation": "Publish a standard Palm PPV ladder with rising steps and trigger conditions, instead of single high asks."
+      }
+    }
+  ],
+  "consensus_risers": [],
+  "new_evidence": [],
+  "totals": {
+    "findings": 207
+  }
+}

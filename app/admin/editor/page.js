@@ -974,14 +974,22 @@ function CreatorMusicRadio({ creatorId, creatorName, hasPlaylist }) {
 
 // ─── Unreviewed Library ───────────────────────────────────────────────────────
 
-function UnreviewedLibrary({ showToast }) {
+export function UnreviewedLibrary({ showToast }) {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedCreator, setSelectedCreator] = useState('all')
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('newest')
+  const [statusFilter, setStatusFilter] = useState('Unused') // 'Unused' | 'In editing' | 'Discarded'
   const [assigning, setAssigning] = useState(null)
+  const [selected, setSelected] = useState(() => new Set()) // asset IDs picked for bulk action
+  const [busy, setBusy] = useState(false) // a soft-delete / restore request is in flight
+  // Full-row grid: measure the container and derive the column count so the
+  // page size is always an exact multiple of columns (no ragged last row).
+  const GRID_MIN = 180, GRID_GAP = 12, GRID_ROWS = 6
+  const [cols, setCols] = useState(5)
+  const gridRef = useRef(null)
 
   const fetchAssets = useCallback(async () => {
     setLoading(true)
@@ -999,17 +1007,84 @@ function UnreviewedLibrary({ showToast }) {
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
 
-  // Reset page when creator/tab/sort changes
-  useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder])
+  // Reset page when creator/tab/sort/status/column-count changes
+  useEffect(() => { setPage(1) }, [selectedCreator, activeTab, sortOrder, statusFilter, cols])
+  // Clear the bulk selection whenever the visible set changes underneath it,
+  // so we never act on assets the user can no longer see.
+  useEffect(() => { setSelected(new Set()) }, [selectedCreator, activeTab, statusFilter])
 
-  // Build creator list from assets
+  const toggleSelect = useCallback((id) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+
+  // Soft-delete (hide) or restore assets. Optimistically re-tag locally so the
+  // card leaves the current view immediately; the server flips Pipeline Status.
+  const mutateVisibility = useCallback(async (ids, action) => {
+    if (!ids.length) return
+    if (action === 'discard') {
+      const n = ids.length
+      const ok = window.confirm(
+        `Delete ${n} asset${n > 1 ? 's' : ''} from the library?\n\n` +
+        `They’re hidden from the library and every picker, but the Dropbox files stay put and any linked posts are untouched. ` +
+        `You can bring them back any time from the “Deleted” filter.`
+      )
+      if (!ok) return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/editor/unreviewed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetIds: ids, action }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Request failed')
+      const newStatus = action === 'restore' ? 'Unused' : 'Discarded'
+      const newPipeline = action === 'restore' ? 'Uploaded' : 'Discarded'
+      const idSet = new Set(ids)
+      setAssets(prev => prev.map(a => idSet.has(a.id) ? { ...a, status: newStatus, pipelineStatus: newPipeline } : a))
+      setSelected(new Set())
+      showToast(action === 'restore'
+        ? `Restored ${data.updated} to the library`
+        : `Deleted ${data.updated} from the library`)
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setBusy(false)
+    }
+  }, [showToast])
+
+  // Measure container width → column count (debounced via setState identity).
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const compute = () => {
+      const w = el.clientWidth
+      if (!w) return
+      const c = Math.max(1, Math.floor((w + GRID_GAP) / (GRID_MIN + GRID_GAP)))
+      setCols(prev => (prev === c ? prev : c))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Status-filter first (Unused vs In editing); creator list + grid derive from it
+  const byStatus = assets.filter(a => (a.status || 'Unused') === statusFilter)
+
+  // Build creator list from the status-filtered set
   const creators = [...new Map(
-    assets.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
+    byStatus.filter(a => a.creator?.id).map(a => [a.creator.id, a.creator.name])
   )].sort((a, b) => a[1].localeCompare(b[1]))
 
   const filtered = selectedCreator === 'all'
-    ? assets
-    : assets.filter(a => a.creator?.id === selectedCreator)
+    ? byStatus
+    : byStatus.filter(a => a.creator?.id === selectedCreator)
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
@@ -1029,8 +1104,11 @@ function UnreviewedLibrary({ showToast }) {
   })
 
   const shown = activeTab === 'videos' ? videos : photos
-  const totalPages = Math.max(1, Math.ceil(shown.length / LIB_PAGE_SIZE))
-  const paged = shown.slice((page - 1) * LIB_PAGE_SIZE, page * LIB_PAGE_SIZE)
+  // Local page size = full rows only. (Do NOT use the shared LIB_PAGE_SIZE —
+  // the EditorDashboard picker depends on that constant being 15.)
+  const pageSize = cols * GRID_ROWS
+  const totalPages = Math.max(1, Math.ceil(shown.length / pageSize))
+  const paged = shown.slice((page - 1) * pageSize, page * pageSize)
 
   const handleAssign = async (asset) => {
     const creatorId = asset.creator?.id
@@ -1048,8 +1126,8 @@ function UnreviewedLibrary({ showToast }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to start edit')
       showToast('Edit started — moved to editor queue')
-      // Remove from local list so the grid updates immediately
-      setAssets(prev => prev.filter(a => a.id !== asset.id))
+      // Re-tag locally: it leaves the Unused view and appears under In editing
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: 'In editing', pipelineStatus: 'In Editing' } : a))
     } catch (err) {
       showToast(err.message, true)
     } finally {
@@ -1064,7 +1142,7 @@ function UnreviewedLibrary({ showToast }) {
   const tabCounts = { videos: videos.length, photos: photos.length }
 
   return (
-    <div>
+    <div ref={gridRef}>
       {/* Controls row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -1077,12 +1155,30 @@ function UnreviewedLibrary({ showToast }) {
               borderRadius: '6px', cursor: 'pointer', outline: 'none',
             }}
           >
-            <option value="all">All Creators ({assets.length})</option>
+            <option value="all">All Creators ({byStatus.length})</option>
             {creators.map(([id, name]) => {
-              const count = assets.filter(a => a.creator?.id === id).length
+              const count = byStatus.filter(a => a.creator?.id === id).length
               return <option key={id} value={id}>{name} ({count})</option>
             })}
           </select>
+
+          {/* Status: Unused vs In editing */}
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
+            {[{ key: 'Unused', label: 'Unused' }, { key: 'In editing', label: 'In editing' }, { key: 'Discarded', label: 'Deleted' }].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setStatusFilter(s.key)}
+                style={{
+                  padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                  background: statusFilter === s.key ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                  color: statusFilter === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999',
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
 
           {/* Videos / Photos tabs */}
           <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
@@ -1142,36 +1238,76 @@ function UnreviewedLibrary({ showToast }) {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', padding: '10px 14px', background: 'var(--card-bg-solid)', borderRadius: '10px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground-muted)' }}>
+            {selected.size} selected
+          </span>
+          <button
+            onClick={() => mutateVisibility([...selected], statusFilter === 'Discarded' ? 'restore' : 'discard')}
+            disabled={busy}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, background: 'rgba(232, 160, 160, 0.05)', color: 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+            {statusFilter === 'Discarded' ? `Restore ${selected.size}` : `Delete ${selected.size}`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={busy}
+            style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, background: 'transparent', color: 'var(--foreground-subtle)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
+            Clear
+          </button>
+        </div>
+      )}
+
       {shown.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {selectedCreator === 'all'
+          {statusFilter === 'Discarded'
+            ? 'No deleted assets.'
+            : selectedCreator === 'all'
             ? `No unreviewed ${activeTab} in library.`
             : `No ${activeTab} for this creator.`}
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-            {paged.map(asset => (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '12px' }}>
+            {paged.map(asset => {
+              const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
+              const isVid = asset.assetType === 'Video' || (!asset.assetType && isVideo(link))
+              return (
               <div key={asset.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <LibraryCard
                   asset={asset}
-                  onAssign={handleAssign}
+                  onAssign={statusFilter === 'Discarded' ? undefined : handleAssign}
                   assigning={assigning}
                   forcePhoto={activeTab === 'photos'}
+                  selectable
+                  selected={selected.has(asset.id)}
+                  onToggleSelect={toggleSelect}
+                  busy={busy}
+                  onSoftDelete={statusFilter === 'Discarded' ? undefined : (a => mutateVisibility([a.id], 'discard'))}
+                  onRestore={statusFilter === 'Discarded' ? (a => mutateVisibility([a.id], 'restore')) : undefined}
                 />
+                {asset.createdTime && (
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px' }}>
+                    {new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
                 {selectedCreator === 'all' && asset.creator?.name && (
                   <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', paddingLeft: '2px' }}>
                     {asset.creator.name}
                   </div>
                 )}
-                <CaptionSuggestions
-                  thumbnailUrl={cdnUrlAtSize(asset.cdnUrl, 400) || asset.thumbnail}
-                  videoUrl={(asset.dropboxLinks?.[0] || asset.dropboxLink || '').replace(/([?&])dl=[01]/, '$1raw=1')}
-                  creatorId={asset.creator?.id}
-                />
-
+                {/* On-screen-text suggestions analyze VIDEO frames — meaningless
+                    on a still, so only show on video assets. */}
+                {isVid && (
+                  <CaptionSuggestions
+                    thumbnailUrl={cdnUrlAtSize(asset.cdnUrl, 400) || asset.thumbnail}
+                    videoUrl={link.replace(/([?&])dl=[01]/, '$1raw=1')}
+                    creatorId={asset.creator?.id}
+                  />
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
@@ -1925,12 +2061,12 @@ function VideoModal({ streamUid, url, onClose }) {
 
 const REVIEW_PAGE_SIZE = 10
 
-function ForReview({ showToast }) {
+export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(new Set())
   const [videoModal, setVideoModal] = useState(null)
-  // Lightbox for the "🖼 Thumbnail" peek button on AI Generated cards.
+  // Lightbox for the "Thumbnail" peek button on AI Generated cards.
   // The editor curates this in the upload modal and it lands as the
   // post's thumbnail in Post Prep — this lets the reviewer verify it
   // without it cluttering the autoplay strip.
@@ -1955,6 +2091,21 @@ function ForReview({ showToast }) {
   }, [showToast])
 
   useEffect(() => { fetchTasks() }, [fetchTasks])
+
+  // Report creator options up to a controlling parent (ContentReview). Must
+  // live with the other hooks — before any early return — to keep hook order
+  // stable across the loading/loaded renders.
+  useEffect(() => {
+    if (!onCreatorOptions) return
+    const m = new Map()
+    for (const t of tasks) {
+      if (t.creator?.id && !m.has(t.creator.id)) m.set(t.creator.id, t.creator.name || '(unnamed)')
+    }
+    onCreatorOptions([...m.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => ({ id, name, count: tasks.filter(t => t.creator?.id === id).length })))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, onCreatorOptions])
 
   const handleApprove = async (taskId) => {
     setUpdating(taskId)
@@ -2009,27 +2160,40 @@ function ForReview({ showToast }) {
     }
     return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
   })()
-  const filteredTasks = creatorFilter === 'all'
-    ? tasks
-    : tasks.filter(t => t.creator?.id === creatorFilter)
+
+  // When a parent (ContentReview) controls the creator filter, use its value;
+  // otherwise self-manage. (Options are reported up via the hook above.)
+  const controlledCreator = creatorId !== undefined
+  const effectiveCreator = controlledCreator ? creatorId : creatorFilter
+
+  const filteredTasks = tasks.filter(t => {
+    if (effectiveCreator !== 'all' && t.creator?.id !== effectiveCreator) return false
+    // sourceFilter (from the Content review split): 'ai' | 'real' | undefined.
+    const isAi = t.asset?.sourceType === 'AI Generated'
+    if (sourceFilter === 'ai' && !isAi) return false
+    if (sourceFilter === 'real' && isAi) return false
+    return true
+  })
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: 0 }}>
           {filteredTasks.length} edit{filteredTasks.length !== 1 ? 's' : ''} waiting for your review
-          {creatorFilter !== 'all' && tasks.length !== filteredTasks.length && (
+          {effectiveCreator !== 'all' && tasks.length !== filteredTasks.length && (
             <span style={{ marginLeft: '6px' }}>· filtered from {tasks.length}</span>
           )}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <select value={creatorFilter} onChange={e => { setCreatorFilter(e.target.value); setPage(0) }}
-            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
-            <option value="all">All creators</option>
-            {creatorOptions.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
+          {!controlledCreator && (
+            <select value={creatorFilter} onChange={e => { setCreatorFilter(e.target.value); setPage(0) }}
+              style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All creators</option>
+              {creatorOptions.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          )}
           <button onClick={fetchTasks}
             style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, background: 'var(--card-bg-solid)', color: 'var(--foreground-muted)', border: '1px solid transparent', borderRadius: '6px', cursor: 'pointer' }}>
             Refresh
@@ -2039,7 +2203,7 @@ function ForReview({ showToast }) {
 
       {filteredTasks.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'rgba(240, 236, 232, 0.85)', fontSize: '14px', background: 'var(--card-bg-solid)', borderRadius: '18px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {creatorFilter === 'all' ? 'No edits waiting for review.' : 'No edits from this creator waiting for review.'}
+          {effectiveCreator === 'all' ? 'No edits waiting for review.' : 'No edits from this creator waiting for review.'}
         </div>
       ) : (() => {
         // Paginate to REVIEW_PAGE_SIZE per page; clamp the page if approvals
@@ -2048,12 +2212,20 @@ function ForReview({ showToast }) {
         const safePage = Math.min(page, totalPages - 1)
         const pagedTasks = filteredTasks.slice(safePage * REVIEW_PAGE_SIZE, (safePage + 1) * REVIEW_PAGE_SIZE)
         return (<>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
           {pagedTasks.map(task => {
             const isExpanded = expanded.has(task.id)
             const fmtDate = task.completedAt
               ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
               : null
+            // Aging + round, for faster triage. Stale = waiting > 24h.
+            const ageHrs = task.completedAt ? (Date.now() - new Date(task.completedAt).getTime()) / 3600000 : null
+            const relTime = ageHrs == null ? null
+              : ageHrs < 1 ? `${Math.max(1, Math.round(ageHrs * 60))}m ago`
+              : ageHrs < 24 ? `${Math.round(ageHrs)}h ago`
+              : `${Math.round(ageHrs / 24)}d ago`
+            const isStale = ageHrs != null && ageHrs > 24
+            const round = (task.revisionHistory?.length || 0) + 1
 
             const toRawUrl = url => url ? url.replace(/([?&])dl=[01]/, '$1raw=1').replace(/^(https:\/\/www\.dropbox\.com\/.+)(?<![?&]raw=1)$/, (m) => m.includes('?') ? m + '&raw=1' : m + '?raw=1') : ''
             const rawClipUrl = toRawUrl((task.asset.dropboxLink || '').split('\n').filter(Boolean)[0] || '')
@@ -2063,7 +2235,7 @@ function ForReview({ showToast }) {
             const isAiGenerated = task.asset.sourceType === 'AI Generated'
 
             return (
-              <div key={task.id} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden' }}>
+              <div key={task.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
                 {/* Video strip
                     - Regular tasks: RAW | EDIT | INSPO (3 cells)
                     - AI Generated tasks: ORIGINAL | OUTPUT (2 cells, same per-cell
@@ -2165,11 +2337,31 @@ function ForReview({ showToast }) {
                 {/* Content */}
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>{task.creator.name}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{task.inspo.title || task.name}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)' }}>{task.creator.name}</span>
+                        {/* Resubmission round — instantly flags "this came back". */}
+                        {round > 1 && (
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#E8C36A', background: 'rgba(232,195,106,0.12)', border: '1px solid rgba(232,195,106,0.3)', padding: '1px 7px', borderRadius: 9999, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>Round {round}</span>
+                        )}
+                      </div>
+                      {/* Secondary line = inspo title for real content, but falls
+                          back to the raw asset filename (long, dash-laden) for
+                          AI/uploaded assets. Keep to ONE truncated line, dimmed,
+                          full value on hover — low-value, never dominates. */}
+                      <div title={task.inspo.title || task.name}
+                        style={{ fontSize: '12px', color: 'var(--foreground-subtle)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {task.inspo.title || task.name}
+                      </div>
                     </div>
-                    {fmtDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', marginTop: '2px' }}>Submitted {fmtDate}</span>}
+                    {/* Relative age — "3h ago"; turns red + "stale" past 24h so
+                        nothing rots in the queue. Full timestamp on hover. */}
+                    {relTime && (
+                      <span title={fmtDate ? `Submitted ${fmtDate}` : ''}
+                        style={{ fontSize: '10px', color: isStale ? '#E87878' : 'var(--foreground-muted)', fontWeight: isStale ? 700 : 400, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        {relTime}{isStale ? ' · stale' : ''}
+                      </span>
+                    )}
                   </div>
 
                   {/* Quick links */}
@@ -2194,10 +2386,29 @@ function ForReview({ showToast }) {
                         type="button"
                         onClick={() => setImageModal({ src: task.asset.thumbnail, label: 'Post thumbnail' })}
                         style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '3px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: '4px', cursor: 'pointer' }}>
-                        🖼 Thumbnail
+                        Thumbnail
                       </button>
                     )}
                   </div>
+
+                  {/* Creator brief — what the creator/brief asked for; the
+                      reviewer judges the edit against this. Already returned by
+                      the API (creatorNotes), previously never shown. */}
+                  {task.creatorNotes && (
+                    <div style={{ background: 'rgba(232,160,160,0.05)', border: '1px solid rgba(232,160,160,0.15)', borderRadius: '6px', padding: '10px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--palm-pink)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Creator Brief</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.4 }}>{task.creatorNotes}</div>
+                    </div>
+                  )}
+
+                  {/* Planned on-screen text — a core review criterion, pulled
+                      onto the card face instead of being buried in the toggle. */}
+                  {task.inspo.onScreenText && (
+                    <div style={{ background: 'rgba(232,200,120,0.06)', border: '1px solid rgba(232,200,120,0.18)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#E8C878', opacity: 0.85 }}>On-screen text</div>
+                      <div style={{ fontSize: '12px', color: '#E8C878', lineHeight: 1.4, marginTop: '3px' }}>&ldquo;{task.inspo.onScreenText}&rdquo;</div>
+                    </div>
+                  )}
 
                   {/* Editor notes */}
                   {task.editorNotes && (
@@ -2278,7 +2489,7 @@ function ForReview({ showToast }) {
                       onClick={() => handleApprove(task.id)}
                       disabled={updating === task.id}
                       style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: 'rgba(125, 211, 164, 0.08)', color: '#7DD3A4', border: '1px solid transparent', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                      {updating === task.id ? 'Saving...' : 'Approve ✓'}
+                      {updating === task.id ? 'Saving...' : 'Approve'}
                     </button>
                   </div>
                 </div>
@@ -2323,7 +2534,7 @@ function ForReview({ showToast }) {
   )
 }
 
-// Simple image lightbox — used for the "🖼 Thumbnail" peek button on AI
+// Simple image lightbox — used for the "Thumbnail" peek button on AI
 // Generated review cards. Click outside or the × to dismiss. Aspect-fit so
 // any size works (the editor might upload landscape or portrait).
 function ImageLightbox({ src, label, onClose }) {
@@ -2351,7 +2562,7 @@ function ImageLightbox({ src, label, onClose }) {
 // revisions, that's when the editor resubmitted (not when the original task
 // was created).
 
-function SubmissionsFeed({ showToast }) {
+export function SubmissionsFeed({ showToast }) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all') // all | Initial | Revision

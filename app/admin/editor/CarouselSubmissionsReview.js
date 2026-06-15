@@ -1,12 +1,14 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import EmptyState from '@/app/admin/social/_components/EmptyState'
 
 // AI Carousel Submissions — pending batches uploaded via /ai-editor.
 // Lives alongside the existing reel For Review queue. Approve flips each
 // photo in the batch to Review Status=Approved (surfaces in Carousels
 // picker under AI Generated); Reject flips to Rejected (Photo stays in
 // Airtable for audit but the picker filter hides it).
-export default function CarouselSubmissionsReview({ showToast }) {
+export default function CarouselSubmissionsReview({ showToast, sourceFilter = 'ai', embedded = false }) {
+  const sourceLabel = sourceFilter === 'real' ? 'Real' : 'AI'
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(null)
@@ -15,11 +17,15 @@ export default function CarouselSubmissionsReview({ showToast }) {
   // visually tight (AI slides only by default). Populated from the
   // submission's linked Carousel Project.
   const [sourceModal, setSourceModal] = useState(null)  // { submission }
+  // Per-slide rejection panel (SMM Batch 5). When set, renders an inline
+  // panel under the carousel card with reason textarea + two buttons:
+  // "Remove only this slide" / "Bounce whole carousel."
+  const [rejectingSlide, setRejectingSlide] = useState(null) // { batchId, photo, reason }
 
   const fetchSubmissions = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/photos/carousel-submissions')
+      const res = await fetch(`/api/admin/photos/carousel-submissions?source=${sourceFilter}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load')
       setSubmissions(data.submissions || [])
@@ -28,7 +34,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
     } finally {
       setLoading(false)
     }
-  }, [showToast])
+  }, [showToast, sourceFilter])
 
   useEffect(() => { fetchSubmissions() }, [fetchSubmissions])
 
@@ -52,8 +58,46 @@ export default function CarouselSubmissionsReview({ showToast }) {
     }
   }
 
+  // Per-slide reject — SMM Batch 5. Two modes: remove (just this slide) or
+  // bounce (whole carousel back for revision). Server handles either case.
+  const rejectSlide = async (batchId, photoId, mode, reason) => {
+    setUpdating(batchId)
+    try {
+      const res = await fetch('/api/admin/photos/carousel-submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchId, action: 'reject-slide', photoId, mode, reason }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Update failed')
+      if (mode === 'bounce') {
+        setSubmissions(prev => prev.filter(s => s.batchId !== batchId))
+        showToast?.(`Bounced · ${data.updated} slide${data.updated === 1 ? '' : 's'} rejected`)
+      } else {
+        // Remove just the slide locally from the matching submission.
+        setSubmissions(prev => prev.map(s =>
+          s.batchId !== batchId ? s : { ...s, photos: s.photos.filter(p => p.id !== photoId) }
+        ))
+        showToast?.('Slide removed from carousel')
+      }
+      setRejectingSlide(null)
+    } catch (err) {
+      showToast?.(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
   if (loading) return null
-  if (!submissions.length) return null  // Hide the whole section when empty.
+  // Standalone: hide when empty. Embedded in the Content review split: show a
+  // clear empty state so the quadrant doesn't look broken.
+  if (!submissions.length) {
+    if (!embedded) return null
+    const msg = sourceFilter === 'real'
+      ? "Real carousels are assembled under Carousels and don't route through this review queue yet — only AI carousels are reviewed here for now."
+      : 'When AI carousel submissions are pending, they\'ll appear here.'
+    return <EmptyState title={`No ${sourceLabel.toLowerCase()} carousels to review`} message={msg} />
+  }
 
   return (
     <div style={{ marginBottom: 32 }}>
@@ -62,14 +106,14 @@ export default function CarouselSubmissionsReview({ showToast }) {
         textTransform: 'uppercase', letterSpacing: '0.08em',
         margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        📸 AI Carousel Submissions
+        {sourceLabel} Carousel Submissions
         <span style={{
           padding: '2px 8px', fontSize: 10, fontWeight: 700, borderRadius: 10,
           background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)',
         }}>{submissions.length}</span>
       </h2>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 460px))', gap: 14, alignItems: 'start' }}>
         {submissions.map(sub => (
           <div key={sub.batchId} style={{
             background: 'rgba(255,255,255,0.02)',
@@ -130,35 +174,130 @@ export default function CarouselSubmissionsReview({ showToast }) {
               gap: 6,
             }}>
               {sub.photos.map(p => (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => setLightbox({ photo: p })}
-                  title="Click to view full size"
+                  className="palm-slide-thumb"
                   style={{
                     position: 'relative', aspectRatio: '1/1', overflow: 'hidden',
-                    background: '#111', border: 'none', borderRadius: 6,
-                    cursor: 'pointer', padding: 0,
+                    background: '#111', borderRadius: 6,
                   }}
                 >
-                  {p.image && (
-                    <img
-                      src={p.image}
-                      onError={e => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  )}
+                  <button
+                    onClick={() => setLightbox({ photo: p })}
+                    title="Click to view full size"
+                    style={{
+                      position: 'absolute', inset: 0,
+                      background: 'transparent', border: 'none',
+                      cursor: 'pointer', padding: 0,
+                    }}
+                  >
+                    {p.image && (
+                      <img
+                        src={p.image}
+                        onError={e => { if (p.imageFallback && e.currentTarget.src !== p.imageFallback) e.currentTarget.src = p.imageFallback }}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    )}
+                  </button>
                   <div style={{
-                    position: 'absolute', top: 4, left: 4,
+                    position: 'absolute', top: 4, left: 4, pointerEvents: 'none',
                     padding: '1px 6px', fontSize: 10, fontWeight: 700,
                     background: 'rgba(0,0,0,0.7)', color: '#fff', borderRadius: 3,
                   }}>{p.carouselIndex || '?'}</div>
-                </button>
+                  {/* Per-slide reject ✕ (SMM Batch 5). Hover-visible only via
+                      CSS opacity transition. Opens an inline reject panel below
+                      the carousel card so the operator can pick: remove this
+                      slide only, or bounce the whole carousel. */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setRejectingSlide({ batchId: sub.batchId, photo: p, reason: '' })
+                    }}
+                    title="Reject this slide"
+                    className="palm-slide-reject"
+                    style={{
+                      position: 'absolute', top: 4, right: 4,
+                      width: 22, height: 22, padding: 0,
+                      borderRadius: 11,
+                      background: 'rgba(232,120,120,0.85)',
+                      color: '#fff', border: 'none',
+                      fontSize: 13, fontWeight: 700, lineHeight: 1,
+                      cursor: 'pointer',
+                      opacity: 0, transition: 'opacity 0.15s',
+                    }}
+                  >×</button>
+                </div>
               ))}
             </div>
+            {/* Inline per-slide reject panel — appears under the carousel
+                grid only for the currently-selected slide in this batch. */}
+            {rejectingSlide?.batchId === sub.batchId && (
+              <div style={{
+                marginTop: 8, padding: 12,
+                background: 'rgba(232,120,120,0.06)',
+                border: '1px solid rgba(232,120,120,0.30)',
+                borderRadius: 8,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <img
+                    src={rejectingSlide.photo.image}
+                    alt=""
+                    style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
+                    Rejecting slide {rejectingSlide.photo.carouselIndex || '?'}
+                  </div>
+                  <button
+                    onClick={() => setRejectingSlide(null)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: 14, cursor: 'pointer', padding: '0 6px' }}
+                  >×</button>
+                </div>
+                <textarea
+                  value={rejectingSlide.reason}
+                  onChange={e => setRejectingSlide(r => ({ ...r, reason: e.target.value }))}
+                  placeholder="Optional reason — only used when bouncing the whole carousel back to the AI editor"
+                  rows={2}
+                  style={{
+                    width: '100%', padding: 8,
+                    background: 'rgba(0,0,0,0.25)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 6, color: 'var(--foreground)',
+                    fontSize: 12, fontFamily: 'inherit', resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => rejectSlide(rejectingSlide.batchId, rejectingSlide.photo.id, 'remove', rejectingSlide.reason)}
+                    disabled={updating === rejectingSlide.batchId}
+                    style={{
+                      padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                      background: 'rgba(232,195,106,0.12)', color: '#E8C36A',
+                      border: '1px solid rgba(232,195,106,0.35)', borderRadius: 6,
+                      cursor: 'pointer',
+                    }}
+                  >Remove only this slide</button>
+                  <button
+                    onClick={() => rejectSlide(rejectingSlide.batchId, rejectingSlide.photo.id, 'bounce', rejectingSlide.reason)}
+                    disabled={updating === rejectingSlide.batchId}
+                    style={{
+                      padding: '7px 14px', fontSize: 12, fontWeight: 700,
+                      background: 'rgba(232,120,120,0.10)', color: '#E87878',
+                      border: '1px solid rgba(232,120,120,0.40)', borderRadius: 6,
+                      cursor: 'pointer',
+                    }}
+                  >Bounce whole carousel</button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      <style>{`
+        .palm-slide-thumb:hover .palm-slide-reject { opacity: 1 !important; }
+      `}</style>
 
       {/* Side-by-side source vs AI modal. Opens via the "Show source"
           button per submission. Reviewer compares the original scraped
@@ -206,7 +345,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
                     textTransform: 'uppercase', color: 'var(--foreground-muted)',
                     marginBottom: 8,
-                  }}>📷 Source · {proj.sourcePhotos?.length || 0}</div>
+                  }}>Source · {proj.sourcePhotos?.length || 0}</div>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
@@ -246,7 +385,7 @@ export default function CarouselSubmissionsReview({ showToast }) {
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
                     textTransform: 'uppercase', color: 'var(--palm-pink)',
                     marginBottom: 8,
-                  }}>✨ AI Submission · {sub.photos.length}</div>
+                  }}>{sourceLabel} Submission · {sub.photos.length}</div>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',

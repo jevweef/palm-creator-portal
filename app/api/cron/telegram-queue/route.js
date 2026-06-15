@@ -95,7 +95,9 @@ async function processOnePost(postId) {
   const isCarousel = postType === 'Carousel'
   if (!linkedAssetIds.length) throw new Error('Post has no Asset link')
   if (!creatorId) throw new Error('Post has no Creator link')
-  if (!channel) throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
+  // NOTE: Channel is required only for REAL content (it picks the IG vs FB
+  // topic). AI content routes to the creator's single AI topic regardless of
+  // channel, so the channel requirement is enforced in the real branch below.
 
   // Carousel posts link N photo Assets; reels link one video Asset. Pull all
   // linked records in a single roundtrip and key the downstream branch on
@@ -104,11 +106,11 @@ async function processOnePost(postId) {
   const [creatorList, assetList] = await Promise.all([
     fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
-      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
+      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID', 'Telegram AI Topic ID'],
     }),
     fetchAirtableRecords('Assets', {
       filterByFormula: assetFilter,
-      fields: ['Asset Name', 'Asset Type', 'Edited File Link', 'Dropbox Shared Link', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
+      fields: ['Asset Name', 'Asset Type', 'Source Type', 'Edited File Link', 'Dropbox Shared Link', 'CDN URL', 'Stream Edit ID', 'Stream Raw ID', 'Compressed File Link', 'Compress Status'],
     }),
   ])
 
@@ -116,14 +118,29 @@ async function processOnePost(postId) {
   const assetById = Object.fromEntries(assetList.map(a => [a.id, a.fields || {}]))
   const asset = assetById[assetId] || {}
 
-  // Resolve the per-channel Telegram topic for this creator.
-  // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID.
-  // Both live on Palm Creators (Ops base). If the topic ID is missing, fail
-  // loud — we'd otherwise post into the group's General topic by accident.
-  const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
-  const smmTopicId = creator[channelTopicField]
-  if (!smmTopicId) {
-    throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
+  // Resolve the Telegram topic for this creator. Source of truth for AI vs
+  // real is Assets.Source Type='AI Generated' (a carousel is AI if ANY slide
+  // is AI). AI content routes to the creator's SINGLE 'Telegram AI Topic ID'
+  // (not split by IG/FB — one AI topic per creator). Real content routes to
+  // the per-channel topic: Channel='IG' → Telegram IG Topic ID, 'FB' → FB.
+  // All live on Palm Creators (Ops base). Missing topic = fail loud, so we
+  // never post into the group's General topic by accident.
+  const isAI = linkedAssetIds.some(aid => assetById[aid]?.['Source Type'] === 'AI Generated')
+  let smmTopicId
+  if (isAI) {
+    smmTopicId = creator['Telegram AI Topic ID']
+    if (!smmTopicId) {
+      throw new Error('Creator missing Telegram AI Topic ID — set it on the Palm Creators record (AI content routes to the per-creator AI topic)')
+    }
+  } else {
+    if (!channel) {
+      throw new Error('Post has no Channel set (expected IG or FB) — cannot resolve Telegram topic')
+    }
+    const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
+    smmTopicId = creator[channelTopicField]
+    if (!smmTopicId) {
+      throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
+    }
   }
 
   // For reels: prefer the pre-compressed file (compress-pending-assets cron),
@@ -195,8 +212,21 @@ async function processOnePost(postId) {
   })
   const text = await res.text()
   let data = {}
-  try { data = JSON.parse(text) } catch { data = { error: text.slice(0, 300) } }
-  if (!res.ok) throw new Error(data.error || `send failed (${res.status})`)
+  let parsedJson = false
+  try { data = JSON.parse(text); parsedJson = true } catch { data = { error: text.slice(0, 300) } }
+  if (!res.ok) {
+    const e = new Error(data.error || `send failed (${res.status})`)
+    // DEFINITIVE = the send route returned a JSON {error} body, i.e. a real
+    // Telegram/app rejection (file too large, bad topic, etc.) → safe to mark
+    // Send Failed. NON-DEFINITIVE = a non-JSON body (Vercel HTML error page /
+    // FUNCTION_INVOCATION_TIMEOUT / "An error occurred with your deployment"):
+    // the send route runs in its OWN 800s function and very likely kept going
+    // and DELIVERED after our 300s call to it timed out. Those must NOT be
+    // hard-failed — that's the "says FAILED but actually sent" bug.
+    e.definitive = parsedJson && !!data.error
+    e.httpStatus = res.status
+    throw e
+  }
   return { sent: true }
 }
 
@@ -269,17 +299,54 @@ export async function GET(request) {
       // success and stamps Telegram Sent At, so we don't double-write here.
     } catch (err) {
       results.push({ postId: post.id, error: err.message })
-      // Mark Send Failed + record the actual error so the operator can see
-      // WHY without digging through logs. Includes a timestamp so a stale
-      // error doesn't look fresh after a manual retry.
       const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z'
+
+      // VERIFY BEFORE FAILING. The send route runs in its own 800s function and
+      // may have delivered + stamped 'Sent to Telegram' even though our wait=true
+      // call to it timed out at the cron's 300s budget. Re-fetch ground truth
+      // before declaring failure — this is the direct fix for the dozens of
+      // "Send Failed" rows that are actually Status='Sent to Telegram'.
+      let alreadySent = false
       try {
-        await patchAirtableRecord('Posts', post.id, {
-          'Status': 'Send Failed',
-          'Send Error': `[${stamp}] ${err.message}`,
-        }, { typecast: true })
+        const check = await fetchAirtableRecords('Posts', {
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(post.id)}`,
+          fields: ['Status', 'Telegram Message ID'],
+        })
+        const cf = check[0]?.fields || {}
+        const st = typeof cf.Status === 'string' ? cf.Status : (cf.Status?.name || '')
+        alreadySent = st === 'Sent to Telegram' && !!cf['Telegram Message ID']
+      } catch (checkErr) {
+        console.warn('[telegram-queue] post-error status check failed:', checkErr.message)
+      }
+
+      if (alreadySent) {
+        // False alarm — it landed. Don't overwrite a successful send.
+        console.log(`[telegram-queue] ${post.id} reported "${err.message}" but is already Sent — treating as delivered (false timeout).`)
+        results[results.length - 1] = { postId: post.id, sent: true, recovered: true }
+        if (i < queued.length - 1) await new Promise(r => setTimeout(r, GAP_BETWEEN_POSTS_MS))
+        continue
+      }
+
+      try {
+        if (err.definitive) {
+          // Real Telegram/app rejection — mark Send Failed so the operator acts.
+          await patchAirtableRecord('Posts', post.id, {
+            'Status': 'Send Failed',
+            'Send Error': `[${stamp}] ${err.message}`,
+          }, { typecast: true })
+        } else {
+          // Infrastructure timeout, NOT confirmed delivered. Leave the post at
+          // 'Sending' (don't show a false FAILED). The stale-lock sweeper resets
+          // it to 'Queued for Telegram' after 10 min so it retries on its own —
+          // by which time any still-running send function will have stamped Sent
+          // (caught by the alreadySent check above) and we won't double-send.
+          await patchAirtableRecord('Posts', post.id, {
+            'Send Error': `[${stamp}] transient (left for auto-retry): ${err.message}`,
+          })
+          console.log(`[telegram-queue] ${post.id} transient error — left at 'Sending' for stale-lock retry, not failed.`)
+        }
       } catch (e) {
-        console.warn('[telegram-queue] failed to mark Send Failed:', e.message)
+        console.warn('[telegram-queue] failed to record send outcome:', e.message)
       }
     }
     // Pacing between sends within a single cron tick. The send route's

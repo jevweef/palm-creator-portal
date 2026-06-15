@@ -94,6 +94,117 @@ async function resizeImage(inputBuffer, inputName) {
   return outputBuffer
 }
 
+// Resize a thumbnail to Telegram's HARD limits for an embedded video poster:
+// JPEG, max 320×320, < 200KB. (core.telegram.org/bots/api — InputMediaVideo /
+// sendVideo `thumbnail`.) This is DIFFERENT from resizeImage() above, which
+// produces a full ≤1280px photo for standalone sendPhoto. We were previously
+// attaching a 1280px thumbnail as the video poster — 4× over the 320px cap —
+// so Telegram SILENTLY IGNORED it on every reel and the video showed no cover.
+// Steps quality down until under 200KB so even a busy frame fits.
+async function resizeThumbnail(inputBuffer, inputName) {
+  const inputBuf = Buffer.from(inputBuffer)
+  const rawExt = (inputName.split('.').pop() || '').toLowerCase()
+  const isHeic = rawExt === 'heic' || rawExt === 'heif'
+  const TG_THUMB_MAX_PX = 320
+  const TG_THUMB_MAX_BYTES = 200 * 1024
+
+  const encodeAt = async (quality) =>
+    sharp(inputBuf)
+      .rotate() // honor EXIF, strip the tag
+      .resize(TG_THUMB_MAX_PX, TG_THUMB_MAX_PX, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality, mozjpeg: false })
+      .toBuffer()
+
+  if (!isHeic) {
+    try {
+      for (const q of [80, 65, 50, 40]) {
+        const out = await encodeAt(q)
+        if (out.length <= TG_THUMB_MAX_BYTES) return out
+      }
+      // Even at q40 it's somehow >200KB (very rare at ≤320px) — return the
+      // smallest we have; Telegram will ignore it but the video still sends.
+      return await encodeAt(40)
+    } catch (e) {
+      console.warn('[resizeThumbnail] sharp failed, falling back to ffmpeg:', e.message)
+    }
+  }
+
+  // ffmpeg fallback (HEIC, or anything sharp choked on).
+  const id = Date.now()
+  const knownExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'heic', 'heif']
+  const ext = knownExts.includes(rawExt) ? rawExt : 'jpg'
+  const inputPath = join(tmpdir(), `tg_thumb_in_${id}.${ext}`)
+  const outputPath = join(tmpdir(), `tg_thumb_out_${id}.jpg`)
+  await writeFile(inputPath, inputBuf)
+  await new Promise((resolve, reject) => {
+    const args = [
+      '-y', '-i', inputPath,
+      '-vf', 'scale=320:320:force_original_aspect_ratio=decrease',
+      '-frames:v', '1', '-q:v', '5',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (err) => {
+      if (err) reject(err); else resolve()
+    })
+  })
+  const outputBuffer = await readFile(outputPath)
+  await unlink(inputPath).catch(() => {})
+  await unlink(outputPath).catch(() => {})
+  return outputBuffer
+}
+
+// Probe a video by parsing `ffmpeg -i` stderr (ffprobe isn't in ffmpeg-static).
+// Returns { duration, width, height, codec, pixFmt } — any field may be null
+// if parsing fails. We pass width/height/duration to sendVideo so Telegram
+// renders an inline player with a poster instead of a "00:00 · N MB · file"
+// document tile, and we use codec/pixFmt to decide remux vs re-encode.
+async function probeVideo(filePath) {
+  let stderr = ''
+  try {
+    await execFilePromise(ffmpegStatic, ['-i', filePath], { timeout: 15000 })
+  } catch (err) {
+    stderr = err.stderr || ''
+  }
+  if (!stderr) return { duration: null, width: null, height: null, codec: null, pixFmt: null }
+
+  let duration = null
+  const dm = stderr.match(/Duration:\s+(\d+):(\d+):(\d+(?:\.\d+)?)/)
+  if (dm) duration = Math.round(parseInt(dm[1]) * 3600 + parseInt(dm[2]) * 60 + parseFloat(dm[3]))
+
+  // Video stream line, e.g.:
+  //   Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p, 1080x1920 [SAR 1:1 DAR 9:16], ...
+  const vLine = (stderr.split('\n').find(l => /Stream #\d+:\d+.*Video:/.test(l)) || '')
+  const codec = (vLine.match(/Video:\s*([a-z0-9]+)/i)?.[1] || '').toLowerCase() || null
+  const pixFmt = (vLine.match(/,\s*(yuv[a-z0-9]+|nv12|gbrp[a-z0-9]*|rgb[a-z0-9]*)\b/i)?.[1] || '').toLowerCase() || null
+  const dim = vLine.match(/,\s*(\d{2,5})x(\d{2,5})/)
+  const width = dim ? parseInt(dim[1]) : null
+  const height = dim ? parseInt(dim[2]) : null
+
+  return { duration, width, height, codec, pixFmt }
+}
+
+// Decide whether a probed video must be RE-ENCODED (not just remuxed) for
+// Telegram to inline-play it. Telegram reliably inlines ONLY 8-bit H.264 in
+// yuv420p (HEVC/H.265, VP9, 10-bit, and 4:2:2/4:4:4 chroma render as a
+// downloadable file with no thumbnail). If we can't determine the codec we
+// re-encode to be safe — better a slow correct send than a silent document.
+function videoNeedsReencode(probe) {
+  if (!probe || !probe.codec) return true // unknown → normalize defensively
+  if (probe.codec !== 'h264') return true
+  if (probe.pixFmt && probe.pixFmt !== 'yuv420p') return true
+  return false
+}
+
+// Best-effort stringify for an error stamped into Airtable. Plain Error →
+// .message; anything else → JSON. Fixes the "[object Object]" Send Error rows
+// that gave operators nothing to act on.
+function errToString(err) {
+  if (!err) return 'Unknown error'
+  if (typeof err === 'string') return err
+  if (err.message) return err.message
+  try { return JSON.stringify(err) } catch { return String(err) }
+}
+
 // MOV → MP4, fast container swap (`-c copy`, no re-encode).
 //
 // REVERTED 2026-05-17: briefly changed to a full libx264 re-encode to bake
@@ -213,6 +324,44 @@ async function compressVideo(inputBuffer, inputName, { targetMB = 47, aggressive
     execFile(ffmpegStatic, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
       if (err) reject(err)
       else resolve()
+    })
+  })
+  const outputBuffer = await readFile(outputPath)
+  await unlink(inputPath).catch(() => {})
+  await unlink(outputPath).catch(() => {})
+  return outputBuffer
+}
+
+// Re-encode ANY video into the Telegram inline-streamable contract:
+// 8-bit H.264 (yuv420p) + AAC + faststart, capped at 1080p with even
+// dimensions and rotation baked into the pixels. Used ONLY when probeVideo
+// says the source isn't already conforming (HEVC, 10-bit, VP9, unknown) —
+// conforming files take the fast remux path instead. ultrafast preset keeps
+// this well under the function budget for normal reel lengths.
+async function normalizeVideo(inputBuffer, inputName) {
+  const id = Date.now()
+  const ext = (inputName.split('.').pop() || 'mp4').toLowerCase()
+  const inputPath = join(tmpdir(), `tg_norm_in_${id}.${ext}`)
+  const outputPath = join(tmpdir(), `tg_norm_out_${id}.mp4`)
+  await writeFile(inputPath, Buffer.from(inputBuffer))
+  await new Promise((resolve, reject) => {
+    const args = [
+      '-y', '-i', inputPath,
+      '-map', '0:v:0', '-map', '0:a:0?', // first video + optional audio (audioless reels ok)
+      '-c:v', 'libx264',
+      '-profile:v', 'high', '-level', '4.1',
+      '-pix_fmt', 'yuv420p',
+      '-preset', 'ultrafast',
+      '-crf', '23',
+      // ≤1080p, never upscale, force even W/H (libx264 + yuv420p require it)
+      '-vf', "scale='min(1080,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
+      '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+      '-metadata:s:v:0', 'rotate=0', // libx264 bakes rotation; clear the tag
+      '-movflags', '+faststart',
+      outputPath,
+    ]
+    execFile(ffmpegStatic, args, { timeout: 240000, maxBuffer: 50 * 1024 * 1024 }, (err) => {
+      if (err) reject(err); else resolve()
     })
   })
   const outputBuffer = await readFile(outputPath)
@@ -533,9 +682,12 @@ async function doSend(params) {
     const messageThreadId = useSmm ? smmTopicId : threadId
 
     const ext = (getFilename(editedFileLink).split('.').pop() || '').toLowerCase()
-    const needsRemux = isVideo(editedFileLink) && ext !== 'mp4'
 
     let result = null
+    // Telegram message IDs from any SEPARATE follow-up message (the standalone
+    // thumbnail photo). Merged into the comma-joined Telegram Message ID so
+    // bulk-unsend deletes both the video and its cover.
+    let extraMessageIds = []
 
     // Skip URL method entirely. Previously we tried to have Telegram fetch the
     // file directly from Dropbox via URL, which was fast for small files but
@@ -568,23 +720,51 @@ async function doSend(params) {
       const filename = getFilename(editedFileLink)
       const mimeType = getMimeType(editedFileLink)
 
-      // Remux non-MP4 videos to MP4 with faststart for Telegram inline preview.
-      // Normalize to Node Buffer up front so .length is consistent downstream —
-      // fileBuffer is an ArrayBuffer (has .byteLength not .length), and ArrayBuffer.length
-      // silently returns undefined, which meant our size check below was comparing
-      // undefined > MAX_UPLOAD_BYTES → false → compression never fired.
+      // Prepare a Telegram-friendly MP4. Normalize to a Node Buffer up front so
+      // .length is consistent (fileBuffer is an ArrayBuffer — .length is
+      // undefined, which once silently disabled the 50MB compression check).
       let uploadBuffer = Buffer.from(fileBuffer)
       let uploadFilename = filename
       let uploadMime = mimeType
       const fileExt = (filename.split('.').pop() || '').toLowerCase()
-      if (isVideo(editedFileLink) && fileExt !== 'mp4') {
-        console.log(`[Telegram Send] Remuxing ${ext} to MP4 with faststart...`)
-        uploadBuffer = await remuxToMp4(fileBuffer, filename)
-        uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
+      // `probe` carries width/height/duration we hand to sendVideo so Telegram
+      // renders an inline player (with a poster) instead of a "00:00 · N MB"
+      // document tile. Scoped to the whole send block.
+      let probe = { duration: null, width: null, height: null, codec: null, pixFmt: null }
+
+      if (isVideo(editedFileLink)) {
         uploadMime = 'video/mp4'
-        console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
-      } else if (isVideo(editedFileLink)) {
-        uploadMime = 'video/mp4'
+        // Probe the source once (write to a temp file; ffprobe isn't bundled).
+        const probeId = Date.now()
+        const probePath = join(tmpdir(), `tg_probe_${probeId}.${fileExt || 'mp4'}`)
+        await writeFile(probePath, uploadBuffer)
+        probe = await probeVideo(probePath)
+        await unlink(probePath).catch(() => {})
+        console.log(`[Telegram Send] Probe: codec=${probe.codec} pix=${probe.pixFmt} ${probe.width}x${probe.height} dur=${probe.duration}s`)
+
+        if (videoNeedsReencode(probe)) {
+          // HEVC / 10-bit / VP9 / unknown — Telegram won't inline these. Re-encode
+          // to the safe H.264/yuv420p/faststart contract (the ONLY reliable fix
+          // for the "shows as a downloadable file, no thumbnail" symptom).
+          console.log(`[Telegram Send] Re-encoding (codec=${probe.codec || '?'}, pix=${probe.pixFmt || '?'}) for inline playback...`)
+          const reStart = Date.now()
+          uploadBuffer = await normalizeVideo(uploadBuffer, filename)
+          uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
+          // Re-probe the OUTPUT so dimensions/duration match the sent pixels.
+          const rePath = join(tmpdir(), `tg_reprobe_${probeId}.mp4`)
+          await writeFile(rePath, uploadBuffer)
+          probe = await probeVideo(rePath)
+          await unlink(rePath).catch(() => {})
+          console.log(`[Telegram Send] Re-encode done in ${((Date.now()-reStart)/1000).toFixed(1)}s → ${(uploadBuffer.length/1024/1024).toFixed(1)}MB ${probe.width}x${probe.height}`)
+        } else if (fileExt !== 'mp4') {
+          // Already conforming H.264/yuv420p but in a .mov/.webm container —
+          // fast container swap to MP4 + faststart, no re-encode.
+          console.log(`[Telegram Send] Remuxing ${fileExt} → MP4 (faststart, no re-encode)...`)
+          uploadBuffer = await remuxToMp4(fileBuffer, filename)
+          uploadFilename = filename.replace(/\.[^.]+$/, '.mp4')
+          console.log(`[Telegram Send] Remux done, size: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`)
+        }
+        // else: already a conforming MP4 — send as-is.
       }
 
       // Compress if file exceeds Telegram's 50MB bot limit.
@@ -624,55 +804,71 @@ async function doSend(params) {
         throw new Error(`File too large (${(uploadBuffer.length / 1024 / 1024).toFixed(0)}MB). Telegram limit is 50MB for non-video files.`)
       }
 
-      if (isVideo(editedFileLink) && thumbnailUrl) {
-        // Send video + photo as a media group (shows side by side like native Telegram media)
-        // Set thumbnail on the video so it shows a preview frame instead of black
-        const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
-        if (!thumbRes.ok) throw new Error('Failed to download thumbnail from Dropbox')
-        const rawThumbBuffer = await thumbRes.arrayBuffer()
-
-        // Resize thumbnail to fit Telegram limits (max 1280px, <10MB)
-        console.log(`[Telegram Send] Resizing thumbnail (${(rawThumbBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)...`)
-        const thumbBuffer = await resizeImage(rawThumbBuffer, getFilename(thumbnailUrl))
-        console.log(`[Telegram Send] Thumbnail resized to ${(thumbBuffer.length / 1024).toFixed(0)}KB`)
-        const thumbMime = 'image/jpeg'
-        const thumbFilename = 'thumbnail.jpg'
-
-        const mediaGroup = [
-          { type: 'video', media: 'attach://video_file', thumbnail: 'attach://thumb_file', supports_streaming: true, width: 1080, height: 1920, ...(caption ? { caption } : {}) },
-          { type: 'photo', media: 'attach://photo_file' },
-        ]
-        form.append('media', JSON.stringify(mediaGroup))
-        form.append('video_file', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
-        form.append('thumb_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
-        form.append('photo_file', new Blob([thumbBuffer], { type: thumbMime }), thumbFilename)
-        try {
-          result = await telegramUpload('sendMediaGroup', form)
-        } catch (mediaErr) {
-          console.warn('[Telegram Send] sendMediaGroup failed, falling back to sendVideo:', mediaErr.message)
-          // Fall back to video-only send without thumbnail
-          const fallbackForm = new FormData()
-          fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(messageThreadId))
-          if (caption) fallbackForm.append('caption', caption)
-          fallbackForm.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
-          fallbackForm.append('supports_streaming', 'true')
-          result = await telegramUpload('sendVideo', fallbackForm)
+      if (isVideo(editedFileLink)) {
+        // SEPARATE-MESSAGE send (no atomic media group). Build the video with
+        // an embedded ≤320px poster + real width/height/duration so Telegram
+        // renders an inline player, then — if a thumbnail exists — send it AGAIN
+        // as its own standalone photo. This guarantees the cover is always
+        // delivered even if Telegram still renders the video itself as a file,
+        // and removes the album-atomicity failure (audioless reels reclassified
+        // as "animation" can't go in sendMediaGroup and killed the whole album).
+        let posterBuffer = null   // ≤320px JPEG, embedded video poster
+        let photoBuffer = null    // ≤1280px JPEG, standalone cover photo
+        if (thumbnailUrl) {
+          try {
+            const thumbRes = await fetch(rawDropboxUrl(thumbnailUrl))
+            if (thumbRes.ok) {
+              const rawThumb = await thumbRes.arrayBuffer()
+              console.log(`[Telegram Send] Preparing thumbnail (${(rawThumb.byteLength / 1024 / 1024).toFixed(1)}MB source)...`)
+              posterBuffer = await resizeThumbnail(rawThumb, getFilename(thumbnailUrl))
+              photoBuffer = await resizeImage(rawThumb, getFilename(thumbnailUrl))
+              console.log(`[Telegram Send] Poster ${(posterBuffer.length / 1024).toFixed(0)}KB (≤320px), cover photo ${(photoBuffer.length / 1024).toFixed(0)}KB`)
+            } else {
+              console.warn(`[Telegram Send] Thumbnail download failed (${thumbRes.status}); sending video without a cover`)
+            }
+          } catch (thumbPrepErr) {
+            console.warn('[Telegram Send] Thumbnail prep failed (non-fatal):', thumbPrepErr.message)
+          }
         }
-      } else if (isVideo(editedFileLink)) {
-        // No thumbnail — send video only
-        form.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
-        form.append('supports_streaming', 'true')
+
+        // 1) The video message — sendVideo with poster + dimensions/duration.
+        const videoForm = new FormData()
+        videoForm.append('chat_id', String(chatId))
+        videoForm.append('message_thread_id', String(messageThreadId))
+        if (caption) videoForm.append('caption', caption)
+        videoForm.append('video', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
+        videoForm.append('supports_streaming', 'true')
+        if (probe.width) videoForm.append('width', String(probe.width))
+        if (probe.height) videoForm.append('height', String(probe.height))
+        if (probe.duration) videoForm.append('duration', String(probe.duration))
+        if (posterBuffer) videoForm.append('thumbnail', new Blob([posterBuffer], { type: 'image/jpeg' }), 'thumb.jpg')
         try {
-          result = await telegramUpload('sendVideo', form)
-        } catch (err) {
-          console.warn('[Telegram Send] sendVideo failed, trying sendDocument:', err.message)
-          const fallbackForm = new FormData()
-          fallbackForm.append('chat_id', String(chatId))
-          fallbackForm.append('message_thread_id', String(messageThreadId))
-          if (caption) fallbackForm.append('caption', caption)
-          fallbackForm.append('document', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
-          result = await telegramUpload('sendDocument', fallbackForm)
+          result = await telegramUpload('sendVideo', videoForm)
+        } catch (vidErr) {
+          console.warn('[Telegram Send] sendVideo failed, trying sendDocument:', vidErr.message)
+          const docForm = new FormData()
+          docForm.append('chat_id', String(chatId))
+          docForm.append('message_thread_id', String(messageThreadId))
+          if (caption) docForm.append('caption', caption)
+          docForm.append('document', new Blob([uploadBuffer], { type: uploadMime }), uploadFilename)
+          if (posterBuffer) docForm.append('thumbnail', new Blob([posterBuffer], { type: 'image/jpeg' }), 'thumb.jpg')
+          result = await telegramUpload('sendDocument', docForm)
+        }
+
+        // 2) The standalone cover photo — NON-FATAL. The video already landed
+        // (result is set); if this photo fails we must NOT fail the whole post.
+        if (photoBuffer) {
+          try {
+            const photoForm = new FormData()
+            photoForm.append('chat_id', String(chatId))
+            photoForm.append('message_thread_id', String(messageThreadId))
+            photoForm.append('photo', new Blob([photoBuffer], { type: 'image/jpeg' }), 'cover.jpg')
+            const photoRes = await telegramUpload('sendPhoto', photoForm)
+            const pid = photoRes?.result?.message_id
+            if (pid) extraMessageIds.push(String(pid))
+          } catch (photoErr) {
+            console.warn('[Telegram Send] Standalone cover photo failed (non-fatal, video already sent):', photoErr.message)
+          }
         }
       } else if (isPhoto(editedFileLink)) {
         form.append('photo', new Blob([fileBuffer], { type: mimeType }), filename)
@@ -683,18 +879,23 @@ async function doSend(params) {
       }
     }
 
-    // Extract message IDs. sendMediaGroup returns an array (video + thumbnail-as-photo);
-    // store ALL IDs comma-separated so bulk-unsend can clean up the entire group,
-    // not just the first message. Other send types return a single message.
-    const messageIds = Array.isArray(result.result)
-      ? result.result.map(m => m?.message_id).filter(Boolean).join(',')
-      : (result.result?.message_id ? String(result.result.message_id) : '')
+    // Extract message IDs. The video send returns one message; carousels return
+    // an array (sendMediaGroup). Merge in any standalone cover-photo ID so
+    // bulk-unsend cleans up the video AND its cover.
+    const baseIds = Array.isArray(result.result)
+      ? result.result.map(m => m?.message_id).filter(Boolean).map(String)
+      : (result.result?.message_id ? [String(result.result.message_id)] : [])
+    const messageIds = [...baseIds, ...extraMessageIds].join(',')
 
-    // Stamp the Post record — also save caption/hashtags/platform/date in case user didn't Save first
+    // Stamp the Post record — also save caption/hashtags/platform/date in case
+    // user didn't Save first. Clear any stale Send Error: this post DID land,
+    // so a leftover error from an earlier timed-out attempt must not linger and
+    // make a sent post look failed in the grid.
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Sent to Telegram',
         'Telegram Sent At': new Date().toISOString(),
+        'Send Error': '',
         ...(messageIds ? { 'Telegram Message ID': messageIds } : {}),
         ...(rawCaption ? { 'Caption': rawCaption } : {}),
         ...(rawHashtags ? { 'Hashtags': rawHashtags } : {}),
@@ -780,12 +981,16 @@ async function doSend(params) {
 
     console.log('[Telegram Send] ✓ Complete for post', postId)
   } catch (err) {
-    console.error('[Telegram Send] Background send failed:', err.message)
-    // Surface failure to the UI via a Post status update so the admin sees it
+    const msg = errToString(err)
+    console.error('[Telegram Send] Background send failed:', msg)
+    // Surface failure to the UI via a Post status update so the admin sees it.
+    // errToString avoids the "[object Object]" Send Error rows we saw when a
+    // non-Error value was thrown.
     if (postId) {
       await patchAirtableRecord('Posts', postId, {
         'Status': 'Send Failed',
-        'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${err.message}`,
+        'Send Error': `[${new Date().toISOString()}] ${msg}`,
+        'Admin Notes': `[Telegram Send Error @ ${new Date().toISOString()}] ${msg}`,
       }).catch(() => {})
     }
     // Re-throw so callers awaiting doSend (wait=true mode) can detect the

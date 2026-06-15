@@ -1,0 +1,195 @@
+# Social Media Hub — Redesign Spec & Build Plan (2026-05-29)
+
+**Status:** plan locked, ready to build. Branch `smm-hub-redesign` (checkpoint `d50ac619`).
+**Owner:** Evan. **Single source of truth for this redesign — update this file, don't proliferate docs.**
+**Supersedes:** the 2026-05-27 "no single parent" nav decision (see `CONTEXT-OVERVIEW-2026-05-28.md` → "Two competing nav visions"). The single `/admin/social` hub is the chosen direction, endorsed by Evan 2026-05-29 ("I like into one section, that makes things a lot easier").
+
+---
+
+## North star (durable)
+Many content sources → one automated post-prep-and-schedule funnel. This feature *becomes* the social media manager. **Real and AI content NEVER mix** (AI-ness lives on the Publer account). Two axes drive the entire IA: **Real vs AI** and **Reel vs Carousel vs Photo**. Drafts-first; validate on Amelia (Briel) → Katie Rosie.
+
+---
+
+## Cross-cutting PRINCIPLES (apply to every section, every pass)
+
+1. **Never break existing functionality.** Every current surface is wanted EXCEPT the explicit changes below. When "removing" something (e.g. the Long Form tab), preserve its underlying capability by folding it elsewhere — don't delete the function, just declutter the navigation.
+2. **One design language — no per-page reinvention.** All sections must look and feel like the same product: shared container width, spacing, headers, cards, buttons, filter bars, empty states, toasts, pagination. Build/extract **shared primitives** and reuse them everywhere. Moving between tabs should feel seamless, not like landing on a different app.
+   - **NO cheap-looking emoji icons** anywhere in the hub (Evan, hard preference). Differentiate with clean typography, weight, and color; use a minimal inline SVG only where an icon genuinely adds clarity. Strip existing emoji icons (nav chips, section headers like "📸"/"✨", toggles) from any surface as it's reworked.
+3. **Think like Evan — proactively add what helps.** This is a high-volume content tool. For every surface ask: *what would Evan want here?* Bias toward:
+   - **Filterability:** by creator, by content type (reel/carousel/photo), by Real/AI, by status, by date.
+   - **Sorting:** newest/oldest, by creator, by status.
+   - **Navigation ease:** fast tab/section movement, deep-linkable URL state (`?tab=&sub=`), remembered selections.
+   - **Density control:** expand/collapse sections, full-row grids, sensible pagination/load-more.
+   - **At-a-glance clarity:** counts/badges, obvious current-selection indicators.
+4. **Real/AI must be unmistakable.** Wherever the Real/AI toggle appears, the active state AND the selected creator must be impossible to misread. "Perfect UX" is the bar. Show every such surface on `:3000` for Evan before considering it done.
+5. **Two-pass build.** Pass 1 = the structural redesign below. Pass 2 = a holistic self-review of the *whole* hub: how could each section be better, what affordances are missing, how do sections interact, what's inconsistent. Pass 2 findings get logged here and built.
+
+---
+
+## Locked macro-structure
+Hub = `/admin/social`. Top-level sections:
+
+1. **Overview** — at-a-glance, two lenses: (a) whole-team / editor workload & throughput ("what the editors have done"), (b) drill into one creator's content + social at a glance. Full-width.
+2. **Accounts & Setup** — accounts + credentials (real-posting AND AI-posting), Setup, **Strategy**, Warm-Up.
+3. **Content** — creation **and** reviewing, split cleanly across **Real/AI × Reel/Carousel/Photo**. Includes the Creator Library (raw source: video + photo).
+4. **Outbound** — prepping + routing to the correct account + scheduling. (Name provisional — Evan unsure "Outbound" is right; candidates: "Scheduling", "Publishing", "Send".)
+
+### Core UX problem — the Real/AI × type matrix (don't stack tabs)
+Use a **Real/AI segmented toggle** + a **creator picker**, both unmistakable, instead of nested stacked tabs. Carousels are BOTH real and AI → they live at the content level, never buried in Outbound.
+
+---
+
+## Per-section detail & change list
+
+### Overview  *(currently `MarketingContentPage` — KPI tiles + quick links only)*
+- [ ] Full-width (verify `app/admin/layout.js` isn't imposing a max-width wrapper).
+- [ ] Lens A: team/editor workload & throughput (who did what, queue depth, turnaround).
+- [ ] Lens B: per-creator at-a-glance drill-in (content pipeline + social status).
+- [ ] Keep existing KPI tiles + quick links; integrate, don't replace.
+
+### Content  *(the heart of the redesign)*
+- [ ] **Creator Library** promoted to first-class; holds video + photo; raw source pool.
+  - [ ] Card: show **date uploaded** under image near filename. *(data exists: `asset.createdTime` / `asset.uploadWeek`.)*
+  - [ ] **Full-row grid:** compute columns from container width, load a multiple so every row is full (~6–7 full rows). *(today `repeat(auto-fill,minmax(180px,1fr))` + page size 15 → ragged last row.)*
+  - [ ] Hide **"✨ Suggest on-screen text"** on **photo** cards (it generates *video* on-screen-text — nonsensical on a still). Keep on video cards.
+  - [ ] Filters: creator, type (video/photo), status (see D2), sort.
+- [ ] **Review split into four distinct sections: Real Carousel · AI Carousel · Real Reels · AI Reels.** *(data supports: `task.asset.sourceType === 'AI Generated'` flags AI; carousel-vs-reel is component-level.)* Replaces the stacked `CarouselSubmissionsReview` → `ForReview` layout. Drive with the Real/AI toggle + a Reel/Carousel selector.
+- [ ] **Submissions** feed (real-creator edits) lives here too; keep Initial/Revision + creator filters.
+
+### Accounts & Setup
+- [ ] **Accounts** area: real-posting + AI-posting accounts in one place, clearly separated by type. **Credentials = Bitwarden vault links/IDs only, NEVER plaintext** (warmup playbook rule). Show persona/account metadata + copy/deep-link to vault item.
+- [ ] **Setup** tab: widen body (currently `maxWidth:1200` centered) to match hub width.
+- [ ] **Strategy:** the Content Strategy Engine (placeholder today, 760px). Pillar taxonomy + DNA-as-thumb-on-scale (see SMM memory). Separate track — can ship after the IA.
+- [ ] **Warm-Up:** keep as-is.
+
+### Outbound
+- [ ] **Post Prep**, **Grid Planner** (UX "basically correct" — don't redesign), **Publer** (not wired yet — placeholder + link).
+- [ ] Organize as review → route-to-account → schedule, not a stack.
+
+### Cross-cutting build
+- [ ] **Equal full-width body across ALL sections.** Normalize Setup (1200 centered) + Strategy (760) → full-width to match Overview/Workflow/Warm-Up. Extract a shared `<HubSection>` container so width/padding is defined once.
+- [ ] Extract shared primitives: `HubSection`, `FilterBar`, `CreatorPicker`, `RealAiToggle`, `ContentCard`, `Paginator`, `EmptyState`. Reuse across all sections (Principle 2).
+
+---
+
+## Decisions (resolved unless marked CONFIRM)
+
+| # | Decision | Resolution |
+|---|----------|-----------|
+| D1 | Long Form tab | **Remove the standalone tab, PRESERVE the upload capability** by folding `LongFormUpload` into the OFTV/long-form area as a sub-action. (Finding: OFTV workflow does NOT include long-form upload, so a plain delete would lose it.) |
+| D2 | Library status filter (Unused / In editing / Used / Posted) | **Phase it.** Ship Unused vs In-editing now (In-editing = an editor task exists for the asset). Defer Used/Posted pending additive Airtable tracking fields. **CONFIRM** the phased approach. |
+| D3 | Submissions Real/AI filter | Submissions are always real-creator edits; AI flows through the review path, not submissions. The Real/AI split belongs in the **Content review** sections (above), not the submissions feed. **CONFIRM** this matches intent. |
+| D4 | Account passwords | **Vault links/IDs only, never plaintext** (security rule). Resolved. |
+
+---
+
+## Execution mode: AUTONOMOUS (2026-05-29)
+Evan opted to run ALL phases autonomously (no mid-build review checkpoints), followed by a multi-agent review pass that checks the work and proposes improvements. Build every phase in order, commit after each, then run the review. List anything not visually verifiable for Evan to eyeball on return.
+
+### Autonomous run prompt (for resuming in a fresh session / as a goal)
+```
+Continue the Social Media Hub redesign on branch smm-hub-redesign. Source of
+truth: docs/build-plans/smm-consolidation/HUB-REDESIGN-SPEC.md and the plan at
+~/.claude/plans/foamy-meandering-elephant.md. Phases 0,1,1b are committed.
+Build ALL remaining phases (2->7) in order, AUTONOMOUSLY (no pausing for
+review). Commit after each phase. Honor the PRINCIPLES (never break existing
+functionality; one design language via app/admin/social/_components primitives;
+real/AI never mix; Real/AI toggle unmistakable). Decisions are locked (D1-D4 +
+real-carousel wired in + Workflow in Content). Keep the dev server on :3000
+healthy (stale .next 500 -> kill, rm -rf .next, restart). When all phases are
+done, run a final `next build`, fix any compile errors, then launch 2-3 review
+agents to audit the whole hub for correctness, broken functionality,
+consistency, and improvements; log findings into "Pass 2 findings" and fix the
+high-confidence ones. Do NOT push to any remote.
+```
+
+## Phased build order
+Each phase ends with a compile/sanity check. Preserve functionality throughout.
+
+- **Phase 0 — Foundations:** extract shared primitives (`HubSection`, `FilterBar`, `CreatorPicker`, `RealAiToggle`, `ContentCard`, `Paginator`, `EmptyState`); normalize all sections to equal full-width. *(enables consistency for everything after)*
+- **Phase 1 — Creator Library:** date-on-card, hide AI-suggest on photos, full-row grid, filters (creator/type/status-phase1/sort).
+- **Phase 2 — Content review 4-way split:** Real/AI toggle + Reel/Carousel selector over Real Carousel / AI Carousel / Real Reels / AI Reels; fold submissions feed in.
+- **Phase 3 — Section restructure:** reorganize hub into Overview / Accounts & Setup / Content / Outbound; re-home Carousels to content level; fold Long Form into OFTV (D1).
+- **Phase 4 — Accounts area:** real + AI accounts, vault-linked (D4).
+- **Phase 5 — Overview dual-lens:** team workload + per-creator at-a-glance.
+- **Phase 6 — Outbound tidy:** review→route→schedule organization; Publer placeholder.
+- **Phase 7 — Strategy engine:** Content Strategy Engine (separate, larger track; can run independently).
+- **Pass 2 — Holistic UX review:** walk every section as Evan; log improvements (filters, expand/collapse, interactions, consistency gaps) into this file's "Pass 2 findings" section, then build them.
+
+## Pass 2 findings (3-agent review, 2026-05-29)
+
+**Correctness verdict:** build passes (next build EXIT=0) AND no high/medium logic bugs. Shared components are backward-compatible at `/admin/editor`; ai_editor scoping is correct (no privilege leak); no circular-import hazard; ContentReview never co-renders Real+AI.
+
+### Fixed in this pass
+- Dead `Math.max(cols, cols*GRID_ROWS)` → `cols*GRID_ROWS` (UnreviewedLibrary).
+- Aliased `?tab=real|ai` now rewrites to canonical `?tab=content` (sidebar highlight + URL normalize). 
+- Overview no longer self-pads (`24px 8px` removed) → matches sibling section widths.
+- Editor Dashboard moved Content → **Overview** as "Editor Workload" (delivers Overview Lens A; trims Content to 6 subtabs).
+- Real-Carousel review empty state now explains real carousels aren't routed here yet (won't read as broken).
+- Removed `🔮` emoji from CarouselsTab "Find Similar Photo Clusters".
+
+### Queue for Evan (ranked) — not yet done
+1. **Lift creator (+Real/AI) filter to URL/hub state** so it persists across subtabs and across the ContentReview quadrants (today each surface holds its own; selection resets). Wire the built-but-unused `CreatorPicker`. (M) — highest-felt friction.
+2. **Wire the unused primitives**: `CreatorPicker` (replaces 3 ad-hoc `<select>`s in UnreviewedLibrary/ForReview/SubmissionsFeed), `Paginator`, `ContentCard`. Converts UnreviewedLibrary's status/sort pink pills to neutral `Segmented` (pink should mean "Real", not a status filter). (M)
+3. **Emoji sweep (house style)** — remaining emoji icons in reused surfaces: `components/GridPlanner.js` (🗓 📸 🗂️ 🖼 🎲 🗑 🔗), `app/admin/editor/page.js` (📸 🖼 🔔 ♫), `components/OftvProjectsQueue.js` (🎬 👀 ✗ 🎨 ✅ ⚠️ 📨 🎞️ ✏️ 📝 file-type icons), `app/admin/recreate-source/SetupTab.js` (✨ 🎬 📋 ✏️ 🎲 📐 🗂 🗑 ✅ ❌), `app/admin/posts/page.js` (📸 🎞 ▦ ☀ 🌙), and the **shared admin sidebar** `app/admin/layout.js` (📣 🎨 + all nav icons — app-wide decision). Dingbats (✓ ✕ → ↗) left as-is unless Evan wants them gone too. (S each, do as a batch)
+4. **SubmissionsFeed**: add status filter + Paginator + optional date filter. (S)
+5. **ForReview grid**: replace hard-coded `repeat(4,1fr)` with the responsive column logic used in the library. (S)
+6. **Close cross-surface loops**: Library card → "view in editor queue"; approve toast → route badge ("Approved → Publer" vs Telegram). (M)
+7. **AccountsPanel**: surface per-account Bitwarden **vault item ID/deep-link** (needs confirming the field exists on AI Account Profile; additive Airtable field if not). (S/M)
+8. **Overview Lens B** (per-creator at-a-glance) — needs new aggregation + Publer Phase 3 analytics. Deferred. (L)
+9. **Real Carousel pipeline**: real carousels don't currently flow as Photos batches with Review Status — decide whether they should be reviewed at all, or keep the quadrant informational. (needs Evan)
+10. **Content Strategy Engine** (Phase 7): confirm the 7-pillar taxonomy, then build backfill + daily pre-fill. (L, needs Evan)
+
+---
+
+# v1 COMPLETION PROGRAM (2026-05-31) — "finish the hub, kill every stub"
+
+Goal: take the hub from "re-parented + audited" to a shippable v1 with **NO dangling "coming soon" stubs** — every placeholder ends up real or honestly removed. Runs as an autonomous goal.
+
+## Open decisions — DEFAULTS chosen so the goal runs unattended (Evan can override any)
+- **Pillars (Strategy):** build against the proposed 7 — Lifestyle, Fitness, Flirty, BTS, Fashion, Trend-Reaction, Q&A — read from ONE editable place so Evan can change the list.
+- **Real Carousel (#4):** REMOVE the dead quadrant — disable "Carousels" when Real is selected (no dead-end). Re-enable if real-carousel review is built later.
+- **Publer (#9):** keep the link-out; add a small "next N scheduled" summary if Posts data exists. Defer full embed.
+- **Overview analytics (#8):** REMOVE the "coming soon" analytics promise (no data yet; re-add when Publer Phase 3 lands).
+- **Naming:** do NOT auto-rename Outbound/Post Prep/Submissions — leave for Evan's explicit branding call.
+- **Strategy automation:** build the Strategy UI + "what's next" preview reading existing content; do NOT build the backfill/daily cron autonomously (needs Evan + cost sign-off) — scaffold + flag.
+
+## Hard rules
+Real/AI never mix; NO emoji icons; **preserve all existing functionality + the in-flight uncommitted work** (soft-delete/restore + "Deleted" library filter in `app/api/admin/editor/unreviewed/route.js`, photo-library AI-filtering); **additive-only Airtable** — never edit/rename fields; if a NEW field is needed, STOP and flag (do not invent schema); shared primitives, no per-page reinvention; localhost only, **do NOT push or merge**; commit after each milestone; render+verify each surface via the screenshot pipeline (`~/.claude-pw-tools/pw-shot.mjs`, see [[reference-screenshot-pipeline]]).
+
+## Milestones (commit after each)
+**M1 — For Review finish** *(in progress)*: commit current cleanup (responsive grid, flat cards, emoji gone, filename truncated). Add info — creator brief (`creatorNotes`, already loaded), relative time + >24h aging, Round badge (`revisionHistory.length`), on-screen text on card face. Add speed — keyboard shortcuts (A=approve, R=revise, ←/→), Approve-&-next. Unify reels vs carousel: one card language + one "Request Revision" verb (carousel batch-reject gets a required reason).
+
+**M2 — Coming-soon build-now bucket**: Accounts (#2,#3) real-posting account list + vault item-ID links (confirm Airtable fields first; if absent, flag). Post Prep (#5) AI caption suggestions (new `/api/admin/posts/suggest-caption`, mirror the on-screen-text API, caption-tuned). Overview (#6,#7) creator upload-volume tracker + basic per-creator at-a-glance from existing asset/post data; REMOVE analytics over-promise (#8). Apply Real-carousel (#4) + Publer (#9) defaults.
+
+**M3 — Strategy engine UI (#1)**: StrategyTab — editable pillar list (the 7), DNA-weighting controls, "what's next for [creator]" preview ranking existing content by pillar + the creator's DNA profile (Palm Creators tags). Scaffold only — no cron/backfill; flag automation for Evan.
+
+**M4 — Global creator + Real/AI switcher**: one pinned switcher in the hub header, URL-persisted (`?creator=&mode=`), passed controlled to every surface; remove the per-surface pickers.
+
+**M5 — Cross-cutting consistency**: emoji sweep (sidebar + all surfaces); shared Loading/skeleton primitive (no bare "Loading…"/`null`); unify card + empty-state onto primitives.
+
+**M6 — Stabilize**: full `next build` green; regression-check `/admin/editor` + `/admin/recreate-source`; 2-3 review agents audit; report "done vs needs-Evan". Do NOT merge.
+
+## DEFERRED (NOT in this goal — too big / need data or a decision)
+Status-tabbed review lifecycle + Rejected bucket; Calendar publishing surface; Publer full embed; Strategy automation cron; Overview deep analytics (need Publer Phase 3 data). These are the next program after v1 ships.
+
+## Autonomous run prompt (paste to start the goal / resume in a fresh session)
+```
+Execute the "v1 COMPLETION PROGRAM" in
+docs/build-plans/smm-consolidation/HUB-REDESIGN-SPEC.md on branch
+smm-hub-redesign. Read it fully first (the open-decision DEFAULTS, Hard rules,
+Milestones M1-M6, and DEFERRED list). Build M1->M6 in order, AUTONOMOUSLY,
+committing after each milestone. Honor the DEFAULTS for all open decisions
+(don't ask). Hard rules are absolute: preserve existing + in-flight uncommitted
+work, additive-only Airtable (STOP+flag if a new field is needed — never invent
+schema), no emoji, real/AI never mix, shared primitives, NO push/merge. Keep the
+dev server on :3000 healthy (stale .next 500 -> kill, rm -rf .next, restart).
+Render+verify every changed surface headlessly via
+node ~/.claude-pw-tools/pw-shot.mjs "<url>" "screenshots/<name>.png" 6000
+(reuses the logged-in session; re-login via pw-login.mjs only if it 401s).
+After M6 run a final next build + 2-3 review agents, log findings into the spec
+"Pass 2 findings", fix high-confidence ones, and post a final "DONE vs
+NEEDS-EVAN" report (esp. the pillar list, any Airtable fields you had to flag,
+and the merge decision). Do NOT push or merge anything.
+```

@@ -77,6 +77,9 @@ const TAG_CATEGORY_MAP = {
   'Bookish / Smart Girl':       'Niche Identity',
   'Fitness':                    'Niche Identity',
   'Fitness / Wellness':         'Niche Identity',
+  'Fitness / Gym':              'Niche Identity',
+  'Sports':                     'Niche Identity',
+  'Wellness':                   'Niche Identity',
   'Glam / Beauty':              'Niche Identity',
   'Musician / Singer':          'Niche Identity',
   'Tattoos':                    'Niche Identity',
@@ -119,7 +122,7 @@ const TAG_CATEGORY_MAP = {
   'Clapback':                   'Other',
 }
 
-function groupTags(allTags) {
+function groupTags(allTags, weights = {}) {
   const groups = {}
   CATEGORY_ORDER.forEach((cat) => { groups[cat] = [] })
   allTags.forEach((tag) => {
@@ -127,9 +130,16 @@ function groupTags(allTags) {
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(tag)
   })
+  // When the creator's DNA weights are loaded, order each category so the
+  // creator's highest-weighted tags come first (tiebreak alphabetical).
+  // With no weights (e.g. unscoped admin browsing), keep alphabetical.
+  const hasWeights = weights && Object.keys(weights).length > 0
+  const orderTags = (tags) => hasWeights
+    ? [...tags].sort((a, b) => (weights[b] || 0) - (weights[a] || 0) || a.localeCompare(b))
+    : tags
   return CATEGORY_ORDER
     .filter((cat) => groups[cat]?.length > 0)
-    .map((cat) => ({ label: cat, tags: groups[cat] }))
+    .map((cat) => ({ label: cat, tags: orderTags(groups[cat]) }))
 }
 
 function TagPill({ tag, active, onClick, size = 'sm' }) {
@@ -529,7 +539,7 @@ export default function InspoBoard({ opsIdOverride, isEditor } = {}) {
   const goNext = useCallback(() => setSelectedIdx((i) => (i < filtered.length - 1 ? i + 1 : i)), [filtered.length])
 
   const allKnownTags = [...new Set([...Object.keys(TAG_CATEGORY_MAP), ...allTags])]
-  const tagGroups = groupTags(allKnownTags)
+  const tagGroups = groupTags(allKnownTags, creatorTagWeights)
   const pinnedAvailable = PINNED_TAGS.filter((t) => allKnownTags.includes(t))
   const hasActiveFilters = activeTags.length > 0 || activeFormats.length > 0
   const getGrade = records.length > 0 ? computeGradeFn(records) : () => null

@@ -1,0 +1,73 @@
+---
+title: "WHY YOU KEEP GETTING BANNED (AI OFM)"
+channel: "Ai Pimpin"
+video_id: "6U8Mmkas_pU"
+url: "https://www.youtube.com/watch?v=6U8Mmkas_pU"
+upload_date: "20260411"
+duration: "14:03"
+transcript_source: "Apify (pintostudio youtube-transcript-scraper)"
+fetched_with: "scripts/yt_transcript.py"
+---
+
+# WHY YOU KEEP GETTING BANNED (AI OFM)
+
+**Channel:** Ai Pimpin
+**URL:** https://www.youtube.com/watch?v=6U8Mmkas_pU
+**Uploaded:** 20260411 — **Duration:** 14:03
+**Source:** Apify (pintostudio youtube-transcript-scraper)
+
+---
+
+[0:00](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=0s) What is good, YouTube? Welcome back to another video. Yes, I am alive. Yes, I'm here to tell you how you can never get banned on Instagram ever again. I like to call this the cycle of doom, okay? You generate your image on Nano Banana Pro. Well, you use Nano Banana Pro to generate your image AI image. Then, you create your image which has a Google Synth ID. Now, this is going to be a very big topic throughout this video. And we're going to get into it a little
+
+[0:31](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=31s) bit later on, okay? But anyway, you post this image on Instagram, okay? Boom. Your Instagram post goes viral. Then, Instagram uses their detection tools to find that your image has Synth ID, which then leads to you getting banned. And this is the cycle of doom. You go around and around and around and you blame everything else. You blame your Link Me. You blame your your funnel. You blame the type of post you're posting, but in
+
+[1:02](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=62s) reality, you have OnlyFans models that are posting bikini pictures of them running around on the beach with their booty shaking with, you know what I mean, all over Instagram and they are not getting banned. So, why are you getting banned? Now, the most common ban reason is fraud and deception. Why fraud and deception? Well, if we look it up on the dictionary, deception is the action of deceiving someone, okay?
+
+[1:33](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=93s) Well, I'm not deceiving anyone, right? Well, you are, because you're posting an AI model pretending that she is real in order to gain some romantic interest, uh to sell exclusive content, etc. Instagram's detection systems are very good. They know what you're up to, okay? And they're seeing an AI model coming through, well, it's an AI tool anyway that detects this. It's detecting AI girl posting content Link in bio ban, okay? So, you are getting banned straight away for fraud and deception.
+
+[2:06](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=126s) Now, here's some key factors I really want you to remember as we go through this video. Google Gemini VO, they have a Synth ID. They have metadata. DALL-E Sora has no watermark, but has metadata. Soul too on Higgs Field has no watermark, has no metadata, but has a visible logo. I don't really know what their visible logo means, but whatever. One 2.6 has no Synth ID and no metadata.
+
+[2:40](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=160s) This is very, very important and we're going to explain what all this actually means. So, let's just take it all the way back to the very, very start. I've been doing AI OFM for nearly 2 years now, okay? So, I remember very clearly that a time where bans weren't as common as they are now. You know, you could run up an Instagram account to 50K followers with no ban whatsoever. Maybe you'll get banned once you reach that
+
+[3:10](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=190s) point by a manual review, by a manual rep at Meta, but you know, you wasn't just getting banned on 1,000 followers after maybe boosting a post or just posting a reel. You wasn't. You just wasn't getting banned. But what I find really funny is, you know, I typed in Google, "When did Instagram begin mass banning AI models?" Apparently, they they they released this major widespread cut widespread crackdown on AI generated models and
+
+[3:41](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=221s) influencers in late May and June 2025. Okay? The initial wave was in May, June 2025. Tens of thousands of accounts, including AI girlfriend chatbots and virtual influencers, were banned, often without warning. Meta's response, while blaming in technical errors for some aspects, Meta admitted to removing user generated AI characters that were not allowing users to block them. In July 2025, Meta confirmed taking aggressive action to
+
+[4:12](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=252s) remove hundreds of thousands of accounts breaking rules on sexualized content. Okay. But no one was being banned back in June or May, even though they had this mass major crackdown, major rollout, major ban wave, whatever you want to call it. >> [cough] >> No one was being banned. However, when Nano Banana Pro came out in November 20th, 2025,
+
+[4:42](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=282s) this is where everything started to go wrong. Why? Google Nano Banana Pro has, what we discussed earlier, something called a Synth ID. Synth ID, how it works. Synth ID is integrated across all Nano Banana Pro output channels, including API and various subscription levels, to identify the image as AI generated, okay? And everyone now uses Nano Banana Pro, which has Synth ID. Everyone is using it. I
+
+[5:15](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=315s) guarantee you watching this video uses Nano Banana Pro on a daily basis if you are running an AI model. So, as of late, now or as of late or early April 2026, these bans are very, very common and they are happening a lot. And they only really started happening after Christmas time, in my opinion. They only really started to come into effect and people were really, really feeling, you know, the backlash of these bans after November the 20th. Because no one
+
+[5:47](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=347s) was getting banned. We was running C Dream models. We was running Flux models, all before Nano Banana Pro and we never had any issues. Why? Flux AI never had that Synth ID. It never had that invisible watermark, okay? And everyone used Flux and Flux had none of the these issues. We never had any issues with getting banned. I had videos, believe me, 20 million views, 15 million views using a shitty Flux model on OpenArt and I was not getting banned.
+
+[6:19](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=379s) I was getting views. I was getting traction. We made, I think, about 30K in that model's first month of launching that Instagram, got 15,000 followers, never had a ban. Never had a ban. Now, tell me why people are getting banned on 1,500 followers using Nano Banana Pro. Why? Because Instagram is identifying the Synth ID, okay? And it is obviously got some sort of AI automation. It's a billion dollar company. Billions and
+
+[6:50](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=410s) billions worth billions and billions. They're going to have tech you don't even understand, but they have these automated systems where they can see that you are an AI model and you're trying to deceive people and you're posting sexualized content. It'll go through your link. It will see that you're linking to Fanvue, okay? It will know what you are up to. Whereas, if you're using a model like Flux, you're not going to get that flag at all straight away. Now, we can't use Flux because the models come out looking like this, okay? We can't use that. But how are we
+
+[7:22](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=442s) actually going to solve and tackle this issue? Well, it's very, very simple. We are not going to use Nano Banana Pro anymore. You can't use Nano Banana Pro anymore. You can try and remove all the metadata and remove the Synth ID out of your images, but let me just show you something right now which is going to prove none of that [ __ ] [ __ ] works and you need to be using a different generation tool that that is going to be the same, if not
+
+[7:52](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=472s) better quality, as Nano Banana Pro. And I am going to get into what image generation tools we're now using to avoid this so we can now boost on Instagram again, so we can now scale accounts without getting banned consistently. So, over here, okay? I am on Google Gemini. This is the official chatbot for Google Gemini. If you go and ask Rock or ChatGPT, it will also regulate and say, "This is the right one. This can detect Synth ID within images, okay?" So, I obviously asked it, "Can you tell me if an image is AI by
+
+[8:25](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=505s) its Synth ID and watermark, okay?" Yes, I can. What image? Cool. I made this with Google Nano Banana Pro. Okay, can you check this image for me? The Synth ID tool indicates that all or part of this image was generated or edited using Google's AI tools. Maybe it's a one-off, so I tried it again. The Synth ID tool indicates that all or part of this image was generated or edited using Google's AI tools, okay? Now, this image here
+
+[8:56](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=536s) isn't made by Waifu. It's made by a a little tool that we teach inside the school. Sorry to gatekeep, but I'm not getting this tool absolutely rinsed, okay? This is a very good tool. It's very seductive. You can make loads of teasing images with it, but this is the tool, okay? That generated this image, okay? This tool uses no Synth ID, no watermark. You can boost on Instagram without getting banned. This is the goat when it comes to image generation in 2026 because you cannot get banned. Haven't got to spend
+
+[9:28](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=568s) a [ __ ] ton of money getting your accounts unbanned. Haven't got to waste a [ __ ] ton of time generating a load of images and then getting banned, okay? This is the one. Input it. Okay, does this image have Synth ID? The Synth ID tool did not detect a watermark in this image, which indicates it was not created using Google's AI tools. While this suggests it doesn't have a Synth ID watermark, it's important to remember that this tool specifically looks for the signature left by Google's generative AI. It cannot determine if an image was created or edited using AI tools from other
+
+[9:59](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=599s) developers. So then we asked, how does Instagram detect AI images and why would people be getting banned? Would Instagram be able to detect this image as AI? How Instagram detects AI in 2026? Metadata, Simp 5D, visual pattern analysis, which is pretty much a guy who works for Instagram and maybe just he he's just looked and seen that it's AI, he thinks it's AI. He's reported it and got you banned. But, they look for metadata and Simp 5D. What produces
+
+[10:29](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=629s) metadata and Simp 5D? Google Nano Banana Pro, okay? So, it's clear that we cannot use Google Nano Banana Pro anymore in 2026. Coming off the basis of Simp 5D and we've realized that now we can't use Nano Banana Pro cuz it watermarks every single image and Instagram detects it cuz they are partnered with Google and they know your image is AI and you are getting banned. So, what you can take away from this video is you need to be using a different image generator that is still Nano Banana quality but does
+
+[11:01](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=661s) not produce any Simp 5D and metadata, which we obviously use already and the mentees already know that. 2.0 students know that. Now, link in bio structure. We need to make it hard for Instagram to classify you as an AI OF OF girl, okay? So, how do we do this? Have multiple social medias in the bio even if you do not use them, okay? It's normal for girls and influencers to have a bunch of different social media platforms they are on. So, instead of
+
+[11:33](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=693s) just having, you know, your Linktree with the link just to the Fanvue, you know, have a bunch of different social medias set up. Just have a TikTok, have an X in the bio, whatever, okay? Just have a bunch of different ones. Makes you look more realistic, makes you look more human. So, that's also an extra precaution that you can take. Now, no highly sexual images, no mention of the Fanvue or the OnlyFans and have no logo showing, okay? They know what logo OnlyFans is, they know what logo Fanvue
+
+[12:03](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=723s) is. If you have a picture of their tits absolutely hanging out, course you are going to get banned. Use some safe work images or use some images that are covered up but still a little bit suggestive, okay? This is the link thing we're using. It's called link.bio. Your links just got better. This is great. Let's have a look at the comparison, okay? Linkme is like this versus Linktree where you tap this and it takes you out of the browser. Whereas, 18+ content warning.
+
+[12:34](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=754s) Straight away, what does this mean? This means that Instagram has detected that Linkme is a 18+ exclusive dodgy Linkme and it's now giving out warnings cuz Instagram already recognizes that you are doing OF. Accounts already at risk versus Linktree which shows nothing to Instagram. You have to open it up on the browser manually so you can go and discover the Fanvue, which ultimately will make your account a lot more safer. Linktree is the one you need to go and use that.
+
+[13:05](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=785s) Now, say the holy whatever has just happened, appeals versus unbans, right? If you are banned, okay, and you did get banned, you followed everything in this video perfectly, you still got banned, but you should have a good amount of accounts or a good amount of followers even, you can hit me up on Telegram, hit Kieran up on Telegram. We have unban reps. We have guys that can get you unbanned, okay? So, it's not the end of the world if you've got massive accounts that have been banned. Sorry to hear that. We can get you unbanned, but
+
+[13:38](https://www.youtube.com/watch?v=6U8Mmkas_pU&t=818s) that is going to be all for this video. Really hope you enjoyed it. I'm going to link Linktree down in the description as well. Make sure you go check that out. That is the best Linkme software that you can get, okay, when it comes to avoiding bans anyway, but without further ado, that will be all from me. That will be all. I shall see you in the next one. Thank you for watching. Hope this helps. Peace out.

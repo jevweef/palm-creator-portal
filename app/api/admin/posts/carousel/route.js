@@ -68,9 +68,15 @@ export async function POST(request) {
           // source Photo, not as a standalone Asset.
           'Used In Carousel': true,
         }
-        // Skip Palm Creators link on the mirror so it doesn't pollute the
-        // Creator Upload picker — the Asset is purely backing storage for
-        // the carousel post, not a creator-uploaded photo in its own right.
+        // Link the mirror Asset to the same creator as the source Photo so AI
+        // (and any) carousel content stays connected to the creator in the
+        // Assets table rather than orphaned. This is safe now that AI is gated
+        // by Source Type: the chat-manager wall + Creator Upload picker both
+        // filter {Source Type}!='AI Generated', and the mirror is additionally
+        // flagged Used In Carousel — so a linked AI mirror still never surfaces
+        // there. (The link was previously skipped to avoid picker pollution,
+        // back before the Source Type filter existed; that reason is now moot.)
+        if (f['Creator']?.length) assetFields['Palm Creators'] = f['Creator']
         if (f['Dropbox Link']) assetFields['Dropbox Shared Link'] = f['Dropbox Link']
         if (f['Dropbox Path']) assetFields['Dropbox Path (Current)'] = f['Dropbox Path']
         if (f['CDN URL']) assetFields['CDN URL'] = f['CDN URL']

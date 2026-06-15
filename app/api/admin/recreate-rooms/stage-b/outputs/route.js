@@ -273,11 +273,10 @@ export async function GET(request) {
     let customList = []
     if (creatorId) {
       try {
-        // Filter: AI Generated tasks for this creator that have an Asset
-        // attached. The creator linked record stores an array of record
-        // IDs; FIND() against the comma-joined string is the cheapest
-        // formula-side check.
-        const taskFormula = `AND({Source Type}='AI Generated', FIND(${quoteAirtableString(creatorId)}, ARRAYJOIN({Creator}))>0)`
+        // Filter Tasks by creator linkage. Source Type lives on the
+        // linked Asset (not the Task itself), so we filter by Source
+        // Type client-side after the Asset batch-fetch below.
+        const taskFormula = `FIND(${quoteAirtableString(creatorId)}, ARRAYJOIN({Creator}))>0`
         const aiTasks = await fetchAirtableRecords(TASKS, {
           fields: ['Name', 'Status', 'Admin Review Status', 'Admin Feedback', 'Completed At', 'Asset', 'Creator'],
           filterByFormula: taskFormula,
@@ -300,7 +299,10 @@ export async function GET(request) {
           const all = await Promise.all(chunks.map(c => {
             const formula = `OR(${c.map(id => `RECORD_ID()=${quoteAirtableString(id)}`).join(',')})`
             return fetchAirtableRecords(ASSETS, {
-              fields: ['Asset Name', 'CDN URL', 'Thumbnail', 'Dropbox Shared Link', 'Reference Source URL'],
+              // Source Type is now on the Asset record (the editor's
+              // upload finalize sets 'AI Generated' there) — we filter
+              // tasks by it client-side after this batch returns.
+              fields: ['Asset Name', 'CDN URL', 'Thumbnail', 'Dropbox Shared Link', 'Reference Source URL', 'Source Type'],
               filterByFormula: formula,
             })
           }))
@@ -324,6 +326,12 @@ export async function GET(request) {
             const assetId = (tf.Asset || [])[0]
             const af = assetId ? assetById[assetId] : null
             if (!af) return null  // task without an asset — skip, can't show usefully
+            // The "AI Generated" Source Type marks editor-submitted
+            // videos. Tasks linked to other Asset types (manual editor
+            // content, content requests, etc.) don't belong on the AI
+            // editor's Projects tab.
+            const srcType = af['Source Type']?.name || af['Source Type'] || ''
+            if (srcType !== 'AI Generated') return null
 
             // Parse slug out of "AI Review: <slug>" or "AI Review: @<handle> <reelId>".
             const taskName = tf.Name || ''

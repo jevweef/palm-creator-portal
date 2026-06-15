@@ -1,0 +1,5 @@
+BADQUOTE 4 DzI4F-u1Tp0 generate it at 105 minutes with motion control and you can post it immediately
+BADQUOTE 11 j0H7XoPZQ8s send them me a Loom recording of me
+findings 18 badquotes 2
+dept {'ai-ofm': 2, 'content': 2, 'instagram': 2, 'traffic': 3, 'chatting': 3, 'delegation': 2, 'platform-risk': 2, 'pricing': 1, 'systems': 1}
+app {'both': 18}

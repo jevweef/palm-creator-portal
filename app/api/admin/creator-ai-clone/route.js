@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, deleteDropboxFile } from '@/lib/dropbox'
+import { ensureCreatorAiTopic } from '@/lib/telegramTopics'
 import { POSES, poseFromFilename, AI_REF_FOLDER } from '@/lib/aiCloneConfig'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
@@ -120,10 +121,25 @@ export async function PATCH(request) {
     }
 
     await patchAirtableRecord(PALM_CREATORS, creatorId, patch)
+
+    // When AI is toggled ON, make sure this creator has a dedicated AI
+    // Telegram topic (named "<AKA> AI") so AI content sent from grid planner
+    // has somewhere to land. Idempotent — skips if one already exists.
+    // Non-fatal: a Telegram hiccup must not fail the toggle itself.
+    let aiTopicId
+    if (tjpEnabled === true) {
+      try {
+        aiTopicId = await ensureCreatorAiTopic(creatorId)
+      } catch (e) {
+        console.error('[creator-ai-clone] AI topic ensure failed:', e.message)
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       ...(enabled !== undefined ? { enabled: !!enabled } : {}),
       ...(tjpEnabled !== undefined ? { tjpEnabled: !!tjpEnabled } : {}),
+      ...(aiTopicId ? { aiTopicId } : {}),
     })
   } catch (err) {
     console.error('[creator-ai-clone] PATCH error:', err)

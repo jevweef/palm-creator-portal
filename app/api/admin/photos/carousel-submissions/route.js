@@ -17,9 +17,13 @@ export async function GET(request) {
     const url = new URL(request.url)
     const status = url.searchParams.get('status') || 'Pending'
     const validStatus = ['Pending', 'Approved', 'Rejected'].includes(status) ? status : 'Pending'
+    // source=ai (default) → AI Generated carousels; source=real → human-made
+    // carousels (any non-AI source) through the same batch-review flow.
+    const source = url.searchParams.get('source') === 'real' ? 'real' : 'ai'
+    const sourceClause = source === 'real' ? "{Source Type}!='AI Generated'" : "{Source Type}='AI Generated'"
 
     const rows = await fetchAirtableRecords('Photos', {
-      filterByFormula: `AND({Source Type}='AI Generated',{Review Status}='${validStatus}',NOT({Submission Batch ID}=''))`,
+      filterByFormula: `AND(${sourceClause},{Review Status}='${validStatus}',NOT({Submission Batch ID}=''))`,
       fields: ['Source Type', 'Creator', 'Review Status', 'Submission Batch ID', 'Submission Title', 'Uploaded By', 'CDN URL', 'Image', 'Carousel Index', 'Dropbox Link'],
     })
 
@@ -133,22 +137,111 @@ export async function GET(request) {
   }
 }
 
-// PATCH — bulk approve/reject every photo in a submission batch.
-//   Body: { batchId, action: 'approve' | 'reject' }
-//   Flips Review Status across all photos sharing the batchId. Approved
-//   photos surface in the Carousels picker under AI Generated. Rejected
-//   ones stay in Airtable but the picker filter hides them.
+// PATCH — approve/reject a submission batch, OR reject a single slide
+// (SMM Batch 5, Phase 2.5 carousel per-slide rejection).
+//
+// Body modes:
+//   { batchId, action: 'approve' }
+//     → Flip every Pending photo in the batch to Approved.
+//
+//   { batchId, action: 'reject' }
+//     → Flip every Pending photo to Rejected + project Status → Rejected.
+//
+//   { batchId, action: 'reject-slide', photoId, mode: 'remove' | 'bounce', reason? }
+//     → mode='remove': flip JUST that photo to Rejected. Sibling slides stay
+//       Pending. Operator can re-approve the batch with one fewer slide.
+//     → mode='bounce': equivalent to a full reject (every slide → Rejected,
+//       project Status → Rejected). The 'reason' is appended to the project's
+//       Rejection Reason field (additive single-line-text, created on demand
+//       via typecast — or it'll surface as a write error if Airtable strict-
+//       mode complains).
 export async function PATCH(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { batchId, action } = await request.json()
+    const { batchId, action, photoId, mode, reason } = await request.json()
     if (!batchId || typeof batchId !== 'string') {
       return NextResponse.json({ error: 'batchId required' }, { status: 400 })
     }
-    if (!['approve', 'reject'].includes(action)) {
-      return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 })
+    if (!['approve', 'reject', 'reject-slide'].includes(action)) {
+      return NextResponse.json({ error: 'action must be approve, reject, or reject-slide' }, { status: 400 })
     }
+
+    // Per-slide rejection branch.
+    if (action === 'reject-slide') {
+      if (!photoId || !/^rec[A-Za-z0-9]{14}$/.test(photoId)) {
+        return NextResponse.json({ error: 'photoId required (valid Airtable rec id)' }, { status: 400 })
+      }
+      if (!['remove', 'bounce'].includes(mode)) {
+        return NextResponse.json({ error: "mode must be 'remove' or 'bounce'" }, { status: 400 })
+      }
+
+      if (mode === 'remove') {
+        // Single-photo reject — siblings untouched.
+        try {
+          await patchAirtableRecord('Photos', photoId, { 'Review Status': 'Rejected' }, { typecast: true })
+        } catch (e) {
+          return NextResponse.json({ error: 'Failed to reject slide', detail: e.message }, { status: 500 })
+        }
+        return NextResponse.json({
+          ok: true,
+          batchId,
+          action: 'reject-slide',
+          mode: 'remove',
+          photoId,
+          updated: 1,
+        })
+      }
+
+      // mode === 'bounce' → falls through to full-batch reject logic below
+      // with the additional Rejection Reason stamping on the project.
+      // (Implemented inline rather than fall-through to keep response shape
+      //  parallel.)
+      const photos = await fetchAirtableRecords('Photos', {
+        filterByFormula: `AND({Submission Batch ID}='${batchId.replace(/'/g, "\\'")}',{Review Status}='Pending')`,
+        fields: ['Submission Batch ID', 'Review Status'],
+      })
+      const results = await Promise.allSettled(
+        photos.map(p => patchAirtableRecord('Photos', p.id, { 'Review Status': 'Rejected' }, { typecast: true }))
+      )
+      const failed = results.filter(r => r.status === 'rejected').length
+
+      let projectUpdated = null
+      try {
+        const projects = await fetchAirtableRecords('Carousel Projects', {
+          filterByFormula: `{Submission Batch ID}='${batchId.replace(/'/g, "\\'")}'`,
+          fields: ['Status'],
+          maxRecords: 1,
+        })
+        if (projects.length) {
+          const proj = projects[0]
+          const projectFields = {
+            'Status': 'Rejected',
+            'Reviewed At': new Date().toISOString(),
+          }
+          if (reason && typeof reason === 'string') {
+            projectFields['Rejection Reason'] = reason.slice(0, 1000) // cap; field is additive single-line
+          }
+          await patchAirtableRecord('Carousel Projects', proj.id, projectFields, { typecast: true })
+          projectUpdated = { id: proj.id, status: 'Rejected' }
+        }
+      } catch (e) {
+        console.warn(`[carousel-submissions] bounce: project update failed for batch ${batchId}:`, e.message)
+      }
+
+      return NextResponse.json({
+        ok: true,
+        batchId,
+        action: 'reject-slide',
+        mode: 'bounce',
+        photoId,
+        reason: reason || null,
+        updated: photos.length - failed,
+        failed,
+        projectUpdated,
+      })
+    }
+
     const newStatus = action === 'approve' ? 'Approved' : 'Rejected'
 
     const photos = await fetchAirtableRecords('Photos', {
