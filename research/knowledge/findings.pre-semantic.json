@@ -171,7 +171,7 @@
       }
     },
     {
-      "id": "f0384",
+      "id": "f0392",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "f0385",
+      "id": "f0393",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -1170,7 +1170,142 @@
       }
     },
     {
-      "id": "f0344",
+      "id": "f0307",
+      "department": "content",
+      "topic": "Three non-negotiable reel criteria: aesthetics, emotional curve, WTF moment",
+      "title": "Reject any reel missing aesthetics + emotional curve + pattern-interrupt \u2014 reshoot it",
+      "variants": [
+        {
+          "claim": "The difference between 6K-view and 6M-view reels is an engineered three-part formula: matching aesthetics to creator USP, a scripted look-away\u2192look-in\u2192smile emotional arc, and a deliberate stop-scroll pattern-interrupt moment.",
+          "what_they_do": "Aesthetics: outfit, location, lighting, framing all matched to the creator's visual USP (e.g., if USP is large chest + black hair, 80% of content angles highlight that \u2014 not hidden in hoodies). Emotional curve: reels are scripted with a 3-beat arc \u2014 look away (living her life) \u2192 look in (she noticed you) \u2192 smile (girlfriend moment) \u2014 engineered to create GFE in 3 seconds, repeated across the ~46 views a typical fan sees before subscribing. WTF moment: every reel has a deliberate background event (someone walking into a pole, a cat crossing) that breaks autopilot scrolling and triggers rewatches, which signals the algorithm.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 557,
+          "quote": "Look away says she's living her life. She's not looking at you. Look in says she just noticed you watching. Then smile."
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 618,
+          "quote": "the emotional curve is the precise difference between a clip that gets 6,000 views and a clip that hits 6 million views"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 648,
+          "quote": "every reel has a stop scroll moment\u2026something in the background, something natural, something the viewer didn't expect"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's inspo pipeline (\u00a71) identifies *what* to film from viral data but does not codify *how* to film it at this granularity. The emotional curve and WTF moment criteria are absent from Palm's current documented production standards. Palm's editor workflow has approval gates but no stated rejection criteria at this level.",
+        "recommendation": "Add these three criteria as a mandatory editor QA checklist in Palm's Task/approval workflow. For aesthetics: add a 'creator USP card' to each creator's Airtable record (visual USP, don'ts list) that editors reference on every clip review. For emotional curve and WTF moment: create a one-page shoot brief template with examples that goes to creators/videographers before every filming session. Clips failing any criterion should be flagged for reshoot, not edited around."
+      }
+    },
+    {
+      "id": "f0310",
+      "department": "chatting",
+      "topic": "Vault structuring + custom hotkeys per creator",
+      "title": "Structure OF vault with labeled categories + creator-specific hotkeys to cut reply time to 50 seconds",
+      "variants": [
+        {
+          "claim": "A disorganized vault and generic hotkeys are the single largest hidden tax on chatter productivity; restructuring vault with categories and building custom per-creator hotkeys raised reply rates 60% in two weeks.",
+          "what_they_do": "Vault restructured within week 1: every content piece labeled by category (boy/girl, tier list, JOI, rapport building), exact price per video, and a defined script order (first PPV \u2192 second PPV \u2192 optional upsell \u2192 conditional branches). Chatters open CreatorHero, see the script order, copy-paste, send \u2014 50-second reply time, no scrolling. Hotkeys are custom per creator: matched to the creator's speaking style, age, aesthetic, and specific vault content. Separate hotkeys for small talk, transitions, objection handling. The 18-year-old blonde's hotkeys use youth lingo; the milf's don't. Result: chatters spend 80% less time searching, 80% more time selling.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1178,
+          "quote": "we label everything. categories, scripts, boy, girl, tier list, jerk off instructions, rapport building, every single pricing for the video, and the script order"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1239,
+          "quote": "we build custom hotkeys per creator, per script, and they are specific to the way she speaks, the way she looks"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1270,
+          "quote": "our reply rate went up by like 60% in the first two weeks just from this"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm outsources chatting (\u00a78) and has no documented vault structure, hotkey system, or script-order protocol internally. This is direct build-toward intelligence for the in-house chat roadmap. Palm's AI chatting project should also encode this structure: a well-categorized vault + conditional script logic maps directly to an AI chat decision tree.",
+        "recommendation": "When building the in-house chat team and AI chatting system, design vault structure and hotkeys as launch-day requirements, not later optimizations. For each creator: (1) categorize all vault content at onboarding, (2) price-tag every piece, (3) define a numbered script order with conditional branches, (4) build hotkeys matched to that creator's voice/aesthetic stored in CreatorHero or equivalent. For the AI chat project, the script-order logic and conditional branches are the conversation flow architecture \u2014 treat the vault structure doc as the training data schema."
+      }
+    },
+    {
+      "id": "f0311",
+      "department": "pricing",
+      "topic": "PPV and welcome message split testing \u2014 optimize for revenue-per-100 not buy rate",
+      "title": "Split-test PPV price and welcome message on revenue-per-100-subs metric, not open or buy rate",
+      "variants": [
+        {
+          "claim": "Optimizing for the obvious metric (buy rate, open rate) consistently picks the wrong winner; the correct optimization target is revenue generated per 100 subscribers, which requires testing the full downstream chain.",
+          "what_they_do": "First PPV: tested $6, $8, $9, $10. Buy rates were 67%, 65%, 59%, 52% respectively. Most agencies would pick $6 (highest buy rate). They picked $8 because per-100-subs revenue: $6\u00d767=$402 vs $8\u00d765=$520 \u2014 30% more revenue. Additionally, second-PPV buy rate was higher at $8 than $6. Welcome message: tested four variants over four weeks. Variant 1 had 85% open rate (highest). Variant 4 had lowest open rate but highest reply rate. They picked variant 4 because reply rate starts a conversation, and conversations generate sales \u2014 open rate without reply is worse than not opening at all. The unifying principle: find the metric that is one step closer to actual revenue, not the most visible one.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1300,
+          "quote": "we tested four prices on a paint account with a free trial. $6, 8, 9, 10\u2026we picked eight because of total revenue"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1361,
+          "quote": "the metric that matters is revenue per 100. How much money do 100 new subscribers generate? That's the number to chase."
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1454,
+          "quote": "We picked variant 4 because it had the lowest view rate but the highest reply rate"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline for PPV pricing or welcome message testing at Palm (\u00a77 \u2014 GAP on pricing model; \u00a78 \u2014 chatting outsourced). This is pure learn-from-others territory. The revenue-per-100-subs framework is a concrete, implementable KPI Palm should adopt for both the current outsourced team and the future in-house build.",
+        "recommendation": "Establish 'revenue per 100 subscribers' as Palm's primary backend performance KPI. For the current outsourced chat team: request this metric in weekly reporting. When building in-house: codify a split-test protocol for first PPV price (test 4 price points, measure over minimum 100 subs) and welcome messages (test 4 variants over 4 weeks). Build both into a standard new-creator launch checklist. Add 'reply rate' as the primary welcome-message metric in Palm's Fan Tracker CRM (\u00a79), not open rate."
+      }
+    },
+    {
+      "id": "f0352",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -1215,7 +1350,7 @@
       }
     },
     {
-      "id": "f0349",
+      "id": "f0357",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -1260,7 +1395,7 @@
       }
     },
     {
-      "id": "f0365",
+      "id": "f0373",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -1305,7 +1440,7 @@
       }
     },
     {
-      "id": "f0372",
+      "id": "f0380",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -7123,6 +7258,206 @@
     {
       "id": "f0305",
       "department": "acquisition",
+      "topic": "Inbound creator acquisition via personal brand",
+      "title": "Build personal brand (YouTube + IG) so top creators DM you first",
+      "variants": [
+        {
+          "claim": "High-quality creators with good work ethic come inbound to agencies that have visible authority content (YouTube, IG reels), eliminating the need to chase them.",
+          "what_they_do": "Oliver posts OFM-focused reels on a dedicated IG account (~10K followers) and maintains a YouTube channel since 2023; creators DM him directly saying they're looking for an agency. He signs them on the first call. He explicitly states creators who DM you first already see you as an authority, while creators you have to chase tend to have poor work ethic.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 62,
+          "quote": "this girl called DM'd me on my OFM Oliver Instagram where I post a bunch of reels"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 93,
+          "quote": "the creators worth taking on\u2026they usually come and find you. You don't try to find them."
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led outbound (\u00a76 \u2014 THIN). No documented inbound content flywheel. This is the opposite motion: competitor earns inbound by investing in public-facing authority content, Palm currently spends effort chasing creators.",
+        "recommendation": "Build a public-facing OFM authority presence for Palm \u2014 even a small dedicated IG account posting agency results/tips reels. This converts acquisition from outbound grind to inbound pull, and pre-qualifies creators (they arrive already trusting Palm). Start with one reel/week; track how many creator DMs it generates over 90 days."
+      }
+    },
+    {
+      "id": "f0306",
+      "department": "content",
+      "topic": "Day-1 videographer deployment with mood board",
+      "title": "Book professional videographer within 48 hours of signing \u2014 mood board pre-built",
+      "variants": [
+        {
+          "claim": "The first 30 days of content sets the baseline for the entire creator relationship; starting with professional-grade shoots rather than iPhone footage eliminates weeks of wasted iteration and locks in creator trust.",
+          "what_they_do": "On day 2 (48 hours after signing), they have a professional videographer on-site. Before the shoot they build a mood board containing: outfit references, location references, post references, a clear dos/don'ts list \u2014 all derived from the creator's existing viral content. They call this the 'gold standard from 48 hours in.' If any of their three non-negotiable content criteria (aesthetics, emotional curve, WTF moment) are missing from a clip, they reshoot \u2014 non-negotiable.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 311,
+          "quote": "we booked the videographer for day two, 48 hours in. There's already videographer in sight."
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 371,
+          "quote": "the first 30 days of content sets the baseline for the entirety of working together"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is strong on ideation (inspo scraping, viral scoring) but the production execution side \u2014 particularly the speed of first shoot and videographer coordination \u2014 is not codified. Palm currently gives filming instructions to creators (angles, lighting) rather than deploying a videographer. This competitor front-loads production quality investment, Palm's system assumes creator self-filming.",
+        "recommendation": "Add a 'Day-2 shoot brief' SOP to Palm's onboarding: when a new creator signs, immediately generate a mood board from their top-performing existing content (Palm's inspo pipeline already pulls viral data \u2014 repurpose it) and brief a videographer or at minimum send a structured shoot brief with outfit/location/angle refs. Codify the three content non-negotiables (aesthetics, emotional curve, pattern-interrupt moment) as a checklist editors use before approving any reel for upload."
+      }
+    },
+    {
+      "id": "f0308",
+      "department": "content",
+      "topic": "Rapid parallel branding A/B testing",
+      "title": "Test 3\u20135 branding angles simultaneously in first two weeks; double down on data winner",
+      "variants": [
+        {
+          "claim": "Running multiple branding angles in parallel in the first two weeks (different captions, framings, positioning \u2014 same creator, same account) generates real performance data fast enough to commit to a winner before competitors even finish their first test.",
+          "what_they_do": "In weeks 1\u20132 they ran three branding angles simultaneously on the same account (Swedish girl, Ukrainian girl, American girl in Dubai) \u2014 same creator, same videos, different captions + framing + marketing positioning. Ukrainian angle got 2.4\u00d7 the views of the other two combined. They killed the losing angles within two weeks and rebuilt all downstream systems (chatting scripts, DM persona voice, mass messages) to match the winning brand identity within the same week \u2014 not a month later.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 774,
+          "quote": "in the first two weeks, we ran three branding angles through trials. We had a Swedish girl, a Ukrainian girl, and the American girl living in Dubai."
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 837,
+          "quote": "the back end just adds on top of it but fast\u2026same week this shouldn't take you a month or two"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) uses inspo data to decide what to film but has no documented mechanism for parallel branding trials. Palm's onboarding doesn't include a defined brand-testing phase. This is a high-signal gap: Palm could run branding trials using its existing scheduling infrastructure (Publer) without new tooling.",
+        "recommendation": "Add a 'branding trial phase' (days 1\u201314) to Palm's creator onboarding: define 3 angle hypotheses based on inspo analysis, produce a small batch of content per angle, post in rotation, and set a data gate at day 14 (views, comments, shares, profile visits). Build the winning angle's identity into an Airtable 'Creator Brand Card' that downstream systems (chatting scripts, mass message tone, PPV captions) reference. Target: 3\u20135 branding tests per creator per quarter."
+      }
+    },
+    {
+      "id": "f0309",
+      "department": "chatting",
+      "topic": "Day-1 supervisor deployment (Hulk supervisor system)",
+      "title": "Deploy a chatter supervisor on Day 1 as a proactive asset, not a reactive fix",
+      "variants": [
+        {
+          "claim": "Adding a dedicated chat supervisor from day one \u2014 who reviews 50\u201360 conversations daily \u2014 catches revenue-destroying patterns weeks or months before they'd surface in KPI dashboards, preventing compounding subscriber loss.",
+          "what_they_do": "On day 1 they assign a 'Hulk supervisor' whose sole job is to pull and deep-analyze 50\u201360 chats per day. The supervisor checks: script adherence, objection-handling consistency, list management, correct content routing to fans. When within 7 days a pattern of subs dropping after first PPV was spotted, the supervisor flagged it to the backend manager, they reviewed PPV strategy for the week, adjusted price and script. Three chatters on 8-hour shifts give 24/7 coverage; all conversations answered within 70 seconds. Supervisor is added before problems appear \u2014 not as damage control after.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1051,
+          "quote": "we add the supervisor as an asset on day one\u2026the supervisor pulls 50 to 60 chats a day and analyzes deeply"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1083,
+          "quote": "they catch the patterns of the chatters fast\u2026within 7 days of the switch\u2026the supervisor noticed that was like a chunk of subs that were dropping off after the first PPV"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is currently outsourced (\u00a78 \u2014 external team). No internal supervisor layer or QA system is documented. This is high-value build-toward intelligence for Palm's roadmap (in-house chat team ~1yr out + AI chatting project). The supervisor-as-day-1-asset framing is a direct structural recommendation for when Palm builds in-house.",
+        "recommendation": "When Palm builds its in-house chat team, make the supervisor role a launch-day hire (not a later addition). Define the supervisor's daily output: minimum N chats reviewed, a weekly pattern report to ops, and a flag-to-fix SLA (e.g., pattern flagged \u2192 backend adjustment within 48 hours). For the AI chatting project, equivalent logic applies: build automated conversation QA from day one rather than retrofitting it. In the interim, ask the current outsourced team to provide weekly pattern reports (drop-off points, reply rate by message type) as a proxy."
+      }
+    },
+    {
+      "id": "f0312",
+      "department": "chatting",
+      "topic": "Fan list segmentation for mass messages",
+      "title": "Segment subscriber list into 5+ tiers; send different mass messages per tier daily",
+      "variants": [
+        {
+          "claim": "Sending the same mass message to all subscribers burns money; segmenting by purchase behavior and sending tailored tone, CTA, and price to each segment dramatically increases conversion.",
+          "what_they_do": "Minimum one mass message per day (online or standard). Lists segmented into at minimum: new subscribers, OC (old/churned) list, active selling list (have purchased content), big spenders, no-spenders, time wasters (high engagement, zero purchase). Each segment receives different message tone, CTA, and price point. A 500-dollar spender gets a completely different pitch than a subscriber who joined 8 hours ago. Iteration loop applied to mass messages: if view rate is high but reply rate is low, convert statements to questions ('Would you rather see me in the bikini or out of it?') \u2014 reply rate doubles.",
+          "run": "daily-2026-06-16"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1518,
+          "quote": "We segment the lists. new subscriber list, OC list, active selling list\u2026big spenders, no spenders, time wasters"
+        },
+        {
+          "video_id": "p-iCOspEOsg",
+          "timestamp_seconds": 1548,
+          "quote": "someone who's already paid 500 bucks doesn't need the same pitch as someone who just joined 8 hours ago"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is outsourced (\u00a78) with no documented internal segmentation strategy. Palm's Fan Tracker / whale-hunting system (\u00a79) collects fan spend data, which is the raw material for this segmentation \u2014 but there's no documented bridge from that data to mass message targeting. This is an actionable gap even before building in-house chat.",
+        "recommendation": "As an immediate step: share Palm's whale-hunting and Fan Tracker data with the outsourced chat team and request they implement list segmentation (minimum: new, active buyer, big spender, no-spender). As a build-toward step for in-house: define the 5 segment definitions in Airtable against fan spend fields and automate segment tagging so chatters can filter in CreatorHero or equivalent. For the AI chatting roadmap, list segmentation is the primary personalization input \u2014 design the data model to support it from day one."
+      }
+    },
+    {
+      "id": "f0313",
+      "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
       "variants": [
@@ -7161,7 +7496,7 @@
       }
     },
     {
-      "id": "f0306",
+      "id": "f0314",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -7201,7 +7536,7 @@
       }
     },
     {
-      "id": "f0308",
+      "id": "f0316",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -7241,7 +7576,7 @@
       }
     },
     {
-      "id": "f0309",
+      "id": "f0317",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -7281,7 +7616,7 @@
       }
     },
     {
-      "id": "f0310",
+      "id": "f0318",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -7321,7 +7656,7 @@
       }
     },
     {
-      "id": "f0311",
+      "id": "f0319",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -7361,7 +7696,7 @@
       }
     },
     {
-      "id": "f0312",
+      "id": "f0320",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -7401,7 +7736,7 @@
       }
     },
     {
-      "id": "f0313",
+      "id": "f0321",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -7441,7 +7776,7 @@
       }
     },
     {
-      "id": "f0314",
+      "id": "f0322",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -7481,7 +7816,7 @@
       }
     },
     {
-      "id": "f0315",
+      "id": "f0323",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -7521,7 +7856,7 @@
       }
     },
     {
-      "id": "f0316",
+      "id": "f0324",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -7561,7 +7896,7 @@
       }
     },
     {
-      "id": "f0317",
+      "id": "f0325",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -7601,7 +7936,7 @@
       }
     },
     {
-      "id": "f0318",
+      "id": "f0326",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -7641,7 +7976,7 @@
       }
     },
     {
-      "id": "f0319",
+      "id": "f0327",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -7681,7 +8016,7 @@
       }
     },
     {
-      "id": "f0320",
+      "id": "f0328",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -7721,7 +8056,7 @@
       }
     },
     {
-      "id": "f0321",
+      "id": "f0329",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -7761,7 +8096,7 @@
       }
     },
     {
-      "id": "f0322",
+      "id": "f0330",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -7801,7 +8136,7 @@
       }
     },
     {
-      "id": "f0323",
+      "id": "f0331",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -7841,7 +8176,7 @@
       }
     },
     {
-      "id": "f0324",
+      "id": "f0332",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -7881,7 +8216,7 @@
       }
     },
     {
-      "id": "f0325",
+      "id": "f0333",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -7921,7 +8256,7 @@
       }
     },
     {
-      "id": "f0326",
+      "id": "f0334",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -7961,7 +8296,7 @@
       }
     },
     {
-      "id": "f0327",
+      "id": "f0335",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -8001,7 +8336,7 @@
       }
     },
     {
-      "id": "f0328",
+      "id": "f0336",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -8041,7 +8376,7 @@
       }
     },
     {
-      "id": "f0345",
+      "id": "f0353",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -8081,7 +8416,7 @@
       }
     },
     {
-      "id": "f0346",
+      "id": "f0354",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -8121,7 +8456,7 @@
       }
     },
     {
-      "id": "f0347",
+      "id": "f0355",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -8161,7 +8496,7 @@
       }
     },
     {
-      "id": "f0348",
+      "id": "f0356",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -8201,7 +8536,7 @@
       }
     },
     {
-      "id": "f0350",
+      "id": "f0358",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -8241,7 +8576,7 @@
       }
     },
     {
-      "id": "f0351",
+      "id": "f0359",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -8281,7 +8616,7 @@
       }
     },
     {
-      "id": "f0352",
+      "id": "f0360",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -8321,7 +8656,7 @@
       }
     },
     {
-      "id": "f0353",
+      "id": "f0361",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -8361,7 +8696,7 @@
       }
     },
     {
-      "id": "f0354",
+      "id": "f0362",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -8401,7 +8736,7 @@
       }
     },
     {
-      "id": "f0356",
+      "id": "f0364",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -8441,7 +8776,7 @@
       }
     },
     {
-      "id": "f0357",
+      "id": "f0365",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -8481,7 +8816,7 @@
       }
     },
     {
-      "id": "f0358",
+      "id": "f0366",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -8521,7 +8856,7 @@
       }
     },
     {
-      "id": "f0359",
+      "id": "f0367",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -8561,7 +8896,7 @@
       }
     },
     {
-      "id": "f0360",
+      "id": "f0368",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -8601,7 +8936,7 @@
       }
     },
     {
-      "id": "f0361",
+      "id": "f0369",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -8641,7 +8976,7 @@
       }
     },
     {
-      "id": "f0362",
+      "id": "f0370",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -8681,7 +9016,7 @@
       }
     },
     {
-      "id": "f0363",
+      "id": "f0371",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -8721,7 +9056,7 @@
       }
     },
     {
-      "id": "f0364",
+      "id": "f0372",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -8761,7 +9096,7 @@
       }
     },
     {
-      "id": "f0367",
+      "id": "f0375",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -8801,7 +9136,7 @@
       }
     },
     {
-      "id": "f0368",
+      "id": "f0376",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -8841,7 +9176,7 @@
       }
     },
     {
-      "id": "f0369",
+      "id": "f0377",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -8881,7 +9216,7 @@
       }
     },
     {
-      "id": "f0371",
+      "id": "f0379",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -8921,7 +9256,7 @@
       }
     },
     {
-      "id": "f0374",
+      "id": "f0382",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -8961,7 +9296,7 @@
       }
     },
     {
-      "id": "f0375",
+      "id": "f0383",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -9001,7 +9336,7 @@
       }
     },
     {
-      "id": "f0376",
+      "id": "f0384",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -9041,7 +9376,7 @@
       }
     },
     {
-      "id": "f0381",
+      "id": "f0389",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -9081,7 +9416,7 @@
       }
     },
     {
-      "id": "f0386",
+      "id": "f0394",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -9121,7 +9456,7 @@
       }
     },
     {
-      "id": "f0388",
+      "id": "f0396",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -13956,7 +14291,7 @@
       }
     },
     {
-      "id": "f0307",
+      "id": "f0315",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -13991,7 +14326,7 @@
       }
     },
     {
-      "id": "f0329",
+      "id": "f0337",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -14026,7 +14361,7 @@
       }
     },
     {
-      "id": "f0330",
+      "id": "f0338",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -14061,7 +14396,7 @@
       }
     },
     {
-      "id": "f0331",
+      "id": "f0339",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -14096,7 +14431,7 @@
       }
     },
     {
-      "id": "f0332",
+      "id": "f0340",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -14131,7 +14466,7 @@
       }
     },
     {
-      "id": "f0333",
+      "id": "f0341",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -14166,7 +14501,7 @@
       }
     },
     {
-      "id": "f0334",
+      "id": "f0342",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -14201,7 +14536,7 @@
       }
     },
     {
-      "id": "f0335",
+      "id": "f0343",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -14236,7 +14571,7 @@
       }
     },
     {
-      "id": "f0336",
+      "id": "f0344",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -14271,7 +14606,7 @@
       }
     },
     {
-      "id": "f0337",
+      "id": "f0345",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -14306,7 +14641,7 @@
       }
     },
     {
-      "id": "f0338",
+      "id": "f0346",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -14341,7 +14676,7 @@
       }
     },
     {
-      "id": "f0339",
+      "id": "f0347",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -14376,7 +14711,7 @@
       }
     },
     {
-      "id": "f0340",
+      "id": "f0348",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -14411,7 +14746,7 @@
       }
     },
     {
-      "id": "f0341",
+      "id": "f0349",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -14446,7 +14781,7 @@
       }
     },
     {
-      "id": "f0342",
+      "id": "f0350",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -14481,7 +14816,7 @@
       }
     },
     {
-      "id": "f0343",
+      "id": "f0351",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -14516,7 +14851,7 @@
       }
     },
     {
-      "id": "f0355",
+      "id": "f0363",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -14551,7 +14886,7 @@
       }
     },
     {
-      "id": "f0366",
+      "id": "f0374",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -14586,7 +14921,7 @@
       }
     },
     {
-      "id": "f0370",
+      "id": "f0378",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -14621,7 +14956,7 @@
       }
     },
     {
-      "id": "f0373",
+      "id": "f0381",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -14656,7 +14991,7 @@
       }
     },
     {
-      "id": "f0377",
+      "id": "f0385",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -14691,7 +15026,7 @@
       }
     },
     {
-      "id": "f0378",
+      "id": "f0386",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -14726,7 +15061,7 @@
       }
     },
     {
-      "id": "f0379",
+      "id": "f0387",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -14761,7 +15096,7 @@
       }
     },
     {
-      "id": "f0380",
+      "id": "f0388",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -14796,7 +15131,7 @@
       }
     },
     {
-      "id": "f0382",
+      "id": "f0390",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -14831,7 +15166,7 @@
       }
     },
     {
-      "id": "f0383",
+      "id": "f0391",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -14866,7 +15201,7 @@
       }
     },
     {
-      "id": "f0387",
+      "id": "f0395",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
