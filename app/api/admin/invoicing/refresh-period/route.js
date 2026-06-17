@@ -100,6 +100,9 @@ function parseSheetDateET(s) {
  *   - Chargebacks tab: disputes uploaded separately from the OF disputes page
  * Chargeback rows have negative net values; we sum them as `chargebackNet`
  * (a negative number) and the caller adds it to `net` to get the final figure.
+ * Chargebacks are bucketed by their PAYMENT date (col H), not the dispute date
+ * (col A) — see `accumulate` below — so a dispute reduces the same period the
+ * original sale was counted in, matching how OF reverses it.
  * @returns {Promise<{gross, net, ofFee, txnCount, chargebackNet, chargebackCount, missingTab}>}
  */
 async function getEarningsForPeriod(sheets, accountName, periodStartDt, periodEndDt) {
@@ -110,12 +113,23 @@ async function getEarningsForPeriod(sheets, accountName, periodStartDt, periodEn
   const accumulate = (rows) => {
     for (const row of rows) {
       const [dateTime, g, fee, n, type] = row
+      const originalDate = row[7] // col H — payment date for chargebacks
       if (!dateTime) continue
-      const dt = parseSheetDateET(dateTime)
+      // The upload parser tags chargebacks as 'Chargeback' (HTML path) or
+      // 'Chargeback (Tip)' etc. (text-paste fallback), so match by prefix.
+      const isChargeback = typeof type === 'string' && type.startsWith('Chargeback')
+      // Sales bucket by their own transaction date (col A). Chargebacks MUST
+      // bucket by the ORIGINAL PAYMENT date (col H), not the dispute date (col A):
+      // OF reverses a dispute against the period of the original sale, and the
+      // dispute frequently posts days/weeks later (often in a later period). Using
+      // col A mis-attributed chargebacks to the wrong invoice — overstating the
+      // period of the sale and understating the period the dispute happened to land
+      // in. Fall back to col A only if the payment date is missing.
+      const bucketDateRaw = isChargeback ? (originalDate || dateTime) : dateTime
+      const dt = parseSheetDateET(bucketDateRaw)
       if (!dt) continue
       // Inclusive start, exclusive end → strict less-than on end
       if (dt < periodStartDt || dt >= periodEndDt) continue
-      const isChargeback = type === 'Chargeback'
       if (isChargeback) {
         chargebackNet += parseMoney(n)
         chargebackCount++
