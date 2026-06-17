@@ -595,7 +595,11 @@ export async function POST(request) {
       t.type,
       t.displayName || t.fan,
       t.username || '',
-      t.origDate ? fmtDate(t.origDate) : '',
+      // Payment date WITH time (col H). Chargeback period-bucketing in
+      // refresh-period converts this ET timestamp to UTC; a date-only value
+      // defaults to midnight ET and mis-buckets late-day payments across the
+      // 8 PM ET / midnight UTC period boundary.
+      t.origDate ? fmtDateTime(t.origDate) : '',
       t.desc,
     ])
 
