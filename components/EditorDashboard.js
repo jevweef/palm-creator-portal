@@ -1402,6 +1402,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
   const title = inspo.title || task?.name || clip?.inspo?.title || 'Edit task'
   const username = inspo.username || ''
   const creatorNotes = task?.asset?.creatorNotes || clip?.creatorNotes || task?.creatorNotes || ''
+  // AI edit handed to the human editor: an admin sent an AI-generated video here
+  // for adjustments. It has no inspo/raw clip — the thing to edit is the AI
+  // output video, and the brief is the admin's Edit Instructions.
+  const isAiHandoff = !!task?.isAiHandoff
+  const editInstructions = task?.editInstructions || ''
 
   return (
     <div className="editor-task-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', padding: '24px' }}
@@ -1439,6 +1444,11 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
                   {creator.name}
                 </span>
               )}
+              {isAiHandoff && (
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#1a0a1f', background: '#C4A5F7', borderRadius: '4px', padding: '2px 8px', flexShrink: 0, letterSpacing: '0.04em' }}>
+                  AI EDIT
+                </span>
+              )}
             </div>
             {username && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>@{username}</div>}
           </div>
@@ -1453,7 +1463,34 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
           {/* LEFT — media panels */}
           <div className="editor-task-modal-left" style={{ width: '50%', padding: '20px', borderRight: '1px solid transparent', display: 'flex', gap: '12px', overflow: 'hidden' }}>
-            {editedLink ? (
+            {isAiHandoff ? (
+              <>
+                {/* AI handoff: the video to adjust is the AI OUTPUT, which for
+                    AI assets lives in Dropbox Shared Link + Stream Raw ID (not
+                    Edited File Link). No raw/inspo exists. Once the editor
+                    uploads their adjusted version, show it alongside. */}
+                <MediaPanel
+                  label="AI Video — edit this"
+                  link={assetLink}
+                  rawUrl={assetRawUrl}
+                  fallbackThumb={task?.asset?.thumbnail || ''}
+                  cdnUrl={task?.asset?.cdnUrl || null}
+                  streamUid={task?.asset?.streamRawId || null}
+                  accentColor="#C4A5F7"
+                />
+                {editedLink && (
+                  <MediaPanel
+                    label="Your Edit"
+                    link={editedLink}
+                    rawUrl={editedRawUrl}
+                    fallbackThumb={task?.asset?.thumbnail || ''}
+                    cdnUrl={task?.asset?.cdnUrl || null}
+                    streamUid={task?.asset?.streamEditId || null}
+                    accentColor="#7DD3A4"
+                  />
+                )}
+              </>
+            ) : editedLink ? (
               <>
                 {/* Raw on the left, edited on the right — consistent with the
                     rest of the editor's workflow so the edited version is
@@ -1503,6 +1540,23 @@ function TaskDetailModal({ slot, creator, onAction, onInspoClipStart, updating, 
 
           {/* RIGHT — info + action */}
           <div className="editor-task-modal-right" style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+
+            {/* AI edit handoff — what to adjust on this AI video. Kept at the very
+                top, bold and unmistakable, so it's obvious this is an AI edit and
+                exactly what's being asked for. */}
+            {isAiHandoff && (
+              <div style={{ background: 'rgba(196, 165, 247, 0.10)', border: '1px solid #C4A5F7', borderRadius: '8px', padding: '12px 14px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                  AI edit · what to change
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                  {editInstructions || 'No specific instructions — make it look natural and on-brand.'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', lineHeight: 1.4 }}>
+                  This is an AI-generated video. Download it, make the changes above, then upload your version like any other edit.
+                </div>
+              </div>
+            )}
 
             {/* Admin feedback */}
             {task?.adminFeedback && (
@@ -1842,9 +1896,13 @@ function SlotText({ slot }) {
   const title = task?.inspo?.title || task?.name || ''
   const username = task?.inspo?.username || ''
   const isRevision = task?.adminReviewStatus === 'Needs Revision'
+  const isAiHandoff = !!task?.isAiHandoff
   return (
     <>
-      <div style={{ fontSize: '13px', fontWeight: 600, color: isRevision ? '#E87878' : 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+        {isAiHandoff && <span style={{ fontSize: '9px', fontWeight: 800, color: '#1a0a1f', background: '#C4A5F7', borderRadius: '3px', padding: '1px 5px', flexShrink: 0, letterSpacing: '0.04em' }}>AI</span>}
+        <span style={{ fontSize: '13px', fontWeight: 600, color: isRevision ? '#E87878' : 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title || 'Edit task'}</span>
+      </div>
       {isRevision && task.adminFeedback && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.adminFeedback}</div>}
       {!isRevision && username && <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>@{username}</div>}
     </>

@@ -61,6 +61,7 @@ export async function GET() {
           'Name', 'Status', 'Creator', 'Asset', 'Inspiration',
           'Creator Notes', 'Editor Notes', 'Completed At',
           'Admin Review Status', 'Admin Feedback', 'Admin Screenshots',
+          'Editor Handoff', 'Edit Instructions',
         ],
       }),
       // Creator-uploaded clips tied to a specific inspo record (priority fills)
@@ -158,8 +159,13 @@ export async function GET() {
       const asset = assetId ? (assetMap[assetId] || {}) : {}
       // AI-generated content lives in the AI Content hub — keep it out of the
       // human editor's dashboard so counts (in review / approved / open) reflect
-      // real, human-filmed content only.
-      if (asset['Source Type'] === 'AI Generated') continue
+      // real, human-filmed content only. EXCEPTION: when an admin explicitly
+      // hands a specific AI edit to the human editor (Editor Handoff=true), it
+      // joins this queue — carrying written instructions + the AI output video
+      // to adjust. The asset stays Source Type='AI Generated' throughout, so it
+      // never leaks into the real pipeline and returns under the AI toggle.
+      const isAiHandoff = asset['Source Type'] === 'AI Generated' && !!task.fields?.['Editor Handoff']
+      if (asset['Source Type'] === 'AI Generated' && !isAiHandoff) continue
       const inspo = inspoId ? (inspoMap[inspoId] || {}) : {}
       const screenshots = (task.fields?.['Admin Screenshots'] || [])
         .map(s => s.thumbnails?.large?.url || s.url)
@@ -168,6 +174,11 @@ export async function GET() {
         id: task.id,
         name: task.fields?.Name || '',
         status: task.fields?.Status || '',
+        // AI edit handed to the human editor — drives the "AI EDIT" badge and
+        // the instructions block on the card, and tells the card to source the
+        // AI OUTPUT video (no RAW/INSPO exists for AI assets).
+        isAiHandoff,
+        editInstructions: task.fields?.['Edit Instructions'] || '',
         isInspoUpload: !!(inspoId && asset['Source Type'] === 'Inspo Upload'),
         adminReviewStatus: task.fields?.['Admin Review Status'] || '',
         adminFeedback: task.fields?.['Admin Feedback'] || '',
