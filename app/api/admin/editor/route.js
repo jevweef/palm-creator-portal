@@ -324,7 +324,10 @@ export async function PATCH(request) {
 
     // ── Admin: Approve ──────────────────────────────────────────────────────────
     if (action === 'approve') {
-      await patchAirtableRecord('Tasks', taskId, { 'Admin Review Status': 'Approved' })
+      // Clear the human-editor handoff marker — its only job is "currently in
+      // the human editor's hands," and approval ends that chapter. (If the
+      // edit ever needs human work again, admin re-clicks Send to editor.)
+      await patchAirtableRecord('Tasks', taskId, { 'Admin Review Status': 'Approved', 'Editor Handoff': false })
 
       // Auto-create a Post record for prep
       let scheduledDate = null
@@ -443,7 +446,7 @@ export async function PATCH(request) {
     // Dropbox + Cloudflare media are NOT deleted; the Asset record just stops
     // showing up in any queue that filters by Pipeline Status.
     if (action === 'discardPost') {
-      await patchAirtableRecord('Tasks', taskId, { 'Status': 'Cancelled' })
+      await patchAirtableRecord('Tasks', taskId, { 'Status': 'Cancelled', 'Editor Handoff': false })
       if (assetId) {
         // typecast lets Airtable auto-create the 'Discarded' option on the
         // Pipeline Status singleSelect the first time we write it.
@@ -484,6 +487,10 @@ export async function PATCH(request) {
       const taskUpdate = {
         'Admin Review Status': 'Needs Revision',
         'Status': 'In Progress',
+        // Request Revision routes to the AI editor (/ai-editor); clear the
+        // human-editor handoff so the two destinations stay distinct —
+        // "Send to editor" → human editor, "Request Revision" → AI editor.
+        'Editor Handoff': false,
       }
       if (adminFeedback) taskUpdate['Admin Feedback'] = adminFeedback
       if (adminScreenshotUrls?.length) {
@@ -594,6 +601,30 @@ export async function PATCH(request) {
       try { waitUntil(telegramWork) } catch { /* not in Vercel runtime — let it fire-and-forget */ }
 
       return NextResponse.json({ ok: true, action: 'requestRevision' })
+    }
+
+    // ── Admin: Send AI edit to the human editor ─────────────────────────────────
+    // Hands an AI-Generated asset into the NORMAL editor's to-do queue with
+    // written instructions, so a human can make adjustments the AI editor
+    // can't. The asset STAYS Source Type='AI Generated' the whole time — it
+    // never leaks into the real-content pipeline, and when the editor
+    // resubmits it returns to the AI For Review queue (under the AI toggle),
+    // not lumped with real content. The editor dashboard surfaces it because
+    // 'Editor Handoff' is true (it otherwise excludes AI Generated assets).
+    if (action === 'sendToEditor') {
+      const instructions = (body.editInstructions || '').trim()
+      await patchAirtableRecord('Tasks', taskId, {
+        'Status': 'To Do',
+        'Admin Review Status': null,   // drop out of the For Review (Done+Pending) queue
+        'Admin Feedback': '',
+        'Editor Handoff': true,
+        'Edit Instructions': instructions,
+      })
+      if (assetId) {
+        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'In Editing' })
+      }
+      console.log(`[Editor] AI task ${taskId} handed to the human editor`)
+      return NextResponse.json({ ok: true, action: 'sendToEditor' })
     }
 
     // ── Editor: Start Editing / Submit ──────────────────────────────────────────
