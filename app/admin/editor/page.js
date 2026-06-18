@@ -1749,6 +1749,10 @@ function CropperModal({ file, onCrop, onSkip }) {
   )
 }
 
+// Canned revision notes that come up constantly (esp. for AI content) so the
+// reviewer can one-tap instead of retyping. Add more as patterns emerge.
+const QUICK_FEEDBACK = ['Doesn\'t look like her']
+
 function RevisionModal({ task, onClose, onSubmit }) {
   const [feedback, setFeedback] = useState('')
   const [screenshots, setScreenshots] = useState([])
@@ -1849,6 +1853,24 @@ function RevisionModal({ task, onClose, onSubmit }) {
 
         <div style={{ marginBottom: '14px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Feedback</div>
+          {/* Quick-pick canned feedback — common notes that would otherwise be
+              retyped every time. Tap fills the textarea (still editable). */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            {QUICK_FEEDBACK.map(text => (
+              <button
+                key={text}
+                type="button"
+                onClick={() => setFeedback(text)}
+                style={{
+                  padding: '5px 11px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  borderRadius: '14px', border: '1px solid rgba(232, 120, 120, 0.35)',
+                  background: feedback === text ? '#E87878' : 'rgba(232, 120, 120, 0.08)',
+                  color: feedback === text ? '#1a0a0a' : '#E87878',
+                }}>
+                {text}
+              </button>
+            ))}
+          </div>
           <textarea
             value={feedback}
             onChange={e => setFeedback(e.target.value)}
@@ -2492,6 +2514,14 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       {updating === task.id ? 'Saving...' : 'Approve'}
                     </button>
                   </div>
+                  {/* One-press canned revision — skips the modal entirely for the
+                      single most common note. Fires the same revision flow. */}
+                  <button
+                    onClick={() => handleRevision(task.id, QUICK_FEEDBACK[0], [])}
+                    disabled={updating === task.id}
+                    style={{ width: '100%', marginTop: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                    {updating === task.id ? 'Sending…' : QUICK_FEEDBACK[0]}
+                  </button>
                 </div>
               </div>
             )
