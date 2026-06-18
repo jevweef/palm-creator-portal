@@ -1753,6 +1753,55 @@ function CropperModal({ file, onCrop, onSkip }) {
 // reviewer can one-tap instead of retyping. Add more as patterns emerge.
 const QUICK_FEEDBACK = ['Doesn\'t look like her']
 
+// Hands an AI video to the human editor with text instructions. Text-only by
+// design (Evan's call) — fast to fire. The editor picks it up in their normal
+// to-do queue with an "AI EDIT" badge + these instructions front and center.
+function SendToEditorModal({ task, busy, onClose, onSubmit }) {
+  const [instructions, setInstructions] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = () => {
+    if (!instructions.trim()) { setError('Tell the editor what to change before sending'); return }
+    onSubmit(task.id, instructions.trim())
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && !busy && onClose()}>
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', padding: '28px', width: '500px', maxWidth: '95vw' }}
+        onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--foreground)', margin: '0 0 4px' }}>Send to editor</h3>
+        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '20px' }}>
+          {task.inspo?.title || task.name} · {task.creator?.name} — drops into the editor's to-do list as an AI edit.
+        </p>
+
+        <div style={{ marginBottom: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>What should the editor change?</div>
+        <textarea
+          value={instructions}
+          onChange={e => { setInstructions(e.target.value); if (error) setError('') }}
+          placeholder="e.g. Trim the first 2 seconds, add captions, fix the jump cut at the end…"
+          autoFocus
+          disabled={busy}
+          style={{ width: '100%', padding: '10px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', resize: 'vertical', minHeight: '110px', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
+        />
+
+        {error && <p style={{ fontSize: '12px', color: '#E87878', margin: '12px 0 0' }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
+          <button onClick={onClose} disabled={busy}
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: busy ? 'default' : 'pointer', background: 'transparent' }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={busy || !instructions.trim()}
+            style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', color: '#1a0a1f', fontSize: '13px', fontWeight: 700, cursor: busy || !instructions.trim() ? 'not-allowed' : 'pointer', background: busy || !instructions.trim() ? 'rgba(196, 165, 247, 0.3)' : '#C4A5F7' }}>
+            {busy ? 'Sending…' : 'Send to editor'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function RevisionModal({ task, onClose, onSubmit }) {
   const [feedback, setFeedback] = useState('')
   const [screenshots, setScreenshots] = useState([])
@@ -2095,6 +2144,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
   const [imageModal, setImageModal] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
+  const [sendToEditorTask, setSendToEditorTask] = useState(null)
   const [page, setPage] = useState(0)
   const [creatorFilter, setCreatorFilter] = useState('all')
 
@@ -2161,6 +2211,29 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
       setTasks(prev => prev.filter(t => t.id !== taskId))
       setRevisionTask(null)
       showToast('Revision sent back to editor')
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  // Hand an AI edit to the normal human editor with written instructions. The
+  // asset stays Source Type='AI Generated'; the task drops out of this AI review
+  // queue and lands in the editor's to-do list (Editor Handoff=true). It returns
+  // here under the AI toggle when the editor resubmits.
+  const handleSendToEditor = async (taskId, editInstructions) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'sendToEditor', editInstructions }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Send to editor failed')
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      setSendToEditorTask(null)
+      showToast('Sent to the editor')
     } catch (err) {
       showToast(err.message, true)
     } finally {
@@ -2514,14 +2587,27 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       {updating === task.id ? 'Saving...' : 'Approve'}
                     </button>
                   </div>
-                  {/* One-press canned revision — skips the modal entirely for the
-                      single most common note. Fires the same revision flow. */}
-                  <button
-                    onClick={() => handleRevision(task.id, QUICK_FEEDBACK[0], [])}
-                    disabled={updating === task.id}
-                    style={{ width: '100%', marginTop: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                    {updating === task.id ? 'Sending…' : QUICK_FEEDBACK[0]}
-                  </button>
+                  {/* AI-only quick actions. The likeness note + the human-editor
+                      handoff only make sense for AI-generated content. */}
+                  {task.asset?.sourceType === 'AI Generated' && (
+                    <>
+                      {/* One-press canned revision → AI editor — skips the modal
+                          for the single most common note. */}
+                      <button
+                        onClick={() => handleRevision(task.id, QUICK_FEEDBACK[0], [])}
+                        disabled={updating === task.id}
+                        style={{ width: '100%', marginTop: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                        {updating === task.id ? 'Sending…' : QUICK_FEEDBACK[0]}
+                      </button>
+                      {/* Hand off to the human editor for manual adjustments. */}
+                      <button
+                        onClick={() => setSendToEditorTask(task)}
+                        disabled={updating === task.id}
+                        style={{ width: '100%', marginTop: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'rgba(196, 165, 247, 0.10)', color: '#A06FE8', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                        Send to editor
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )
@@ -2550,6 +2636,15 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
           task={revisionTask}
           onClose={() => setRevisionTask(null)}
           onSubmit={(taskId, feedback, screenshots) => handleRevision(taskId, feedback, screenshots)}
+        />
+      )}
+
+      {sendToEditorTask && (
+        <SendToEditorModal
+          task={sendToEditorTask}
+          busy={updating === sendToEditorTask.id}
+          onClose={() => setSendToEditorTask(null)}
+          onSubmit={(taskId, instructions) => handleSendToEditor(taskId, instructions)}
         />
       )}
 
