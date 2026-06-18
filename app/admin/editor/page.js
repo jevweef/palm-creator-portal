@@ -2366,7 +2366,12 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       <ReviewClipCell
                         streamUid={task.asset.streamEditId}
                         posterCdnUrl={task.asset.cdnUrl}
-                        fallbackUrl={task.asset.dropboxLink ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null}
+                        // Prefer the Edited File Link (the human editor's version,
+                        // when a handed-off AI edit comes back) so the OUTPUT cell
+                        // shows the EDIT during the Stream re-mirror window instead
+                        // of falling back to the pre-edit AI video. Pure AI assets
+                        // have no Edited File Link → falls to the Dropbox output.
+                        fallbackUrl={task.asset.editedFileLink || (task.asset.dropboxLink ? task.asset.dropboxLink.split('\n').filter(Boolean)[0] : null)}
                         onOpenModal={(payload) => setVideoModal(payload)}
                         label="OUTPUT"
                         labelColor="#7DD3A4"
