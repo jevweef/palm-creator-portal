@@ -1,0 +1,194 @@
+{
+  "run": "daily-2026-06-18",
+  "findings": [
+    {
+      "department": "founder-discipline",
+      "topic": "Net profit vs gross revenue focus",
+      "title": "Set net-profit targets, not gross-revenue milestones",
+      "claim": "Agencies obsessing over gross revenue figures (e.g. $100K/mo) often keep only 10\u201340% as net profit, so every strategic decision should be benchmarked against what the operator actually takes home.",
+      "what_they_do": "Renato coaches clients to frame all goals as net-profit targets (e.g. 'I want to keep $50K/mo') rather than gross figures. He illustrates with a client doing ~$100K gross who keeps $65\u201370K via a salary-model structure vs. another doing $100K gross who keeps only $30\u201340K via a rev-share structure \u2014 same gross, very different outcomes. He explicitly tells clients to evaluate every agency decision (traffic platform, model structure, scaling direction) by the profit it will produce.",
+      "vs_us": "No internal baseline documented for how Palm frames its own financial targets (\u00a77 GAP \u2014 no documented pricing/commission model or profit-margin discipline). Palm tracks commission % per creator and auto-computes weekly invoices, but there is no written framework for evaluating decisions by net-profit impact.",
+      "recommendation": "Define and document Palm's target net-profit margin per creator and per agency overall. Build a simple P&L model (OF cut, chatter cost, editor cost, tech cost, commission split) so every new creator signing or platform decision is evaluated against net contribution, not top-line revenue. Surface this in the admin portal as a per-creator profitability view.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 30,
+          "quote": "profit is everything. Way too many people get confused in the game about fancy figures like a million a month"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 567,
+          "quote": "OnlyFans takes 20% if you're at a 100k gross revenue, you're left with 80K. His two salary models take less than 3K"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1284,
+          "quote": "Hit net profit targets. I want to keep 50k. I want to keep 100k. Every decision you make in your agency should be going towards this."
+        }
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "Salary model vs rev-share structure",
+      "title": "Salary-model structure to maximize agency net-profit margin",
+      "claim": "Paying creators a flat monthly salary ($1K\u2013$3K) instead of a revenue-share split lets the agency keep the vast majority of gross revenue and creates agency-side leverage because the creator depends entirely on the agency for traffic.",
+      "what_they_do": "Renato's preferred structure: agency owns all traffic/marketing, creator records PPV content and receives a fixed salary (examples given: $1K\u2013$3K/mo). At $100K gross, OF takes 20% ($20K), salaries cost ~$3\u20135K total for two models, chatting costs ~10% ($10K), leaving $65\u201370K net profit vs. $30\u201340K under a typical rev-share deal. He frames this as 'hybrid OFM.' The creator cannot replicate results independently because all marketing is agency-built, so churn leverage flips to the agency.",
+      "vs_us": "\u00a77 GAP \u2014 Palm has no documented commission model or deal-structure rationale. Current model is commission % set per creator at onboarding (rev-share implied). Salary-model structure is not referenced anywhere in Palm's baseline.",
+      "recommendation": "Evaluate introducing a salary-model tier for creators where Palm controls the primary traffic channels (IG/TikTok accounts, Reddit, etc.). Define criteria for when a salary deal is preferable to rev-share (e.g. Palm owns and has built the social accounts from scratch). Document a deal-structure decision tree in \u00a77 and model the net-profit differential in the invoicing system.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 691,
+          "quote": "A very good system that I think is very under looked is salary models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 723,
+          "quote": "you pay them 2K, 3K, 1K depends on what deal you made with them. And all of the profit is yours"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 567,
+          "quote": "he's doing hybrid OFM. Let's take his example because it's easier to calculate."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "Traffic ownership as agency leverage and churn protection",
+      "title": "Own the traffic accounts to create model-retention leverage",
+      "claim": "Agencies that control their own traffic infrastructure (social accounts, follower bases) retain leverage when a creator leaves, because creators cannot replicate the results independently \u2014 turning what is normally a creator-holds-all-leverage situation into an agency-side asset.",
+      "what_they_do": "Renato builds and owns the IG/TikTok (and other platform) accounts himself, not the creator. If a creator leaves, the traffic asset stays with the agency. He contrasts this with 'over-glorified chatting agencies' that merely attach their chatting system to a creator's existing audience \u2014 when she leaves, everything is gone. He cites a coaching client whose main model left the day before a call, immediately wiping out ~30\u201340% of revenue, as evidence of a dangerously unstructured agency.",
+      "vs_us": "This aligns with Palm's existing AI-persona model (\u00a70/\u00a73) where Palm builds and owns social accounts. For real creators, however, the social presence is typically the creator's own account, meaning Palm does not own the traffic asset in those cases. This is a structural vulnerability Palm shares with the agencies Renato criticizes.",
+      "recommendation": "For new real-creator signings, explore a hybrid arrangement where Palm builds and administers at least one dedicated traffic account (e.g. a themed or 'theme page' account) on behalf of the creator that Palm retains rights to if the creator departs. Document this as a standard clause in the creator contract (already uses Puppeteer PDF contracts). This converts a traffic dependency into a Palm-owned asset.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 848,
+          "quote": "You have to be in control of the traffic, okay? You have to control the traffic you're bringing in."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 879,
+          "quote": "if she leaves, this 20K extra that he made \u2014 out the window. There's no more 20K extra. And then a model won't leave because she can't replicate this on her own."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 941,
+          "quote": "First rule of structure, own the traffic. You have to own the traffic. That gives you leverage."
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Niche specialization for copy-paste scaling",
+      "title": "Sign only one niche of creator to make content systems copy-paste repeatable",
+      "claim": "Signing creators across wildly different niches forces bespoke strategy for each, killing operational efficiency; specializing in one niche (e.g. goth/cosplay) lets the agency reuse the same content verticals and growth playbook on every new signing.",
+      "what_they_do": "Renato advises agencies to pick one niche they know how to scale and only sign creators in that niche. Example: client Ricardo primarily signs goth/cosplay models, so every new signing gets the same proven content vertical approach. Contrast with client Alexander who has models in mixed niches and struggles to know what content strategy to apply to each. The principle: once you have a proven system for a niche, every new creator is just another instance of running that system.",
+      "vs_us": "\u00a76 GAP \u2014 Palm has no documented acquisition criteria or niche targeting strategy. Creator signing is Josh-DM-led and opportunistic. There is no stated niche specialization or content-vertical repeatability requirement in the onboarding process.",
+      "recommendation": "Define a niche focus for Palm's creator roster (even informally at first). Document which content verticals and inspo-source accounts in the \u00a71 pipeline correspond to that niche. Add a 'niche fit' qualification criterion to the creator onboarding form so new signings are pre-screened against the niches where Palm already has proven content systems.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1065,
+          "quote": "systemize everything, okay? Systemize everything and copy-paste the system on other models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1127,
+          "quote": "sign only the models you know how to scale, that you're good at. So, for example, only goth niche. Ricardo does this where he mostly signs goth/cosplay models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1222,
+          "quote": "If a model comes in, immediately, in the next month you can get an extra 20K for her from scratch, fully."
+        }
+      ]
+    },
+    {
+      "department": "traffic",
+      "topic": "Platform diversification away from Instagram",
+      "title": "Diversify traffic across platforms proactively to hedge against IG ban waves",
+      "claim": "Agencies relying exclusively on Instagram for traffic are highly exposed to ban waves; diversifying to other platforms (non-IG) immediately before or during a ban wave protects revenue and can generate significant incremental net profit within weeks.",
+      "what_they_do": "When IG bans hit Renato's clients hard, he prescribed a deliberate step-back from Instagram and shifted effort to unspecified 'other platforms' (intentionally not named \u2014 paid coaching content). Client Ricardo grew accounts on new platforms from scratch organically (no paid ads), saw minimal traction in week one, then hit 20K extra net profit in the following 10 days using 3\u20134 accounts totaling ~33K followers. Renato describes the method as 'full AI marketing' targeting USA audiences. The tactic is explicitly framed as platform-risk mitigation, not just growth.",
+      "vs_us": "\u00a75 GAP \u2014 Palm's traffic/distribution strategy is not documented. Palm uses IG and TikTok (via Publer/Telegram) but has no written multi-platform diversification policy or contingency plan for IG ban waves. \u00a74 notes that real-creator warmup/cadence is not formalized. The IG ban risk is live and present for Palm's real creators.",
+      "recommendation": "Immediately document a platform-diversification contingency SOP: if any real creator loses >2 IG accounts in a 30-day window, trigger migration of effort to at least one backup platform. Identify which platforms (Reddit, TikTok, Threads, X, Snapchat) Palm can activate quickly given existing infrastructure. Add a 'backup platform' field to the Creators table in Airtable and assign one per active creator now, before a ban event forces a rushed response.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 93,
+          "quote": "we took a step back from Instagram as Instagram is banning way too many accounts right now"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 411,
+          "quote": "half of his Instagram accounts got banned. Half of your Instagram accounts get banned, you cut your pretty much revenue in half."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 157,
+          "quote": "he got maybe 100, 200, 300 followers, not too much, but then in the remaining 10 days, when the accounts got a bit of traction, he's right now pretty much made 20K extra"
+        }
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "topic": "Horizontal vs vertical scaling decision",
+      "title": "Choose horizontal (more models) vs vertical (deeper per model) scaling based on profit structure",
+      "claim": "Agencies should consciously choose between scaling horizontally (more creators, same system) or vertically (fewer creators, maximize each) rather than defaulting to signing as many models as possible, because more models often means more headache without proportionally more profit.",
+      "what_they_do": "Renato lays out two explicit scaling modes: (1) Horizontal \u2014 sign 10+ models, apply the same playbook to each, multiply net profit proportionally; (2) Vertical \u2014 take 1\u20134 models and push each to maximum revenue. He warns that multi-model agencies frequently have low per-person net profit when the team is split 3\u20134 ways. He recommends operators choose a mode deliberately, then structure hiring, content systems, and deal types accordingly. His own preference trends toward fewer models with salary deals and owned traffic.",
+      "vs_us": "No internal baseline for Palm's scaling direction (\u00a710 GAP \u2014 no org chart or scaling plan). Palm currently has a small roster of real creators managed by a lean team (Josh, Evan, Amin, editors, external chatters). No documented decision on whether Palm is scaling horizontally or vertically.",
+      "recommendation": "Document Palm's explicit scaling thesis \u2014 horizontal (more creators through a systemized pipeline) or vertical (deeper value per creator). Given Palm's data-driven content engine (\u00a71) and AI-persona scaling lever (\u00a70/\u00a73), a hybrid thesis may make sense: vertical for real creators (fewer, higher-quality) and horizontal for AI personas. Write this into the agency strategy doc and use it to evaluate every new creator signing.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 660,
+          "quote": "you can scale horizontally. So, you can have He has four models. You can sign 10 more models, do the same for them, and you'll be happy."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 971,
+          "quote": "Most people that have many models, that is just a headache. They're gambling, and their agencies rarely make that much profit."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1003,
+          "quote": "you can make 500k in gross revenue, but how much is each individual person taking home? 30k? 40k? Well, then it's better to be Alexander."
+        }
+      ]
+    },
+    {
+      "department": "retention",
+      "topic": "Model churn risk and single-model dependency",
+      "title": "Audit creator concentration risk \u2014 no single creator should represent >20% of net profit",
+      "claim": "If one creator leaving cuts agency revenue by 30\u201340% or more, the agency is not a real business \u2014 it is gambling, and concentration in a single creator is the most common structural failure at the $20\u201350K/mo level.",
+      "what_they_do": "Renato uses a live coaching-call example: a client with ~18 models had his top model leave the day before a call, immediately wiping out the majority of his net profit. Renato's prescription is to structure the agency so no single creator departure is catastrophic \u2014 achieved through (a) owning traffic assets, (b) salary-model deals, (c) enough creator diversification, and (d) a replicable onboarding/growth system so any creator can be replaced quickly.",
+      "vs_us": "\u00a79 PARTIAL \u2014 Palm has whale-hunting and fan-tracker CRM tools but no documented creator-level concentration-risk monitoring or churn signal process. There is no written policy on maximum revenue concentration per creator. \u00a76 notes acquisition is Josh-DM-led with no systematic pipeline, which makes rapid replacement of a departing creator difficult.",
+      "recommendation": "Add a creator concentration metric to the Palm admin dashboard: what % of total agency gross revenue does each creator represent? Set an internal alert threshold (e.g. >25% from a single creator triggers a diversification review). Pair this with an accelerated acquisition effort when concentration is high. Also codify a 'creator departure runbook' so the team has a response plan ready before it is needed.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 785,
+          "quote": "his main client left him. And she \u2014 I think he has around 18 models and she was his main model. And she left the day before our call. And so most of his net profit and revenue just went away"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 815,
+          "quote": "if one model leaving cuts your revenue in half or 40% or a lot, your agency isn't structured in the correct way."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1345,
+          "quote": "Systematize everything. Have a structure. If you don't, if one model leaves, you're fucked. That is not a good agency structure."
+        }
+      ]
+    }
+  ]
+}

@@ -171,7 +171,7 @@
       }
     },
     {
-      "id": "f0392",
+      "id": "f0399",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "f0393",
+      "id": "f0400",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -1305,7 +1305,322 @@
       }
     },
     {
-      "id": "f0352",
+      "id": "f0313",
+      "department": "founder-discipline",
+      "topic": "Net profit vs gross revenue focus",
+      "title": "Set net-profit targets, not gross-revenue milestones",
+      "variants": [
+        {
+          "claim": "Agencies obsessing over gross revenue figures (e.g. $100K/mo) often keep only 10\u201340% as net profit, so every strategic decision should be benchmarked against what the operator actually takes home.",
+          "what_they_do": "Renato coaches clients to frame all goals as net-profit targets (e.g. 'I want to keep $50K/mo') rather than gross figures. He illustrates with a client doing ~$100K gross who keeps $65\u201370K via a salary-model structure vs. another doing $100K gross who keeps only $30\u201340K via a rev-share structure \u2014 same gross, very different outcomes. He explicitly tells clients to evaluate every agency decision (traffic platform, model structure, scaling direction) by the profit it will produce.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 30,
+          "quote": "profit is everything. Way too many people get confused in the game about fancy figures like a million a month"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 567,
+          "quote": "OnlyFans takes 20% if you're at a 100k gross revenue, you're left with 80K. His two salary models take less than 3K"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1284,
+          "quote": "Hit net profit targets. I want to keep 50k. I want to keep 100k. Every decision you make in your agency should be going towards this."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline documented for how Palm frames its own financial targets (\u00a77 GAP \u2014 no documented pricing/commission model or profit-margin discipline). Palm tracks commission % per creator and auto-computes weekly invoices, but there is no written framework for evaluating decisions by net-profit impact.",
+        "recommendation": "Define and document Palm's target net-profit margin per creator and per agency overall. Build a simple P&L model (OF cut, chatter cost, editor cost, tech cost, commission split) so every new creator signing or platform decision is evaluated against net contribution, not top-line revenue. Surface this in the admin portal as a per-creator profitability view."
+      }
+    },
+    {
+      "id": "f0314",
+      "department": "pricing",
+      "topic": "Salary model vs rev-share structure",
+      "title": "Salary-model structure to maximize agency net-profit margin",
+      "variants": [
+        {
+          "claim": "Paying creators a flat monthly salary ($1K\u2013$3K) instead of a revenue-share split lets the agency keep the vast majority of gross revenue and creates agency-side leverage because the creator depends entirely on the agency for traffic.",
+          "what_they_do": "Renato's preferred structure: agency owns all traffic/marketing, creator records PPV content and receives a fixed salary (examples given: $1K\u2013$3K/mo). At $100K gross, OF takes 20% ($20K), salaries cost ~$3\u20135K total for two models, chatting costs ~10% ($10K), leaving $65\u201370K net profit vs. $30\u201340K under a typical rev-share deal. He frames this as 'hybrid OFM.' The creator cannot replicate results independently because all marketing is agency-built, so churn leverage flips to the agency.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 691,
+          "quote": "A very good system that I think is very under looked is salary models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 723,
+          "quote": "you pay them 2K, 3K, 1K depends on what deal you made with them. And all of the profit is yours"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 567,
+          "quote": "he's doing hybrid OFM. Let's take his example because it's easier to calculate."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "\u00a77 GAP \u2014 Palm has no documented commission model or deal-structure rationale. Current model is commission % set per creator at onboarding (rev-share implied). Salary-model structure is not referenced anywhere in Palm's baseline.",
+        "recommendation": "Evaluate introducing a salary-model tier for creators where Palm controls the primary traffic channels (IG/TikTok accounts, Reddit, etc.). Define criteria for when a salary deal is preferable to rev-share (e.g. Palm owns and has built the social accounts from scratch). Document a deal-structure decision tree in \u00a77 and model the net-profit differential in the invoicing system."
+      }
+    },
+    {
+      "id": "f0315",
+      "department": "systems",
+      "topic": "Traffic ownership as agency leverage and churn protection",
+      "title": "Own the traffic accounts to create model-retention leverage",
+      "variants": [
+        {
+          "claim": "Agencies that control their own traffic infrastructure (social accounts, follower bases) retain leverage when a creator leaves, because creators cannot replicate the results independently \u2014 turning what is normally a creator-holds-all-leverage situation into an agency-side asset.",
+          "what_they_do": "Renato builds and owns the IG/TikTok (and other platform) accounts himself, not the creator. If a creator leaves, the traffic asset stays with the agency. He contrasts this with 'over-glorified chatting agencies' that merely attach their chatting system to a creator's existing audience \u2014 when she leaves, everything is gone. He cites a coaching client whose main model left the day before a call, immediately wiping out ~30\u201340% of revenue, as evidence of a dangerously unstructured agency.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 848,
+          "quote": "You have to be in control of the traffic, okay? You have to control the traffic you're bringing in."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 879,
+          "quote": "if she leaves, this 20K extra that he made \u2014 out the window. There's no more 20K extra. And then a model won't leave because she can't replicate this on her own."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 941,
+          "quote": "First rule of structure, own the traffic. You have to own the traffic. That gives you leverage."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "This aligns with Palm's existing AI-persona model (\u00a70/\u00a73) where Palm builds and owns social accounts. For real creators, however, the social presence is typically the creator's own account, meaning Palm does not own the traffic asset in those cases. This is a structural vulnerability Palm shares with the agencies Renato criticizes.",
+        "recommendation": "For new real-creator signings, explore a hybrid arrangement where Palm builds and administers at least one dedicated traffic account (e.g. a themed or 'theme page' account) on behalf of the creator that Palm retains rights to if the creator departs. Document this as a standard clause in the creator contract (already uses Puppeteer PDF contracts). This converts a traffic dependency into a Palm-owned asset."
+      }
+    },
+    {
+      "id": "f0316",
+      "department": "acquisition",
+      "topic": "Niche specialization for copy-paste scaling",
+      "title": "Sign only one niche of creator to make content systems copy-paste repeatable",
+      "variants": [
+        {
+          "claim": "Signing creators across wildly different niches forces bespoke strategy for each, killing operational efficiency; specializing in one niche (e.g. goth/cosplay) lets the agency reuse the same content verticals and growth playbook on every new signing.",
+          "what_they_do": "Renato advises agencies to pick one niche they know how to scale and only sign creators in that niche. Example: client Ricardo primarily signs goth/cosplay models, so every new signing gets the same proven content vertical approach. Contrast with client Alexander who has models in mixed niches and struggles to know what content strategy to apply to each. The principle: once you have a proven system for a niche, every new creator is just another instance of running that system.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1065,
+          "quote": "systemize everything, okay? Systemize everything and copy-paste the system on other models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1127,
+          "quote": "sign only the models you know how to scale, that you're good at. So, for example, only goth niche. Ricardo does this where he mostly signs goth/cosplay models."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1222,
+          "quote": "If a model comes in, immediately, in the next month you can get an extra 20K for her from scratch, fully."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "\u00a76 GAP \u2014 Palm has no documented acquisition criteria or niche targeting strategy. Creator signing is Josh-DM-led and opportunistic. There is no stated niche specialization or content-vertical repeatability requirement in the onboarding process.",
+        "recommendation": "Define a niche focus for Palm's creator roster (even informally at first). Document which content verticals and inspo-source accounts in the \u00a71 pipeline correspond to that niche. Add a 'niche fit' qualification criterion to the creator onboarding form so new signings are pre-screened against the niches where Palm already has proven content systems."
+      }
+    },
+    {
+      "id": "f0317",
+      "department": "traffic",
+      "topic": "Platform diversification away from Instagram",
+      "title": "Diversify traffic across platforms proactively to hedge against IG ban waves",
+      "variants": [
+        {
+          "claim": "Agencies relying exclusively on Instagram for traffic are highly exposed to ban waves; diversifying to other platforms (non-IG) immediately before or during a ban wave protects revenue and can generate significant incremental net profit within weeks.",
+          "what_they_do": "When IG bans hit Renato's clients hard, he prescribed a deliberate step-back from Instagram and shifted effort to unspecified 'other platforms' (intentionally not named \u2014 paid coaching content). Client Ricardo grew accounts on new platforms from scratch organically (no paid ads), saw minimal traction in week one, then hit 20K extra net profit in the following 10 days using 3\u20134 accounts totaling ~33K followers. Renato describes the method as 'full AI marketing' targeting USA audiences. The tactic is explicitly framed as platform-risk mitigation, not just growth.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 93,
+          "quote": "we took a step back from Instagram as Instagram is banning way too many accounts right now"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 411,
+          "quote": "half of his Instagram accounts got banned. Half of your Instagram accounts get banned, you cut your pretty much revenue in half."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 157,
+          "quote": "he got maybe 100, 200, 300 followers, not too much, but then in the remaining 10 days, when the accounts got a bit of traction, he's right now pretty much made 20K extra"
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "\u00a75 GAP \u2014 Palm's traffic/distribution strategy is not documented. Palm uses IG and TikTok (via Publer/Telegram) but has no written multi-platform diversification policy or contingency plan for IG ban waves. \u00a74 notes that real-creator warmup/cadence is not formalized. The IG ban risk is live and present for Palm's real creators.",
+        "recommendation": "Immediately document a platform-diversification contingency SOP: if any real creator loses >2 IG accounts in a 30-day window, trigger migration of effort to at least one backup platform. Identify which platforms (Reddit, TikTok, Threads, X, Snapchat) Palm can activate quickly given existing infrastructure. Add a 'backup platform' field to the Creators table in Airtable and assign one per active creator now, before a ban event forces a rushed response."
+      }
+    },
+    {
+      "id": "f0318",
+      "department": "founder-discipline",
+      "topic": "Horizontal vs vertical scaling decision",
+      "title": "Choose horizontal (more models) vs vertical (deeper per model) scaling based on profit structure",
+      "variants": [
+        {
+          "claim": "Agencies should consciously choose between scaling horizontally (more creators, same system) or vertically (fewer creators, maximize each) rather than defaulting to signing as many models as possible, because more models often means more headache without proportionally more profit.",
+          "what_they_do": "Renato lays out two explicit scaling modes: (1) Horizontal \u2014 sign 10+ models, apply the same playbook to each, multiply net profit proportionally; (2) Vertical \u2014 take 1\u20134 models and push each to maximum revenue. He warns that multi-model agencies frequently have low per-person net profit when the team is split 3\u20134 ways. He recommends operators choose a mode deliberately, then structure hiring, content systems, and deal types accordingly. His own preference trends toward fewer models with salary deals and owned traffic.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 660,
+          "quote": "you can scale horizontally. So, you can have He has four models. You can sign 10 more models, do the same for them, and you'll be happy."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 971,
+          "quote": "Most people that have many models, that is just a headache. They're gambling, and their agencies rarely make that much profit."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1003,
+          "quote": "you can make 500k in gross revenue, but how much is each individual person taking home? 30k? 40k? Well, then it's better to be Alexander."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline for Palm's scaling direction (\u00a710 GAP \u2014 no org chart or scaling plan). Palm currently has a small roster of real creators managed by a lean team (Josh, Evan, Amin, editors, external chatters). No documented decision on whether Palm is scaling horizontally or vertically.",
+        "recommendation": "Document Palm's explicit scaling thesis \u2014 horizontal (more creators through a systemized pipeline) or vertical (deeper value per creator). Given Palm's data-driven content engine (\u00a71) and AI-persona scaling lever (\u00a70/\u00a73), a hybrid thesis may make sense: vertical for real creators (fewer, higher-quality) and horizontal for AI personas. Write this into the agency strategy doc and use it to evaluate every new creator signing."
+      }
+    },
+    {
+      "id": "f0319",
+      "department": "retention",
+      "topic": "Model churn risk and single-model dependency",
+      "title": "Audit creator concentration risk \u2014 no single creator should represent >20% of net profit",
+      "variants": [
+        {
+          "claim": "If one creator leaving cuts agency revenue by 30\u201340% or more, the agency is not a real business \u2014 it is gambling, and concentration in a single creator is the most common structural failure at the $20\u201350K/mo level.",
+          "what_they_do": "Renato uses a live coaching-call example: a client with ~18 models had his top model leave the day before a call, immediately wiping out the majority of his net profit. Renato's prescription is to structure the agency so no single creator departure is catastrophic \u2014 achieved through (a) owning traffic assets, (b) salary-model deals, (c) enough creator diversification, and (d) a replicable onboarding/growth system so any creator can be replaced quickly.",
+          "run": "daily-2026-06-18"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 785,
+          "quote": "his main client left him. And she \u2014 I think he has around 18 models and she was his main model. And she left the day before our call. And so most of his net profit and revenue just went away"
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 815,
+          "quote": "if one model leaving cuts your revenue in half or 40% or a lot, your agency isn't structured in the correct way."
+        },
+        {
+          "video_id": "LaZ5AW0XGJE",
+          "timestamp_seconds": 1345,
+          "quote": "Systematize everything. Have a structure. If you don't, if one model leaves, you're fucked. That is not a good agency structure."
+        }
+      ],
+      "creators": [
+        "Renato"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "\u00a79 PARTIAL \u2014 Palm has whale-hunting and fan-tracker CRM tools but no documented creator-level concentration-risk monitoring or churn signal process. There is no written policy on maximum revenue concentration per creator. \u00a76 notes acquisition is Josh-DM-led with no systematic pipeline, which makes rapid replacement of a departing creator difficult.",
+        "recommendation": "Add a creator concentration metric to the Palm admin dashboard: what % of total agency gross revenue does each creator represent? Set an internal alert threshold (e.g. >25% from a single creator triggers a diversification review). Pair this with an accelerated acquisition effort when concentration is high. Also codify a 'creator departure runbook' so the team has a response plan ready before it is needed."
+      }
+    },
+    {
+      "id": "f0359",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -1350,7 +1665,7 @@
       }
     },
     {
-      "id": "f0357",
+      "id": "f0364",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -1395,7 +1710,7 @@
       }
     },
     {
-      "id": "f0373",
+      "id": "f0380",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -1440,7 +1755,7 @@
       }
     },
     {
-      "id": "f0380",
+      "id": "f0387",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -7456,7 +7771,7 @@
       }
     },
     {
-      "id": "f0313",
+      "id": "f0320",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -7496,7 +7811,7 @@
       }
     },
     {
-      "id": "f0314",
+      "id": "f0321",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -7536,7 +7851,7 @@
       }
     },
     {
-      "id": "f0316",
+      "id": "f0323",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -7576,7 +7891,7 @@
       }
     },
     {
-      "id": "f0317",
+      "id": "f0324",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -7616,7 +7931,7 @@
       }
     },
     {
-      "id": "f0318",
+      "id": "f0325",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -7656,7 +7971,7 @@
       }
     },
     {
-      "id": "f0319",
+      "id": "f0326",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -7696,7 +8011,7 @@
       }
     },
     {
-      "id": "f0320",
+      "id": "f0327",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -7736,7 +8051,7 @@
       }
     },
     {
-      "id": "f0321",
+      "id": "f0328",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -7776,7 +8091,7 @@
       }
     },
     {
-      "id": "f0322",
+      "id": "f0329",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -7816,7 +8131,7 @@
       }
     },
     {
-      "id": "f0323",
+      "id": "f0330",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -7856,7 +8171,7 @@
       }
     },
     {
-      "id": "f0324",
+      "id": "f0331",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -7896,7 +8211,7 @@
       }
     },
     {
-      "id": "f0325",
+      "id": "f0332",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -7936,7 +8251,7 @@
       }
     },
     {
-      "id": "f0326",
+      "id": "f0333",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -7976,7 +8291,7 @@
       }
     },
     {
-      "id": "f0327",
+      "id": "f0334",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -8016,7 +8331,7 @@
       }
     },
     {
-      "id": "f0328",
+      "id": "f0335",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -8056,7 +8371,7 @@
       }
     },
     {
-      "id": "f0329",
+      "id": "f0336",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -8096,7 +8411,7 @@
       }
     },
     {
-      "id": "f0330",
+      "id": "f0337",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -8136,7 +8451,7 @@
       }
     },
     {
-      "id": "f0331",
+      "id": "f0338",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -8176,7 +8491,7 @@
       }
     },
     {
-      "id": "f0332",
+      "id": "f0339",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -8216,7 +8531,7 @@
       }
     },
     {
-      "id": "f0333",
+      "id": "f0340",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -8256,7 +8571,7 @@
       }
     },
     {
-      "id": "f0334",
+      "id": "f0341",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -8296,7 +8611,7 @@
       }
     },
     {
-      "id": "f0335",
+      "id": "f0342",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -8336,7 +8651,7 @@
       }
     },
     {
-      "id": "f0336",
+      "id": "f0343",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -8376,7 +8691,7 @@
       }
     },
     {
-      "id": "f0353",
+      "id": "f0360",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -8416,7 +8731,7 @@
       }
     },
     {
-      "id": "f0354",
+      "id": "f0361",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -8456,7 +8771,7 @@
       }
     },
     {
-      "id": "f0355",
+      "id": "f0362",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -8496,7 +8811,7 @@
       }
     },
     {
-      "id": "f0356",
+      "id": "f0363",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -8536,7 +8851,7 @@
       }
     },
     {
-      "id": "f0358",
+      "id": "f0365",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -8576,7 +8891,7 @@
       }
     },
     {
-      "id": "f0359",
+      "id": "f0366",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -8616,7 +8931,7 @@
       }
     },
     {
-      "id": "f0360",
+      "id": "f0367",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -8656,7 +8971,7 @@
       }
     },
     {
-      "id": "f0361",
+      "id": "f0368",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -8696,7 +9011,7 @@
       }
     },
     {
-      "id": "f0362",
+      "id": "f0369",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -8736,7 +9051,7 @@
       }
     },
     {
-      "id": "f0364",
+      "id": "f0371",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -8776,7 +9091,7 @@
       }
     },
     {
-      "id": "f0365",
+      "id": "f0372",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -8816,7 +9131,7 @@
       }
     },
     {
-      "id": "f0366",
+      "id": "f0373",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -8856,7 +9171,7 @@
       }
     },
     {
-      "id": "f0367",
+      "id": "f0374",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -8896,7 +9211,7 @@
       }
     },
     {
-      "id": "f0368",
+      "id": "f0375",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -8936,7 +9251,7 @@
       }
     },
     {
-      "id": "f0369",
+      "id": "f0376",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -8976,7 +9291,7 @@
       }
     },
     {
-      "id": "f0370",
+      "id": "f0377",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -9016,7 +9331,7 @@
       }
     },
     {
-      "id": "f0371",
+      "id": "f0378",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -9056,7 +9371,7 @@
       }
     },
     {
-      "id": "f0372",
+      "id": "f0379",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -9096,7 +9411,7 @@
       }
     },
     {
-      "id": "f0375",
+      "id": "f0382",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -9136,7 +9451,7 @@
       }
     },
     {
-      "id": "f0376",
+      "id": "f0383",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -9176,7 +9491,7 @@
       }
     },
     {
-      "id": "f0377",
+      "id": "f0384",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -9216,7 +9531,7 @@
       }
     },
     {
-      "id": "f0379",
+      "id": "f0386",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -9256,7 +9571,7 @@
       }
     },
     {
-      "id": "f0382",
+      "id": "f0389",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -9296,7 +9611,7 @@
       }
     },
     {
-      "id": "f0383",
+      "id": "f0390",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -9336,7 +9651,7 @@
       }
     },
     {
-      "id": "f0384",
+      "id": "f0391",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -9376,7 +9691,7 @@
       }
     },
     {
-      "id": "f0389",
+      "id": "f0396",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -9416,7 +9731,7 @@
       }
     },
     {
-      "id": "f0394",
+      "id": "f0401",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -9456,7 +9771,7 @@
       }
     },
     {
-      "id": "f0396",
+      "id": "f0403",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -14291,7 +14606,7 @@
       }
     },
     {
-      "id": "f0315",
+      "id": "f0322",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -14326,7 +14641,7 @@
       }
     },
     {
-      "id": "f0337",
+      "id": "f0344",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -14361,7 +14676,7 @@
       }
     },
     {
-      "id": "f0338",
+      "id": "f0345",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -14396,7 +14711,7 @@
       }
     },
     {
-      "id": "f0339",
+      "id": "f0346",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -14431,7 +14746,7 @@
       }
     },
     {
-      "id": "f0340",
+      "id": "f0347",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -14466,7 +14781,7 @@
       }
     },
     {
-      "id": "f0341",
+      "id": "f0348",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -14501,7 +14816,7 @@
       }
     },
     {
-      "id": "f0342",
+      "id": "f0349",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -14536,7 +14851,7 @@
       }
     },
     {
-      "id": "f0343",
+      "id": "f0350",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -14571,7 +14886,7 @@
       }
     },
     {
-      "id": "f0344",
+      "id": "f0351",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -14606,7 +14921,7 @@
       }
     },
     {
-      "id": "f0345",
+      "id": "f0352",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -14641,7 +14956,7 @@
       }
     },
     {
-      "id": "f0346",
+      "id": "f0353",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -14676,7 +14991,7 @@
       }
     },
     {
-      "id": "f0347",
+      "id": "f0354",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -14711,7 +15026,7 @@
       }
     },
     {
-      "id": "f0348",
+      "id": "f0355",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -14746,7 +15061,7 @@
       }
     },
     {
-      "id": "f0349",
+      "id": "f0356",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -14781,7 +15096,7 @@
       }
     },
     {
-      "id": "f0350",
+      "id": "f0357",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -14816,7 +15131,7 @@
       }
     },
     {
-      "id": "f0351",
+      "id": "f0358",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -14851,7 +15166,7 @@
       }
     },
     {
-      "id": "f0363",
+      "id": "f0370",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -14886,7 +15201,7 @@
       }
     },
     {
-      "id": "f0374",
+      "id": "f0381",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -14921,7 +15236,7 @@
       }
     },
     {
-      "id": "f0378",
+      "id": "f0385",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -14956,7 +15271,7 @@
       }
     },
     {
-      "id": "f0381",
+      "id": "f0388",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -14991,7 +15306,7 @@
       }
     },
     {
-      "id": "f0385",
+      "id": "f0392",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -15026,7 +15341,7 @@
       }
     },
     {
-      "id": "f0386",
+      "id": "f0393",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -15061,7 +15376,7 @@
       }
     },
     {
-      "id": "f0387",
+      "id": "f0394",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -15096,7 +15411,7 @@
       }
     },
     {
-      "id": "f0388",
+      "id": "f0395",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -15131,7 +15446,7 @@
       }
     },
     {
-      "id": "f0390",
+      "id": "f0397",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -15166,7 +15481,7 @@
       }
     },
     {
-      "id": "f0391",
+      "id": "f0398",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -15201,7 +15516,7 @@
       }
     },
     {
-      "id": "f0395",
+      "id": "f0402",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",

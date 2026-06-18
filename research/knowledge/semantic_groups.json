@@ -1,21 +1,146 @@
 {
   "groups": [
     {
+      "department": "pricing",
+      "title": "Warm fans with a slightly discounted first PPV, then escalate price on every subsequent send",
+      "member_ids": [
+        "f0115",
+        "f0095",
+        "f0055",
+        "f0060",
+        "f0263",
+        "f0402",
+        "f0379"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Tiered PPV price escalation: 50% steps for low spenders, 70% steps for high spenders; break $200 cap via tip + multi-unlock",
+      "member_ids": [
+        "f0230",
+        "f0403"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Set hard minimum PPV prices: $19.99 images, $39.99 videos, $300 customs",
+      "member_ids": [
+        "f0114",
+        "f0086"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Free-trial subs, monetize later via PPV \u2014 not on the sub price",
+      "member_ids": [
+        "f0019",
+        "f0011"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Hard floor of 50/50 revenue split \u2014 never go lower",
+      "member_ids": [
+        "f0038",
+        "f0070",
+        "f0378"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Start at 20-30% commission and escalate by milestone to earn the full split",
+      "member_ids": [
+        "f0204",
+        "f0338"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Never fold on PPV price \u2014 repackage content instead of discounting",
+      "member_ids": [
+        "f0078",
+        "f0231"
+      ]
+    },
+    {
+      "department": "pricing",
+      "title": "Salary-model structure to maximize agency net-profit margin",
+      "member_ids": [
+        "f0314",
+        "f0181",
+        "f0356"
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "title": "Set net-profit targets, not gross-revenue milestones",
+      "member_ids": [
+        "f0313",
+        "f0023",
+        "f0232"
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "title": "Choose horizontal (more models) vs vertical (deeper per model) scaling based on profit structure",
+      "member_ids": [
+        "f0318",
+        "f0180"
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "title": "Max out one creator fully before onboarding the next; avoid managing many small creators simultaneously",
+      "member_ids": [
+        "f0193",
+        "f0369",
+        "f0249"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Personalized openers using username or profile detail to force engagement",
+      "member_ids": [
+        "f0091",
+        "f0278",
+        "f0266",
+        "f0401"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Rapport, transition, then sell",
+      "member_ids": [
+        "f0399",
+        "f0261",
+        "f0364",
+        "f0010"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Make the fan chase to hold power",
+      "member_ids": [
+        "f0400",
+        "f0094",
+        "f0262"
+      ]
+    },
+    {
       "department": "chatting",
       "title": "Pre-built escalating sexting scripts are the sales unit",
       "member_ids": [
         "f0008",
         "f0052",
-        "f0056",
         "f0074",
         "f0104",
-        "f0372",
-        "f0395"
+        "f0056",
+        "f0083"
       ]
     },
     {
       "department": "chatting",
-      "title": "Free teaser \u2192 $5\u201315 qualifier \u2192 $30\u201340+ escalation PPV ladder",
+      "title": "Send 1\u20132 free teaser images before any PPV offer to prime the subscriber",
       "member_ids": [
         "f0054",
         "f0077"
@@ -33,51 +158,20 @@
     },
     {
       "department": "chatting",
+      "title": "Four-axis sub qualification (profession, location, age, hobbies) to size wallet and build rapport",
+      "member_ids": [
+        "f0092",
+        "f0279",
+        "f0365"
+      ]
+    },
+    {
+      "department": "chatting",
       "title": "Log personal fan details in notes so any chatter can continue the relationship seamlessly",
       "member_ids": [
         "f0080",
         "f0271",
-        "f0286",
-        "f0092"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Build a fan profile through scripted questions before any PPV",
-      "member_ids": [
-        "f0358",
-        "f0092",
-        "f0279",
-        "f0261"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Personalized openers using username or profile detail to force engagement",
-      "member_ids": [
-        "f0091",
-        "f0266",
-        "f0278",
-        "f0394"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Rapport, transition, then sell",
-      "member_ids": [
-        "f0392",
-        "f0010",
-        "f0053",
-        "f0343"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Make the fan chase to hold power",
-      "member_ids": [
-        "f0393",
-        "f0094",
-        "f0262"
+        "f0286"
       ]
     },
     {
@@ -91,10 +185,18 @@
     },
     {
       "department": "chatting",
+      "title": "Write immersive, boner-test PPV descriptions that sell the fantasy before the sub sees the content",
+      "member_ids": [
+        "f0096",
+        "f0268"
+      ]
+    },
+    {
+      "department": "chatting",
       "title": "Use an 'innocent yes-ladder' question to psychologically obligate the fan before sending a PPV",
       "member_ids": [
         "f0280",
-        "f0268"
+        "f0228"
       ]
     },
     {
@@ -103,31 +205,6 @@
       "member_ids": [
         "f0226",
         "f0282"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "PPV Anchors: Plant a story or fantasy 6\u201324 hours before sending the PPV to manufacture perceived relevance",
-      "member_ids": [
-        "f0228",
-        "f0229"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
-      "member_ids": [
-        "f0357",
-        "f0083",
-        "f0159"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Write immersive, boner-test PPV descriptions that sell the fantasy before the sub sees the content",
-      "member_ids": [
-        "f0096",
-        "f0267"
       ]
     },
     {
@@ -141,10 +218,18 @@
     },
     {
       "department": "chatting",
-      "title": "Configure an auto-sent paid intro message ($15\u201325) to fire on every new subscriber",
+      "title": "PPV Anchors: Plant a story or fantasy 6\u201324 hours before sending the PPV to manufacture perceived relevance",
       "member_ids": [
-        "f0081",
-        "f0118"
+        "f0228",
+        "f0229"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Send blurred/cropped preview before full PPV to spark curiosity and drive unlock",
+      "member_ids": [
+        "f0267",
+        "f0054"
       ]
     },
     {
@@ -160,9 +245,17 @@
       "title": "Brief chatters on model persona: tone, emojis, typing quirks, niche",
       "member_ids": [
         "f0058",
-        "f0057",
         "f0225",
         "f0190"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Train chatters with agency-owned PPV scripts rather than relying on their defaults",
+      "member_ids": [
+        "f0083",
+        "f0057",
+        "f0159"
       ]
     },
     {
@@ -176,6 +269,14 @@
     },
     {
       "department": "chatting",
+      "title": "Live-call training with seconds-fast feedback loops and single-point focus",
+      "member_ids": [
+        "f0066",
+        "f0065"
+      ]
+    },
+    {
+      "department": "chatting",
       "title": "Weekly async Loom chat reviews focused on new subscribers + high-ticket purchases",
       "member_ids": [
         "f0067",
@@ -184,34 +285,26 @@
     },
     {
       "department": "chatting",
-      "title": "Live-call training with seconds-fast feedback loops and single-point focus",
+      "title": "Daily end-of-shift written takeaways lock in incremental chatter learning",
       "member_ids": [
-        "f0066",
+        "f0069",
         "f0068"
       ]
     },
     {
       "department": "chatting",
-      "title": "Set expectations via call + concise video/docs emphasizing common beginner mistakes first",
+      "title": "Sell the intimate experience, not the content \u2014 fans pay for emotion, not pornography",
       "member_ids": [
-        "f0065",
-        "f0258"
+        "f0053",
+        "f0350"
       ]
     },
     {
       "department": "chatting",
-      "title": "Segment subscriber list into 5+ tiers; send different mass messages per tier daily",
+      "title": "Configure an auto-sent paid intro message ($15\u201325) to fire on every new subscriber",
       "member_ids": [
-        "f0089",
-        "f0312"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "When a subscriber objects to price, add more content first; only discount by removing content, not by lowering the price",
-      "member_ids": [
-        "f0231",
-        "f0285"
+        "f0081",
+        "f0118"
       ]
     },
     {
@@ -224,10 +317,35 @@
     },
     {
       "department": "chatting",
-      "title": "Film PPV script content with no sunlight, consistent location/outfit/makeup to simulate 'live' feel",
+      "title": "Standardize all scripts and objection-handling so mid-conversation shift handoffs are seamless",
       "member_ids": [
-        "f0259",
-        "f0260"
+        "f0224",
+        "f0351"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Segment subscriber list into 5+ tiers; send different mass messages per tier daily",
+      "member_ids": [
+        "f0312",
+        "f0089"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "30-day written warning for bottom-20% chatters; immediate fire for worst performers",
+      "member_ids": [
+        "f0222",
+        "f0223"
+      ]
+    },
+    {
+      "department": "chatting",
+      "title": "Agency founder must chatter personally before hiring chatters",
+      "member_ids": [
+        "f0041",
+        "f0105",
+        "f0258"
       ]
     },
     {
@@ -236,253 +354,6 @@
       "member_ids": [
         "f0061",
         "f0264"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Agency founder must chatter personally before hiring chatters",
-      "member_ids": [
-        "f0041",
-        "f0105"
-      ]
-    },
-    {
-      "department": "chatting",
-      "title": "Offer content bundles to increase average order value over single-item PPV",
-      "member_ids": [
-        "f0269",
-        "f0116"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Warm fans with a slightly discounted first PPV, then escalate price on every subsequent send",
-      "member_ids": [
-        "f0115",
-        "f0060",
-        "f0095",
-        "f0055",
-        "f0263"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Tiered PPV price escalation: 50% steps for low spenders, 70% steps for high spenders",
-      "member_ids": [
-        "f0230",
-        "f0396"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Set hard minimum PPV prices: $19.99 images, $39.99 videos, $300 customs",
-      "member_ids": [
-        "f0114",
-        "f0086"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Free-trial subs, monetize later via PPV \u2014 not on the sub price",
-      "member_ids": [
-        "f0019",
-        "f0356"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Hard floor of 50/50 revenue split \u2014 never go lower",
-      "member_ids": [
-        "f0038",
-        "f0070",
-        "f0371"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Start at 20-30% commission and escalate by milestone to earn the full split",
-      "member_ids": [
-        "f0204",
-        "f0331"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Never fold on PPV price \u2014 repackage content instead of discounting",
-      "member_ids": [
-        "f0078",
-        "f0119"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Split-test PPV price and welcome message on revenue-per-100-subs metric, not open or buy rate",
-      "member_ids": [
-        "f0311",
-        "f0142"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Salary creator model: pay creator fixed rate, agency keeps ~90% of revenue",
-      "member_ids": [
-        "f0181",
-        "f0349"
-      ]
-    },
-    {
-      "department": "pricing",
-      "title": "Asking creators to swap bank info is a high-friction pitch; invoicing reduces creator resistance",
-      "member_ids": [
-        "f0275",
-        "f0273",
-        "f0274"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Reddit organic NSFW traffic produces the highest fan LTV of any channel",
-      "member_ids": [
-        "f0137",
-        "f0110"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Build a perpetual stockpile of karma-farmed Reddit accounts via VA team",
-      "member_ids": [
-        "f0133",
-        "f0167"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Scrape a 100k-subreddit master list keyed to creator physical attributes, then niche-match posts",
-      "member_ids": [
-        "f0134",
-        "f0173"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Use Reddit profile bio as the single OF conversion point",
-      "member_ids": [
-        "f0136",
-        "f0138"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Use high-volume 7/10 static images on Reddit \u2014 never repurpose IG hook-driven reels",
-      "member_ids": [
-        "f0135",
-        "f0168"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Two-funnel X system: paid retweet drops plus comment-baiting",
-      "member_ids": [
-        "f0006",
-        "f0342"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Main + 2-4 Burner Account Structure to Grow X Presence Fast",
-      "member_ids": [
-        "f0291",
-        "f0376"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Pay X Promo Pages $50\u2013$150 per Post to Inject 500\u20132K Followers Fast",
-      "member_ids": [
-        "f0292",
-        "f0296"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Reply-Hijack Competitor X Posts With Relevant Matching Content to Steal Followers",
-      "member_ids": [
-        "f0295",
-        "f0293"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "No Full Nudity on X \u2014 Use Tease-Only Content to Pull Higher-Spending Fans",
-      "member_ids": [
-        "f0294",
-        "f0158"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Snapchat + read-only Telegram channel as a ban-resilient backup funnel",
-      "member_ids": [
-        "f0020",
-        "f0350"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Run a multi-platform traffic mix; no single source carries it",
-      "member_ids": [
-        "f0007",
-        "f0290",
-        "f0039"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Use US SIM card + US-based uploader account to target US TikTok audience from abroad",
-      "member_ids": [
-        "f0289",
-        "f0157"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Three-platform funnel stack: IG \u2192 TikTok \u2192 Threads, each with distinct path",
-      "member_ids": [
-        "f0161",
-        "f0174"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Threads 30-slave-account follow-bot: 1,200 targeted leads/day via viral-post follower targeting",
-      "member_ids": [
-        "f0164",
-        "f0178"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Prioritise shareable/controversial content over all other Threads optimisations",
-      "member_ids": [
-        "f0176",
-        "f0175",
-        "f0177"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Build a Telegram-sourced S4S network before signing creators to pre-load launch traffic",
-      "member_ids": [
-        "f0108",
-        "f0112"
-      ]
-    },
-    {
-      "department": "traffic",
-      "title": "Twitter/X is currently the strongest traffic platform; Reddit is high-potential but underutilized",
-      "member_ids": [
-        "f0212",
-        "f0123"
       ]
     },
     {
@@ -499,9 +370,9 @@
       "title": "Run a structured onboarding call covering 6 key areas before going live",
       "member_ids": [
         "f0043",
-        "f0148",
-        "f0377",
-        "f0378"
+        "f0073",
+        "f0384",
+        "f0385"
       ]
     },
     {
@@ -509,7 +380,6 @@
       "title": "Build a model profile doc with chatting style, persona facts, and content inventory for chatters",
       "member_ids": [
         "f0044",
-        "f0073",
         "f0102"
       ]
     },
@@ -518,7 +388,7 @@
       "title": "Record a Loom, paste the auto-transcript into ChatGPT, and get a step-by-step SOP in minutes",
       "member_ids": [
         "f0153",
-        "f0025"
+        "f0353"
       ]
     },
     {
@@ -526,7 +396,7 @@
       "title": "Treat the vault as inventory: weekly script refresh and analytics pruning",
       "member_ids": [
         "f0022",
-        "f0359"
+        "f0265"
       ]
     },
     {
@@ -542,12 +412,12 @@
       "title": "Run 3-variant script tests with unlock-rate tracking before standardising any chatting SOP",
       "member_ids": [
         "f0143",
-        "f0265"
+        "f0142"
       ]
     },
     {
       "department": "systems",
-      "title": "Use Per-Platform Tracking Links to Attribute OF Revenue to Traffic Sources",
+      "title": "Per-source tracking links expose where revenue originates",
       "member_ids": [
         "f0014",
         "f0297"
@@ -555,11 +425,19 @@
     },
     {
       "department": "systems",
+      "title": "Identify and solve one operational bottleneck at a time rather than fixing everything at once",
+      "member_ids": [
+        "f0211",
+        "f0214"
+      ]
+    },
+    {
+      "department": "systems",
       "title": "Run the business on a 4-part minimum viable operating system anchored by a weekly scorecard",
       "member_ids": [
         "f0236",
-        "f0335",
-        "f0351"
+        "f0342",
+        "f0358"
       ]
     },
     {
@@ -567,7 +445,7 @@
       "title": "Score every creator on gross profit, team hours, and operational drag",
       "member_ids": [
         "f0233",
-        "f0232"
+        "f0191"
       ]
     },
     {
@@ -575,8 +453,16 @@
       "title": "Build backend capacity ahead of creator pipeline, not reactively after signing",
       "member_ids": [
         "f0203",
-        "f0242",
-        "f0256"
+        "f0256",
+        "f0242"
+      ]
+    },
+    {
+      "department": "systems",
+      "title": "Replicate local folder structure 1-to-1 on Google Drive as business-continuity backup",
+      "member_ids": [
+        "f0129",
+        "f0393"
       ]
     },
     {
@@ -590,58 +476,26 @@
     },
     {
       "department": "systems",
-      "title": "Replicate local folder structure 1-to-1 on Google Drive as business-continuity backup",
+      "title": "Reddit at scale (500+ posts/day) requires a full-time in-house developer \u2014 it cannot be outsourced or off-the-shelf",
       "member_ids": [
-        "f0129",
-        "f0386"
+        "f0139",
+        "f0109"
       ]
     },
     {
       "department": "systems",
-      "title": "Identify and solve one operational bottleneck at a time rather than fixing everything at once",
+      "title": "Automate fan re-engagement so chatters focus only on inbound",
       "member_ids": [
-        "f0211",
-        "f0214"
-      ]
-    },
-    {
-      "department": "systems",
-      "title": "Benchmark: most OF revenue comes from messages, not subscriptions",
-      "member_ids": [
-        "f0082",
-        "f0121"
-      ]
-    },
-    {
-      "department": "systems",
-      "title": "Productize one repeatable service per niche so delivery is copy-paste, not custom each time",
-      "member_ids": [
-        "f0247",
-        "f0332"
+        "f0366",
+        "f0392"
       ]
     },
     {
       "department": "retention",
-      "title": "Send a monthly NPS form to every active client and require a response to every score",
+      "title": "Hold weekly video calls with each creator to give account updates and collect feedback",
       "member_ids": [
-        "f0150",
-        "f0047"
-      ]
-    },
-    {
-      "department": "retention",
-      "title": "Maintain a running 'wins database' \u2014 screenshots, metrics, clips \u2014 per client for retention and resigning",
-      "member_ids": [
-        "f0151",
-        "f0318"
-      ]
-    },
-    {
-      "department": "retention",
-      "title": "Classify every creator A/B/C and allocate resources accordingly \u2014 cut C creators",
-      "member_ids": [
-        "f0234",
-        "f0253"
+        "f0047",
+        "f0150"
       ]
     },
     {
@@ -654,10 +508,34 @@
     },
     {
       "department": "retention",
+      "title": "Maintain a running 'wins database' \u2014 screenshots, metrics, clips \u2014 per client for retention and resigning",
+      "member_ids": [
+        "f0151",
+        "f0325"
+      ]
+    },
+    {
+      "department": "retention",
+      "title": "Classify every creator A/B/C and allocate resources accordingly \u2014 cut C creators",
+      "member_ids": [
+        "f0234",
+        "f0319"
+      ]
+    },
+    {
+      "department": "retention",
       "title": "Set explicit month-1/2/3 milestones with creator at onboarding",
       "member_ids": [
         "f0155",
-        "f0205"
+        "f0335"
+      ]
+    },
+    {
+      "department": "retention",
+      "title": "Assign a dedicated model-facing manager to celebrate creator milestones and prevent churn",
+      "member_ids": [
+        "f0205",
+        "f0250"
       ]
     },
     {
@@ -673,7 +551,7 @@
       "title": "Treat consistent traffic delivery as the #1 model retention mechanism",
       "member_ids": [
         "f0219",
-        "f0276"
+        "f0339"
       ]
     },
     {
@@ -711,52 +589,60 @@
     },
     {
       "department": "delegation",
-      "title": "Supervised shadow \u2192 monitored practice \u2192 independent KPI ramp for new chatters",
+      "title": "90-min Loom training video with embedded accountability checkpoints to filter non-completers",
       "member_ids": [
-        "f0303",
-        "f0141"
-      ]
-    },
-    {
-      "department": "delegation",
-      "title": "Hire for coachability and reliability, not pre-existing chatting skill",
-      "member_ids": [
-        "f0304",
-        "f0361"
+        "f0302",
+        "f0303"
       ]
     },
     {
       "department": "delegation",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
       "member_ids": [
-        "f0380",
-        "f0379",
-        "f0334"
+        "f0387",
+        "f0341",
+        "f0395"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
+      "member_ids": [
+        "f0368",
+        "f0304"
       ]
     },
     {
       "department": "delegation",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
       "member_ids": [
-        "f0345",
+        "f0352",
         "f0028",
         "f0184"
       ]
     },
     {
       "department": "delegation",
-      "title": "Loom-video SOPs to eliminate training misinterpretation",
+      "title": "Three core hires outside chatting: account manager, SMM, and model-facing manager",
       "member_ids": [
-        "f0346",
-        "f0302"
+        "f0201",
+        "f0386"
       ]
     },
     {
       "department": "delegation",
-      "title": "Master each channel yourself, then delegate to cheap geo-matched VAs",
+      "title": "Source chatters from onlinejobs.ph, Donut Jobs, OFM Jobs \u2014 never Telegram",
       "member_ids": [
-        "f0015",
-        "f0325"
+        "f0298",
+        "f0015"
+      ]
+    },
+    {
+      "department": "delegation",
+      "title": "Daily feedback cadence to accelerate employee ramp 7x vs weekly",
+      "member_ids": [
+        "f0141",
+        "f0332"
       ]
     },
     {
@@ -765,22 +651,6 @@
       "member_ids": [
         "f0235",
         "f0098"
-      ]
-    },
-    {
-      "department": "delegation",
-      "title": "Source chatters from onlinejobs.ph, Donut Jobs, OFM Jobs \u2014 never Telegram",
-      "member_ids": [
-        "f0298",
-        "f0207"
-      ]
-    },
-    {
-      "department": "delegation",
-      "title": "Build so the founder can disappear",
-      "member_ids": [
-        "f0388",
-        "f0024"
       ]
     },
     {
@@ -797,7 +667,7 @@
       "member_ids": [
         "f0240",
         "f0101",
-        "f0368"
+        "f0375"
       ]
     },
     {
@@ -810,11 +680,10 @@
     },
     {
       "department": "acquisition",
-      "title": "Treat the signing call as a two-way interview with hard non-negotiables",
+      "title": "Treat creator recruiting as a full internal department that never stops, not an ad-hoc activity",
       "member_ids": [
-        "f0352",
-        "f0369",
-        "f0206"
+        "f0145",
+        "f0252"
       ]
     },
     {
@@ -822,8 +691,18 @@
       "title": "Prioritize creator work ethic over follower count or physical appearance when signing",
       "member_ids": [
         "f0288",
+        "f0206",
         "f0241",
-        "f0237"
+        "f0253"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Treat the signing call as a two-way interview with hard non-negotiables",
+      "member_ids": [
+        "f0359",
+        "f0376",
+        "f0050"
       ]
     },
     {
@@ -831,17 +710,7 @@
       "title": "Build personal brand (YouTube + IG) so top creators DM you first",
       "member_ids": [
         "f0305",
-        "f0319",
-        "f0126"
-      ]
-    },
-    {
-      "department": "acquisition",
-      "title": "Never pause acquisition \u2014 run it as a 24/7 autopilot system",
-      "member_ids": [
-        "f0252",
-        "f0145",
-        "f0329"
+        "f0326"
       ]
     },
     {
@@ -849,15 +718,47 @@
       "title": "Target creators who are plateaued, overwhelmed, or burned by a bad agency",
       "member_ids": [
         "f0072",
-        "f0354"
+        "f0361"
       ]
     },
     {
       "department": "acquisition",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
       "member_ids": [
-        "f0370",
+        "f0377",
         "f0100"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Cold outreach is a volume-consistency-conversation game",
+      "member_ids": [
+        "f0336",
+        "f0337"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Lead creator pitches with organic social capability, not chat or back-end ops",
+      "member_ids": [
+        "f0126",
+        "f0106"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "Build distribution network of 10\u201320 partner creators before signing your first creator in a niche",
+      "member_ids": [
+        "f0112",
+        "f0108"
+      ]
+    },
+    {
+      "department": "acquisition",
+      "title": "DM prospects from a personal-looking account, not an agency page",
+      "member_ids": [
+        "f0374",
+        "f0071"
       ]
     },
     {
@@ -865,40 +766,209 @@
       "title": "New agencies should master one creator before signing multiple",
       "member_ids": [
         "f0209",
-        "f0037",
-        "f0362"
+        "f0037"
       ]
     },
     {
-      "department": "acquisition",
-      "title": "Track the full outreach funnel and fix one stage at a time",
+      "department": "traffic",
+      "title": "Run a multi-platform traffic mix; no single source carries it",
       "member_ids": [
-        "f0330",
-        "f0316"
+        "f0007",
+        "f0317",
+        "f0290"
       ]
     },
     {
-      "department": "acquisition",
-      "title": "Cold outreach is a volume-consistency-conversation game",
+      "department": "traffic",
+      "title": "Build a perpetual stockpile of karma-farmed Reddit accounts via VA team",
       "member_ids": [
-        "f0329",
-        "f0317"
+        "f0133",
+        "f0167"
       ]
     },
     {
-      "department": "acquisition",
-      "title": "DM prospects from a personal-looking account, not an agency page",
+      "department": "traffic",
+      "title": "Use Reddit profile bio as the single OF conversion point; layer IG or Twitter as intermediate funnel where direct OF links are banned",
       "member_ids": [
-        "f0367",
-        "f0071"
+        "f0136",
+        "f0110"
       ]
     },
     {
-      "department": "acquisition",
-      "title": "Pay micro-influencers flat rate or % to refer creators to the agency",
+      "department": "traffic",
+      "title": "Use high-volume 7/10 static images on Reddit \u2014 never repurpose IG hook-driven reels",
       "member_ids": [
-        "f0182",
-        "f0313"
+        "f0135",
+        "f0168"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Reddit organic NSFW traffic produces the highest fan LTV of any channel \u2014 $8\u2013$35 on free pages",
+      "member_ids": [
+        "f0137",
+        "f0138"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Scrape a 100k-subreddit master list keyed to creator physical attributes, then niche-match posts",
+      "member_ids": [
+        "f0134",
+        "f0173"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Main + 2-4 Burner Account Structure to Grow X Presence Fast",
+      "member_ids": [
+        "f0291",
+        "f0006"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Pay X Promo Pages $50\u2013$150 per Post to Inject 500\u20132K Followers Fast",
+      "member_ids": [
+        "f0292",
+        "f0349"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Trend-Jack Active X Formats Daily for Guaranteed High-Impression Posts",
+      "member_ids": [
+        "f0293",
+        "f0295"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Threads 30-slave-account follow-bot: 1,200 targeted leads/day via viral-post follower targeting",
+      "member_ids": [
+        "f0164",
+        "f0178"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Use carousels as growth drivers, text posts as volume filler on Threads",
+      "member_ids": [
+        "f0175",
+        "f0177"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Bootstrap Threads from existing IG account for follower carry-over",
+      "member_ids": [
+        "f0174",
+        "f0163"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Use US SIM card + US-based uploader account to target US TikTok audience from abroad",
+      "member_ids": [
+        "f0289",
+        "f0157"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Snapchat + read-only Telegram channel as a ban-resilient backup funnel",
+      "member_ids": [
+        "f0020",
+        "f0357"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Twitter/X is currently the strongest traffic platform; Reddit is high-potential but underutilized",
+      "member_ids": [
+        "f0212",
+        "f0158"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Never mention OnlyFans by name on social \u2014 use clean indirect CTAs",
+      "member_ids": [
+        "f0040",
+        "f0294"
+      ]
+    },
+    {
+      "department": "traffic",
+      "title": "Start organic on Twitter, TikTok, IG only \u2014 add Reddit/bots later",
+      "member_ids": [
+        "f0039",
+        "f0383"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "7-day IG warm-up: algorithm training, niche engagement, delayed link",
+      "member_ids": [
+        "f0018",
+        "f0171"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Differentiate every signal across repurposing accounts to prevent IG cluster-ban",
+      "member_ids": [
+        "f0031",
+        "f0032",
+        "f0033"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Make repurposed Reels structurally different, not just color-adjusted",
+      "member_ids": [
+        "f0030",
+        "f0347"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Every reel needs hook, retention, reward; 2-3/day across content pillars",
+      "member_ids": [
+        "f0021",
+        "f0243"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "10-day / 1-reel-per-day structured test before scaling posting frequency",
+      "member_ids": [
+        "f0196",
+        "f0200"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Extract the core action from a viral reel as the animation prompt to replicate its hook",
+      "member_ids": [
+        "f0197",
+        "f0195"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "IG mother/slave split: main account accumulates reach; disposable slave holds the OF link",
+      "member_ids": [
+        "f0162",
+        "f0218"
+      ]
+    },
+    {
+      "department": "instagram",
+      "title": "Mimic real girls across stories, highlights and dump-style posts",
+      "member_ids": [
+        "f0005",
+        "f0156"
       ]
     },
     {
@@ -906,8 +976,17 @@
       "title": "A defined niche, not looks or tech, separates earners",
       "member_ids": [
         "f0003",
+        "f0103",
+        "f0382"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "Build distinct creator brands (audience + identity + story) \u2014 not just niches",
+      "member_ids": [
         "f0125",
-        "f0391"
+        "f0355",
+        "f0398"
       ]
     },
     {
@@ -915,16 +994,7 @@
       "title": "Stop volume-posting; define creator persona/brand before scaling content",
       "member_ids": [
         "f0187",
-        "f0348",
-        "f0375"
-      ]
-    },
-    {
-      "department": "content",
-      "title": "Two-content-type IG framework: 'filler' (lifestyle) keeps algorithm happy; 'vertical' (viral-engineered) drives new traffic",
-      "member_ids": [
-        "f0243",
-        "f0255"
+        "f0188"
       ]
     },
     {
@@ -946,10 +1016,11 @@
     },
     {
       "department": "content",
-      "title": "Reject any reel missing aesthetics + emotional curve + pattern-interrupt \u2014 reshoot it",
+      "title": "Assign each creator 2\u20133 content verticals matched to her strengths, then iterate on viral data",
       "member_ids": [
-        "f0307",
-        "f0188"
+        "f0255",
+        "f0340",
+        "f0308"
       ]
     },
     {
@@ -957,83 +1028,31 @@
       "title": "Scale organic social ops as the #1 agency growth lever in 2026",
       "member_ids": [
         "f0124",
-        "f0320"
+        "f0220"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "Reject any reel missing aesthetics + emotional curve + pattern-interrupt \u2014 reshoot it",
+      "member_ids": [
+        "f0307",
+        "f0165"
+      ]
+    },
+    {
+      "department": "content",
+      "title": "Batch shoot 5 looks \u2192 batch schedule 5 days of page posts + paired PPV messages",
+      "member_ids": [
+        "f0088",
+        "f0085"
       ]
     },
     {
       "department": "content",
       "title": "Done beats perfect; minimize record-to-publish friction",
       "member_ids": [
-        "f0322",
-        "f0088"
-      ]
-    },
-    {
-      "department": "content",
-      "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
-      "member_ids": [
-        "f0363",
-        "f0085"
-      ]
-    },
-    {
-      "department": "content",
-      "title": "Format-match by platform: long-caption storytelling on IG, slideshows on TikTok, text posts on Threads",
-      "member_ids": [
-        "f0165",
-        "f0198"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "7-day IG warm-up: algorithm training, niche engagement, delayed link",
-      "member_ids": [
-        "f0018",
-        "f0171"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "Differentiate every signal across repurposing accounts to prevent IG cluster-ban",
-      "member_ids": [
-        "f0031",
-        "f0032",
-        "f0033",
-        "f0030"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "Every reel needs hook, retention, reward; 2-3/day across content pillars",
-      "member_ids": [
-        "f0021",
-        "f0200",
-        "f0196"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "Strip AI metadata before posting or reach is throttled",
-      "member_ids": [
-        "f0340",
-        "f0017"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "Extract the core action from a viral reel as the animation prompt to replicate its hook",
-      "member_ids": [
-        "f0197",
-        "f0195",
-        "f0341"
-      ]
-    },
-    {
-      "department": "instagram",
-      "title": "Match viral inspo accounts to creator's look-type before briefing",
-      "member_ids": [
-        "f0156",
-        "f0194"
+        "f0329",
+        "f0327"
       ]
     },
     {
@@ -1041,23 +1060,7 @@
       "title": "Never link OF/Fanvue directly; warm accounts before linking",
       "member_ids": [
         "f0013",
-        "f0347"
-      ]
-    },
-    {
-      "department": "platform-risk",
-      "title": "IG mother/slave split: main account accumulates reach; disposable slave holds the OF link",
-      "member_ids": [
-        "f0162",
-        "f0218"
-      ]
-    },
-    {
-      "department": "platform-risk",
-      "title": "Pre-warm satellite IG accounts as instant replacement bench when main account is banned",
-      "member_ids": [
-        "f0217",
-        "f0387"
+        "f0354"
       ]
     },
     {
@@ -1065,7 +1068,15 @@
       "title": "Treat every revenue-generating asset as likely to disappear tomorrow; diversify across creators, accounts, and traffic sources",
       "member_ids": [
         "f0144",
-        "f0384"
+        "f0394"
+      ]
+    },
+    {
+      "department": "platform-risk",
+      "title": "Pre-warm satellite IG accounts as instant replacement bench when main account is banned",
+      "member_ids": [
+        "f0217",
+        "f0162"
       ]
     },
     {
@@ -1073,57 +1084,7 @@
       "title": "Spoof every reused image via @spoofsybot; use RedGIFs re-upload to spoof videos",
       "member_ids": [
         "f0169",
-        "f0128"
-      ]
-    },
-    {
-      "department": "founder-discipline",
-      "title": "High revenue means nothing without margin \u2014 $100k revenue can yield $3k profit",
-      "member_ids": [
-        "f0023",
-        "f0232"
-      ]
-    },
-    {
-      "department": "founder-discipline",
-      "title": "Max out one creator fully before onboarding the next; avoid managing many small creators simultaneously",
-      "member_ids": [
-        "f0193",
-        "f0362"
-      ]
-    },
-    {
-      "department": "founder-discipline",
-      "title": "Do every role yourself first, document it, then hand it off",
-      "member_ids": [
-        "f0382",
-        "f0034"
-      ]
-    },
-    {
-      "department": "founder-discipline",
-      "title": "Founder should spend hours/day on the highest-leverage asset",
-      "member_ids": [
-        "f0324",
-        "f0389"
-      ]
-    },
-    {
-      "department": "ai-ofm",
-      "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
-      "member_ids": [
-        "f0365",
-        "f0122",
-        "f0366"
-      ]
-    },
-    {
-      "department": "ai-ofm",
-      "title": "Real creator + AI clone, kept on OnlyFans",
-      "member_ids": [
-        "f0337",
-        "f0338",
-        "f0339"
+        "f0017"
       ]
     },
     {
@@ -1131,15 +1092,40 @@
       "title": "AI personas remove model-dependency risk and keep 100% of revenue",
       "member_ids": [
         "f0001",
-        "f0383"
+        "f0390"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
+      "member_ids": [
+        "f0372",
+        "f0122"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "Let AI sort and convert new subs; route spenders to human chatters",
+      "member_ids": [
+        "f0373",
+        "f0397"
+      ]
+    },
+    {
+      "department": "ai-ofm",
+      "title": "Real creator + AI clone, kept on OnlyFans",
+      "member_ids": [
+        "f0344",
+        "f0345",
+        "f0346"
       ]
     },
     {
       "department": "ai-ofm",
       "title": "Real models beat AI on connection, customs and platform access",
       "member_ids": [
-        "f0364",
-        "f0384"
+        "f0371",
+        "f0391"
       ]
     }
   ]
