@@ -1,4 +1,5 @@
 {
+  "date": "2026-06-19",
   "findings": [
     {
       "id": "m0001",
@@ -11783,19 +11784,5 @@
         "recommendation": "Keep the Airtable-as-database plus admin-UI pattern; ensure account-status fields (proxy, ban status, creation date) are tracked and auto-updated as rigorously as Hive does."
       }
     }
-  ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
   ]
 }
