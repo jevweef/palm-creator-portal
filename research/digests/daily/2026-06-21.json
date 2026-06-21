@@ -1,0 +1,11 @@
+{
+  "date": "2026-06-21",
+  "kind": "daily",
+  "headline": "No new findings since last run.",
+  "new_findings": [],
+  "consensus_risers": [],
+  "new_evidence": [],
+  "totals": {
+    "findings": 410
+  }
+}
