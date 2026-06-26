@@ -1802,6 +1802,44 @@ function SendToEditorModal({ task, busy, onClose, onSubmit }) {
   )
 }
 
+// Reject an AI reel with an optional reason (text-only). The reason is what the
+// AI editor sees as "why" on his status page so he can remake it. Reject works
+// with or without a reason.
+function RejectModal({ task, busy, onClose, onSubmit }) {
+  const [reason, setReason] = useState('')
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => e.target === e.currentTarget && !busy && onClose()}>
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '16px', padding: '28px', width: '460px', maxWidth: '95vw' }}
+        onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--foreground)', margin: '0 0 4px' }}>Reject reel</h3>
+        <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '18px' }}>
+          {task.inspo?.title || task.name} · {task.creator?.name} — the editor sees this as rejected and remakes it.
+        </p>
+        <div style={{ marginBottom: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Why? (optional)</div>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="e.g. Doesn't look like her, bad lighting, weird hands…"
+          autoFocus
+          disabled={busy}
+          style={{ width: '100%', padding: '10px 12px', background: 'var(--background)', border: '1px solid transparent', borderRadius: '8px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '13px', resize: 'vertical', minHeight: '90px', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
+        />
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '18px' }}>
+          <button onClick={onClose} disabled={busy}
+            style={{ padding: '9px 18px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 600, cursor: busy ? 'default' : 'pointer', background: 'transparent' }}>
+            Cancel
+          </button>
+          <button onClick={() => onSubmit(task.id, reason.trim())} disabled={busy}
+            style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', color: 'var(--foreground)', fontSize: '13px', fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: busy ? 'rgba(232,120,120,0.4)' : '#E87878' }}>
+            {busy ? 'Rejecting…' : 'Reject'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function RevisionModal({ task, onClose, onSubmit }) {
   const [feedback, setFeedback] = useState('')
   const [screenshots, setScreenshots] = useState([])
@@ -2145,6 +2183,7 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
   const [updating, setUpdating] = useState(null)
   const [revisionTask, setRevisionTask] = useState(null)
   const [sendToEditorTask, setSendToEditorTask] = useState(null)
+  const [rejectTask, setRejectTask] = useState(null)
   const [page, setPage] = useState(0)
   const [creatorFilter, setCreatorFilter] = useState('all')
 
@@ -2211,6 +2250,28 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
       setTasks(prev => prev.filter(t => t.id !== taskId))
       setRevisionTask(null)
       showToast('Revision sent back to editor')
+    } catch (err) {
+      showToast(err.message, true)
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  // Reject an AI reel (not a revision request) — marks it Rejected with an
+  // optional reason. It leaves the review queue; the AI editor sees it as
+  // Rejected on his status page and remakes it. No /ai-editor routing.
+  const handleReject = async (taskId, reason) => {
+    setUpdating(taskId)
+    try {
+      const res = await fetch('/api/admin/editor', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action: 'reject', adminFeedback: reason || '' }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Reject failed')
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      setRejectTask(null)
+      showToast('Rejected')
     } catch (err) {
       showToast(err.message, true)
     } finally {
@@ -2579,12 +2640,21 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
 
                   {/* Action buttons */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
-                    <button
-                      onClick={() => setRevisionTask(task)}
-                      disabled={updating === task.id}
-                      style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#2d1515', color: '#E87878', border: '1px solid #5c2020', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                      Request Revision
-                    </button>
+                    {task.asset?.sourceType === 'AI Generated' ? (
+                      <button
+                        onClick={() => setRejectTask(task)}
+                        disabled={updating === task.id}
+                        style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#2d1515', color: '#E87878', border: '1px solid #5c2020', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                        Reject
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setRevisionTask(task)}
+                        disabled={updating === task.id}
+                        style={{ padding: '10px', fontSize: '13px', fontWeight: 600, background: '#2d1515', color: '#E87878', border: '1px solid #5c2020', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
+                        Request Revision
+                      </button>
+                    )}
                     <button
                       onClick={() => handleApprove(task.id)}
                       disabled={updating === task.id}
@@ -2596,13 +2666,12 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
                       handoff only make sense for AI-generated content. */}
                   {task.asset?.sourceType === 'AI Generated' && (
                     <>
-                      {/* One-press canned revision → AI editor — skips the modal
-                          for the single most common note. */}
+                      {/* One-tap reject with the single most common reason. */}
                       <button
-                        onClick={() => handleRevision(task.id, QUICK_FEEDBACK[0], [])}
+                        onClick={() => handleReject(task.id, QUICK_FEEDBACK[0])}
                         disabled={updating === task.id}
                         style={{ width: '100%', marginTop: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: 'rgba(232, 120, 120, 0.08)', color: '#E87878', border: '1px solid rgba(232, 120, 120, 0.3)', borderRadius: '8px', cursor: 'pointer', opacity: updating === task.id ? 0.6 : 1 }}>
-                        {updating === task.id ? 'Sending…' : QUICK_FEEDBACK[0]}
+                        {updating === task.id ? 'Rejecting…' : QUICK_FEEDBACK[0]}
                       </button>
                       {/* Hand off to the human editor for manual adjustments. */}
                       <button
@@ -2650,6 +2719,15 @@ export function ForReview({ showToast, sourceFilter, creatorId, onCreatorOptions
           busy={updating === sendToEditorTask.id}
           onClose={() => setSendToEditorTask(null)}
           onSubmit={(taskId, instructions) => handleSendToEditor(taskId, instructions)}
+        />
+      )}
+
+      {rejectTask && (
+        <RejectModal
+          task={rejectTask}
+          busy={updating === rejectTask.id}
+          onClose={() => setRejectTask(null)}
+          onSubmit={(taskId, reason) => handleReject(taskId, reason)}
         />
       )}
 
