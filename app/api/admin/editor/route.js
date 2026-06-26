@@ -627,6 +627,26 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: true, action: 'sendToEditor' })
     }
 
+    // ── Admin: Reject (AI reels) ────────────────────────────────────────────────
+    // A flat denial with an optional reason — NOT a revision request. Marks the
+    // task Rejected (drops out of the Pending-Review queue), records the reason,
+    // and discards the asset so it can't flow anywhere. The AI editor sees it as
+    // Rejected (with the reason) on his status page and remakes it. typecast
+    // auto-creates the 'Rejected' option on first use.
+    if (action === 'reject') {
+      const reason = (body.adminFeedback || '').trim()
+      await patchAirtableRecord('Tasks', taskId, {
+        'Admin Review Status': 'Rejected',
+        'Admin Feedback': reason,
+        'Editor Handoff': false,
+      }, { typecast: true })
+      if (assetId) {
+        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'Discarded' }, { typecast: true })
+      }
+      console.log(`[Editor] AI reel ${taskId} rejected${reason ? ' — ' + reason.slice(0, 60) : ''}`)
+      return NextResponse.json({ ok: true, action: 'reject' })
+    }
+
     // ── Editor: Start Editing / Submit ──────────────────────────────────────────
     if (!newStatus) {
       return NextResponse.json({ error: 'newStatus or action required' }, { status: 400 })
