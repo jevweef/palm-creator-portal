@@ -1,4 +1,5 @@
 {
+  "date": "2026-06-28",
   "findings": [
     {
       "id": "m0001",
@@ -12310,19 +12311,5 @@
         "recommendation": "Build-toward: make a day-one expired-subs win-back blast a standard onboarding step in the in-house/AI chat workflow."
       }
     }
-  ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
   ]
 }
