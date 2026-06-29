@@ -171,7 +171,7 @@
       }
     },
     {
-      "id": "f0412",
+      "id": "f0427",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "f0413",
+      "id": "f0428",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -1620,7 +1620,142 @@
       }
     },
     {
-      "id": "f0372",
+      "id": "f0334",
+      "department": "chatting",
+      "topic": "Marketing-to-OF congruence / subscriber expectation matching",
+      "title": "Audit IG-to-OF expectation gap; OF profile must look visibly 'more' than IG, not the same",
+      "variants": [
+        {
+          "claim": "If a subscriber's Instagram expectation (outfits, body focus, personality tone, hair/look) is not matched or escalated on the OF profile and PPV content, they will ghost, not buy, and unsubscribe \u2014 and the fix is a structured congruence audit.",
+          "what_they_do": "They run a structured congruence audit comparing the creator's traffic-source content (IG, Reddit, TikTok) against the OF profile on five dimensions: outfit/style match, body-focus match, personality/humor match, look consistency (hair/makeup/location), and explicitness gradient (OF must be visibly more revealing than the traffic source). If any dimension mismatches, they treat it as the root cause of ghosting/no-buy behavior and fix the OF setup before optimizing chatting.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 533,
+          "quote": "your marketing and your chatting have to be congruent"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 688,
+          "quote": "if you come from the Instagram and you see the OF, you feel scammed"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 845,
+          "quote": "take a look at your Reddit content specifically\u2026 then check out your profile"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a mature social content pipeline (\u00a71) and runs IG for real creators, but there is no documented process for auditing IG-to-OF congruence. The two pipelines (social \u00a71 and OF vault \u00a72) are explicitly noted as decoupled in the baseline. This is a direct symptom of that gap.",
+        "recommendation": "Create a 'congruence audit' checklist that runs whenever a creator's IG content strategy is updated or when a new creator is onboarded. Five checkpoints: style/outfit match, body-focus match, personality/tone match, look consistency, and explicitness gradient (OF \u2265 IG). Gate any chatting optimization effort on passing this audit first \u2014 fixing chatting on a mismatched profile wastes spend. Add a field in the Creators Airtable table to track last audit date and pass/fail per dimension."
+      }
+    },
+    {
+      "id": "f0335",
+      "department": "chatting",
+      "topic": "Chatter quality standards and daily feedback loop",
+      "title": "Treat sub-90-second reply time as a non-negotiable baseline; run daily written feedback loops with chatters",
+      "variants": [
+        {
+          "claim": "Reply time \u226490 seconds is the bare minimum (not a performance metric), and chatters who don't receive daily data-driven feedback will plateau because they default to copying hotkeys without thinking \u2014 killing conversion.",
+          "what_they_do": "They set a hard floor of 1:30 reply time and treat anything slower as a firing offense (not a coaching moment) if the system isn't at fault. On top of that, they run a daily feedback loop where supervisors or the agency owner review chatter conversations and provide specific written feedback every single day \u2014 not weekly or ad hoc. They frame this as 'automating the ability to learn' rather than automating the chatter. They also require chatters to think individually rather than just executing scripts, and actively remove 'black sheep' (those who can't follow instructions after two corrections) while retaining 'raw diamonds' (fast learners with good instinct, not necessarily prior chatting experience).",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 940,
+          "quote": "having a reply time of like 1 minute 30 or below, this is the baseline"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 970,
+          "quote": "daily feedback is crucial\u2026 if it's not daily, you're just losing money"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1185,
+          "quote": "you need people who\u2026 have the ability to learn\u2026 you can teach them the rest"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is currently fully outsourced to an external team (\u00a78). There is no internal SOP, feedback cadence, or quality standard documented. This finding is high-value build-toward intelligence for both the in-house chat team (~1yr roadmap) and the AI chatting project (active). The daily feedback loop structure and the 'raw diamond' hiring profile are directly adoptable when Palm builds in-house.",
+        "recommendation": "For the in-house chat team build-out: (1) codify 90-second reply time as a contractual SLA, not a target; (2) design a daily feedback ritual \u2014 supervisor pulls 5\u201310 conversations per chatter, scores them on a rubric (reply speed, script adherence, individual thinking, PPV conversion), and delivers written notes each day; (3) hire for learning ability + customer service background, not prior OF chatting experience; (4) define 'black sheep' exit criteria: two documented instruction failures = exit. Document this in a Chatting Ops SOP before scaling headcount."
+      }
+    },
+    {
+      "id": "f0338",
+      "department": "retention",
+      "topic": "Subscriber sentiment analysis / fan preference research",
+      "title": "Run a 5-question sentiment survey with new or active subs (gift-gated) to identify top-performing fantasy/content preferences per creator",
+      "variants": [
+        {
+          "claim": "Eight out of ten times a structured subscriber sentiment survey reveals a specific fantasy, outfit, or content type that over-indexes for an individual creator \u2014 enabling the chatting team to sell targeted PPV that converts far better than generic scripts.",
+          "what_they_do": "They send a 'mass message' or targeted DM with a framing like: 'I have 5 questions \u2014 answer honestly and I'll send you a gift.' The question set covers: discovery source and which content brought them in; age/birthday (for future personalized selling); specific content they've liked most; what they'd like to see more of; and what competitors do better. Chatters are instructed to be interactive (acknowledge and escalate each answer, don't robotically run through the list) and always deliver the promised gift at the end. Findings are logged per creator and used to update content direction, PPV scripting, and hotkey libraries. They do this monthly or after large subscriber surges.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1433,
+          "quote": "sentiment analysis you should do\u2026 once per month ideally"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1493,
+          "quote": "hey, I have five questions for you. If you answer them honestly, you also receive a gift"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1556,
+          "quote": "eight out of ten times when we do this, I find out that for specific creators, subs are like, 'I like this specific type of content'"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has partial fan intelligence infrastructure (\u00a79 \u2014 whale-hunting, Fan Tracker CRM) but no documented retention/win-back strategy or subscriber preference research process. This sentiment survey is a concrete, scriptable ritual that directly feeds both the fan retention gap (\u00a79) and the OF vault/PPV content gap (\u00a72). It also produces subscriber avatar data useful for the chatting team's PPV sequencing.",
+        "recommendation": "Design a standard sentiment survey script (5\u20137 questions, gift-gated) and add it to the chatting team's monthly playbook. Log responses per creator in Airtable (new field set in the Creators or Fan Tracker table: top fantasy preference, top content type, discovery source distribution, birthday). Use outputs to: (1) update PPV script priorities for each creator monthly; (2) feed discovery source data back into traffic/marketing decisions; (3) trigger birthday-based PPV upsells. This is low-cost and immediately actionable even with the outsourced chat team."
+      }
+    },
+    {
+      "id": "f0387",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -1665,7 +1800,7 @@
       }
     },
     {
-      "id": "f0377",
+      "id": "f0392",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -1710,7 +1845,7 @@
       }
     },
     {
-      "id": "f0393",
+      "id": "f0408",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -1755,7 +1890,7 @@
       }
     },
     {
-      "id": "f0400",
+      "id": "f0415",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -8052,6 +8187,286 @@
     },
     {
       "id": "f0333",
+      "department": "chatting",
+      "topic": "PPV content framing / fantasy-driven selling",
+      "title": "Build every PPV script around a named fantasy scenario, not just an outfit or body part",
+      "variants": [
+        {
+          "claim": "~50% of the reason subscribers buy on OnlyFans is entertainment/fantasy \u2014 not sexuality \u2014 so PPV content framed around a relatable fantasy scenario (e.g. 'friend's mom,' 'getting caught') dramatically outsells generic lingerie or body-part content.",
+          "what_they_do": "They reverse-engineer top-performing adult content categories, identify the 20+ fantasy archetypes that dominate those charts (step-family, public, caught, first-time GFE, etc.), then write every PPV script and hotkey set around one named fantasy rather than an outfit or physical attribute. The physical visuals are treated as the baseline; the narrative context is treated as the sales driver. They claim the same creator + same setup converts significantly higher when the PPV has a story context vs. a plain description.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 156,
+          "quote": "almost 50% of the reason they buy\u2026 it's the entertainment"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 408,
+          "quote": "the first action step is to rebuild your content around fantasy and storytelling"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's OF vault/PPV system is THIN (\u00a72) \u2014 no documented PPV scripting, content framing, or fantasy-ladder structure. Palm's social content engine (\u00a71) is data-driven and strong, but that pipeline is for top-of-funnel social reels, not OF vault/PPV sequencing. This finding is squarely in the gap.",
+        "recommendation": "When building out Palm's PPV system (\u00a72 gap), define a fantasy taxonomy (20+ named scenarios) and require every PPV set to be assigned to a fantasy archetype before scripting. Treat outfit/body as the 'foundation' variable and fantasy narrative as the 'conversion' variable. Draft a PPV brief template: fantasy name, scenario setup, key dialogue hooks, hotkey copy. This should feed into the chatting team's PPV sequencing SOP."
+      }
+    },
+    {
+      "id": "f0336",
+      "department": "chatting",
+      "topic": "Undercover account recheck / chatter accountability tactic",
+      "title": "Run monthly undercover subscriber accounts on your own creators to audit chatter quality firsthand",
+      "variants": [
+        {
+          "claim": "Agency owners who have never experienced the subscriber side of their own chatting cannot accurately diagnose problems; subscribing undercover and deliberately experiencing bad reply times or weak scripts creates visceral understanding and keeps chatters paranoid enough to perform.",
+          "what_they_do": "The agency owner creates a second OF account, subscribes to their own creators as a regular fan, and chats normally \u2014 then writes down every failure point (slow replies, weak scripts, no upsell, bad welcome message). They share findings with the chatter team explicitly: 'I chatted with this model on my second account; here's what you got wrong.' They repeat this every few weeks without a fixed schedule so chatters never know when a check is happening, creating ongoing accountability pressure. The dual benefit: owner gets ground-truth data; chatters stay sharp.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1031,
+          "quote": "create yourself a second OF account and then text with your own creators"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1062,
+          "quote": "your chatters are now paranoid\u2026 every subscriber they chat to, oh fuck, it might be boss"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline for this at Palm (\u00a78, outsourced). The current external team has no documented QA mechanism from Palm's side. This is immediately actionable even before bringing chatting in-house \u2014 Palm could run undercover checks on the external team's output today as a quality assurance measure.",
+        "recommendation": "Implement a monthly undercover audit: Josh or Evan creates a throwaway subscriber account, runs through the full new-subscriber funnel on one creator per month (welcome message \u2192 first PPV offer \u2192 objection \u2192 upsell), scores it against a rubric, and shares sanitized findings with the external chat team. This requires zero new hires and gives Palm ground-truth visibility into what the outsourced team is actually doing. When in-house chatting launches, formalize this as a recurring QA ritual in the Chatting Ops SOP."
+      }
+    },
+    {
+      "id": "f0337",
+      "department": "chatting",
+      "topic": "New subscriber funnel diagnosis / three-bucket analysis",
+      "title": "Diagnose new-sub conversion failures by bucketing 50 recent chats into three failure modes: didn't read, read but didn't reply, replied but didn't buy",
+      "variants": [
+        {
+          "claim": "Most agency owners can't fix their chatting ratios because they misidentify the problem; bucketing new subscriber behavior into three specific failure modes reveals the actual root cause (profile issue vs. welcome message issue vs. script/pricing issue) and enables targeted fixes.",
+          "what_they_do": "They pull the last 50 new-subscriber chats (or all available if fewer), then classify each into one of three buckets: (A) sub didn't open/read the welcome message \u2014 root cause is profile showing too much, profile too boring/mismatched, or no CTA signaling that DMs are available; (B) sub read but didn't reply \u2014 root cause is a weak welcome message that needs rewriting; (C) sub replied but didn't buy \u2014 root cause is a script failure at a specific drop-off point or pricing too high. They fix the specific underlying problem per bucket rather than applying a generic 'improve chatting' directive. This analysis is recommended whenever onboarding a large new sub batch.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1278,
+          "quote": "take 50 chats with subs who subscribed in the last 24 hours\u2026 categorize them into one of the categories"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1309,
+          "quote": "three possible scenarios and three possible problems"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No internal baseline (\u00a78, outsourced; \u00a79 fan intelligence is partial). Palm's whale-hunting and Fan Tracker CRM (\u00a79) collect data but there is no documented new-subscriber funnel diagnostic process. This three-bucket model is a concrete, low-tech analytical framework Palm could implement immediately in its fan intelligence/retention work.",
+        "recommendation": "Add a 'new sub funnel audit' protocol to the chatting handoff SOP: after any significant subscriber influx (or monthly as a standing cadence), pull 50 new-sub chats and classify by the three buckets. Feed results back to whoever manages the OF profile setup (bucket A \u2192 profile fix), the chatting team's welcome message (bucket B \u2192 message rewrite), and the PPV script library (bucket C \u2192 script/pricing review). Build a simple Airtable form or view to track bucket distribution over time so trends are visible."
+      }
+    },
+    {
+      "id": "f0339",
+      "department": "systems",
+      "topic": "Chatting ratio as primary agency KPI / revenue leverage framing",
+      "title": "Frame chatting ratio (revenue per subscriber) as the highest-leverage KPI \u2014 easier to 3x than traffic, and directly multiplies total revenue",
+      "variants": [
+        {
+          "claim": "Tripling chatting conversion ratio (e.g. welcome-message reply rate from 2/10 to 6/10) produces the same revenue impact as tripling traffic, but is dramatically easier to achieve \u2014 making chatting ratio the single highest-ROI operational metric for an OFM agency.",
+          "what_they_do": "They explicitly benchmark chatting ratio improvement against traffic growth: getting 3x more subscribers requires algorithm luck, volume, and significant effort; getting 3x the reply rate on a welcome message requires rewriting one message. They use this framing to prioritize chatting optimization above traffic scaling in their operational roadmap and measure success by ratio improvement (replies per welcome message sent, PPV conversion per DM thread, revenue per subscriber) rather than raw subscriber counts. They cite a 5:1 to 10:1 revenue ratio improvement moving an agency from $50K to $100K+ monthly.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1680,
+          "quote": "tripling your chatting ratio can be to get two out of ten people that reply to a welcome message up to six out of ten"
+        },
+        {
+          "video_id": "JIuSh4ioV0M",
+          "timestamp_seconds": 1712,
+          "quote": "tripling your chatting ratio\u2026 you're already making three times the money. It's as easy as that"
+        }
+      ],
+      "creators": [
+        "Oliver Smole"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented KPI framework for chatting (\u00a78, outsourced). The whale-hunting and Fan Tracker tools (\u00a79) collect data but there's no stated primary metric or ratio that Palm tracks and optimizes. With chatting outsourced, Palm likely has limited visibility into the ratios the external team is producing. This framing is immediately useful for the in-house/AI chat roadmap and for setting SLA expectations with the current external team.",
+        "recommendation": "Define and start tracking three chatting ratios now, even with the outsourced team: (1) welcome-message open rate; (2) welcome-message reply rate; (3) PPV conversion rate per active DM thread. Request these metrics from the external chatting team on a weekly basis. Establish baseline numbers before the in-house transition so Palm knows what it's inheriting and what 'good' looks like. When building the in-house team, set ratio improvement targets (not headcount targets) as the primary KPI for the department."
+      }
+    },
+    {
+      "id": "f0341",
+      "department": "platform-risk",
+      "topic": "Reddit karma farming before promo posting",
+      "title": "Manual 2-week karma farm before any promotional posting",
+      "variants": [
+        {
+          "claim": "Spending two weeks manually karma-farming \u2014 scrolling, joining subreddits, posting a few times, dropping one or two comments per day \u2014 prevents Reddit from flagging the account when promo begins.",
+          "what_they_do": "For the first two weeks after account creation: scroll a few minutes daily, join a variety of subreddits, upload a few normal posts, leave one or two genuine comments per day max. No promo content at all during this window. The goal is account age and karma score so posts are not auto-removed when promo starts.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 62,
+          "quote": "we karma farm manually for about 2 weeks before we even think about any promo"
+        },
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 94,
+          "quote": "you shouldn't rush this process. If you try to skip this, Reddit will flag you and the account's dead"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a formalized 90-day warmup cadence for AI social accounts (\u00a74 MATURE for AI) but has no equivalent documented warmup process for Reddit accounts (\u00a75/\u00a76 GAP). The principle is identical \u2014 trust-score building before monetization activity \u2014 but it has not been applied to Reddit.",
+        "recommendation": "Adopt a Reddit-specific warmup SOP: 14-day karma farm (a few posts + 1\u20132 comments/day, no promo) before any OF-linked posting. Consider adding this to the existing warmup infrastructure in Airtable alongside AI account warmup tasks."
+      }
+    },
+    {
+      "id": "f0342",
+      "department": "traffic",
+      "topic": "Reddit posting ramp \u2014 gradual volume increase",
+      "title": "Ramp Reddit posts from 1/day to 20/day over ~3 weeks to extend account lifespan",
+      "variants": [
+        {
+          "claim": "Starting at one post on day one and adding one additional post per day up to a cap of 20/day significantly extends account lifespan compared to posting at full volume immediately.",
+          "what_they_do": "Day 1 = 1 post, Day 2 = 2 posts, Day 3 = 3 posts, etc. Hard cap at 20 posts per day. Slower early ramp trades a few extra days of setup for months of account longevity. Posting beyond the ramp schedule is considered greedy and leads to early bans.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 125,
+          "quote": "I'd rather take a few extra days and keep the account alive for months then get greedy and have to start all over again"
+        },
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 94,
+          "quote": "Day one, one post. Day two, two post. We just add one more each day until we hit 20 post a day max"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Reddit posting cadence or ramp strategy (\u00a75 GAP on traffic/distribution). Palm's social posting cadence is managed via Publer with jitter/rotation for IG/TikTok, but Reddit is not in scope yet.",
+        "recommendation": "If Reddit is added to Palm's traffic stack, build the 1\u219220 ramp rule into the Reddit SOP and, where possible, encode it as a task sequence in Airtable (similar to the AI warmup day-by-day task structure already in place) so editors/VAs execute it consistently without judgment calls."
+      }
+    },
+    {
+      "id": "f0344",
+      "department": "traffic",
+      "topic": "Reddit subreddit selection \u2014 pre-built niche lists",
+      "title": "Use pre-built niche-specific subreddit lists (including 200+ zero-karma subs) to eliminate research time",
+      "variants": [
+        {
+          "claim": "Maintaining curated subreddit lists segmented by niche \u2014 including a dedicated list of 200+ subreddits that accept posts with zero karma \u2014 eliminates the time drain of manual subreddit research and reduces the risk of posting in wrong/banned communities.",
+          "what_they_do": "Franko maintains 10+ lists, one per niche (Latina, milf, teen, boobs, feet, SFW, trans, cosplay, etc.). A separate list of 200+ zero-karma-required subreddits is used specifically for new accounts in the warmup-to-promo transition period. Team members pull the list matching the model's niche and post immediately. A master list of 2,500+ subreddits is available for further expansion.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 251,
+          "quote": "for new Reddit accounts who don't have karma yet, I've got a list of over 200 subreddits that need zero karma"
+        },
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 221,
+          "quote": "I've got a giant list that I sat and made it myself. The list has subreddits for every single niche you want to run"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no subreddit list or Reddit content distribution infrastructure (\u00a75 GAP). Palm's content pipeline is IG/TikTok-centric. The concept of a niche-matched content distribution list is directly analogous to Palm's inspo-source list per creator (\u00a71), but no Reddit equivalent exists.",
+        "recommendation": "Before launching Reddit for any creator, build or acquire a niche-segmented subreddit list and a zero-karma starter list. These can be stored as Airtable records linked to creator niches, enabling VAs to pull the right list at account creation without research overhead. This is a high-leverage, one-time build."
+      }
+    },
+    {
+      "id": "f0348",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -8091,7 +8506,7 @@
       }
     },
     {
-      "id": "f0334",
+      "id": "f0349",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -8131,7 +8546,7 @@
       }
     },
     {
-      "id": "f0336",
+      "id": "f0351",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -8171,7 +8586,7 @@
       }
     },
     {
-      "id": "f0337",
+      "id": "f0352",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -8211,7 +8626,7 @@
       }
     },
     {
-      "id": "f0338",
+      "id": "f0353",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -8251,7 +8666,7 @@
       }
     },
     {
-      "id": "f0339",
+      "id": "f0354",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -8291,7 +8706,7 @@
       }
     },
     {
-      "id": "f0340",
+      "id": "f0355",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -8331,7 +8746,7 @@
       }
     },
     {
-      "id": "f0341",
+      "id": "f0356",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -8371,7 +8786,7 @@
       }
     },
     {
-      "id": "f0342",
+      "id": "f0357",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -8411,7 +8826,7 @@
       }
     },
     {
-      "id": "f0343",
+      "id": "f0358",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -8451,7 +8866,7 @@
       }
     },
     {
-      "id": "f0344",
+      "id": "f0359",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -8491,7 +8906,7 @@
       }
     },
     {
-      "id": "f0345",
+      "id": "f0360",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -8531,7 +8946,7 @@
       }
     },
     {
-      "id": "f0346",
+      "id": "f0361",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -8571,7 +8986,7 @@
       }
     },
     {
-      "id": "f0347",
+      "id": "f0362",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -8611,7 +9026,7 @@
       }
     },
     {
-      "id": "f0348",
+      "id": "f0363",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -8651,7 +9066,7 @@
       }
     },
     {
-      "id": "f0349",
+      "id": "f0364",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -8691,7 +9106,7 @@
       }
     },
     {
-      "id": "f0350",
+      "id": "f0365",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -8731,7 +9146,7 @@
       }
     },
     {
-      "id": "f0351",
+      "id": "f0366",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -8771,7 +9186,7 @@
       }
     },
     {
-      "id": "f0352",
+      "id": "f0367",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -8811,7 +9226,7 @@
       }
     },
     {
-      "id": "f0353",
+      "id": "f0368",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -8851,7 +9266,7 @@
       }
     },
     {
-      "id": "f0354",
+      "id": "f0369",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -8891,7 +9306,7 @@
       }
     },
     {
-      "id": "f0355",
+      "id": "f0370",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -8931,7 +9346,7 @@
       }
     },
     {
-      "id": "f0356",
+      "id": "f0371",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -8971,7 +9386,7 @@
       }
     },
     {
-      "id": "f0373",
+      "id": "f0388",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -9011,7 +9426,7 @@
       }
     },
     {
-      "id": "f0374",
+      "id": "f0389",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -9051,7 +9466,7 @@
       }
     },
     {
-      "id": "f0375",
+      "id": "f0390",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -9091,7 +9506,7 @@
       }
     },
     {
-      "id": "f0376",
+      "id": "f0391",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -9131,7 +9546,7 @@
       }
     },
     {
-      "id": "f0378",
+      "id": "f0393",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -9171,7 +9586,7 @@
       }
     },
     {
-      "id": "f0379",
+      "id": "f0394",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -9211,7 +9626,7 @@
       }
     },
     {
-      "id": "f0380",
+      "id": "f0395",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -9251,7 +9666,7 @@
       }
     },
     {
-      "id": "f0381",
+      "id": "f0396",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -9291,7 +9706,7 @@
       }
     },
     {
-      "id": "f0382",
+      "id": "f0397",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -9331,7 +9746,7 @@
       }
     },
     {
-      "id": "f0384",
+      "id": "f0399",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -9371,7 +9786,7 @@
       }
     },
     {
-      "id": "f0385",
+      "id": "f0400",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -9411,7 +9826,7 @@
       }
     },
     {
-      "id": "f0386",
+      "id": "f0401",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -9451,7 +9866,7 @@
       }
     },
     {
-      "id": "f0387",
+      "id": "f0402",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -9491,7 +9906,7 @@
       }
     },
     {
-      "id": "f0388",
+      "id": "f0403",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -9531,7 +9946,7 @@
       }
     },
     {
-      "id": "f0389",
+      "id": "f0404",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -9571,7 +9986,7 @@
       }
     },
     {
-      "id": "f0390",
+      "id": "f0405",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -9611,7 +10026,7 @@
       }
     },
     {
-      "id": "f0391",
+      "id": "f0406",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -9651,7 +10066,7 @@
       }
     },
     {
-      "id": "f0392",
+      "id": "f0407",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -9691,7 +10106,7 @@
       }
     },
     {
-      "id": "f0395",
+      "id": "f0410",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -9731,7 +10146,7 @@
       }
     },
     {
-      "id": "f0396",
+      "id": "f0411",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -9771,7 +10186,7 @@
       }
     },
     {
-      "id": "f0397",
+      "id": "f0412",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -9811,7 +10226,7 @@
       }
     },
     {
-      "id": "f0399",
+      "id": "f0414",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -9851,7 +10266,7 @@
       }
     },
     {
-      "id": "f0402",
+      "id": "f0417",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -9891,7 +10306,7 @@
       }
     },
     {
-      "id": "f0403",
+      "id": "f0418",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -9931,7 +10346,7 @@
       }
     },
     {
-      "id": "f0404",
+      "id": "f0419",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -9971,7 +10386,7 @@
       }
     },
     {
-      "id": "f0409",
+      "id": "f0424",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -10011,7 +10426,7 @@
       }
     },
     {
-      "id": "f0414",
+      "id": "f0429",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -10051,7 +10466,7 @@
       }
     },
     {
-      "id": "f0416",
+      "id": "f0431",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -15096,7 +15511,182 @@
       }
     },
     {
-      "id": "f0335",
+      "id": "f0340",
+      "department": "platform-risk",
+      "topic": "Reddit account creation \u2014 mobile data only",
+      "title": "Create Reddit accounts on mobile data, never Wi-Fi",
+      "variants": [
+        {
+          "claim": "Creating Reddit accounts on a mobile data plan (never Wi-Fi) is critical to avoiding immediate flagging and bans.",
+          "what_they_do": "Every account is created fresh on mobile with a cellular data plan. No purchased accounts, no Wi-Fi. Franko tried buying accounts in 2024 and says it did not work. All accounts are self-made from scratch on mobile data.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 32,
+          "quote": "we make all our accounts on mobile with a data plan and we never touch Wi-Fi"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Reddit account creation process (\u00a75 GAP on traffic/distribution; \u00a7platform-risk baseline absent for Reddit). We do have hardware-isolation discipline for AI persona accounts (GrapheneOS, 1 SIM/persona \u2014 \u00a73/\u00a74), which shows we understand device/network hygiene, but that discipline has not been applied to Reddit ops.",
+        "recommendation": "If Palm runs Reddit traffic for any creator, establish a Reddit account creation SOP mirroring the device/network hygiene already used for AI personas: cellular data only, no shared Wi-Fi, ideally one SIM per account cluster. Do not buy aged accounts."
+      }
+    },
+    {
+      "id": "f0343",
+      "department": "traffic",
+      "topic": "Reddit profile setup \u2014 bio, links, pinned posts",
+      "title": "Structured Reddit profile: niche-specific one-line bio, OF link in profile section only, two curiosity-driven pinned posts",
+      "variants": [
+        {
+          "claim": "A carefully structured Reddit profile \u2014 OF link only in the link field (not posts), a niche-specific one-line bio with a downward arrow, and two pinned model-photo posts with curiosity-driving captions \u2014 maximizes profile-to-subscription conversion.",
+          "what_they_do": "Profile banner: tasteful model preview. Bio: one line, niche-matched, arrow pointing down to links. OF link lives in the Reddit profile link section only \u2014 never in the post body. Two pinned posts: model photos with captions crafted to create curiosity, not spammy copy. Link naming convention is optimized for click-through.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 157,
+          "quote": "the actual only fence link is in the link section, not the posts"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no Reddit profile setup standard documented (\u00a75 GAP). Palm does have strong IG profile/bio discipline as part of the social pipeline (\u00a71), so the concept of conversion-optimized profile copy is familiar, but has not been extended to Reddit.",
+        "recommendation": "Develop a Reddit profile setup template for each creator niche: bio formula, link naming convention, and two pinned-post caption templates. Store these as Airtable records under a new 'Reddit Profile' table or as a section within the existing creator onboarding documentation (\u00a76)."
+      }
+    },
+    {
+      "id": "f0345",
+      "department": "traffic",
+      "topic": "Reddit account scaling \u2014 multi-account per model, different niches",
+      "title": "Scale Reddit volume by running a second account per model targeting a different niche simultaneously",
+      "variants": [
+        {
+          "claim": "Once one Reddit account is producing subscribers, creating a second account for the same model but targeting a completely different niche doubles traffic without burning either account.",
+          "what_they_do": "After account one is stable and converting, create account two for the same model, assign it a different niche list, and run both in parallel. The accounts do not compete because they live in different subreddit ecosystems. This is the primary scaling mechanism \u2014 not posting more on one account, but multiplying accounts across niches.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 283,
+          "quote": "Once one account is working and bringing in subs, we just make a second account for the same model, but in a completely different niche. We run them both at the same time"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no multi-account Reddit strategy documented (\u00a75 GAP). However, Palm already understands multi-account management for social (AI persona accounts per creator \u2014 \u00a73/\u00a74), so the operational muscle to manage multiple accounts per creator exists. It has not been applied to Reddit.",
+        "recommendation": "Design Reddit scaling as a multi-account-per-creator system from the start: account 1 maps to primary niche, account 2 maps to a secondary niche identified at onboarding. Build account slots into whatever Reddit tracking table is created in Airtable, mirroring the AI Account Profile / SIM Inventory structure already used for AI personas (\u00a73)."
+      }
+    },
+    {
+      "id": "f0346",
+      "department": "systems",
+      "topic": "Reddit ops \u2014 testing discipline as the core performance lever",
+      "title": "Systematic one-variable testing of content, captions, and subreddits is the primary driver of Reddit revenue",
+      "variants": [
+        {
+          "claim": "The difference between Reddit operators making money and those making nothing is disciplined one-variable testing: change one thing (caption, content type, subreddit), track the result, iterate, then scale the winning combination.",
+          "what_they_do": "Test content types, captions, and subreddits independently, one variable at a time. Track what changes and what the outcome is. Once a winning combination is found for a specific model, scale it. High performers in his community are distinguished by testing volume and rigor, not by any single tactic.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "qcHLjf6uiyw",
+          "timestamp_seconds": 189,
+          "quote": "This is like the thing that separates guys making money from guys making nothing. You have to test content, captions, subreddits, niches"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is already data-driven \u2014 viral scores, AI analysis, A/B promotion via inspo review \u2014 but this discipline is currently IG/TikTok-centric. The same systematic testing mindset has not been applied to Reddit distribution. Palm is ahead on the *principle* but has no Reddit testing infrastructure.",
+        "recommendation": "When Reddit ops are built out, design a lightweight testing log into the Reddit workflow from day one: a simple Airtable view per creator tracking subreddit, caption variant, post date, upvotes, and new subs attributed. This operationalizes the testing discipline Franko identifies as the core performance differentiator, and fits naturally into Palm's existing Airtable infrastructure."
+      }
+    },
+    {
+      "id": "f0347",
+      "department": "chatting",
+      "topic": "chatter onboarding live training",
+      "title": "Live chatter training session as onboarding format",
+      "variants": [
+        {
+          "claim": "Running a live training session is an effective onboarding format for new chatters joining an OFM agency.",
+          "what_they_do": "The agency hosts a live group session with slides to train chatters, suggesting a structured, synchronous onboarding approach rather than purely async SOPs or recorded content.",
+          "run": "daily-2026-06-29"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "1gyaHd6nD-M",
+          "timestamp_seconds": 21,
+          "quote": "I want to take this chance to officially welcome you to our super live session"
+        }
+      ],
+      "creators": [
+        "ike ofm"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm currently outsources DM monetization to an external chat team with no documented internal chatter onboarding (\u00a78). This signals competitors are building formal training infrastructure for chatters.",
+        "recommendation": "When Palm builds its in-house chat team (~1yr roadmap), develop a structured live onboarding format with slide decks as a core training artifact; this video may contain more tactical content if a fuller transcript is available."
+      }
+    },
+    {
+      "id": "f0350",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -15131,7 +15721,7 @@
       }
     },
     {
-      "id": "f0357",
+      "id": "f0372",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -15166,7 +15756,7 @@
       }
     },
     {
-      "id": "f0358",
+      "id": "f0373",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -15201,7 +15791,7 @@
       }
     },
     {
-      "id": "f0359",
+      "id": "f0374",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -15236,7 +15826,7 @@
       }
     },
     {
-      "id": "f0360",
+      "id": "f0375",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -15271,7 +15861,7 @@
       }
     },
     {
-      "id": "f0361",
+      "id": "f0376",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -15306,7 +15896,7 @@
       }
     },
     {
-      "id": "f0362",
+      "id": "f0377",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -15341,7 +15931,7 @@
       }
     },
     {
-      "id": "f0363",
+      "id": "f0378",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -15376,7 +15966,7 @@
       }
     },
     {
-      "id": "f0364",
+      "id": "f0379",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -15411,7 +16001,7 @@
       }
     },
     {
-      "id": "f0365",
+      "id": "f0380",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -15446,7 +16036,7 @@
       }
     },
     {
-      "id": "f0366",
+      "id": "f0381",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -15481,7 +16071,7 @@
       }
     },
     {
-      "id": "f0367",
+      "id": "f0382",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -15516,7 +16106,7 @@
       }
     },
     {
-      "id": "f0368",
+      "id": "f0383",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -15551,7 +16141,7 @@
       }
     },
     {
-      "id": "f0369",
+      "id": "f0384",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -15586,7 +16176,7 @@
       }
     },
     {
-      "id": "f0370",
+      "id": "f0385",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -15621,7 +16211,7 @@
       }
     },
     {
-      "id": "f0371",
+      "id": "f0386",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -15656,7 +16246,7 @@
       }
     },
     {
-      "id": "f0383",
+      "id": "f0398",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -15691,7 +16281,7 @@
       }
     },
     {
-      "id": "f0394",
+      "id": "f0409",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -15726,7 +16316,7 @@
       }
     },
     {
-      "id": "f0398",
+      "id": "f0413",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -15761,7 +16351,7 @@
       }
     },
     {
-      "id": "f0401",
+      "id": "f0416",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -15796,7 +16386,7 @@
       }
     },
     {
-      "id": "f0405",
+      "id": "f0420",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -15831,7 +16421,7 @@
       }
     },
     {
-      "id": "f0406",
+      "id": "f0421",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -15866,7 +16456,7 @@
       }
     },
     {
-      "id": "f0407",
+      "id": "f0422",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -15901,7 +16491,7 @@
       }
     },
     {
-      "id": "f0408",
+      "id": "f0423",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -15936,7 +16526,7 @@
       }
     },
     {
-      "id": "f0410",
+      "id": "f0425",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -15971,7 +16561,7 @@
       }
     },
     {
-      "id": "f0411",
+      "id": "f0426",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -16006,7 +16596,7 @@
       }
     },
     {
-      "id": "f0415",
+      "id": "f0430",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
