@@ -1,0 +1,285 @@
+{
+  "run": "daily-2026-07-02",
+  "findings": [
+    {
+      "department": "acquisition",
+      "topic": "Model funnel conversion rates",
+      "title": "Benchmark acquisition funnel: 12 applicants/day \u2192 1 signed/week \u2192 1 keeper/month",
+      "claim": "Running Facebook and Instagram outreach yields roughly 12 applicants per day, one signing per week, and one high-quality keeper per month \u2014 expect high drop-off at every stage.",
+      "what_they_do": "They run inbound acquisition via Facebook and Instagram ads/outreach generating 12 model applications daily. Of those, ~1/week actually signs a contract, and of ~4/month signed, only 1 performs well enough to retain. They use a legal contract template adapted to both the agency's and model's country of residence.",
+      "vs_us": "Palm's acquisition is Josh-DM-led outbound with no documented funnel conversion benchmarks (\u00a76). We have no stated expectation for application-to-sign or sign-to-retain ratios, making it impossible to forecast growth or hiring needs. This competitor has explicit numbers to plan against.",
+      "recommendation": "Establish Palm's own funnel conversion benchmarks by tracking applicants \u2192 signed \u2192 active \u2192 retained across a 90-day window. Even rough numbers (e.g. from Josh's current DM outreach) would let us set realistic pipeline targets and identify where the funnel leaks most.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 127,
+          "quote": "we get about 12 models a day applying and of those 12 models we get about one per week who is actually enlisting"
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Model sourcing channels",
+      "title": "Use Facebook + Instagram DM outreach as primary dual-channel model sourcing",
+      "claim": "Facebook and Instagram together are the most effective channels for sourcing models, with Instagram DM scouting offering the added benefit of pre-qualifying candidates by their existing follower count and OF presence.",
+      "what_they_do": "They actively scout Instagram for women who already have a following and/or an OnlyFans \u2014 these candidates are higher-signal because their content appetite and audience fit is already demonstrated. Facebook is used in parallel for broader reach. They send cold DMs on Instagram as the primary contact method.",
+      "vs_us": "Palm currently relies on Josh's outbound DMs and referrals with no documented channel split or qualification criteria (\u00a76). We do not appear to have a systematic Facebook acquisition effort running alongside Instagram.",
+      "recommendation": "Add Facebook as a second sourcing channel alongside Instagram. Define a minimum-follower threshold and OF-presence flag as qualification criteria for cold DM outreach \u2014 this replicates their pre-qualification logic and should improve sign-to-retain ratio.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 157,
+          "quote": "scouting on Instagram or sending DMs on Insta, right? This is basically the best way because it will make you help select the models you want to work with"
+        }
+      ]
+    },
+    {
+      "department": "platform-risk",
+      "topic": "Mobile proxy per creator account",
+      "title": "Assign a geo-matched mobile proxy per OF account to prevent IP-based blocks at scale",
+      "claim": "Running multiple OnlyFans accounts from a single IP address will cause account blocks as you scale, so each account must use a mobile proxy matching the model's geographic location.",
+      "what_they_do": "Each creator's OnlyFans login is accessed through a mobile proxy set to the region the model is based in. This prevents the platform from flagging multiple accounts originating from the same IP. The model herself creates the account (for ID verification and bank details) and then hands over login credentials to the agency.",
+      "vs_us": "Palm has a hardware-isolated proxy/SIM setup for AI persona accounts (\u00a73/\u00a74) but no documented equivalent for real-creator OF account management. If Palm manages multiple real creators' OF logins, this gap is a live platform-risk exposure.",
+      "recommendation": "Implement a mobile proxy per real-creator OF account, geo-matched to each creator's location, using the same proxy-management discipline Palm already applies to AI accounts. Document this in a real-creator account-management SOP.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 373,
+          "quote": "make sure that you use a mobile proxy with the area where she is from"
+        }
+      ]
+    },
+    {
+      "department": "instagram",
+      "topic": "Shadowban avoidance on social accounts",
+      "title": "Never mention 'OnlyFans' by name on social \u2014 use a link-in-bio tool instead",
+      "claim": "Writing the word 'OnlyFans' on Instagram or other social platforms triggers shadowbanning, making accounts effectively worthless; use a Linktree or equivalent redirect instead.",
+      "what_they_do": "All social accounts avoid the term 'OnlyFans' entirely in captions, bios, and comments. They route followers to OF via a free Linktree link-in-bio, keeping the social account clean of flagged keywords.",
+      "vs_us": "Palm uses Beacons as a link-in-bio tool for AI personas (\u00a73). It is not explicitly documented whether real-creator social accounts follow the same no-OF-mention rule. This is a basic hygiene policy that should be formalized for all Palm-managed accounts.",
+      "recommendation": "Codify a content policy rule across all Palm-managed social accounts (real and AI): never use 'OnlyFans' in text; always route via Beacons/Linktree. Add this as a checklist item in the editor approval step (\u00a71, step 8) and the creator onboarding form (\u00a76).",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 404,
+          "quote": "never use the word only fans on your social media accounts. They will shadow ban you if you do it and your accounts become worthless"
+        }
+      ]
+    },
+    {
+      "department": "content",
+      "topic": "OF subscription vs PPV content tiering",
+      "title": "Tier OF content: subscription vault slightly better than free social; reserve best for PPV chat",
+      "claim": "Subscription content must be noticeably better than free social content to justify the sub, but must not reveal the creator's full range \u2014 that depth is reserved for PPV sold in DMs.",
+      "what_they_do": "They operate a three-tier content ladder: (1) free social teaser, (2) subscription vault that is 'slightly better' than social but deliberately incomplete, (3) explicit PPV sold during chat. Reels on social are kept to 5\u201310 seconds for best algorithmic performance. Background quality is emphasized as a trust signal, with American-aesthetic backgrounds used since the primary customer base is US-based.",
+      "vs_us": "Palm is strong on social content production (\u00a71) but has a documented thin spot on OF vault/PPV content strategy (\u00a72). This competitor's three-tier model gives a concrete framework Palm currently lacks. The social reel length guideline (5\u201310 seconds) is also not codified in Palm's pipeline.",
+      "recommendation": "Define a formal three-tier content policy for each Palm creator: social teaser \u2192 subscription vault \u2192 PPV/chat exclusive. Add reel duration guidance (5\u201310 seconds) to the content pipeline brief (\u00a71). Work with the external chat team (\u00a78) to ensure PPV sequencing aligns with this ladder.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 312,
+          "quote": "what is very important is to make sure that what they get in the subscription is slightly better than what they get on the free social media accounts"
+        }
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "PPV sequencing / soft-to-hard escalation",
+      "title": "Escalate PPV content soft-to-hard to maximize purchase frequency per fan",
+      "claim": "Sending explicit content too early (e.g. the most extreme acts in the first message) destroys repeat-purchase motivation \u2014 always escalate gradually from soft to hard to extend the monetization window.",
+      "what_they_do": "Chatters follow a soft-to-hard content escalation: early PPV is tame/suggestive; progressively more explicit content is unlocked as the fan continues to purchase. The underlying logic is to keep the fan always feeling there is 'more to unlock,' extending the revenue relationship as long as possible before they disengage.",
+      "vs_us": "Palm's DM monetization is fully outsourced to an external chat team with no internal SOP (\u00a78). This soft-to-hard escalation framework is a high-value build-toward tactic for Palm's planned in-house chat team and AI chatting project.",
+      "recommendation": "Capture soft-to-hard escalation as a core principle in the future Palm chatter SOP. Define 3\u20135 content 'tiers' per creator (e.g. teasing \u2192 topless \u2192 explicit acts) and script the upsell transition between each tier. Share this framework with the current external chat team as a quality guideline while in-house capability is built.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 620,
+          "quote": "sell from soft to hard. It's super important"
+        }
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "Mass DM usage strategy",
+      "title": "Use mass DMs only to open conversations, never to push offers directly",
+      "claim": "Mass DMs sent as direct sales offers perform poorly; they work best exclusively as conversation-starters, which then lead to individualized upsells that earn far more.",
+      "what_they_do": "Mass DMs are used solely to initiate engagement (e.g. a simple personal-feeling opener). Once a fan responds and a conversation is live, the chatter pivots to individualized PPV sales. They explicitly avoid blasting offers via mass DM, framing it as '10x more money' to sell through conversation vs. cold offers. They also advise reading whether the fan is in a context where he can engage (not at dinner, not busy) before pushing a sale.",
+      "vs_us": "Palm outsources chatting (\u00a78). This mass-DM-as-opener-only rule is a concrete, testable tactic that Palm's in-house/AI chat roadmap should adopt. It also has implications for how Palm might use OF's mass-message feature for real creators today \u2014 worth validating with the current external team.",
+      "recommendation": "Brief the current external chat team on this principle and confirm their mass-DM usage aligns (opener only, not offer blast). Encode 'mass DM = conversation opener only' as a standing rule in the future Palm chatter playbook and AI chat system prompts.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 620,
+          "quote": "Mass DMs is a really important tool to get a conversation started and this should be the only thing that you want to use it for"
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "Performance tracking / data recording",
+      "title": "Record all posting and chatting actions from day one to generate optimization data",
+      "claim": "Failing to log what you post and what you do in chat means you cannot identify what is actually working, wasting time and causing you to repeat mistakes indefinitely.",
+      "what_they_do": "They track all posting activity and chat interactions in spreadsheets (Excel templates), maintaining a consistent posting schedule for at least one month without changes before evaluating results. They also follow other creators' accounts deliberately to train the algorithm to surface their content to relevant audiences.",
+      "vs_us": "Palm has a mature content pipeline with Airtable tracking for social posts (\u00a71) and whale-hunting/fan CRM data collection underway (\u00a79). However, a real-creator posting cadence/frequency standard is flagged as a GAP (\u00a71), and no chat-performance logging exists internally (\u00a78 outsourced). The competitor's discipline of holding a schedule constant for \u22651 month before changing it is a useful operational norm Palm should codify.",
+      "recommendation": "Add a policy to Palm's content pipeline: once a posting schedule is set for a creator, hold it unchanged for a minimum of 4 weeks before any cadence adjustment, and document the rationale for any change. For the chat roadmap, design logging into the chatter workflow from day one \u2014 even simple metrics (messages sent, PPV offers made, conversion rate) will be invaluable for optimization.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "CZEkzYrHUsc",
+          "timestamp_seconds": 498,
+          "quote": "Record everything you do. Now, this gives you valuable feedback on how to proceed in the future. I made the mistake by not doing that"
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Creator qualification & talent tiering",
+      "title": "Segment creators into 'talented' vs 'untalented' pools and match your system to the tier",
+      "claim": "Most agencies fail because they apply a talent-dependent marketing system to creators who are only 50% of the quality equation, when a different system is needed for that creator tier.",
+      "what_they_do": "Jason explicitly splits the creator market into two pools: a small, high-barrier 'talented' pool (highly attractive, great content creator, speaks English, delivers on time) and a large, low-barrier 'untalented' pool. He deliberately targets the untalented pool because it is easier to sign and larger in volume. Before deploying any marketing system, he assesses how many of the four 'model input units' a creator actually brings, then routes her to the matching system (traditional OFM if 4/4, BFAM if 2/4).",
+      "vs_us": "Palm's acquisition is Josh-DM-led outreach with no documented qualification scorecard or tiering framework (\u00a76). We have no written criteria for which creators get which treatment. Palm implicitly handles a range of creator quality but has no explicit routing logic.",
+      "recommendation": "Build a 4-point creator qualification scorecard at onboarding (attractiveness tier, content-creation skill, English fluency, content delivery reliability). Score each creator 0\u20134 and use the score to decide which marketing and content system she enters. Document this in the onboarding wizard and Airtable 'Creators' table.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 93,
+          "quote": "four units of model input. We have what's called highly attractive. We have great content creator, speaks English, and delivers content on time."
+        },
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 217,
+          "quote": "it's dramatically easier to sign clients from this pool because there's just so many and plus the barrier to entry is very low."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "Agency-dependent vs creator-dependent operating model",
+      "title": "BFAM: Build a fully agency-owned traffic and posting system so creator talent is not a dependency",
+      "claim": "By making the agency responsible for all traffic generation, account management, posting, and distribution \u2014 and having creators only upload raw content to a drive \u2014 the agency can achieve $10K+ months with average creators.",
+      "what_they_do": "Jason's BFAM (Brute Force Agency Marketing) system removes creator involvement from everything except raw content upload. The agency runs several accounts, manages all posting and distribution, uses AI to generate marketing content, and controls the full funnel. Creator input is reduced to uploading files to a shared drive a few hours per week. This lets the agency scale horizontally across 10+ creators without being bottlenecked by any individual creator's talent or availability.",
+      "vs_us": "Palm already operates in this direction \u2014 social presence (IG/TikTok), content ideation pipeline (\u00a71), and posting/scheduling (\u00a75) are agency-run. Creators film but the agency decides what they film (inspo pipeline). However, Palm's system is most mature on the content ideation side; the 'run several accounts per creator' and AI-generated marketing content layer is not fully documented. Palm's posting is partially manual via Amin (\u00a75).",
+      "recommendation": "Formalize and document Palm's BFAM-equivalent: explicitly state that the agency controls all traffic accounts, posting, and distribution and that creators only upload to the drive. Use this as a selling point in creator acquisition. Also explore AI-generated marketing asset creation (matching Jason's 'AI to generate marketing content') to reduce creator friction further, especially for lower-talent creators.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 310,
+          "quote": "we run several accounts and manage all the posting and distribution of the marketing content. It means we manage every inch of the process and creators only upload to the drive removing any friction or input needed from the model side."
+        },
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 372,
+          "quote": "we also use AI to generate a lot of the marketing content that we use, which again removes a lot of the friction from the model side."
+        }
+      ]
+    },
+    {
+      "department": "pricing",
+      "topic": "Commission structure tied to agency value creation",
+      "title": "Charge higher commission when agency creates all value (zero-to-revenue), lower when creator brings existing equity",
+      "claim": "Agencies that take creators from zero earn the right to keep a higher commission percentage because the agency is creating all the value; working with already-successful creators compresses margins.",
+      "what_they_do": "Jason ties commission rate directly to how much value the agency is creating relative to the creator. If the creator brings zero earning history, zero social following, and low talent, the agency justifies a higher-than-standard split because it is building everything from scratch. Conversely, signing a talented creator or one with existing revenue means accepting a compressed margin deal. He treats margin as a direct output of value-creation ratio.",
+      "vs_us": "Palm's commission % is set per-creator at onboarding but there is no documented rationale, tiering logic, or negotiation framework (\u00a77 \ud83d\udd32 GAP). Palm has no written model for how creator equity/talent affects the split offered.",
+      "recommendation": "Draft a commission tiering framework: e.g., creator brings 0\u20131 of 4 input units \u2192 agency keeps 70\u201380%; 2/4 \u2192 60\u201370%; 3\u20134/4 or existing revenue \u2192 50\u201360%. Document the rationale so Josh can use it in acquisition conversations to justify higher splits to zero-history creators. Add this to the onboarding wizard and Airtable 'Creators' table.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 340,
+          "quote": "as a result of our immense value creation, when working with creators, scaling them from absolute zero, we get to keep a higher percent than usual simply due to the fact that we are creating such an immense amount of value in the process."
+        },
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 340,
+          "quote": "If you were to work with a talented creator or somebody that already has some type of revenue going for them, well, you're not going to be getting the best deal in the world."
+        }
+      ]
+    },
+    {
+      "department": "traffic",
+      "topic": "Multi-account agency-owned traffic distribution",
+      "title": "Run multiple agency-owned social accounts per creator to generate fully agency-dependent traffic",
+      "claim": "Running several agency-controlled accounts for distribution \u2014 rather than relying on one creator-owned account \u2014 makes traffic generation independent of creator talent or following.",
+      "what_they_do": "Jason's BFAM system explicitly involves running 'several accounts' for each creator and managing all posting and distribution internally. This is a quantity-over-quality traffic approach: spread across multiple accounts/platforms so that even if individual accounts underperform, aggregate traffic to the OF page is sufficient to hit $10K+. The creator does not manage or post to these accounts.",
+      "vs_us": "Palm runs agency-managed IG/TikTok accounts for creators (\u00a71, \u00a75) but the multi-account-per-creator approach is not documented as a deliberate traffic strategy. Palm's traffic/distribution strategy is flagged as a GAP (\u00a75 \ud83d\udd32). Palm does have multi-account infrastructure for AI personas (\u00a73/\u00a74) but not formally for real creators.",
+      "recommendation": "Define a minimum account footprint per real creator (e.g., 1 IG + 1 TikTok + 1 Reddit + 1 X/Twitter as baseline). Document this as Palm's traffic distribution standard and track account count per creator in Airtable. Leverage the existing AI-account warmup infrastructure (\u00a74) as a template for spinning up additional accounts for real creators.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 310,
+          "quote": "we run several accounts and manage all the posting and distribution of the marketing content."
+        },
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 280,
+          "quote": "This was completely agency dependent traffic."
+        }
+      ]
+    },
+    {
+      "department": "founder-discipline",
+      "topic": "Horizontal vs vertical agency scaling strategy",
+      "title": "Choose horizontal scale (many average creators) over vertical scale (few talented creators) when talent access is limited",
+      "claim": "Scaling horizontally across 10+ average creators using a brute-force agency system outperforms trying to scale 1\u20132 talented creators vertically when the agency cannot reliably sign top-tier talent.",
+      "what_they_do": "Jason consciously chose to scale to 10+ creators horizontally rather than go deep on 1\u20132 high-talent creators. He frames this as a deliberate strategic decision based on his capabilities and creator access. With BFAM, each creator is less individually dependent on talent, making horizontal addition of new (average) creators a reliable growth lever. He acknowledges this is not universally correct \u2014 the right choice depends on the agency's strengths and creator access.",
+      "vs_us": "Palm currently works with multiple real creators plus AI personas, which is implicitly horizontal (\u00a70). However, Palm has no documented scaling strategy or written rationale for horizontal vs vertical. The decision framework for how many creators to take on, at what point to add vs. deepen, is absent.",
+      "recommendation": "Document Palm's explicit scaling philosophy: are we horizontal (volume of creators) or vertical (depth per creator)? Given Palm's AI-persona scaling lever (\u00a73) and agency-run systems (\u00a71, \u00a75), horizontal is likely the right model. Write a one-page scaling framework that sets a target creator count, the minimum system infrastructure per creator, and the revenue threshold at which a creator graduates from intensive agency support to steady-state.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 495,
+          "quote": "instead of scaling one or two creators vertically, we've decided to scale over a dozen creators."
+        },
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 527,
+          "quote": "It all depends on your strengths, your client, and your capabilities."
+        }
+      ]
+    },
+    {
+      "department": "content",
+      "topic": "AI-generated marketing content to reduce creator dependency",
+      "title": "Use AI-generated social/marketing content to replace or supplement creator-produced content",
+      "claim": "AI-generated marketing content removes the need for the creator to be a skilled content producer, making the agency's output independent of creator talent.",
+      "what_they_do": "Jason's agency uses AI to generate a significant portion of its marketing content (top-of-funnel social content). This is distinct from OF vault/PPV content \u2014 it is the promotional material used to drive traffic. By generating this content internally with AI, the agency no longer requires the creator to film high-quality social content consistently, reducing friction and creator-side dependencies.",
+      "vs_us": "Palm already produces AI social content for some real creators and runs full AI personas (\u00a70, \u00a73). Palm's content pipeline (\u00a71) is data-driven and agency-run, which partially achieves the same friction-reduction. However, using AI to generate marketing content for real creator accounts (rather than just AI persona accounts) is not formally documented as a tactic. This is a meaningful overlap area \u2014 Palm is closer to this than most agencies.",
+      "recommendation": "Formally document and expand the use of AI-generated marketing assets for real creator accounts as part of the BFAM-equivalent workflow. Specifically: identify which content types for real creators can be AI-generated (text posts, captions, carousel graphics, voiceover reels) vs. must-be-creator-filmed (face content). Build this into the content pipeline (\u00a71) as a content-type routing decision.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 372,
+          "quote": "we also use AI to generate a lot of the marketing content that we use, which again removes a lot of the friction from the model side in needing to be talented, in needing to execute at a high level, in needing to be on time."
+        }
+      ]
+    },
+    {
+      "department": "retention",
+      "topic": "Creator retention through zero-to-revenue results",
+      "title": "Retain creators by delivering fast zero-to-revenue results with minimal creator effort required",
+      "claim": "Creators stay and remain satisfied when the agency takes them from $0 to thousands per month with only a few hours of work per week on their side.",
+      "what_they_do": "Jason explicitly frames low creator effort + fast revenue as the core creator retention mechanism. By removing friction (creators only upload to a drive, agency does everything else), creators work just a few hours per week. Combined with real revenue results fast (e.g., $12K month one), creator churn is low because the value proposition is undeniable. He positions this as why he can 'keep creators incredibly happy.'",
+      "vs_us": "Palm has no documented retention or churn strategy (\u00a79 \ud83d\udd32 GAP). Palm's system does reduce creator friction (\u00a71 pipeline, agency-run posting), but there is no written framework for measuring creator satisfaction, tracking churn signals, or running a success cadence with creators.",
+      "recommendation": "Define and document Palm's creator retention playbook: (1) set explicit effort expectations at onboarding ('you work X hours/week, we do the rest'); (2) establish a 30/60/90 day revenue milestone check-in cadence; (3) track creator churn signals in Airtable (missed uploads, reduced responsiveness, revenue plateau complaints). Use fast early results as the primary retention lever and document the expected revenue ramp per creator tier.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "VtSP5h3mRog",
+          "timestamp_seconds": 403,
+          "quote": "we keep our creators incredibly happy because we take them from earning zero dollars to multiple thousands of dollars every single month with barely any input from their side, working just a few hours per week."
+        }
+      ]
+    }
+  ]
+}
