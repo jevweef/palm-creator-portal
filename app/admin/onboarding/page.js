@@ -24,6 +24,7 @@ export default function AdminOnboarding() {
   const [commissionTiers, setCommissionTiers] = useState([{ pct: '', upTo: '' }])
   const [formState, setFormState] = useState('')
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
+  const [contractFile, setContractFile] = useState(null) // optional custom signed contract to attach
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -119,6 +120,18 @@ export default function AdminOnboarding() {
 
   useEffect(() => { fetchCreators() }, [fetchCreators])
 
+  // If the admin attached a custom signed contract, upload it to the new
+  // creator so onboarding shows THAT instead of the auto-generated template.
+  const uploadContractFor = async (hqId) => {
+    if (!contractFile || !hqId) return
+    const fd = new FormData()
+    fd.append('hqId', hqId)
+    fd.append('file', contractFile)
+    try {
+      await fetch('/api/admin/onboarding/upload-contract', { method: 'POST', body: fd })
+    } catch (err) { console.error('Custom contract upload error:', err) }
+  }
+
   const handleStartOnboarding = async (e) => {
     e.preventDefault()
     if (!formName || !formEmail) return
@@ -133,6 +146,7 @@ export default function AdminOnboarding() {
       })
       const data = await res.json()
       if (res.ok) {
+        await uploadContractFor(data.hqId)
         await navigator.clipboard.writeText(data.onboardingUrl)
         setCopied('new')
         setTimeout(() => setCopied(null), 3000)
@@ -142,6 +156,7 @@ export default function AdminOnboarding() {
         setCommissionTiers([{ pct: '', upTo: '' }])
         setFormState('')
         setHasSigDrawn(false)
+        setContractFile(null)
         fetchCreators()
       }
     } catch (err) {
@@ -218,10 +233,12 @@ export default function AdminOnboarding() {
       })
       const data = await res.json()
       if (res.ok) {
+        await uploadContractFor(data.hqId)
         await navigator.clipboard.writeText(data.onboardingUrl)
         setCopied('new')
         setTimeout(() => setCopied(null), 3000)
         setEditCreator(null)
+        setContractFile(null)
         fetchCreators()
       }
     } catch (err) {
@@ -655,6 +672,22 @@ export default function AdminOnboarding() {
                 </button>
               </div>
 
+              {/* Custom signed contract (optional) — overrides the auto template */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Custom signed contract (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={e => setContractFile(e.target.files?.[0] || null)}
+                  style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
+                  {contractFile ? `Attached: ${contractFile.name} — replaces the standard contract for this creator.` : 'Upload an already-signed PDF to use instead of the standard contract. Leave empty for the default.'}
+                </div>
+              </div>
+
               {/* Agency Signature */}
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
@@ -860,6 +893,22 @@ export default function AdminOnboarding() {
                   required
                   style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', outline: 'none' }}
                 />
+              </div>
+
+              {/* Custom signed contract (optional) — overrides the auto template */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
+                  Custom signed contract (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={e => setContractFile(e.target.files?.[0] || null)}
+                  style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
+                  {contractFile ? `Attached: ${contractFile.name} — replaces the standard contract for this creator.` : 'Upload an already-signed PDF to use instead of the standard contract. Leave empty for the default.'}
+                </div>
               </div>
 
               {/* Agency Signature */}
