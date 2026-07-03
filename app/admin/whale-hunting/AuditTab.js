@@ -31,6 +31,8 @@ export default function AuditTab() {
   const [auditing, setAuditing] = useState(false)
   const [qa, setQa] = useState(null)
   const [qaRunning, setQaRunning] = useState(false)
+  const [sync, setSync] = useState(null)
+  const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -80,6 +82,22 @@ export default function AuditTab() {
     } catch (e) { setError(e.message) } finally { setQaRunning(false) }
   }
 
+  // Archive sync — STRICTLY ADDITIVE: appends full-fidelity transactions
+  // (fan_id-keyed) + fan snapshots to /Palm Ops/OF Archive/. Never touches
+  // the invoice spreadsheet or invoicing flow. Returns rebill-off alerts.
+  async function runSync() {
+    setSyncing(true); setError(null); setSync(null)
+    try {
+      const res = await fetch('/api/admin/whales/archive-sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorRecordId: creatorId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Sync failed')
+      setSync(data)
+    } catch (e) { setError(e.message) } finally { setSyncing(false) }
+  }
+
   const card = { background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '18px' }
   const h2 = { fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }
   const btn = (bg, color, disabled) => ({
@@ -109,6 +127,9 @@ export default function AuditTab() {
         </button>
         <button onClick={runQa} disabled={qaRunning || !selected?.connected} style={btn('rgba(196, 165, 247, 0.12)', '#A06FE8', qaRunning || !selected?.connected)}>
           {qaRunning ? 'Reviewing chats…' : 'Run Chatter QA'}
+        </button>
+        <button onClick={runSync} disabled={syncing || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', syncing || !selected?.connected)}>
+          {syncing ? 'Syncing archive…' : 'Sync Archive'}
         </button>
       </div>
 
@@ -180,6 +201,46 @@ export default function AuditTab() {
               {fd.better && <div style={{ color: '#7DD3A4', marginTop: '3px' }}>↳ better: “{fd.better}”</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Archive sync + rebill-off alerts */}
+      {sync && (
+        <div style={card}>
+          <h2 style={h2}>Archive — {sync.creator}</h2>
+          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
+            transactions: +{sync.archive?.transactions?.added ?? 0} new ({sync.archive?.transactions?.archived ?? 0} already archived) ·
+            chargebacks: +{sync.archive?.chargebacks?.added ?? 0} · {sync.fanCount} active fans snapshotted ·
+            saved to Dropbox {sync.archivePath}
+          </div>
+          <h2 style={{ ...h2, marginTop: '6px' }}>Rebill OFF — save these subs ({sync.rebillOff?.length ?? 0})</h2>
+          {(sync.rebillOff || []).length === 0 ? (
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>No high-value fans set to expire. ✓</div>
+          ) : (
+            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
+                <th style={{ padding: '4px 8px' }}>Fan</th><th>Lifetime</th><th>Tips</th><th>PPV</th><th>Expires</th><th>Last seen</th><th></th>
+              </tr></thead>
+              <tbody>
+                {sync.rebillOff.map((f) => (
+                  <tr key={f.fanId} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>
+                      {f.name}{f.username ? <span style={{ color: 'var(--foreground-muted)' }}> @{f.username}</span> : null}
+                      {f.newThisSync && <span style={{ marginLeft: '6px', background: 'rgba(232,120,120,0.15)', color: '#E87878', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>NEW</span>}
+                    </td>
+                    <td>${Math.round(f.total)}</td>
+                    <td>${Math.round(f.tips)}</td>
+                    <td>${Math.round(f.messages)}</td>
+                    <td>{f.expireDate ? new Date(f.expireDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                    <td style={{ color: 'var(--foreground-muted)' }}>{f.lastSeen ? new Date(f.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                    <td>
+                      <Link href={'/admin/creators?creator=' + encodeURIComponent(sync.creator) + '&tab=fans'} style={{ color: '#A06FE8', fontSize: '11px' }}>open in Fans →</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
