@@ -18,6 +18,10 @@ function getClientAccountKey(accountName) {
 
 function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
   const [chatFile, setChatFile] = useState(null)
+  // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
+  // client-side HTML parse; feeds the identical analyze flow.
+  const [ofPull, setOfPull] = useState(null)
+  const [pullingOf, setPullingOf] = useState(false)
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
   // null for single-account fans (whose uploads don't need an account tag).
   const [uploadAccountName, setUploadAccountName] = useState(null)
@@ -149,6 +153,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     const formData = new FormData()
     if (fromTranscript) {
       formData.append('useTranscript', 'true')
+    } else if (ofPull && !chatFile) {
+      // Chat pulled live from the OF API — already in parsed shape.
+      formData.append('parsedConversation', ofPull.conversation)
+      formData.append('parsedMessages', JSON.stringify(ofPull.messages))
+      formData.append('parsedFirstDate', ofPull.firstMessageDate)
+      formData.append('parsedLastDate', ofPull.lastMessageDate)
+      formData.append('parsedFanMsgs', String(ofPull.fanMessages))
+      formData.append('parsedCreatorMsgs', String(ofPull.creatorMessages))
     } else {
       // Parse chat HTML client-side — sends only the extracted transcript text
       // instead of the full HTML (which can be 20-100MB and blow past Vercel's
@@ -235,9 +247,36 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     return formData
   }
 
+  // Pull this fan's chat straight from OF (read-only, ~1 credit per 100 msgs).
+  // Result feeds the exact same analyze flow as an HTML upload.
+  async function handlePullFromOf() {
+    setPullingOf(true)
+    setAnalysisError(null)
+    setOfPull(null)
+    try {
+      const res = await fetch('/api/admin/creator-earnings/pull-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorRecordId: creatorRecordId || '',
+          fanUsername: f.ofUsername || '',
+          fanName: f.fanName || '',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Pull failed')
+      setOfPull(data.parsed)
+      setChatFile(null) // OF pull replaces any picked file
+    } catch (e) {
+      setAnalysisError(e.message)
+    } finally {
+      setPullingOf(false)
+    }
+  }
+
   async function handleAnalyze(fromTranscript) {
     fromTranscript = fromTranscript === true // guard against React event objects
-    if (!fromTranscript && !chatFile) return
+    if (!fromTranscript && !chatFile && !ofPull) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
@@ -1262,6 +1301,32 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   }}>
                   {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
                 </button>
+              )}
+
+              {/* Pull the conversation straight from OF (read-only API) —
+                  replaces the scroll → save HTML → upload dance. */}
+              <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+                style={{
+                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
+                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
+                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                }}>
+                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+              </button>
+              {ofPull && !chatFile && (
+                <>
+                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
+                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
+                  </span>
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    style={{
+                      background: '#E88C5C', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                    }}>
+                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                  </button>
+                </>
               )}
 
               {chatFile && (
