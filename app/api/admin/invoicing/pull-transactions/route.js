@@ -133,7 +133,8 @@ export async function POST(request) {
       }
       if (rows.length) await updateCutoffBanner(sheets, tabName, newCutoff)
 
-      results[dataType] = { parsed: txns.length, uploaded: rows.length, skipped: txns.length - rows.length, credits: done.credit_cost ?? null, tab: tabName }
+      const earliest = txns.map((t) => t.dateTimeEt.slice(0, 10)).filter(Boolean).sort()[0] || null
+      results[dataType] = { parsed: txns.length, uploaded: rows.length, skipped: txns.length - rows.length, credits: done.credit_cost ?? null, tab: tabName, earliest }
     }
 
     // Airtable coverage — same fields the HTML upload maintains, so the
@@ -186,6 +187,9 @@ async function updateCoverage(accountName, results) {
   try {
     const params = new URLSearchParams()
     params.append('filterByFormula', `{Account Name} = ${quoteAirtableString(accountName)}`)
+    params.append('fields[]', RA_FIELDS.earningsStart)
+    params.append('fields[]', RA_FIELDS.chargebackStart)
+    params.append('returnFieldsByFieldId', 'true')
     params.append('pageSize', '1')
     const res = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}?${params}`, {
       headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` },
@@ -196,8 +200,25 @@ async function updateCoverage(accountName, results) {
     const nowIso = new Date().toISOString()
     const today = nowIso.split('T')[0]
     const fields = {}
-    if (results.Sales) { fields[RA_FIELDS.earningsEnd] = today; fields[RA_FIELDS.earningsLastUpload] = nowIso }
-    if (results.Chargebacks) { fields[RA_FIELDS.chargebackEnd] = today; fields[RA_FIELDS.chargebacksLastUpload] = nowIso }
+    const cur = record.fields || {}
+    if (results.Sales) {
+      fields[RA_FIELDS.earningsEnd] = today
+      fields[RA_FIELDS.earningsLastUpload] = nowIso
+      // Start: earliest pulled txn if it's earlier than (or replaces a missing) start
+      const e = results.Sales.earliest
+      if (e && (!cur[RA_FIELDS.earningsStart] || e < cur[RA_FIELDS.earningsStart])) fields[RA_FIELDS.earningsStart] = e
+    }
+    if (results.Chargebacks) {
+      fields[RA_FIELDS.chargebackEnd] = today
+      fields[RA_FIELDS.chargebacksLastUpload] = nowIso
+      const e = results.Chargebacks.earliest
+      if (e && (!cur[RA_FIELDS.chargebackStart] || e < cur[RA_FIELDS.chargebackStart])) fields[RA_FIELDS.chargebackStart] = e
+      else if (!cur[RA_FIELDS.chargebackStart]) {
+        // No chargebacks pulled — anchor to earnings start (same as HTML flow)
+        const es = fields[RA_FIELDS.earningsStart] || cur[RA_FIELDS.earningsStart]
+        if (es) fields[RA_FIELDS.chargebackStart] = es
+      }
+    }
     await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${REVENUE_ACCOUNTS_TABLE}/${record.id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
