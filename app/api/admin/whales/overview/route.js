@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const [creators, tracker] = await Promise.all([
       fetchAirtableRecords('Palm Creators', {
-        fields: ['Creator', 'AKA', 'Status', 'OF API Account ID'],
+        fields: ['Creator', 'AKA', 'Status', 'OF API Account ID', 'Whale Runs'],
       }),
       fetchAirtableRecords('Fan Tracker', {
         fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend',
@@ -32,6 +32,7 @@ export async function GET() {
         name: c.fields?.Creator || '',
         aka: c.fields?.AKA || c.fields?.Creator || '',
         connected: !!c.fields?.['OF API Account ID'],
+        runs: (() => { try { return JSON.parse(c.fields?.['Whale Runs'] || '{}') } catch { return {} } })(),
       }))
       .sort((a, b) => (b.connected - a.connected) || a.aka.localeCompare(b.aka))
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { sheetsClient, readTabRows, fetchRevenueAccountNames } from '@/lib/transactionsSheet'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -160,6 +161,7 @@ export async function POST(request) {
       }
     }
 
+    await stampWhaleRun(creatorRecordId, 'audit')
     return NextResponse.json({
       ok: true,
       creator: cf.AKA || cf.Creator,

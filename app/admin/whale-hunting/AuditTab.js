@@ -22,6 +22,17 @@ const TIER_COLORS = {
 }
 const SEV_COLORS = { low: '#E8C878', medium: '#E88C5C', high: '#E87878' }
 
+// "2h ago" / "Jun 30" style last-run label (ET)
+function fmtRun(iso) {
+  if (!iso) return 'never'
+  const d = new Date(iso)
+  const mins = Math.round((Date.now() - d.getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  if (mins < 36 * 60) return `${Math.round(mins / 60)}h ago`
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })
+}
+
 export default function AuditTab() {
   const [creators, setCreators] = useState([])
   const [watchlist, setWatchlist] = useState([])
@@ -88,6 +99,7 @@ export default function AuditTab() {
         parts.push(`${accountName}: +${data.Sales?.uploaded ?? 0} sales, +${data.Chargebacks?.uploaded ?? 0} chargebacks`)
       }
       setPullResult(parts.join(' · '))
+      load()
     } catch (e) { setError(e.message) } finally { setPulling(false) }
   }
 
@@ -115,6 +127,7 @@ export default function AuditTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'QA failed')
       setQa(data)
+      load()
     } catch (e) { setError(e.message) } finally { setQaRunning(false) }
   }
 
@@ -131,6 +144,7 @@ export default function AuditTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Sync failed')
       setSync(data)
+      load()
     } catch (e) { setError(e.message) } finally { setSyncing(false) }
   }
 
@@ -171,6 +185,16 @@ export default function AuditTab() {
           {syncing ? 'Updating fan data…' : 'Update Fan Data'}
         </button>
       </div>
+
+      {/* Last-run stamps for the selected creator (stored on her record) */}
+      {selected && (
+        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <span>Sales & chargebacks: <b style={{ color: 'var(--foreground)' }}>{fmtRun(selected.runs?.sales)}</b></span>
+          <span>Audit: <b style={{ color: 'var(--foreground)' }}>{fmtRun(selected.runs?.audit)}</b></span>
+          <span>Fan data: <b style={{ color: 'var(--foreground)' }}>{fmtRun(selected.runs?.fanData)}</b></span>
+          <span>Chatter QA: <b style={{ color: 'var(--foreground)' }}>{fmtRun(selected.runs?.qa)}</b></span>
+        </div>
+      )}
 
       {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}

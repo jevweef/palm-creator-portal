@@ -7,6 +7,7 @@ import {
   txnFingerprint, insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, utcToEtDate,
   mapType, stripHtmlText, fetchRevenueAccountNames,
 } from '@/lib/transactionsSheet'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -139,6 +140,7 @@ export async function POST(request) {
     // coverage chart + Ed's freshness checks reflect API pulls too.
     await updateCoverage(accountName, results)
 
+    await stampWhaleRun(creatorRecordId, 'sales')
     return NextResponse.json({ ok: true, creator: cf.AKA || cf.Creator, accountName, ...results })
   } catch (err) {
     console.error('[pull-transactions] Error:', err.message)
