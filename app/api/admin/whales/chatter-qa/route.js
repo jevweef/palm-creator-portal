@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { ofApi, fetchChatHistory } from '@/lib/onlyfansApi'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -137,6 +138,7 @@ Empty array if nothing is genuinely bad.`
       findings = JSON.parse(m ? m[0] : '[]')
     } catch { findings = [] }
 
+    await stampWhaleRun(creatorRecordId, 'qa')
     return NextResponse.json({
       ok: true,
       creator: cf.AKA || cf.Creator,

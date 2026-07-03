@@ -3,6 +3,7 @@ import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { ofApi } from '@/lib/onlyfansApi'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox } from '@/lib/dropbox'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -110,6 +111,7 @@ export async function POST(request) {
       }))
       .sort((a, b) => (b.total || 0) - (a.total || 0))
 
+    await stampWhaleRun(creatorRecordId, 'fanData')
     return NextResponse.json({
       ok: true,
       creator: cf.AKA || cf.Creator,
