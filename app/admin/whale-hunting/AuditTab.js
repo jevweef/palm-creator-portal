@@ -24,6 +24,7 @@ const SEV_COLORS = { low: '#E8C878', medium: '#E88C5C', high: '#E87878' }
 export default function AuditTab() {
   const [creators, setCreators] = useState([])
   const [watchlist, setWatchlist] = useState([])
+  const [showAllWatchlist, setShowAllWatchlist] = useState(false)
   const [creatorId, setCreatorId] = useState('')
   const [loading, setLoading] = useState(true)
   const [audit, setAudit] = useState(null)
@@ -50,6 +51,7 @@ export default function AuditTab() {
   useEffect(() => { load() }, [load])
 
   const selected = creators.find((c) => c.id === creatorId)
+  const visibleWatchlist = showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)
 
   async function runAudit() {
     setAuditing(true); setError(null); setAudit(null)
@@ -181,18 +183,28 @@ export default function AuditTab() {
         </div>
       )}
 
-      {/* Watchlist */}
+      {/* Watchlist — follows the selected creator; toggle to see everyone */}
       <div style={card}>
-        <h2 style={h2}>Watchlist — fans in play ({watchlist.length})</h2>
-        {watchlist.length === 0 ? (
-          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Nothing flagged. Run an audit to scan a creator.</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h2 style={h2}>
+            Watchlist — {showAllWatchlist ? 'all creators' : (selected?.aka || 'this creator')} ({visibleWatchlist.length})
+          </h2>
+          <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '12px' }}>
+            <input type="checkbox" checked={showAllWatchlist} onChange={(e) => setShowAllWatchlist(e.target.checked)} />
+            show all creators
+          </label>
+        </div>
+        {visibleWatchlist.length === 0 ? (
+          <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
+            {showAllWatchlist ? 'Nothing flagged anywhere. Run an audit to scan a creator.' : `Nothing flagged for ${selected?.aka || 'this creator'} yet — run an audit, or tick "show all creators".`}
+          </div>
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
               <th style={{ padding: '4px 8px' }}>Fan</th><th>Creator</th><th>Status</th><th>Lifetime</th><th>Alerts</th><th>Last result</th><th></th>
             </tr></thead>
             <tbody>
-              {watchlist.map((w) => (
+              {visibleWatchlist.map((w) => (
                 <tr key={w.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
                   <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
                   <td>{w.creator}</td>
