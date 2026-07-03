@@ -5,7 +5,8 @@
 // first). Rendered as the first tab of /admin/whale-hunting.
 //
 // Sections:
-//  1. Creator picker (connected = has 'OF API Account ID')
+//  1. Creator picker — Run Audit works for anyone with sheet data;
+//     Chatter QA / Update Fan Data need the OF API connection
 //  2. Run Audit — transactions → per-fan personalized cadence → tier flags
 //  3. Run Chatter QA — recent chatter-sent messages judged against her voice
 //  4. Watchlist — Fan Tracker rows still in play (deep-links to Fans panel)
@@ -122,14 +123,14 @@ export default function AuditTab() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={runAudit} disabled={auditing || !selected?.connected} style={btn('rgba(125, 211, 164, 0.12)', '#7DD3A4', auditing || !selected?.connected)}>
-          {auditing ? 'Auditing… (~1 min)' : 'Run Audit'}
+        <button onClick={runAudit} disabled={auditing} style={btn('rgba(125, 211, 164, 0.12)', '#7DD3A4', auditing)}>
+          {auditing ? 'Auditing…' : 'Run Audit'}
         </button>
         <button onClick={runQa} disabled={qaRunning || !selected?.connected} style={btn('rgba(196, 165, 247, 0.12)', '#A06FE8', qaRunning || !selected?.connected)}>
           {qaRunning ? 'Reviewing chats…' : 'Run Chatter QA'}
         </button>
         <button onClick={runSync} disabled={syncing || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', syncing || !selected?.connected)}>
-          {syncing ? 'Syncing archive…' : 'Sync Archive'}
+          {syncing ? 'Updating fan data…' : 'Update Fan Data'}
         </button>
       </div>
 
@@ -142,7 +143,7 @@ export default function AuditTab() {
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
             {audit.transactions} transactions · {audit.fansWithSpend} paying fans · {audit.fansOverMinimum} over minimum ·
             flagged {audit.triggered.length} · tracker: +{audit.tracker.created} new, {audit.tracker.updated} updated ·
-            {audit.exportCredits != null ? ` ${audit.exportCredits} credits` : ''}
+            {audit.source ? ` source: ${audit.source}` : ''}
           </div>
           {audit.triggered.length > 0 && (
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginBottom: '14px' }}>
@@ -207,11 +208,9 @@ export default function AuditTab() {
       {/* Archive sync + rebill-off alerts */}
       {sync && (
         <div style={card}>
-          <h2 style={h2}>Archive — {sync.creator}</h2>
+          <h2 style={h2}>Fan Data — {sync.creator}</h2>
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
-            transactions: +{sync.archive?.transactions?.added ?? 0} new ({sync.archive?.transactions?.archived ?? 0} already archived) ·
-            chargebacks: +{sync.archive?.chargebacks?.added ?? 0} · {sync.fanCount} active fans snapshotted ·
-            saved to Dropbox {sync.archivePath}
+            {sync.fanCount} active fans snapshotted (spend, sub price, auto-renew, last seen) · saved to Dropbox {sync.archivePath}
           </div>
           <h2 style={{ ...h2, marginTop: '6px' }}>Rebill OFF — save these subs ({sync.rebillOff?.length ?? 0})</h2>
           {(sync.rebillOff || []).length === 0 ? (

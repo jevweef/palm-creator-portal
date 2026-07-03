@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { ofApi, createDataExport, waitForDataExport, downloadExportCsv } from '@/lib/onlyfansApi'
+import { sheetsClient, readTabRows, fetchRevenueAccountNames } from '@/lib/transactionsSheet'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -10,11 +10,12 @@ const FAN_TRACKER = 'Fan Tracker'
 
 // POST — "Run audit" for one creator. Button-triggered (no cron, per Evan).
 //
-// Pulls the creator's transactions from the OF API (bulk export — the polite,
-// cheap path: 1 credit / 20 rows), computes each fan's PERSONAL spending
-// cadence, and flags fans falling off their own rhythm (not a fixed day-count).
+// Reads the creator's transactions from the SAME Google Sheet the invoice
+// pipeline uses (one data source — filled by the HTML upload or the OF API
+// pull on the invoicing page), computes each fan's PERSONAL spending cadence,
+// and flags fans falling off their own rhythm (not a fixed day-count).
 // Upserts flagged fans into Fan Tracker so the existing whale flow (alerts,
-// analyses, Wendy) picks them up.
+// analyses, Wendy) picks them up. Zero OF-API credits per audit.
 //
 // Body: { creatorRecordId, days?=365, minLifetime?=100 }
 // Tiers (personalized): gapRatio = daysSinceLastPurchase / medianGap
@@ -31,43 +32,44 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const accountId = cf['OF API Account ID']
-    if (!accountId) {
-      return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
+    // No OF-API connection required — the audit reads the sheet, which the
+    // HTML upload fills for unconnected creators too.
+
+    // ── 1) Read transactions from the sheet (the single data source) ─────────
+    const sheets = sheetsClient()
+    const accountNames = await fetchRevenueAccountNames(cf.AKA || cf.Creator)
+    const tabs = accountNames.length ? accountNames.map((a) => `${a} - Sales`) : [`${cf.AKA || cf.Creator} - Sales`]
+    const cutoffDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    let txns = []
+    for (const tab of tabs) {
+      const rows = await readTabRows(sheets, tab)
+      txns = txns.concat(rows)
+    }
+    txns = txns.filter((t) => t.dateTime && t.dateTime.slice(0, 10) >= cutoffDate)
+    if (!txns.length) {
+      return NextResponse.json({ error: `No transaction data on the sheet for ${cf.AKA || cf.Creator} (tabs: ${tabs.join(', ')}). Pull from OF on the Invoicing → Raw Data Upload page first.` }, { status: 404 })
     }
 
-    // ── 1) Bulk-pull transactions ────────────────────────────────────────────
-    const end = new Date()
-    const start = new Date(end.getTime() - days * 86400000)
-    const exp = await createDataExport({
-      type: 'transactions',
-      accountIds: [accountId],
-      startDate: start.toISOString().slice(0, 10) + 'T00:00:00Z',
-      endDate: end.toISOString().slice(0, 19) + 'Z',
-    })
-    const done = await waitForDataExport(exp.id)
-    const csv = await downloadExportCsv(done)
-    const txns = parseCsv(csv)
-
     // ── 2) Per-fan cadence ───────────────────────────────────────────────────
-    // Real purchases only: completed, positive net. Subscriptions count toward
-    // lifetime but NOT cadence (renewals are passive).
+    // Real purchases only: positive net, not chargebacks. Subscriptions count
+    // toward lifetime but NOT cadence (renewals are passive). Fans keyed by
+    // OF username (stable) falling back to display name; fan_id (col J) rides
+    // along when the row came from an API pull.
     const byFan = {}
     for (const t of txns) {
-      const fanId = t.fan_id
-      if (!fanId) continue
-      const status = (t.status || '').toLowerCase()
-      if (status && status !== 'done') continue
-      const net = parseFloat(t.net_amount || '0') || 0
+      const key = (t.ofUsername || t.displayName || '').trim()
+      if (!key) continue
+      if (/chargeback/i.test(t.type || '')) continue
+      const net = t.net || 0
       if (net <= 0) continue
       const isSub = /subscription/i.test(t.type || '')
-      const date = (t.onlyfans_created_at || '').slice(0, 10)
-      if (!date) continue
-      const f = (byFan[fanId] ||= { fanId, lifetime: 0, purchases: [], name: '' })
+      const date = t.dateTime.slice(0, 10)
+      const f = (byFan[key] ||= { fanId: '', lifetime: 0, purchases: [], name: '', username: '' })
       f.lifetime += net
       if (!isSub) f.purchases.push({ date, net })
-      const nameMatch = (t.description || '').match(/from\s+(?:<a[^>]*>)?([^<]+)/i)
-      if (nameMatch && !f.name) f.name = nameMatch[1].trim()
+      if (!f.name && t.displayName) f.name = t.displayName
+      if (!f.username && t.ofUsername) f.username = t.ofUsername
+      if (!f.fanId && t.fanId) f.fanId = t.fanId
     }
 
     const now = Date.now()
@@ -105,8 +107,9 @@ export async function POST(request) {
       }
 
       results.push({
-        fanId: f.fanId,
-        fanName: f.name || `fan ${f.fanId}`,
+        fanId: f.fanId || null,
+        ofUsername: f.username || '',
+        fanName: f.name || f.username || 'unknown fan',
         lifetime: +f.lifetime.toFixed(2),
         purchases: dates.length,
         medianGap,
@@ -121,22 +124,7 @@ export async function POST(request) {
     results.sort((a, b) => b.lifetime - a.lifetime)
     const triggered = results.filter((r) => r.tier && r.tier !== 'dead')
 
-    // ── 3) Resolve usernames for triggered fans (mass endpoint, 10/call) ────
-    const idsToResolve = triggered.map((t) => t.fanId).slice(0, 50)
-    const userMap = {}
-    for (let i = 0; i < idsToResolve.length; i += 10) {
-      try {
-        const json = await ofApi(`/${accountId}/users/list?ids=${idsToResolve.slice(i, i + 10).join(',')}`)
-        const users = json?.data ?? json ?? []
-        for (const u of Array.isArray(users) ? users : Object.values(users)) {
-          if (u?.id) userMap[String(u.id)] = { username: u.username || '', name: u.name || '' }
-        }
-      } catch { /* names stay as description-derived */ }
-    }
-    for (const t of triggered) {
-      const u = userMap[String(t.fanId)]
-      if (u) { t.ofUsername = u.username; if (u.name) t.fanName = u.name }
-    }
+    // Usernames come straight from the sheet (col G) — no API lookups needed.
 
     // ── 4) Upsert triggered fans into Fan Tracker ────────────────────────────
     // Linked-record filter caveat: can't formula-match the Creator link — fetch
@@ -182,7 +170,7 @@ export async function POST(request) {
       topSpenders: results.slice(0, 25),
       triggered,
       tracker: { created, updated },
-      exportCredits: done.credit_cost ?? null,
+      source: `sheet (${tabs.join(', ')})`,
     })
   } catch (err) {
     console.error('[whales/audit] Error:', err.message)
@@ -190,30 +178,3 @@ export async function POST(request) {
   }
 }
 
-// Minimal CSV parser (quoted fields, commas inside quotes).
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim())
-  if (!lines.length) return []
-  const parseLine = (line) => {
-    const out = []
-    let cur = ''
-    let q = false
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i]
-      if (q) {
-        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++ }
-        else if (c === '"') q = false
-        else cur += c
-      } else if (c === '"') q = true
-      else if (c === ',') { out.push(cur); cur = '' }
-      else cur += c
-    }
-    out.push(cur)
-    return out
-  }
-  const headers = parseLine(lines[0])
-  return lines.slice(1).map((l) => {
-    const vals = parseLine(l)
-    return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? '']))
-  })
-}
