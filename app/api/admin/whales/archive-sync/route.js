@@ -1,25 +1,21 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { ofApi, createDataExport, waitForDataExport, downloadExportCsv } from '@/lib/onlyfansApi'
+import { ofApi } from '@/lib/onlyfansApi'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox } from '@/lib/dropbox'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-// POST — Archive sync for one creator. STRICTLY ADDITIVE:
-//   - Never touches the Google Sheet (the invoice pipeline).
-//   - Never touches the invoicing page or Revenue Accounts coverage fields.
-//   - Only APPENDS to its own archive files on Dropbox:
-//       /Palm Ops/OF Archive/<creator>/transactions.csv   (fan_id-keyed, full API columns)
-//       /Palm Ops/OF Archive/<creator>/chargebacks.csv
-//       /Palm Ops/OF Archive/<creator>/fans.json          (latest fan snapshot w/ rebill)
-//       /Palm Ops/OF Archive/<creator>/fans-prev.json     (previous snapshot, for diffs)
-//   - Dedup by the transaction's own onlyfans_id — re-runs can never double-add,
-//     and existing rows are never rewritten or removed.
+// POST — "Update Fan Data" for one creator. Snapshots every active fan
+// (spend totals, sub price, auto-renew state, last seen) to Dropbox:
+//   /Palm Ops/OF Archive/<creator>/fans.json       (latest snapshot)
+//   /Palm Ops/OF Archive/<creator>/fans-prev.json  (previous, for diffs)
+// and returns REBILL-OFF alerts: fans with auto-renew off + real lifetime
+// spend — the "decided to leave but hasn't left yet" save list.
 //
-// Also returns REBILL-OFF alerts: fans set to expire (auto-renew off) with real
-// lifetime spend — the "decided to leave but hasn't left yet" list.
+// Transaction data is NOT handled here — it lives in ONE place, the invoice
+// sheet (HTML upload or the OF API pull on Invoicing → Raw Data Upload).
 //
 // Body: { creatorRecordId, minSpendForAlert?=50 }
 export async function POST(request) {
@@ -47,68 +43,12 @@ export async function POST(request) {
       try { return await downloadFromDropbox(accessToken, rootNs, path) } catch { return null }
     }
 
-    // ── 1) Transactions + chargebacks: incremental, dedup by onlyfans_id ────
+    // Transactions now live in ONE place — the invoice sheet (filled by the
+    // HTML upload or the OF API pull on the invoicing page). This route only
+    // maintains FAN data: snapshot + rebill-off alerts.
     const summary = {}
-    for (const type of ['transactions', 'chargebacks']) {
-      const path = `${dir}/${type}.csv`
-      const existingRaw = await readFile(path)
-      const existing = existingRaw ? String(existingRaw) : null
-      const knownIds = new Set()
-      let latestTs = null
-      let header = null
-      if (existing) {
-        const lines = existing.split(/\r?\n/).filter((l) => l.trim())
-        header = lines[0]
-        const idIdx = header.split(',').indexOf('onlyfans_id')
-        const tsIdx = header.split(',').findIndex((h) => h.includes('created_at'))
-        for (const l of lines.slice(1)) {
-          const cols = splitCsvLine(l)
-          if (cols[idIdx]) knownIds.add(cols[idIdx])
-          const ts = cols[tsIdx]
-          if (ts && (!latestTs || ts > latestTs)) latestTs = ts
-        }
-      }
-      // Window: since last archived timestamp (minus 3d overlap for stragglers),
-      // or a full year on first run. API timestamps are UTC.
-      const end = new Date()
-      const start = latestTs
-        ? new Date(new Date(latestTs.replace(' ', 'T') + 'Z').getTime() - 3 * 86400000)
-        : new Date(end.getTime() - 365 * 86400000)
-      const exp = await createDataExport({
-        type,
-        accountIds: [accountId],
-        startDate: start.toISOString().slice(0, 10) + 'T00:00:00Z',
-        endDate: end.toISOString().slice(0, 19) + 'Z',
-      })
-      const doneExp = await waitForDataExport(exp.id)
-      const csv = await downloadExportCsv(doneExp)
-      const lines = csv.split(/\r?\n/).filter((l) => l.trim())
-      if (!header) header = lines[0]
-      const newHeader = lines[0]
-      const idIdx = newHeader.split(',').indexOf('onlyfans_id')
-      const fresh = lines.slice(1).filter((l) => {
-        const id = splitCsvLine(l)[idIdx]
-        return id && !knownIds.has(id)
-      })
-      // Guard: if the API's column order ever changes, appending misaligned
-      // rows would corrupt the archive. Divert to a versioned sidecar instead.
-      let targetPath = path
-      let mergedExisting = existing
-      if (existing && header && newHeader !== header) {
-        targetPath = path.replace(/\.csv$/, `-v${newHeader.split(',').length}cols.csv`)
-        const sidecar = await readFile(targetPath)
-        mergedExisting = sidecar ? String(sidecar) : null
-        console.warn(`[archive-sync] export header changed — appending to ${targetPath}`)
-      }
-      // APPEND-ONLY: existing content is preserved verbatim; new rows added.
-      const merged = mergedExisting
-        ? mergedExisting.replace(/\n+$/, '') + (fresh.length ? '\n' + fresh.join('\n') : '') + '\n'
-        : newHeader + '\n' + lines.slice(1).join('\n') + '\n'
-      await uploadToDropbox(accessToken, rootNs, targetPath, Buffer.from(merged, 'utf8'), { overwrite: true })
-      summary[type] = { archived: existing ? knownIds.size : 0, added: existing ? fresh.length : lines.length - 1, credits: doneExp.credit_cost ?? null }
-    }
 
-    // ── 2) Fan snapshot (rebill status, totals) ──────────────────────────────
+    // ── Fan snapshot (rebill status, totals) ──────────────────────────────
     const fans = []
     let offset = 0
     for (let page = 0; page < 50; page++) {
@@ -185,20 +125,3 @@ export async function POST(request) {
   }
 }
 
-function splitCsvLine(line) {
-  const out = []
-  let cur = ''
-  let q = false
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i]
-    if (q) {
-      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++ }
-      else if (c === '"') q = false
-      else cur += c
-    } else if (c === '"') q = true
-    else if (c === ',') { out.push(cur); cur = '' }
-    else cur += c
-  }
-  out.push(cur)
-  return out
-}

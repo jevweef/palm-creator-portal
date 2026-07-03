@@ -316,6 +316,9 @@ export default function RawDataUpload() {
   const [coverageLoading, setCoverageLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
   const [uploadModal, setUploadModal] = useState(null) // { accountName, dataType }
+  const [ofConnected, setOfConnected] = useState([])   // creators connected to the OF API
+  const [ofPulling, setOfPulling] = useState(null)     // accountName currently pulling
+  const [ofResult, setOfResult] = useState(null)
   const fileRef = useRef(null)
 
   const loadCutoffs = useCallback(async () => {
@@ -343,6 +346,32 @@ export default function RawDataUpload() {
   }, [])
 
   useEffect(() => { loadCutoffs(); loadCoverage() }, [loadCutoffs, loadCoverage])
+
+  // OF API-connected creators (for the one-click pull that replaces HTML uploads)
+  useEffect(() => {
+    fetch('/api/admin/invoicing/pull-transactions')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.connected) setOfConnected(d.connected) })
+      .catch(() => {})
+  }, [])
+
+  // Pull earnings + chargebacks straight from the OF API into the same sheet
+  // tabs (same format + dedup as the HTML upload — invoicing sees no difference).
+  async function handleOfPull(creatorRecordId, accountName) {
+    setOfPulling(accountName)
+    setOfResult(null)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/invoicing/pull-transactions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorRecordId, accountName }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Pull failed')
+      setOfResult(data)
+      loadCutoffs(); loadCoverage()
+    } catch (e) { setError(e.message) } finally { setOfPulling(null) }
+  }
 
   async function handleUpload() {
     if (!file) return
@@ -392,6 +421,28 @@ export default function RawDataUpload() {
   return (
     <div>
       {/* Data coverage timeline — full width */}
+      {/* One-click OF API pull — replaces the HTML upload for connected accounts */}
+      {ofConnected.length > 0 && (
+        <div style={{ background: 'var(--card-bg-solid)', borderRadius: '14px', border: '1px solid rgba(120,180,232,0.25)', padding: '16px 20px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#78B4E8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            Pull from OF — no HTML needed
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {ofConnected.flatMap(c => c.accounts.map(acct => (
+              <button key={acct} onClick={() => handleOfPull(c.creatorRecordId, acct)} disabled={!!ofPulling}
+                style={{ background: 'rgba(120,180,232,0.10)', color: '#78B4E8', border: '1px solid rgba(120,180,232,0.35)', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: ofPulling ? 'not-allowed' : 'pointer', opacity: ofPulling === acct ? 0.6 : 1 }}>
+                {ofPulling === acct ? 'Pulling…' : `⟳ ${acct}`}
+              </button>
+            )))}
+          </div>
+          {ofResult && (
+            <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+              ✓ {ofResult.accountName}: {ofResult.Sales?.uploaded ?? 0} new sales ({ofResult.Sales?.skipped ?? 0} already there) · {ofResult.Chargebacks?.uploaded ?? 0} new chargebacks — same tabs, same format, invoices unaffected.
+            </div>
+          )}
+        </div>
+      )}
+
       <DataCoverageChart creators={coverageAccounts} loading={coverageLoading} onBarClick={(accountName, type) => setUploadModal({ accountName, dataType: type })} />
 
       {/* Header */}
