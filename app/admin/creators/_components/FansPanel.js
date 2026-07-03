@@ -1305,14 +1305,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
               {/* Pull the conversation straight from OF (read-only API) —
                   replaces the scroll → save HTML → upload dance. */}
-              <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
                 style={{
                   background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
                   cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                 }}>
                 {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
-              </button>
+              </button>}
               {ofPull && !chatFile && (
                 <>
                   <span style={{ fontSize: '11px', color: '#A06FE8' }}>
@@ -1341,7 +1341,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               )}
 
               {/* Re-analyze from Dropbox transcript */}
-              {!chatFile && f.analysisRecords?.length > 0 && (
+              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
                 <>
                   <button onClick={() => handleAnalyze(true)} disabled={analyzing}
                     style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
