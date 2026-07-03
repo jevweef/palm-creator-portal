@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import AuditTab from './AuditTab'
 
 export default function WhaleHuntingPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const [tab, setTab] = useState('internal')
+  const [tab, setTab] = useState('audit')
 
   // Read tab from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
-    if (t === 'internal' || t === 'team') setTab(t)
+    if (t === 'audit' || t === 'internal' || t === 'team') setTab(t)
   }, [])
 
   function switchTab(key) {
@@ -32,6 +33,7 @@ export default function WhaleHuntingPage() {
       {/* Tab headers */}
       <div style={{ display: 'flex', gap: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' }}>
         {[
+          { key: 'audit', label: 'Live Audit' },
           { key: 'internal', label: 'Palm Internal' },
           { key: 'team', label: 'Chat Team Report' },
         ].map(t => (
@@ -48,6 +50,7 @@ export default function WhaleHuntingPage() {
         ))}
       </div>
 
+      {tab === 'audit' && <AuditTab />}
       {tab === 'internal' && <PalmInternalTab />}
       {tab === 'team' && <ChatTeamTab />}
     </div>

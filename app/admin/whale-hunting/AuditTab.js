@@ -1,8 +1,8 @@
 'use client'
 
-// Whale dashboard — the daily check-in for fan spending health + chatter QA.
+// Live Audit tab — the daily check-in for fan spending health + chatter QA.
 // Button-triggered everything (no crons yet, per Evan — we train the triggers
-// first). Reachable at /admin/whales.
+// first). Rendered as the first tab of /admin/whale-hunting.
 //
 // Sections:
 //  1. Creator picker (connected = has 'OF API Account ID')
@@ -21,7 +21,7 @@ const TIER_COLORS = {
 }
 const SEV_COLORS = { low: '#E8C878', medium: '#E88C5C', high: '#E87878' }
 
-export default function WhalesPage() {
+export default function AuditTab() {
   const [creators, setCreators] = useState([])
   const [watchlist, setWatchlist] = useState([])
   const [creatorId, setCreatorId] = useState('')
@@ -88,9 +88,8 @@ export default function WhalesPage() {
   if (loading) return <div style={{ padding: '40px', color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading whale dashboard…</div>
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
+    <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Whale Hunting</h1>
         <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setAudit(null); setQa(null) }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           {creators.map((c) => (
