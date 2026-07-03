@@ -34,6 +34,9 @@ export default function AuditTab() {
   const [qaRunning, setQaRunning] = useState(false)
   const [sync, setSync] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const [ofAccounts, setOfAccounts] = useState({}) // creatorRecordId -> [accountName]
+  const [pulling, setPulling] = useState(false)
+  const [pullResult, setPullResult] = useState(null)
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -53,8 +56,40 @@ export default function AuditTab() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // Revenue accounts per connected creator (for the transactions pull)
+  useEffect(() => {
+    fetch('/api/admin/invoicing/pull-transactions')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.connected) setOfAccounts(Object.fromEntries(d.connected.map(c => [c.creatorRecordId, c.accounts])))
+      })
+      .catch(() => {})
+  }, [])
+
   const selected = creators.find((c) => c.id === creatorId)
   const visibleWatchlist = showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)
+
+  // Update Sales & Chargebacks — pulls new transactions from the OF API into
+  // the SAME invoice sheet tabs (same as the Invoicing page button). This is
+  // the "make the data current" step; the audit then reads that sheet.
+  async function runPull() {
+    setPulling(true); setError(null); setPullResult(null)
+    try {
+      const accounts = ofAccounts[creatorId] || []
+      if (!accounts.length) throw new Error('No revenue accounts found for this creator')
+      const parts = []
+      for (const accountName of accounts) {
+        const res = await fetch('/api/admin/invoicing/pull-transactions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorRecordId: creatorId, accountName }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || `Pull failed for ${accountName}`)
+        parts.push(`${accountName}: +${data.Sales?.uploaded ?? 0} sales, +${data.Chargebacks?.uploaded ?? 0} chargebacks`)
+      }
+      setPullResult(parts.join(' · '))
+    } catch (e) { setError(e.message) } finally { setPulling(false) }
+  }
 
   async function runAudit() {
     setAuditing(true); setError(null); setAudit(null)
@@ -123,6 +158,9 @@ export default function AuditTab() {
           </span>
         )}
         <div style={{ flex: 1 }} />
+        <button onClick={runPull} disabled={pulling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', pulling || !selected?.connected)}>
+          {pulling ? 'Updating…' : 'Update Sales & Chargebacks'}
+        </button>
         <button onClick={runAudit} disabled={auditing} style={btn('rgba(125, 211, 164, 0.12)', '#7DD3A4', auditing)}>
           {auditing ? 'Auditing…' : 'Run Audit'}
         </button>
@@ -134,6 +172,7 @@ export default function AuditTab() {
         </button>
       </div>
 
+      {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
 
       {/* Audit results */}
