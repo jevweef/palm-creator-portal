@@ -42,10 +42,10 @@ export default function AuditTab() {
       if (res.ok) {
         setCreators(data.creators || [])
         setWatchlist(data.watchlist || [])
-        if (!creatorId) {
-          const first = (data.creators || []).find((c) => c.connected)
-          if (first) setCreatorId(first.id)
-        }
+        // Functional update — avoids the stale-closure reset that snapped the
+        // picker back to the first creator after every audit.
+        const first = (data.creators || []).find((c) => c.connected)
+        if (first) setCreatorId((prev) => prev || first.id)
       }
     } finally { setLoading(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -90,11 +90,21 @@ export async function POST(request) {
         const id = splitCsvLine(l)[idIdx]
         return id && !knownIds.has(id)
       })
+      // Guard: if the API's column order ever changes, appending misaligned
+      // rows would corrupt the archive. Divert to a versioned sidecar instead.
+      let targetPath = path
+      let mergedExisting = existing
+      if (existing && header && newHeader !== header) {
+        targetPath = path.replace(/\.csv$/, `-v${newHeader.split(',').length}cols.csv`)
+        const sidecar = await readFile(targetPath)
+        mergedExisting = sidecar ? String(sidecar) : null
+        console.warn(`[archive-sync] export header changed — appending to ${targetPath}`)
+      }
       // APPEND-ONLY: existing content is preserved verbatim; new rows added.
-      const merged = existing
-        ? existing.replace(/\n+$/, '') + (fresh.length ? '\n' + fresh.join('\n') : '') + '\n'
+      const merged = mergedExisting
+        ? mergedExisting.replace(/\n+$/, '') + (fresh.length ? '\n' + fresh.join('\n') : '') + '\n'
         : newHeader + '\n' + lines.slice(1).join('\n') + '\n'
-      await uploadToDropbox(accessToken, rootNs, path, Buffer.from(merged, 'utf8'), { overwrite: true })
+      await uploadToDropbox(accessToken, rootNs, targetPath, Buffer.from(merged, 'utf8'), { overwrite: true })
       summary[type] = { archived: existing ? knownIds.size : 0, added: existing ? fresh.length : lines.length - 1, credits: doneExp.credit_cost ?? null }
     }
 
@@ -136,6 +146,7 @@ export async function POST(request) {
       if (arr.length < 20) break
       offset += 20
     }
+    const fansCapped = fans.length >= 1000
 
     // Rotate snapshots: current → prev, new → current (nothing deleted).
     const prevRaw = await readFile(`${dir}/fans.json`)
@@ -164,6 +175,7 @@ export async function POST(request) {
       creator: cf.AKA || cf.Creator,
       archive: summary,
       fanCount: fans.length,
+      fansCapped,
       rebillOff,
       archivePath: dir,
     })
