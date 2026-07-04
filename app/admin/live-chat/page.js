@@ -66,6 +66,16 @@ export default function LiveChatPage() {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
   }, [thread.length, fan])
 
+  const fmtListTime = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d)) return ''
+    const today = new Date().toDateString() === d.toDateString()
+    return today
+      ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'America/New_York' })
+  }
+
   const fmtT = (iso) => {
     const d = new Date(iso)
     return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
@@ -112,8 +122,11 @@ export default function LiveChatPage() {
                     {(c.name || c.fan).slice(0, 1).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.name || c.fan} {isLive && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>● live</span>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'baseline' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.name || c.fan} {isLive && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>●</span>}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0 }}>{fmtListTime(c.lastAt)}</div>
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {c.lastText || (c.archived ? 'archived history' : '')}
