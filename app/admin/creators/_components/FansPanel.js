@@ -617,11 +617,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
-        <span>{f.alertStatus !== 'None' && (
+        <span>{(f.heatStatus === 'Going Cold' && urgency) ? (
+          <span style={{ background: (URGENCY_COLORS[urgency] || {}).bg, color: (URGENCY_COLORS[urgency] || {}).text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' }}>
+            {urgency}
+          </span>
+        ) : f.alertStatus !== 'None' && (
           <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
-            {f.alertStatus === 'Alert Triggered' && urgency
-              ? `${urgency.toUpperCase()}`
-              : f.alertStatus}
+            {f.alertStatus}
           </span>
         )}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeSpend)}</span>
@@ -1794,7 +1796,7 @@ const URGENCY_COLORS = {
   warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' },
 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan, focusNonce }) {
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan, focusNonce, auditTiers }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -1849,7 +1851,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   }
 
   // Build comprehensive fan list from allTxns + CRM data + going cold alerts
-  const allFans = useMemo(() => {
+  const allFansBase = useMemo(() => {
     const fanMap = new Map() // keyed by ofUsername or displayName
     const fanTxnMap = new Map() // accumulate per-fan transactions for heat computation
 
@@ -2012,6 +2014,35 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       })
   }, [allTxns, crmData, goingColdAlerts])
 
+  // ── ONE BRAIN: when the whale audit has a verdict for a fan, it OVERRIDES
+  // the CRM's own heat math — the Save List above and this list must never
+  // disagree (Evan, 2026-07-04). Fans the audit didn't flag show as plain
+  // history (no competing 'Going Cold'/'Dead' from the legacy detectors).
+  const allFans = useMemo(() => {
+    if (!auditTiers || !Object.keys(auditTiers).length) return allFansBase
+    return allFansBase.map((f) => {
+      const cad = auditTiers[(f.ofUsername || f.fanName || '').toLowerCase()]
+      if (!cad?.tier) {
+        return (f.heatStatus === 'Going Cold' || f.heatStatus === 'Dead')
+          ? { ...f, heatStatus: 'Stable', heatDetail: null, goingCold: null }
+          : f
+      }
+      const detail = {
+        reason: cad.medianGap ? `buys every ~${cad.medianGap}d — silent ${cad.currentGap}d (${cad.gapRatio}×)` : `silent ${cad.currentGap ?? '—'}d`,
+        currentGap: cad.currentGap, medianGap: cad.medianGap,
+        rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90,
+        lastPurchase: cad.lastPurchaseDate,
+      }
+      if (cad.tier === 'dead') return { ...f, heatStatus: 'Dead', goingCold: null, heatDetail: detail }
+      return {
+        ...f,
+        heatStatus: 'Going Cold',
+        goingCold: { ...(f.goingCold || {}), urgency: cad.tier, medianGap: cad.medianGap, currentGap: cad.currentGap, rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90, lastPurchaseDate: cad.lastPurchaseDate },
+        heatDetail: detail,
+      }
+    })
+  }, [allFansBase, auditTiers])
+
   const alertStatusColors = ALERT_STATUS_COLORS
 
   const effectColors = {
@@ -2134,7 +2165,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
           <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
             {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0) > 0 && (
-              <span style={{ color: '#E87878', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
+              <span style={{ color: '#E87878', fontWeight: 600 }}> &middot; {heatCounts['Going Cold'] || 0} need attention</span>
             )}
             {(heatCounts['Hot'] || 0) > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {heatCounts['Hot']} hot</span>}
           </p>

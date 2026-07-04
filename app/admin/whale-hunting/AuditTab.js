@@ -111,6 +111,27 @@ export default function AuditTab() {
   const selected = creators.find((c) => c.id === creatorId)
   const visibleWatchlist = showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)
 
+  // ── The Save List, one brain (the audit) ─────────────────────────────────
+  // URGENT: active fans off their own rhythm — sorted by tier, then by what
+  // they're worth per month (money at stake). DORMANT: $500+ whales gone
+  // 120d+ — revival targets, parked below.
+  const TIER_RANK = { critical: 0, high: 1, warning: 2 }
+  const isDormant = (w) => w.cadence?.tier === 'dead' || w.status === 'Dormant'
+  const urgentList = visibleWatchlist.filter((w) => !isDormant(w))
+    .sort((a, b) => ((TIER_RANK[a.cadence?.tier] ?? 3) - (TIER_RANK[b.cadence?.tier] ?? 3)) || ((b.cadence?.monthlyAvg90 || 0) - (a.cadence?.monthlyAvg90 || 0)))
+  const dormantList = visibleWatchlist.filter(isDormant).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
+  const atRiskMonthly = urgentList.reduce((sum, w) => sum + (w.cadence?.monthlyAvg90 || 0), 0)
+  const dormantLifetime = dormantList.reduce((sum, w) => sum + (w.lifetime || 0), 0)
+  const staleAlerts = urgentList.filter((w) => !w.lastAlert || (Date.now() - new Date(w.lastAlert)) / 86400000 > 30).length
+
+  // Audit verdicts per fan → the CRM below shows the SAME tiers (one brain)
+  const auditTiers = {}
+  for (const w of watchlist) {
+    if (w.creatorId !== creatorId) continue
+    const k = (w.ofUsername || w.fanName || '').toLowerCase()
+    if (k) auditTiers[k] = { ...(w.cadence || {}), tier: w.cadence?.tier || (w.status === 'Dormant' ? 'dead' : null) }
+  }
+
   // Fan CRM data for the selected creator — same endpoint the Creators page
   // used before the Fans tab moved here.
   useEffect(() => {
@@ -240,7 +261,7 @@ export default function AuditTab() {
   if (loading) return <div style={{ padding: '40px', color: 'var(--foreground-muted)', fontSize: '14px' }}>Loading whale dashboard…</div>
 
   return (
-    <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
+    <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
         <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); writeCreatorToUrl(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setBackfillResult(null); setError(null) }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
@@ -393,52 +414,62 @@ export default function AuditTab() {
         </div>
       )}
 
-      {/* Watchlist — follows the selected creator; toggle to see everyone */}
+      {/* ── Summary strip — the 10-second read ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+        {[
+          { label: 'At risk / month', value: `$${Math.round(atRiskMonthly).toLocaleString()}`, sub: 'what the urgent fans normally spend', color: '#E87878' },
+          { label: 'Urgent fans', value: urgentList.length, sub: 'off their own buying rhythm now', color: '#E8C878' },
+          { label: 'Dormant whales', value: dormantList.length, sub: `$${Math.round(dormantLifetime).toLocaleString()} lifetime parked`, color: '#A06FE8' },
+          { label: 'Need a fresh alert', value: staleAlerts, sub: 'no alert sent in 30+ days', color: staleAlerts ? '#E88C5C' : '#7DD3A4' },
+          { label: 'Data freshness', value: fmtRun(selected?.runs?.sales), sub: 'last sales & chargebacks pull', color: '#78B4E8' },
+        ].map((c) => (
+          <div key={c.label} style={{ ...card, padding: '14px 16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>{c.label}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: c.color, lineHeight: 1.1 }}>{c.value}</div>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '3px' }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── SAVE LIST — urgent: go get these fans back NOW ── */}
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h2 style={h2}>
-            Watchlist — {showAllWatchlist ? 'all creators' : (selected?.aka || 'this creator')} ({visibleWatchlist.length})
-          </h2>
+          <h2 style={h2}>Save List — {showAllWatchlist ? 'all creators' : (selected?.aka || '')} ({urgentList.length} urgent)</h2>
           <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '12px' }}>
             <input type="checkbox" checked={showAllWatchlist} onChange={(e) => setShowAllWatchlist(e.target.checked)} />
             show all creators
           </label>
         </div>
-        {visibleWatchlist.length === 0 ? (
+        {urgentList.length === 0 ? (
           <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
-            {showAllWatchlist ? 'Nothing flagged anywhere. Run an audit to scan a creator.' : `Nothing flagged for ${selected?.aka || 'this creator'} yet — run an audit, or tick "show all creators".`}
+            No one is falling off their rhythm right now. Run an audit after pulling fresh sales to re-check.
           </div>
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Status</th><th>Lifetime</th><th>Rhythm</th><th>Silent</th><th>30d</th><th>Last buy</th><th>Last alert</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th style={{ textAlign: 'right' }}>Worth / mo</th><th style={{ textAlign: 'right' }}>Last 30d</th><th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Last alert</th><th></th>
             </tr></thead>
             <tbody>
-              {visibleWatchlist.map((w) => {
+              {urgentList.map((w) => {
                 const cad = w.cadence
-                const sev = cad?.gapRatio >= 5 ? '#E87878' : cad?.gapRatio >= 3 ? '#E88C5C' : '#E8C878'
+                const tc = (cad?.tier && TIER_COLORS[cad.tier]) || { bg: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)' }
                 return (
                   <tr key={w.id} onClick={() => openFan(w)}
                     style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
+                    <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span></td>
+                    <td style={{ fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
                     {showAllWatchlist && <td>{w.creator}</td>}
-                    <td>{(() => {
-                      // Tier IS the status (how cold, per her own audit data).
-                      // "Alert Sent" is an action we took, not a fan state — it
-                      // lives in the Last alert column instead.
-                      const tc = cad?.tier && TIER_COLORS[cad.tier]
-                      if (tc) return <span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad.tier}</span>
-                      return <span style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>{w.status === 'Alert Sent' ? 'Going Cold' : w.status}</span>
-                    })()}</td>
-                    <td style={{ fontWeight: 600 }}>${Math.round(w.lifetime)}</td>
-                    <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap ? `every ~${cad.medianGap}d` : '—'}</td>
-                    <td>{cad ? <span style={{ color: sev, fontWeight: 600 }}>{cad.currentGap}d{cad.gapRatio ? ` (${cad.gapRatio}×)` : ''}</span> : '—'}</td>
-                    <td style={{ color: 'var(--foreground-muted)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
+                    <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap
+                      ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>
+                      : 'flagged manually — run the audit for rhythm data'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{cad?.monthlyAvg90 ? `$${Math.round(cad.monthlyAvg90)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--foreground-muted)' }}>${Math.round(w.lifetime).toLocaleString()}</td>
                     <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
                     <td style={{ fontSize: '11px' }}>{(() => {
-                      if (!w.lastAlert) return <span style={{ color: 'var(--foreground-muted)' }}>never</span>
+                      if (!w.lastAlert) return <span style={{ color: '#E88C5C' }}>never</span>
                       const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
                       const label = new Date(w.lastAlert).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                       return days > 30
@@ -454,6 +485,36 @@ export default function AuditTab() {
         )}
       </div>
 
+      {/* ── DORMANT WHALES — big lifetime, long gone; revival targets ── */}
+      {dormantList.length > 0 && (
+        <details style={{ ...card, padding: '14px 18px' }}>
+          <summary style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+            Dormant Whales ({dormantList.length}) — ${Math.round(dormantLifetime).toLocaleString()} lifetime, gone 120d+
+          </summary>
+          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '10px' }}>
+            <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
+              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Silent</th><th>Last alert</th><th></th>
+            </tr></thead>
+            <tbody>
+              {dormantList.map((w) => (
+                <tr key={w.id} onClick={() => openFan(w)}
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '7px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
+                  {showAllWatchlist && <td>{w.creator}</td>}
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>${Math.round(w.lifetime).toLocaleString()}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.cadence?.lastPurchaseDate || '—'}</td>
+                  <td style={{ color: 'var(--foreground-muted)' }}>{w.cadence?.currentGap ? `${w.cadence.currentGap}d` : '—'}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastAlert ? new Date(w.lastAlert).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'never'}</td>
+                  <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+
       {/* ── Fan CRM — the per-fan workbench (moved from Creators → Fans) ── */}
       {selected && (
         <div style={card}>
@@ -461,7 +522,7 @@ export default function AuditTab() {
           {earningsLoading && !earnings ? (
             <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '20px 0' }}>Loading {selected.aka}&apos;s fans…</div>
           ) : (
-            <FansPanel key={selected.id} creator={selected} allTxns={earnings?.transactions} goingColdAlerts={earnings?.goingColdAlerts || []} availableAccounts={earnings?.accounts || []} focusFan={focusFan} focusNonce={focusNonce} />
+            <FansPanel key={selected.id} creator={selected} allTxns={earnings?.transactions} goingColdAlerts={earnings?.goingColdAlerts || []} availableAccounts={earnings?.accounts || []} focusFan={focusFan} focusNonce={focusNonce} auditTiers={auditTiers} />
           )}
         </div>
       )}

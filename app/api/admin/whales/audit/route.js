@@ -128,6 +128,10 @@ export async function POST(request) {
     }
     results.sort((a, b) => b.lifetime - a.lifetime)
     const triggered = results.filter((r) => r.tier && r.tier !== 'dead')
+    // Dormant whales — big lifetime, gone quiet 120d+. Not urgent, but real
+    // revival targets; they get tracked with Status 'Dormant' instead of
+    // being thrown away (Evan: "old whales that may have completely stopped").
+    const dormantWhales = results.filter((r) => r.tier === 'dead' && r.lifetime >= 500)
 
     // Usernames come straight from the sheet (col G) — no API lookups needed.
 
@@ -139,7 +143,8 @@ export async function POST(request) {
     })
     const mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
     let created = 0, updated = 0
-    for (const t of triggered) {
+    for (const t of [...triggered, ...dormantWhales]) {
+      const targetStatus = t.tier === 'dead' ? 'Dormant' : 'Going Cold'
       // Cadence snapshot — structured copy of what the audit computed, so the
       // watchlist can show the SAME columns as the audit table (rhythm, silent
       // days, 30d spend) instead of just a lifetime number.
@@ -160,14 +165,14 @@ export async function POST(request) {
         // change that they're going cold (the alert lives in Last Alert Sent).
         // Only statuses that mean "no longer cold" are preserved.
         const st = existing.fields?.Status
-        if (!st || ['Monitoring', 'Alert Sent', 'Going Cold'].includes(st)) patch['Status'] = 'Going Cold'
+        if (!st || ['Monitoring', 'Alert Sent', 'Going Cold', 'Dormant'].includes(st)) patch['Status'] = targetStatus
         await patchAirtableRecord(FAN_TRACKER, existing.id, patch, { typecast: true }); updated++
       } else {
         await createAirtableRecord(FAN_TRACKER, {
           'Fan Name': t.fanName,
           ...(t.ofUsername ? { 'OF Username': t.ofUsername } : {}),
           'Creator': [creatorRecordId],
-          'Status': 'Going Cold',
+          'Status': targetStatus,
           'First Flagged': new Date().toISOString(),
           'Lifetime Spend': t.lifetime,
           'Cadence': cadence,
@@ -186,7 +191,7 @@ export async function POST(request) {
       rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
       lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
     })
-    const triggeredKeys = new Set(triggered.map((t) => (t.ofUsername || t.fanName).toLowerCase()))
+    const triggeredKeys = new Set([...triggered, ...dormantWhales].map((t) => (t.ofUsername || t.fanName).toLowerCase()))
     let cadenceRefreshed = 0
     for (const r of mine) {
       const uname = (r.fields?.['OF Username'] || '').toLowerCase()
@@ -210,6 +215,7 @@ export async function POST(request) {
       fansOverMinimum: results.length,
       topSpenders: results.slice(0, 25),
       triggered,
+      dormantWhales: dormantWhales.length,
       tracker: { created, updated, cadenceRefreshed },
       source: `sheet (${tabs.join(', ')})`,
     })

@@ -25,7 +25,7 @@ export default function WhaleHuntingPage() {
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '32px 40px', maxWidth: '1600px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>🐋 Whale Hunting</h1>
         <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', margin: '6px 0 0' }}>
