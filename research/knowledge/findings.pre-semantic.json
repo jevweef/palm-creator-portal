@@ -342,7 +342,7 @@
       }
     },
     {
-      "id": "f0461",
+      "id": "f0473",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -383,7 +383,7 @@
       }
     },
     {
-      "id": "f0462",
+      "id": "f0474",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -2110,7 +2110,7 @@
       }
     },
     {
-      "id": "f0421",
+      "id": "f0433",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -2155,7 +2155,7 @@
       }
     },
     {
-      "id": "f0426",
+      "id": "f0438",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -2200,7 +2200,7 @@
       }
     },
     {
-      "id": "f0442",
+      "id": "f0454",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -2245,7 +2245,7 @@
       }
     },
     {
-      "id": "f0449",
+      "id": "f0461",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -9502,6 +9502,86 @@
     },
     {
       "id": "f0382",
+      "department": "traffic",
+      "topic": "Instagram story-like bot for targeted audience engagement",
+      "title": "Automated story-like bot targets competitor audiences at 10k interactions/day",
+      "variants": [
+        {
+          "claim": "Running automated story-like bots against a competitor creator's follower list drives highly qualified traffic to your model's IG profile and OF link-in-bio at massive scale.",
+          "what_they_do": "They use bot accounts (not the model's main IG) to scrape followers from competitor OF creators on Instagram, filter out inactive/no-profile-picture accounts, then auto-like those users' stories at up to 10,000 interactions per bot per day (300k/month per bot, 3M/month with 10 bots). The notification triggers the target to click the bot-account profile, which routes to the model's main IG and then to OF.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 92,
+          "quote": "have you ever opened up Instagram and gone into your notifications and you've seen that some random account has liked your story that maybe doesn't even follow you and you click onto and it's actually an only fans model"
+        },
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 185,
+          "quote": "per bot you can do up to 10 000 interactions per day so imagine that's 300 000 across a month"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented traffic/distribution strategy beyond Publer scheduling and Telegram manual posting (\u00a75 GAP). This is a high-volume, automated top-of-funnel acquisition play Palm has no equivalent for. The competitor explicitly avoids using the model's main account credentials, reducing ban risk.",
+        "recommendation": "Evaluate third-party IG story-like automation tools (e.g., Jarvee-style services) as a paid traffic layer. Start with one creator, source their 2\u20133 closest competitor audiences, apply follower-quality filters (active, has profile photo), and measure profile-visit-to-follow and follow-to-OF-click conversion. Cap at volumes below IG's detection thresholds. Document as a repeatable traffic SOP to fill \u00a75 GAP."
+      }
+    },
+    {
+      "id": "f0385",
+      "department": "traffic",
+      "topic": "Mass Instagram DM bot for OF link/post distribution",
+      "title": "Mass IG DM bot sends model's latest posts to filtered prospects at 100k+/month",
+      "variants": [
+        {
+          "claim": "Sending the model's latest IG post directly to hundreds of thousands of pre-qualified prospects via automated DM drives followers, engagement boosts, and OF click-throughs simultaneously.",
+          "what_they_do": "After filtering the target audience (same pipeline), the bot sends a DM containing the model's most recent IG post to each prospect. This does three things at once: (1) boosts likes/comments on the post via engagement from curious recipients, (2) drives profile follows, (3) drives link-in-bio clicks to OF. Volume cited: tens of thousands per day, hundreds of thousands per month. The model's own IG credentials are never used \u2014 all done via secondary accounts.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 342,
+          "quote": "with this but this will actually send out Mass messages at scale it would send out tens of thousands and in a month hundreds of thousands of messages in the DM"
+        },
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 372,
+          "quote": "not only will it boost of course that engagement likes and comments she'll get a ton of followers but of course most importantly they'll click onto the post then click on our profile and go ahead and click on the link in the bio"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no mass-DM traffic layer documented (\u00a75 GAP). This is the highest-volume tactic in the video and the one the creator calls 'most popular.' It is also the highest-risk for secondary account bans. Palm's outsourced chat team handles OF DMs (\u00a78) but this is top-of-funnel IG prospecting, not OF monetization.",
+        "recommendation": "Treat IG mass-DM as a traffic experiment for one willing real creator. Use aged secondary IG accounts (not the model's main), send a single warm message with her latest post (no explicit OF link in first message to reduce spam flags), and measure conversion. Set volume caps conservatively (500\u20131,000 DMs/day per secondary account) to test before scaling. Document risk/reward in a platform-risk SOP (\u00a7 platform-risk)."
+      }
+    },
+    {
+      "id": "f0394",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -9541,7 +9621,7 @@
       }
     },
     {
-      "id": "f0383",
+      "id": "f0395",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -9581,7 +9661,7 @@
       }
     },
     {
-      "id": "f0385",
+      "id": "f0397",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -9621,7 +9701,7 @@
       }
     },
     {
-      "id": "f0386",
+      "id": "f0398",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -9661,7 +9741,7 @@
       }
     },
     {
-      "id": "f0387",
+      "id": "f0399",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -9701,7 +9781,7 @@
       }
     },
     {
-      "id": "f0388",
+      "id": "f0400",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -9741,7 +9821,7 @@
       }
     },
     {
-      "id": "f0389",
+      "id": "f0401",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -9781,7 +9861,7 @@
       }
     },
     {
-      "id": "f0390",
+      "id": "f0402",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -9821,7 +9901,7 @@
       }
     },
     {
-      "id": "f0391",
+      "id": "f0403",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -9861,7 +9941,7 @@
       }
     },
     {
-      "id": "f0392",
+      "id": "f0404",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -9901,7 +9981,7 @@
       }
     },
     {
-      "id": "f0393",
+      "id": "f0405",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -9941,7 +10021,7 @@
       }
     },
     {
-      "id": "f0394",
+      "id": "f0406",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -9981,7 +10061,7 @@
       }
     },
     {
-      "id": "f0395",
+      "id": "f0407",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -10021,7 +10101,7 @@
       }
     },
     {
-      "id": "f0396",
+      "id": "f0408",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -10061,7 +10141,7 @@
       }
     },
     {
-      "id": "f0397",
+      "id": "f0409",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -10101,7 +10181,7 @@
       }
     },
     {
-      "id": "f0398",
+      "id": "f0410",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -10141,7 +10221,7 @@
       }
     },
     {
-      "id": "f0399",
+      "id": "f0411",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -10181,7 +10261,7 @@
       }
     },
     {
-      "id": "f0400",
+      "id": "f0412",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -10221,7 +10301,7 @@
       }
     },
     {
-      "id": "f0401",
+      "id": "f0413",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -10261,7 +10341,7 @@
       }
     },
     {
-      "id": "f0402",
+      "id": "f0414",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -10301,7 +10381,7 @@
       }
     },
     {
-      "id": "f0403",
+      "id": "f0415",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -10341,7 +10421,7 @@
       }
     },
     {
-      "id": "f0404",
+      "id": "f0416",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -10381,7 +10461,7 @@
       }
     },
     {
-      "id": "f0405",
+      "id": "f0417",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -10421,7 +10501,7 @@
       }
     },
     {
-      "id": "f0422",
+      "id": "f0434",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -10461,7 +10541,7 @@
       }
     },
     {
-      "id": "f0423",
+      "id": "f0435",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -10501,7 +10581,7 @@
       }
     },
     {
-      "id": "f0424",
+      "id": "f0436",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -10541,7 +10621,7 @@
       }
     },
     {
-      "id": "f0425",
+      "id": "f0437",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -10581,7 +10661,7 @@
       }
     },
     {
-      "id": "f0427",
+      "id": "f0439",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -10621,7 +10701,7 @@
       }
     },
     {
-      "id": "f0428",
+      "id": "f0440",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -10661,7 +10741,7 @@
       }
     },
     {
-      "id": "f0429",
+      "id": "f0441",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -10701,7 +10781,7 @@
       }
     },
     {
-      "id": "f0430",
+      "id": "f0442",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -10741,7 +10821,7 @@
       }
     },
     {
-      "id": "f0431",
+      "id": "f0443",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -10781,7 +10861,7 @@
       }
     },
     {
-      "id": "f0433",
+      "id": "f0445",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -10821,7 +10901,7 @@
       }
     },
     {
-      "id": "f0434",
+      "id": "f0446",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -10861,7 +10941,7 @@
       }
     },
     {
-      "id": "f0435",
+      "id": "f0447",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -10901,7 +10981,7 @@
       }
     },
     {
-      "id": "f0436",
+      "id": "f0448",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -10941,7 +11021,7 @@
       }
     },
     {
-      "id": "f0437",
+      "id": "f0449",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -10981,7 +11061,7 @@
       }
     },
     {
-      "id": "f0438",
+      "id": "f0450",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -11021,7 +11101,7 @@
       }
     },
     {
-      "id": "f0439",
+      "id": "f0451",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -11061,7 +11141,7 @@
       }
     },
     {
-      "id": "f0440",
+      "id": "f0452",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -11101,7 +11181,7 @@
       }
     },
     {
-      "id": "f0441",
+      "id": "f0453",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -11141,7 +11221,7 @@
       }
     },
     {
-      "id": "f0444",
+      "id": "f0456",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -11181,7 +11261,7 @@
       }
     },
     {
-      "id": "f0445",
+      "id": "f0457",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -11221,7 +11301,7 @@
       }
     },
     {
-      "id": "f0446",
+      "id": "f0458",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -11261,7 +11341,7 @@
       }
     },
     {
-      "id": "f0448",
+      "id": "f0460",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -11301,7 +11381,7 @@
       }
     },
     {
-      "id": "f0451",
+      "id": "f0463",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -11341,7 +11421,7 @@
       }
     },
     {
-      "id": "f0452",
+      "id": "f0464",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -11381,7 +11461,7 @@
       }
     },
     {
-      "id": "f0453",
+      "id": "f0465",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -11421,7 +11501,7 @@
       }
     },
     {
-      "id": "f0458",
+      "id": "f0470",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -11461,7 +11541,7 @@
       }
     },
     {
-      "id": "f0463",
+      "id": "f0475",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -11501,7 +11581,7 @@
       }
     },
     {
-      "id": "f0465",
+      "id": "f0477",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -17071,7 +17151,357 @@
       }
     },
     {
+      "id": "f0383",
+      "department": "traffic",
+      "topic": "Competitor-audience targeting with quality filtering before bot interactions",
+      "title": "Filter competitor follower lists to remove bots/inactives before outreach",
+      "variants": [
+        {
+          "claim": "Maximizing bot ROI requires pre-filtering scraped follower lists to remove accounts with no profile picture, bot signals, or recent creation dates before any interaction.",
+          "what_they_do": "Before running any bot interaction, they scrape a target competitor's followers, then apply filters: remove no-profile-picture accounts, remove recently created accounts, remove known-bot signals. Only the remaining 'qualified' pool receives story likes, post likes, or DMs. This is framed as maximizing ROI per interaction rather than spraying randomly.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 153,
+          "quote": "out of the hundred thousand people some of them will be inactive some of them will be Bots some of them will not have a profile picture and maybe just created the account and so on we can literally filter those out"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented outbound traffic system at all (\u00a75 GAP). This filtering logic is a best-practice layer on top of any mass-interaction strategy \u2014 Palm should adopt it if/when implementing any bot or mass-outreach traffic layer.",
+        "recommendation": "When Palm implements any mass-IG-outreach tool, build a pre-flight filtering step into the SOP: (1) pull follower list via scraper, (2) filter out no-avatar accounts, (3) filter accounts created <90 days ago, (4) optionally filter accounts with zero posts. Codify these as default filter presets in whatever tooling is chosen."
+      }
+    },
+    {
       "id": "f0384",
+      "department": "traffic",
+      "topic": "Comment-like bot for multi-person reach from single interaction",
+      "title": "Post-comment likes reach ~100 viewers per action vs. 1 for story likes",
+      "variants": [
+        {
+          "claim": "Automatically liking posts' comments reaches roughly 100 people per action (others viewing the comment thread) versus story likes which reach only the single account holder.",
+          "what_they_do": "Same audience-sourcing and filtering pipeline as the story-like bot, but the action is liking a post comment rather than a story. The upside: the comment notification and the model's bot-account profile are visible to all other users engaging with that comment thread \u2014 estimated ~100 viewers per single like action \u2014 multiplying reach per interaction unit.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 278,
+          "quote": "with the comments compared to the story views is with the story if you view somebody's story or if you even like it that's one action and it can only reach one person... with a comment I mean it's unlimited how many people can see it but typically about 100 people or so"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "No equivalent at Palm (\u00a75 GAP). This is a force-multiplier variant of IG engagement automation that Palm could layer in alongside story-like automation for higher reach efficiency.",
+        "recommendation": "When testing IG bot traffic (see story-like finding above), run a parallel A/B: story-like bot vs. comment-like bot on the same filtered audience pool. Measure downstream: profile visits, follows, link-in-bio clicks, OF subs. Use the higher-performing format as primary. Comment likes may be particularly effective on high-engagement posts in male-interest niches."
+      }
+    },
+    {
+      "id": "f0386",
+      "department": "platform-risk",
+      "topic": "Credential isolation \u2014 bot accounts never use model's main IG login",
+      "title": "All bot activity runs on secondary accounts; model's main IG credentials never shared",
+      "variants": [
+        {
+          "claim": "Keeping bot operations entirely on secondary/shadow accounts means the model's primary IG is never at risk of a ban even if bot accounts get flagged.",
+          "what_they_do": "Across all four bot types (story likes, comment likes, mass DM, repost), the agency explicitly never takes the model's actual IG login or password. All interactions originate from purpose-built secondary accounts operating in the background. This is repeated as a selling point three separate times in the video.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 217,
+          "quote": "we would never need the password of the login detail of your Instagram so it would never actually have to use your model's Instagram account so it will never get banned"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm already applies a strong credential-isolation and hardware-isolation principle to its AI persona accounts (\u00a73/\u00a74 \u2014 GrapheneOS Pixel, 1 SIM/persona, vault-stored creds). However, this practice is not documented for real-creator traffic operations (\u00a75 GAP). The underlying principle is the same; Palm should extend it explicitly to any real-creator outbound bot layer.",
+        "recommendation": "If Palm adopts any IG bot/automation traffic layer for real creators, codify credential isolation as a non-negotiable rule in the platform-risk SOP: model's primary IG login is NEVER entered into any third-party automation tool. All bot activity uses dedicated secondary accounts with separate Gmail/SIM per account, consistent with Palm's existing AI-account hygiene practices (\u00a73)."
+      }
+    },
+    {
+      "id": "f0387",
+      "department": "content",
+      "topic": "Automated cross-platform repost \u2014 TikTok/YouTube Shorts to IG, watermark-free",
+      "title": "Repost bot auto-downloads TikTok/YT Shorts and re-uploads to IG with no watermark",
+      "variants": [
+        {
+          "claim": "An automated repost bot removes the TikTok watermark and re-uploads the video to Instagram Reels, expanding reach to a second platform with zero manual effort.",
+          "what_they_do": "When the model posts to TikTok or YouTube Shorts, the bot detects the new video, downloads it (stripping the TikTok watermark automatically), and re-uploads it to Instagram. No login credentials required from the model. This runs fully in the background \u2014 set-and-forget. The stated benefit is reaching both the TikTok and IG audiences from a single piece of content.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 403,
+          "quote": "when your model goes ahead and posts a Tick Tock or even a YouTube short this bot will quite literally download the video and this is the best part with no watermark so we'll download a video and repurpose it and re-upload it onto Instagram"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's content pipeline (\u00a71) is IG-first (inspo \u2192 film \u2192 edit \u2192 schedule via Publer). There is no documented cross-platform republishing automation from TikTok to IG. Publer does support multi-platform scheduling, but that requires manual upload to Publer \u2014 not automated downstream capture from TikTok. This bot fills a different gap: auto-capturing content the creator posts natively to TikTok.",
+        "recommendation": "For real creators who self-post to TikTok independently of Palm's pipeline, evaluate tools like SaveTok, Repurpose.io, or similar that auto-detect new TikTok posts, strip watermarks, and push to IG Reels. This recovers content that otherwise bypasses Palm's pipeline and ensures it also benefits the IG funnel. Low effort, low risk \u2014 good quick win. Alternatively, enforce that all content goes through Palm's Publer pipeline first (avoiding the need for this bot entirely by controlling upload order)."
+      }
+    },
+    {
+      "id": "f0388",
+      "department": "systems",
+      "topic": "Bot-based automation as an agency service/upsell tier",
+      "title": "Package automation bots as an upsell service to existing agency clients",
+      "variants": [
+        {
+          "claim": "Bundling bot services (story likes, comment likes, mass DM, reposter) as a premium add-on or inner-circle perk creates an additional revenue stream for the agency beyond standard revenue share.",
+          "what_they_do": "The agency offers these bot services to clients via a call-booking funnel (not self-serve). Existing Inner Circle / consulting clients get access for free as a retention perk. New clients book a qualification call before being granted access \u2014 controlling supply and adding perceived exclusivity. This creates a two-tier model: standard management + premium automation tier.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "7LtJYzdP_Lw",
+          "timestamp_seconds": 464,
+          "quote": "this is not something that we're just going to go ahead and launch to absolutely everybody... if you are already in Aura Consulting Pro in our Inner Circle in a Discord you already have access to this for free"
+        }
+      ],
+      "creators": [
+        "Markuss Hussle"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm operates on a revenue-share commission model (\u00a77) with no documented upsell tiers or add-on services. Palm's current offering is full-service management. This competitor is carving out a productized automation layer that can be sold separately \u2014 potentially to creators Palm doesn't fully manage, or as an upsell to existing creators to accelerate their growth.",
+        "recommendation": "Explore whether Palm could offer a 'traffic acceleration' add-on (fixed monthly fee for IG bot traffic services) as a complement to the core rev-share deal. This would (a) add a predictable revenue stream, (b) give creators a concrete growth lever Palm controls, and (c) differentiate Palm's pitch vs. agencies offering only content + chat. Requires resolving the platform-risk SOP first. Flag for \u00a77 pricing model discussion."
+      }
+    },
+    {
+      "id": "f0389",
+      "department": "traffic",
+      "topic": "Snapchat account setup",
+      "title": "Correct Snapchat profile configuration to avoid pre-ban flagging",
+      "variants": [
+        {
+          "claim": "Snapchat flags and bans accounts before they even start if the Bitmoji, public profile, bio, and Snapchat Plus subscription are not set up correctly.",
+          "what_they_do": "Agency follows a specific account setup checklist covering Bitmoji creation, public profile configuration, bio copy, and Snapchat Plus activation before doing any outreach or posting \u2014 treating setup as a trust-signal layer that precedes all activity.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "UqC8Zb5XBgQ",
+          "timestamp_seconds": 64,
+          "quote": "The Bitmoji, the public profile, the bio, Snapchat Plus. If you get any of that wrong, Snapchat flags you before you even start"
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented Snapchat traffic strategy (\u00a75 GAP \u2014 traffic/distribution not documented). Snapchat is not part of any current distribution playbook.",
+        "recommendation": "When building out Palm's traffic playbook, treat Snapchat account setup as a prerequisite checklist (Bitmoji, public profile, bio, Snapchat Plus) before any warm-up or posting begins \u2014 analogous to Palm's hardware-isolated warmup for AI personas (\u00a73/\u00a74) but applied to Snapchat accounts for real creators."
+      }
+    },
+    {
+      "id": "f0390",
+      "department": "traffic",
+      "topic": "Snapchat account warm-up / quick-add throttling",
+      "title": "Staged quick-add schedule to avoid same-day Snapchat ban",
+      "variants": [
+        {
+          "claim": "Snapchat bans accounts that add too many people too fast, so there is an exact daily add-limit schedule that must be followed and gradually increased.",
+          "what_they_do": "Agency uses a structured warm-up schedule with specific daily caps on how many users to quick-add, starting very low and incrementally increasing over time \u2014 no guessing on volume ramp.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "UqC8Zb5XBgQ",
+          "timestamp_seconds": 94,
+          "quote": "There's an exact schedule for how many people to add at the start and when to increase it. If you just guess this part, you will be banned."
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has a mature 90-day warmup cadence for AI social accounts (\u00a74) with day-by-day activity rules, but this is IG/TikTok-focused. No equivalent Snapchat warm-up schedule exists. The principle (staged ramp, per-day caps) is directly analogous to Palm's existing warmup methodology.",
+        "recommendation": "Build a Snapchat-specific warm-up schedule modeled on Palm's existing AI-account warmup structure (\u00a74) \u2014 define Day 1\u20137 add limits, Day 8\u201314 increase thresholds, etc. The pattern Palm already uses for IG warmup translates directly; just need Snapchat-specific numbers researched and codified."
+      }
+    },
+    {
+      "id": "f0391",
+      "department": "traffic",
+      "topic": "Snapchat Spotlight for organic fan acquisition",
+      "title": "Use Snapchat Spotlight posts strategically to drive inbound quick-adds",
+      "variants": [
+        {
+          "claim": "Posting correctly to Snapchat Spotlight generates organic views and causes target users to quick-add the creator, producing inbound traffic without manual outreach.",
+          "what_they_do": "Agency has a specific content format/posting method for Spotlight (not just spamming) that grows views and snap score simultaneously, converting Spotlight viewers into quick-adders who then enter the DM funnel.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "UqC8Zb5XBgQ",
+          "timestamp_seconds": 125,
+          "quote": "Spotlight is where the organic traction comes from. But you can't just spam posts. There's a way to do it that gets you views and increases your snap score."
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no Snapchat presence or Spotlight strategy documented (\u00a75 GAP). Palm's content engine (\u00a71) is IG/TikTok Reels-focused. Spotlight is a parallel short-form organic channel that Palm is not utilizing.",
+        "recommendation": "Investigate Spotlight as an organic top-of-funnel channel alongside IG Reels. Since Palm already has a data-driven content ideation pipeline (\u00a71), the same inspo-scrape \u2192 analyze \u2192 film workflow could potentially surface Spotlight-optimized content formats. Prioritize learning what content format triggers Spotlight algorithmic distribution."
+      }
+    },
+    {
+      "id": "f0392",
+      "department": "traffic",
+      "topic": "Snap score as social proof signal",
+      "title": "Grow snap score proactively to prevent target users from flagging account as fake",
+      "variants": [
+        {
+          "claim": "A low snap score causes potential fans who receive a quick-add to dismiss the account as a bot or fake, killing conversion before any content is seen.",
+          "what_they_do": "Agency actively builds snap score using a specific method before or during outreach so that when a man receives and checks the account, the score reads as a real, active user \u2014 functioning as social proof.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "UqC8Zb5XBgQ",
+          "timestamp_seconds": 155,
+          "quote": "Snap score matters more than you think. It affects your visibility and your social proof. Cuz when a guy adds you back and he sees that your snap score is one 2 3 10 whatever, it seems slow. He thinks you're a fake account."
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's AI-persona warmup (\u00a74) explicitly addresses social proof (posting cadence, stories, engagement activity during warmup before monetization). The same logic applies here to Snapchat snap score. Palm has no Snapchat equivalent of this.",
+        "recommendation": "Add snap score cultivation as a mandatory warmup metric in any future Snapchat playbook \u2014 analogous to how Palm's IG warmup tracks follower growth and engagement rate before enabling OF CTAs. Define a minimum snap score threshold before beginning active quick-add outreach."
+      }
+    },
+    {
+      "id": "f0393",
+      "department": "traffic",
+      "topic": "Snapchat \u2192 Telegram \u2192 OnlyFans conversion funnel",
+      "title": "Route Snapchat traffic through Telegram as a conversion bridge to OnlyFans",
+      "variants": [
+        {
+          "claim": "Snapchat traffic must be funneled through a specifically configured Telegram step rather than linking directly to OnlyFans, because direct link-spamming gets accounts banned and reduces conversion.",
+          "what_they_do": "Agency sets up a Telegram channel/bot as a middle layer between Snapchat stories/DMs and the OnlyFans link \u2014 the Snapchat account drives viewers to Telegram, and Telegram is configured to convert them into OF subscribers. Direct OF links in Snapchat are avoided.",
+          "run": "daily-2026-07-04"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "UqC8Zb5XBgQ",
+          "timestamp_seconds": 187,
+          "quote": "This is how you actually convert the traffic you're getting. Without it, you're just posting stories for no reason. There's a specific way to set up Telegram so people actually click through and end up subbing to your only fans."
+        }
+      ],
+      "creators": [
+        "FrankoOFM"
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm already uses Telegram operationally (Amin contractor coordination, posting webhooks \u2014 \u00a75), but not as a consumer-facing traffic funnel. Palm's current funnel is social \u2192 OF directly (\u00a70). This Snapchat \u2192 Telegram \u2192 OF bridge is a distinct multi-hop architecture Palm has not documented.",
+        "recommendation": "When building a Snapchat traffic playbook, adopt the Telegram bridge model: Snapchat stories/DMs \u2192 Telegram CTA \u2192 OF subscribe. Document the Telegram channel setup (e.g., pinned OF link, welcome message, drip content) as a reusable module. This also reduces platform risk of OF link detection on Snapchat."
+      }
+    },
+    {
+      "id": "f0396",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -17106,7 +17536,7 @@
       }
     },
     {
-      "id": "f0406",
+      "id": "f0418",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -17141,7 +17571,7 @@
       }
     },
     {
-      "id": "f0407",
+      "id": "f0419",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -17176,7 +17606,7 @@
       }
     },
     {
-      "id": "f0408",
+      "id": "f0420",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -17211,7 +17641,7 @@
       }
     },
     {
-      "id": "f0409",
+      "id": "f0421",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -17246,7 +17676,7 @@
       }
     },
     {
-      "id": "f0410",
+      "id": "f0422",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -17281,7 +17711,7 @@
       }
     },
     {
-      "id": "f0411",
+      "id": "f0423",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -17316,7 +17746,7 @@
       }
     },
     {
-      "id": "f0412",
+      "id": "f0424",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -17351,7 +17781,7 @@
       }
     },
     {
-      "id": "f0413",
+      "id": "f0425",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -17386,7 +17816,7 @@
       }
     },
     {
-      "id": "f0414",
+      "id": "f0426",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -17421,7 +17851,7 @@
       }
     },
     {
-      "id": "f0415",
+      "id": "f0427",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -17456,7 +17886,7 @@
       }
     },
     {
-      "id": "f0416",
+      "id": "f0428",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -17491,7 +17921,7 @@
       }
     },
     {
-      "id": "f0417",
+      "id": "f0429",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -17526,7 +17956,7 @@
       }
     },
     {
-      "id": "f0418",
+      "id": "f0430",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -17561,7 +17991,7 @@
       }
     },
     {
-      "id": "f0419",
+      "id": "f0431",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -17596,7 +18026,7 @@
       }
     },
     {
-      "id": "f0420",
+      "id": "f0432",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -17631,7 +18061,7 @@
       }
     },
     {
-      "id": "f0432",
+      "id": "f0444",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -17666,7 +18096,7 @@
       }
     },
     {
-      "id": "f0443",
+      "id": "f0455",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -17701,7 +18131,7 @@
       }
     },
     {
-      "id": "f0447",
+      "id": "f0459",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -17736,7 +18166,7 @@
       }
     },
     {
-      "id": "f0450",
+      "id": "f0462",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -17771,7 +18201,7 @@
       }
     },
     {
-      "id": "f0454",
+      "id": "f0466",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -17806,7 +18236,7 @@
       }
     },
     {
-      "id": "f0455",
+      "id": "f0467",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -17841,7 +18271,7 @@
       }
     },
     {
-      "id": "f0456",
+      "id": "f0468",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -17876,7 +18306,7 @@
       }
     },
     {
-      "id": "f0457",
+      "id": "f0469",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -17911,7 +18341,7 @@
       }
     },
     {
-      "id": "f0459",
+      "id": "f0471",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -17946,7 +18376,7 @@
       }
     },
     {
-      "id": "f0460",
+      "id": "f0472",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -17981,7 +18411,7 @@
       }
     },
     {
-      "id": "f0464",
+      "id": "f0476",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
