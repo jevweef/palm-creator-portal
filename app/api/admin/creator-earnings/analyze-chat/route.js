@@ -751,7 +751,16 @@ NEXT MOVE
 
 > "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing.]"
 
-[1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]`
+[1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]
+
+CHATTER CARD
+[The spoon-feed — the ONLY part most chatters will read. Max 6 lines, telegraphic (no paragraphs), every line load-bearing. Format EXACTLY:
+CARD: [Name] @[username] — $[lifetime] · [state] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
+FORMULA: [his buying recipe in one sentence, distilled from PEAK FORMULA]
+WANTS: [content/themes he buys + any waiting sale from SLEEPING THREADS]
+PRICE: [his band + how he negotiates]
+NEVER: [the 2-4 things that kill him]
+OPENER: "[the ready-to-send message from NEXT MOVE]"]`
 
       : `You are a whale-hunting analyst for an OnlyFans agency. Your output is a short brief a chat manager will hand to a chatter. Write plainly, no jargon.
 
@@ -979,9 +988,16 @@ HARD RULES:
     const creatorRecordId = formData.get('creatorRecordId') || ''
     const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
 
+    // The deep dive ends with a CHATTER CARD written by the SAME model that
+    // read the whole conversation — use it verbatim as the manager brief
+    // (no lossy re-compression through a smaller model). The old gpt-4o-mini
+    // condenser remains only as a fallback for outputs missing the card.
+    const cardMatch = fullAnalysis.match(/\nCHATTER CARD\s*\n([\s\S]+?)$/)
+    const cardBrief = cardMatch ? cardMatch[1].trim() : null
+
     // Run manager brief + fan tracker in parallel
     const [briefResult] = await Promise.all([
-      getOpenAI().chat.completions.create({
+      cardBrief ? Promise.resolve(null) : getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: `You write chat manager briefs for an OnlyFans agency. Distill the full fan analysis into a scannable brief, around 150-175 words total. Plain language, no jargon.
@@ -1016,7 +1032,7 @@ Rules:
         : Promise.resolve(),
     ])
 
-    const managerBrief = briefResult?.choices?.[0]?.message?.content || ''
+    const managerBrief = cardBrief || briefResult?.choices?.[0]?.message?.content || ''
 
     // Dropbox save + Airtable save in parallel (both need managerBrief)
     await Promise.all([
