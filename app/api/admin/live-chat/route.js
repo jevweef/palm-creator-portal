@@ -39,6 +39,19 @@ export async function GET(request) {
       })
       .sort((a, b) => a.aka.localeCompare(b.aka))
 
+    // ?stream=1 — all creators merged: the raw event firehose for the Stream tab
+    if (url.searchParams.get('stream') === '1') {
+      const { readLiveMerged } = await import('@/lib/ofLiveBuffer')
+      const chunks = await Promise.all(accounts.map(async (a) => {
+        try {
+          const evs = await readLiveMerged(a.account)
+          return evs.slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
+        } catch { return [] }
+      }))
+      const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
+      return NextResponse.json({ accounts, stream })
+    }
+
     if (!account) return NextResponse.json({ accounts })
 
     const meta = accounts.find((a) => a.account === account)
