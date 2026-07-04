@@ -36,15 +36,17 @@ export async function POST(request) {
   try {
     raw = await request.text()
 
-    // Optional signature verification
+    // Signature verification — OBSERVE-ONLY until onlyfansapi's actual
+    // header/scheme is confirmed from real traffic (guessing wrong would
+    // reject genuine events). Logs candidates; flip ENFORCE once confirmed.
     const secret = process.env.ONLYFANSAPI_WEBHOOK_SECRET
     if (secret) {
-      const sig = request.headers.get('x-signature') || request.headers.get('x-webhook-signature') || ''
+      const candidates = ['x-signature', 'x-webhook-signature', 'x-onlyfansapi-signature', 'signature', 'x-hub-signature-256']
+      const found = candidates.map((h) => [h, request.headers.get(h)]).filter(([, v]) => v)
       const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
-      if (!sig || !crypto.timingSafeEqual(Buffer.from(sig.padEnd(expected.length).slice(0, expected.length)), Buffer.from(expected))) {
-        console.warn('[of-webhook] signature mismatch — rejecting')
-        return NextResponse.json({ error: 'bad signature' }, { status: 401 })
-      }
+      const match = found.some(([, v]) => String(v).replace(/^sha256=/, '') === expected)
+      console.log(`[of-webhook] sig headers: ${found.map(([h, v]) => `${h}=${String(v).slice(0, 16)}…`).join(' ') || 'none'} | hmac ${match ? 'MATCH' : 'no match'}`)
+      // TODO flip to enforcement (401 on mismatch) once logs show MATCH
     }
 
     const body = JSON.parse(raw)
