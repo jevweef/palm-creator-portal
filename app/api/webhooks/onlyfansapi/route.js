@@ -52,9 +52,12 @@ export async function POST(request) {
 
     console.log(`[of-webhook] ${event} account=${accountId} keys=${Object.keys(payload).join(',').slice(0, 200)}`)
 
-    // Sampling: confirmed schemas sample sparsely; unseen types at 100%.
-    const sampleRate = (event === 'messages.sent' || event === 'messages.received') ? 0.05
-      : event === 'transactions.new' ? 0.1 : 1
+    // Sampling: confirmed schemas sample sparsely; unseen types at 100%;
+    // presence events (users.*) are a firehose — near-zero sampling.
+    const sampleRate = event.startsWith('users.') ? 0.005
+      : (event === 'messages.sent' || event === 'messages.received') ? 0.05
+      : event === 'transactions.new' ? 0.1
+      : event === 'messages.deleted' ? 0.2 : 1
     if (Math.random() < sampleRate) saveSample(event, raw).catch(() => {})
 
     if (event === 'transactions.new') {
