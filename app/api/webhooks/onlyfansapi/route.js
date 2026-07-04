@@ -5,27 +5,25 @@ import {
   insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, mapType, stripHtmlText,
   fetchRevenueAccountNames,
 } from '@/lib/transactionsSheet'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxFolder } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 // ── onlyfansapi.com webhook receiver ─────────────────────────────────────────
-// The webhook (wh_f607c221…, created 2026-06-06) has pointed here for a month
-// with no receiver — every event 404'd. This endpoint:
-//   • transactions.new → normalizes into the SAME Google Sheet row format the
-//     pull/backfill/HTML flows write (fingerprint-deduped, newest-first, cutoff
-//     banner) — the sheet stays the single source of truth, now real-time.
-//   • every event type → raw sample saved to Dropbox (/Palm Ops/OF Webhooks/
-//     samples/) while payload schemas are undocumented, so mappings can be
-//     hardened against reality.
-// STRICTNESS RULE: a sheet row is only written when the payload carries the
-// exact fields we trust (net + amount + createdAt). Anything ambiguous is
-// sampled and skipped — the Update button remains the correctness net.
-// Signature: verified when ONLYFANSAPI_WEBHOOK_SECRET is set (HMAC-SHA256 of
-// the raw body, hex, from the x-signature header); tolerated when absent.
+// Everything that arrives gets USED (Evan, 2026-07-04):
+//   transactions.new        → sheet row (real-time earnings) + fan tracker
+//                             auto-update from fanData.spending (live lifetime)
+//   messages.ppv.unlocked   → fan tracker auto-update + live chat buffer
+//   messages.received       → live chat buffer + tracker lastReply signal
+//   messages.sent (1:1 only)→ live chat buffer (mass-queue blasts skipped)
+//   accounts.*              → Telegram ops alert (connection is the lifeline)
+//   everything              → sampled to Dropbox while schemas harden
+// STRICTNESS: sheet rows only when net+amount+created present (invoicing
+// correctness); tracker updates only for fans ALREADY tracked (no row spam).
 
-const KNOWN_ACCOUNT_CACHE = { map: null, at: 0 }
+const CACHE = { accounts: null, accountsAt: 0, tracker: null, trackerAt: 0 }
+const OPS_BASE = 'applLIT2t83plMqNx'
 
 export async function GET() {
   return NextResponse.json({ ok: true, receiver: 'onlyfansapi', at: new Date().toISOString() })
@@ -36,9 +34,7 @@ export async function POST(request) {
   try {
     raw = await request.text()
 
-    // Signature verification — OBSERVE-ONLY until onlyfansapi's actual
-    // header/scheme is confirmed from real traffic (guessing wrong would
-    // reject genuine events). Logs candidates; flip ENFORCE once confirmed.
+    // Signature — OBSERVE-ONLY until their scheme is confirmed from traffic.
     const secret = process.env.ONLYFANSAPI_WEBHOOK_SECRET
     if (secret) {
       const candidates = ['x-signature', 'x-webhook-signature', 'x-onlyfansapi-signature', 'signature', 'x-hub-signature-256']
@@ -46,7 +42,6 @@ export async function POST(request) {
       const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
       const match = found.some(([, v]) => String(v).replace(/^sha256=/, '') === expected)
       console.log(`[of-webhook] sig headers: ${found.map(([h, v]) => `${h}=${String(v).slice(0, 16)}…`).join(' ') || 'none'} | hmac ${match ? 'MATCH' : 'no match'}`)
-      // TODO flip to enforcement (401 on mismatch) once logs show MATCH
     }
 
     const body = JSON.parse(raw)
@@ -56,20 +51,30 @@ export async function POST(request) {
 
     console.log(`[of-webhook] ${event} account=${accountId} keys=${Object.keys(payload).join(',').slice(0, 200)}`)
 
-    // Sample the raw event to Dropbox (schemas are undocumented — these
-    // samples are how the mappings get hardened). Non-fatal. High-volume
-    // message events (Brett's webhook shares this receiver) sample at 2%.
-    // transactions.new schema CONFIRMED against a live event 2026-07-04 —
-    // sample it sparsely now; messages stay at 2%; unseen event types at 100%.
-    const sampleRate = (event === 'messages.sent' || event === 'messages.received') ? 0.02
+    // Sampling: confirmed schemas sample sparsely; unseen types at 100%.
+    const sampleRate = (event === 'messages.sent' || event === 'messages.received') ? 0.05
       : event === 'transactions.new' ? 0.1 : 1
     if (Math.random() < sampleRate) saveSample(event, raw).catch(() => {})
 
     if (event === 'transactions.new') {
       await handleNewTransaction(accountId, payload)
+      await updateFanSignals(accountId, payload.fan || payload.user, payload.fanData).catch((e) => console.warn('[of-webhook] fan update failed:', e.message))
+    } else if (event === 'messages.ppv.unlocked') {
+      await updateFanSignals(accountId, payload.fan || payload.user, payload.fanData).catch(() => {})
+      await appendLive(accountId, 'unlock', payload).catch(() => {})
+    } else if (event === 'messages.received') {
+      await appendLive(accountId, 'in', payload).catch(() => {})
+      await updateFanSignals(accountId, payload.fan || payload.fromUser || payload.user, payload.fanData, { lastReplyAt: new Date().toISOString() }).catch(() => {})
+    } else if (event === 'messages.sent') {
+      // 1:1 only — mass-queue sends would flood the buffer
+      if (!(payload.isFromQueue || payload.is_from_queue || payload.queueId || payload.queue_id)) {
+        await appendLive(accountId, 'out', payload).catch(() => {})
+      }
+    } else if (event.startsWith('accounts.')) {
+      await opsAlert(accountId, event).catch(() => {})
     }
 
-    // Always 200 — webhook retries would double-bill events.
+    // Always 200 — retries would double-bill events.
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[of-webhook] error:', err.message, raw.slice(0, 300))
@@ -77,39 +82,35 @@ export async function POST(request) {
   }
 }
 
+// ── transactions → sheet (confirmed schema, live-verified 2026-07-04) ───────
 async function handleNewTransaction(accountId, t) {
-  // STRICT field contract — mirrors the /transactions endpoint object the
-  // event most likely carries. Missing essentials → sample-only, no write.
   const gross = num(t.amount)
   const net = num(t.net ?? t.net_amount)
   const fee = num(t.fee ?? t.fee_amount)
   const created = t.createdAt || t.created_at || t.onlyfans_created_at || null
   if (gross == null || net == null || !created) {
-    console.log('[of-webhook] transactions.new payload missing essentials — sampled, not written')
+    console.log('[of-webhook] transactions.new missing essentials — sampled, not written')
     return
   }
   const status = String(t.status || '').toLowerCase()
   if (['failed', 'cancelled', 'canceled', 'refunded', 'error'].includes(status)) return
 
-  const accountName = await resolveAccountName(accountId)
-  if (!accountName) {
+  const acct = await resolveAccount(accountId)
+  if (!acct?.accountName) {
     console.warn(`[of-webhook] no creator mapped for ${accountId} — skipped`)
     return
   }
 
   const sheets = sheetsClient()
-  const { tabName } = await ensureTab(sheets, accountName, 'Sales')
+  const { tabName } = await ensureTab(sheets, acct.accountName, 'Sales')
   await ensureExtraHeaders(sheets, tabName)
 
   const desc = t.description || ''
-  // Confirmed payload shape: fan info lives under `fan` ({id, username, name,
-  // display_name}); `user` kept as a fallback for other shapes.
   const fan = t.fan || t.user || {}
   const displayName = stripHtmlText(String(desc).replace(/^.*?from\s+/i, '')) || (fan.display_name || fan.displayName || fan.name || '')
   const dateTimeEt = utcToEtDateTime(String(created).replace('+00:00', 'Z'))
   if (!dateTimeEt) return
 
-  // Dedup against the tab's newest rows (same fingerprint as every other path)
   const fps = await getLastFingerprints(sheets, tabName)
   if (fps.has(txnFingerprint(dateTimeEt, net, displayName))) {
     console.log(`[of-webhook] duplicate txn skipped (${displayName} ${dateTimeEt})`)
@@ -127,13 +128,92 @@ async function handleNewTransaction(accountId, t) {
   console.log(`[of-webhook] ✓ wrote ${tabName}: ${displayName} net $${net} @ ${dateTimeEt}`)
 }
 
-/** acct_… → "<AKA> - Free OF" via Palm Creators (cached 10 min). */
-async function resolveAccountName(accountId) {
+// ── fan tracker auto-update from fanData (zero credits, real-time) ──────────
+// Only fans ALREADY in the tracker get updated — events never create rows.
+async function updateFanSignals(accountId, fan, fanData, extra = {}) {
+  if (!fan || (!fan.username && !fan.name && !fan.display_name)) return
+  const acct = await resolveAccount(accountId)
+  if (!acct?.recordId) return
+  const row = await findTrackerRow(acct.recordId, fan.username, fan.display_name || fan.name)
+  if (!row) return
+
+  const patch = {}
+  const spendTotal = num(fanData?.spending?.total)
+  if (spendTotal != null && spendTotal > (row.fields['Lifetime Spend'] || 0)) {
+    patch['Lifetime Spend'] = spendTotal
+  }
+  let cad = {}
+  try { cad = JSON.parse(row.fields.Cadence || '{}') } catch { /* fresh */ }
+  cad.live = {
+    ...(cad.live || {}),
+    ...(spendTotal != null ? { spendingTotal: spendTotal, spendingBreakdown: fanData.spending } : {}),
+    ...(extra.lastReplyAt ? { lastReplyAt: extra.lastReplyAt.slice(0, 10) } : {}),
+    updatedAt: new Date().toISOString(),
+  }
+  patch['Cadence'] = JSON.stringify(cad)
+  const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Fan Tracker')}/${row.id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: patch, typecast: true }),
+  })
+  if (res.ok) console.log(`[of-webhook] ✓ tracker updated: ${fan.username || fan.name} (${Object.keys(patch).join(',')})`)
+}
+
+// ── live chat buffer (per account, last 400 events) — feeds the live view ───
+async function appendLive(accountId, dir, p) {
+  const f = p.fan || p.fromUser || p.from_user || p.user || {}
+  const entry = {
+    id: p.id || p.message_id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    dir, // 'in' | 'out' | 'unlock'
+    at: p.createdAt || p.created_at || new Date().toISOString(),
+    text: stripHtmlText(String(p.text || '')).slice(0, 600),
+    price: num(p.price) || 0,
+    media: p.mediaCount ?? p.media_count ?? (Array.isArray(p.media) ? p.media.length : 0),
+    fan: { id: f.id != null ? String(f.id) : '', username: f.username || '', name: f.display_name || f.name || '' },
+  }
+  const token = await getDropboxAccessToken()
+  const ns = await getDropboxRootNamespaceId(token)
+  await createDropboxFolder(token, ns, '/Palm Ops/OF Webhooks')
+  await createDropboxFolder(token, ns, '/Palm Ops/OF Webhooks/live')
+  const path = `/Palm Ops/OF Webhooks/live/${accountId}.json`
+  let buf = []
+  try {
+    const existing = await downloadFromDropbox(token, ns, path)
+    if (existing) buf = JSON.parse(existing.toString('utf8'))
+  } catch { /* first event */ }
+  if (!buf.some((e) => e.id === entry.id)) buf.unshift(entry)
+  buf = buf.slice(0, 400)
+  await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(buf), 'utf8'))
+}
+
+// ── ops alert: creator connection problems go straight to Telegram ──────────
+async function opsAlert(accountId, event) {
+  const acct = await resolveAccount(accountId).catch(() => null)
+  const who = acct?.aka || accountId
+  const label = {
+    'accounts.session_expired': 'OF session EXPIRED — data has stopped flowing',
+    'accounts.authentication_failed': 'OF re-login FAILED',
+    'accounts.otp_code_required': 'OF is asking for an OTP code',
+    'accounts.face_otp_required': 'OF is asking for FACE verification',
+  }[event] || event
+  console.warn(`[of-webhook] ACCOUNT ALERT: ${who} — ${label}`)
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  const chatId = process.env.TELEGRAM_OPS_CHAT_ID || process.env.TELEGRAM_SMM_GROUP_CHAT_ID
+  if (!token || !chatId) return
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: `⚠️ ${who}: ${label}\nFix at app.onlyfansapi.com → Accounts.` }),
+  })
+}
+
+// ── lookups (cached) ─────────────────────────────────────────────────────────
+async function resolveAccount(accountId) {
   if (!accountId) return null
   const now = Date.now()
-  if (!KNOWN_ACCOUNT_CACHE.map || now - KNOWN_ACCOUNT_CACHE.at > 600000) {
+  if (!CACHE.accounts || now - CACHE.accountsAt > 600000) {
     const res = await fetch(
-      `https://api.airtable.com/v0/applLIT2t83plMqNx/${encodeURIComponent('Palm Creators')}?pageSize=100&fields%5B%5D=AKA&fields%5B%5D=Creator&fields%5B%5D=OF%20API%20Account%20ID`,
+      `https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Palm Creators')}?pageSize=100&fields%5B%5D=AKA&fields%5B%5D=Creator&fields%5B%5D=OF%20API%20Account%20ID`,
       { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` } },
     )
     if (!res.ok) return null
@@ -141,19 +221,46 @@ async function resolveAccountName(accountId) {
     const map = {}
     for (const r of data.records || []) {
       const acct = r.fields?.['OF API Account ID']
-      if (acct) map[acct] = r.fields?.AKA || r.fields?.Creator
+      if (acct) map[acct] = { aka: r.fields?.AKA || r.fields?.Creator, name: r.fields?.Creator, recordId: r.id }
     }
-    KNOWN_ACCOUNT_CACHE.map = map
-    KNOWN_ACCOUNT_CACHE.at = now
+    CACHE.accounts = map
+    CACHE.accountsAt = now
   }
-  const aka = KNOWN_ACCOUNT_CACHE.map[accountId]
-  if (!aka) return null
-  const names = await fetchRevenueAccountNames(aka)
-  return names[0] || `${aka} - Free OF`
+  const hit = CACHE.accounts[accountId]
+  if (!hit) return null
+  if (!hit.accountName) {
+    const names = await fetchRevenueAccountNames(hit.aka)
+    hit.accountName = names[0] || `${hit.aka} - Free OF`
+  }
+  return hit
+}
+
+async function findTrackerRow(creatorRecordId, username, fanName) {
+  const now = Date.now()
+  if (!CACHE.tracker || now - CACHE.trackerAt > 300000) {
+    const rows = []
+    let offset = null
+    do {
+      const u = `https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Fan Tracker')}?pageSize=100&fields%5B%5D=Fan%20Name&fields%5B%5D=OF%20Username&fields%5B%5D=Creator&fields%5B%5D=Lifetime%20Spend&fields%5B%5D=Cadence${offset ? `&offset=${offset}` : ''}`
+      const res = await fetch(u, { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` } })
+      if (!res.ok) return null
+      const data = await res.json()
+      rows.push(...(data.records || []))
+      offset = data.offset
+    } while (offset)
+    CACHE.tracker = rows
+    CACHE.trackerAt = now
+  }
+  const un = (username || '').toLowerCase()
+  const fn = (fanName || '').toLowerCase()
+  return CACHE.tracker.find((r) =>
+    (r.fields?.Creator || []).includes(creatorRecordId) &&
+    ((un && (r.fields?.['OF Username'] || '').toLowerCase() === un) ||
+     (fn && (r.fields?.['Fan Name'] || '').toLowerCase() === fn))
+  ) || null
 }
 
 async function saveSample(event, raw) {
-  // Keep a rolling set of raw payloads per event type for schema work.
   const token = await getDropboxAccessToken()
   const ns = await getDropboxRootNamespaceId(token)
   await createDropboxFolder(token, ns, '/Palm Ops/OF Webhooks')
