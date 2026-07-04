@@ -145,9 +145,13 @@ export default function AuditTab() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || `Backfill failed for ${accountName}`)
         const s = data.Sales || {}, c = data.Chargebacks || {}
-        parts.push(s.note && c.note
-          ? `${accountName}: ${s.note} (0 credits)`
-          : `${accountName}: +${s.uploaded ?? 0} sales, +${c.uploaded ?? 0} chargebacks back to ${s.earliest || c.earliest || '—'} (${(s.credits || 0) + (c.credits || 0)} credits)`)
+        const bits = []
+        for (const [label, r] of [['sales', s], ['chargebacks', c]]) {
+          if (r.pending) bits.push(`${label} still exporting at OF (${r.progress ?? 0}%${r.totalRows ? ` of ${r.totalRows.toLocaleString()} rows` : ''}) — click Backfill again in a few minutes`)
+          else if (r.note) bits.push(`${label} ${r.note}`)
+          else bits.push(`+${r.uploaded ?? 0} ${label}${r.earliest ? ` back to ${r.earliest}` : ''}${r.credits ? ` (${r.credits} credits)` : ''}`)
+        }
+        parts.push(`${accountName}: ${bits.join(' · ')}`)
       }
       setBackfillResult(parts.join(' · '))
       load()

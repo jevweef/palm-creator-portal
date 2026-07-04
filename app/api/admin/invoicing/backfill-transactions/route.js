@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { ofApi, createDataExport, waitForDataExport, downloadExportCsv } from '@/lib/onlyfansApi'
+import { ofApi, createDataExport, waitForDataExport, downloadExportCsv, findDataExport, getDataExport } from '@/lib/onlyfansApi'
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, readTabRows, txnFingerprint,
   appendRowsAtBottom, utcToEtDateTime, utcToEtDate, mapType, stripHtmlText,
@@ -66,13 +66,31 @@ export async function POST(request) {
         windowEnd = new Date(oldestDt.getTime() + 86400000) // +1d overlap; dedup handles it
       }
 
-      const exp = await createDataExport({
-        type: exportType,
-        accountIds: [ofAccountId],
-        startDate: targetStart.toISOString().slice(0, 10) + 'T00:00:00Z',
-        endDate: windowEnd.toISOString().slice(0, 19) + 'Z',
-      })
-      const done = await waitForDataExport(exp.id)
+      // Big accounts take many minutes to scrape (Caitie's missing year =
+      // 11,300 rows). ATTACH to an existing export for this exact window
+      // instead of creating a duplicate (the API 404s those); if it's still
+      // running, report progress and let the user click again later —
+      // "pending" is a normal state here, not an error.
+      const startDate = targetStart.toISOString().slice(0, 10) + 'T00:00:00Z'
+      const endDate = windowEnd.toISOString().slice(0, 19) + 'Z'
+      let done = null
+      const prior = await findDataExport({ type: exportType, accountId: ofAccountId, startDate, endDate })
+      if (prior?.status === 'completed') {
+        done = prior // reuse — already paid for, downloading is free
+      } else if (prior) {
+        results[dataType] = { pending: true, progress: prior.progress_percentage ?? 0, totalRows: prior.total_rows ?? null, tab: tabName }
+        continue
+      } else {
+        const exp = await createDataExport({ type: exportType, accountIds: [ofAccountId], startDate, endDate })
+        try {
+          done = await waitForDataExport(exp.id, { maxWaitMs: 150000 })
+        } catch (e) {
+          if (!/timed out/i.test(e.message)) throw e
+          const d = await getDataExport(exp.id).catch(() => null)
+          results[dataType] = { pending: true, progress: d?.progress_percentage ?? 0, totalRows: d?.total_rows ?? null, tab: tabName }
+          continue
+        }
+      }
       const csv = await downloadExportCsv(done)
       const parsed = parseCsvObjects(csv)
 
