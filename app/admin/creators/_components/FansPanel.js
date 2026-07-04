@@ -17,7 +17,7 @@ function getClientAccountKey(accountName) {
   return slug || null
 }
 
-function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal }) {
   const [chatFile, setChatFile] = useState(null)
   // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
   // client-side HTML parse; feeds the identical analyze flow.
@@ -588,7 +588,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
   return (
     <div id={`fanrow-${f.id}`} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-      <div
+      {!inModal && <div
         onClick={onToggle}
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
@@ -628,7 +628,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{f.txnCount || 0}</span>
         <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{f.lastDate || '—'}</span>
-      </div>
+      </div>}
 
       {isExpanded && (
         <div style={{ padding: '14px 16px 18px 40px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
@@ -763,6 +763,377 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.txnCount || 0} sessions</div>
               </div>
             </div>
+          </div>
+
+          {/* ═══ SECTION 4: Upload New Chat ═══ */}
+          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              {inModal ? <>Analyze Chat — {f.fanName}</> : <>Upload Chat for {f.fanName}</>}
+            </div>
+
+            {/* Scroll-back hint — HTML-flow only, hidden in the modal */}
+            {!inModal && (() => {
+              const mostRecent = f.analysisRecords?.[0]
+              const lastDate = mostRecent?.lastMessageDate
+              if (lastDate) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
+                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
+                </div>
+              )
+              if (f.analysisRecords?.length > 0) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
+                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                </div>
+              )
+              return null
+            })()}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input ref={chatFileRef} type="file" accept=".html,.htm"
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setAnalysisError(null)
+                  if (accountNames.length > 1 && uploadAccountName) {
+                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
+                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
+                    handleAccountUpload(uploadAccountName, file)
+                  } else {
+                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
+                    setChatFile(file)
+                  }
+                  e.target.value = '' // allow re-selecting the same filename
+                }}
+                style={{ display: 'none' }} />
+
+              {!inModal && (accountNames.length > 1 ? (
+                // Multi-account fan: one button per account, color-coded to match the badges.
+                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
+                <>
+                  {accountNames.map(acct => {
+                    const isFree = /free/i.test(acct)
+                    const isVip = /vip/i.test(acct)
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
+                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
+                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
+                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
+                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
+                      : state === 'saved' ? `\u2713 ${label} saved`
+                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
+                      : `Upload ${label} chat`
+                    const isSuccess = state === 'saved'
+                    return (
+                      <button key={acct}
+                        disabled={state === 'saving'}
+                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
+                        style={{
+                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
+                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                          cursor: state === 'saving' ? 'wait' : 'pointer',
+                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          opacity: state === 'saving' ? 0.7 : 1,
+                        }}>
+                        {displayText}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
+                  style={{
+                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+              ))}
+              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
+                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
+                  combines them with thread headers, and sends to Claude for one unified analysis. */}
+              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
+                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Pull the conversation straight from OF (read-only API) —
+                  replaces the scroll → save HTML → upload dance. */}
+              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+                style={{
+                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
+                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
+                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                }}>
+                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+              </button>}
+              {ofPull && !chatFile && (
+                <>
+                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
+                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
+                  </span>
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    style={{
+                      background: '#E88C5C', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                    }}>
+                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                  </button>
+                </>
+              )}
+
+              {chatFile && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Re-analyze from Dropbox transcript */}
+              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
+                <>
+                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
+                  </button>
+                  <span style={{ color: 'var(--foreground)' }}>|</span>
+                  <input ref={saveFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
+                {analysisError}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          {f.notes && (
+            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+            </div>
+          )}
+
+          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={async () => {
+                const isBanned = f.banned
+                const confirmMsg = isBanned
+                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
+                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
+                if (!confirm(confirmMsg)) return
+                try {
+                  const res = await fetch('/api/admin/fan-tracker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'update_status',
+                      recordId: f.crmId || null,
+                      fanName: f.fanName,
+                      fanUsername: f.ofUsername,
+                      creatorRecordId,
+                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Ban update failed')
+                  // Refresh CRM data
+                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+                  const refreshData = await refreshRes.json()
+                  if (refreshData.fans) setFans(refreshData.fans)
+                } catch (e) {
+                  alert(`Ban update failed: ${e.message}`)
+                }
+              }}
+              style={{
+                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
+                background: 'none', border: 'none', cursor: 'pointer',
+                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
+              }}
+            >
+              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
+            </button>
+          </div>          {/* ═══ SECTION 3: Analysis History ═══ */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
+              Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
+            </div>
+
+            {/* Analysis cards */}
+            {f.analysisRecords && f.analysisRecords.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {f.analysisRecords.map((rec, idx) => {
+                  // Check if this analysis was sent to manager (alert exists on or after analysis date)
+                  const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
+                  const isSent = !!sentAlert
+
+                  // Truncate brief for card summary (first 2 meaningful lines)
+                  const briefSummary = (() => {
+                    if (!rec.brief) return null
+                    const lines = rec.brief.split('\n').map(l => l.trim()).filter(l => l && !/^\*\*[^*]+\*\*$/.test(l))
+                    const cleaned = lines.slice(0, 3).map(l => l.replace(/\*\*([^*]+)\*\*/g, '$1')).join(' ')
+                    return cleaned.length > 180 ? cleaned.slice(0, 180) + '...' : cleaned
+                  })()
+
+                  return (
+                    <div key={rec.id || idx} style={{
+                      background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 14px',
+                      transition: 'box-shadow 0.15s', cursor: 'default',
+                    }}>
+                      {/* Card header row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: briefSummary ? '8px' : 0, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{fmtDate(rec.date)}</span>
+                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
+
+                        {/* Send status */}
+                        {isSent
+                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', padding: '1px 6px', borderRadius: '3px' }}>
+                              Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}
+                            </span>
+                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#E8A878', background: 'rgba(232, 200, 120, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
+                        }
+
+                        {/* Chat window dates */}
+                        {(rec.firstMessageDate || rec.lastMessageDate) && (
+                          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
+                            {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}
+                          </span>
+                        )}
+
+                        {/* Spacer + action buttons */}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewingAnalysisIdx(idx); setSelectedAnalysisIdx(idx); setShowBrief(false) }}
+                            style={{ fontSize: '10px', color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
+                            View Full
+                          </button>
+                          {!isSent && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
+                              disabled={previewLoading}
+                              style={{ fontSize: '10px', color: '#060606', background: 'var(--palm-pink)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
+                              {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
+                            </button>
+                          )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!confirm('Delete this analysis?')) return
+                              const res = await fetch(`/api/admin/fan-tracker?recordId=${rec.id}&table=analysis`, { method: 'DELETE' })
+                              if (res.ok) {
+                                // Update CRM data — match by finding which CRM record contains this analysis
+                                setFans(prev => prev.map(crmFan => {
+                                  if (!crmFan.analysisRecords?.some(ar => ar.id === rec.id)) return crmFan
+                                  const updated = { ...crmFan, analysisRecords: crmFan.analysisRecords.filter(ar => ar.id !== rec.id) }
+                                  if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
+                                  return updated
+                                }).filter(Boolean))
+                                setSelectedAnalysisIdx(0)
+                                if (viewingAnalysisIdx === idx) setViewingAnalysisIdx(null)
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
+                            onMouseEnter={e => e.target.style.color = '#E87878'}
+                            onMouseLeave={e => e.target.style.color = 'var(--foreground-subtle)'}
+                            title="Delete this analysis"
+                          >&times;</button>
+                        </div>
+                      </div>
+
+                      {/* Brief summary preview */}
+                      {briefSummary && (
+                        <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.5' }}>
+                          {briefSummary}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
+            )}
+
+            {/* Freshly generated analysis (inline, before it gets saved to records) */}
+            {analysis && (
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: 'rgba(232, 200, 120, 0.05)', border: '1px solid transparent', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                    <span style={{ fontWeight: 600, color: '#E88C5C' }}>New Analysis</span>
+                    <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
+                    {(analysis.firstMessageDate || analysis.lastMessageDate) && (
+                      <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
+                    )}
+                    {analysis.saved && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>\u2713 Saved</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {analysis.managerBrief && (
+                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
+                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
+                      </div>
+                    )}
+                    {chatFile && (
+                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
+                        style={{ fontSize: '10px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                        {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div style={{
+                  background: showBrief ? 'var(--card-bg-solid)' : 'rgba(255,255,255,0.08)',
+                  border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
+                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: 'var(--foreground)', lineHeight: '1.7',
+                }}>
+                  {(() => {
+                    const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
+                    const accentColor = showBrief ? 'var(--foreground-muted)' : '#E88C5C'
+                    return text.split('\n').map((line, idx) => {
+                      const trimmed = line.trim()
+                      if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
+                      if (/^\*\*[^*]+\*\*/.test(trimmed)) {
+                        const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
+                        if (hm) {
+                          const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
+                          return <div key={idx} style={{ marginTop: idx > 0 ? '12px' : 0, marginBottom: '3px' }}><div style={{ fontSize: '11px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
+                        }
+                      }
+                      if (/^\d+\.\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        const nm = trimmed.match(/^(\d+)\./)
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '11px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
+                      }
+                      if (/^[-\u2022]\s/.test(trimmed)) {
+                        const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
+                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
+                      }
+                      return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
+                    })
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
@@ -1043,378 +1414,6 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
           {/* (chart code above this block) */}
 
-          {/* ═══ SECTION 3: Analysis History ═══ */}
-          <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
-              Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
-            </div>
-
-            {/* Analysis cards */}
-            {f.analysisRecords && f.analysisRecords.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                {f.analysisRecords.map((rec, idx) => {
-                  // Check if this analysis was sent to manager (alert exists on or after analysis date)
-                  const sentAlert = f.alertHistory?.find(h => h.date && rec.date && h.date >= rec.date)
-                  const isSent = !!sentAlert
-
-                  // Truncate brief for card summary (first 2 meaningful lines)
-                  const briefSummary = (() => {
-                    if (!rec.brief) return null
-                    const lines = rec.brief.split('\n').map(l => l.trim()).filter(l => l && !/^\*\*[^*]+\*\*$/.test(l))
-                    const cleaned = lines.slice(0, 3).map(l => l.replace(/\*\*([^*]+)\*\*/g, '$1')).join(' ')
-                    return cleaned.length > 180 ? cleaned.slice(0, 180) + '...' : cleaned
-                  })()
-
-                  return (
-                    <div key={rec.id || idx} style={{
-                      background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '12px 14px',
-                      transition: 'box-shadow 0.15s', cursor: 'default',
-                    }}>
-                      {/* Card header row */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: briefSummary ? '8px' : 0, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{fmtDate(rec.date)}</span>
-                        {rec.type && <span style={{ fontSize: '9px', fontWeight: 600, color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>{rec.type}</span>}
-
-                        {/* Send status */}
-                        {isSent
-                          ? <span style={{ fontSize: '9px', fontWeight: 600, color: '#7DD3A4', background: 'rgba(125, 211, 164, 0.08)', padding: '1px 6px', borderRadius: '3px' }}>
-                              Sent to Manager {sentAlert.date ? `· ${fmtDate(sentAlert.date)}` : ''}
-                            </span>
-                          : <span style={{ fontSize: '9px', fontWeight: 600, color: '#E8A878', background: 'rgba(232, 200, 120, 0.1)', padding: '1px 6px', borderRadius: '3px' }}>Not Sent</span>
-                        }
-
-                        {/* Chat window dates */}
-                        {(rec.firstMessageDate || rec.lastMessageDate) && (
-                          <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>
-                            {rec.firstMessageDate || '?'} → {rec.lastMessageDate || '?'}
-                          </span>
-                        )}
-
-                        {/* Spacer + action buttons */}
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setViewingAnalysisIdx(idx); setSelectedAnalysisIdx(idx); setShowBrief(false) }}
-                            style={{ fontSize: '10px', color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
-                            View Full
-                          </button>
-                          {!isSent && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
-                              disabled={previewLoading}
-                              style={{ fontSize: '10px', color: '#060606', background: 'var(--palm-pink)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: previewLoading ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: previewLoading ? 0.6 : 1 }}>
-                              {previewLoading && selectedAnalysisIdx === idx ? 'Generating...' : 'Send to Manager'}
-                            </button>
-                          )}
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (!confirm('Delete this analysis?')) return
-                              const res = await fetch(`/api/admin/fan-tracker?recordId=${rec.id}&table=analysis`, { method: 'DELETE' })
-                              if (res.ok) {
-                                // Update CRM data — match by finding which CRM record contains this analysis
-                                setFans(prev => prev.map(crmFan => {
-                                  if (!crmFan.analysisRecords?.some(ar => ar.id === rec.id)) return crmFan
-                                  const updated = { ...crmFan, analysisRecords: crmFan.analysisRecords.filter(ar => ar.id !== rec.id) }
-                                  if (updated.analysisRecords.length === 0 && updated.source === 'analysis') return null
-                                  return updated
-                                }).filter(Boolean))
-                                setSelectedAnalysisIdx(0)
-                                if (viewingAnalysisIdx === idx) setViewingAnalysisIdx(null)
-                              }
-                            }}
-                            style={{ background: 'none', border: 'none', color: 'var(--foreground-subtle)', cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1 }}
-                            onMouseEnter={e => e.target.style.color = '#E87878'}
-                            onMouseLeave={e => e.target.style.color = 'var(--foreground-subtle)'}
-                            title="Delete this analysis"
-                          >&times;</button>
-                        </div>
-                      </div>
-
-                      {/* Brief summary preview */}
-                      {briefSummary && (
-                        <div style={{ fontSize: '11px', color: 'rgba(240, 236, 232, 0.75)', lineHeight: '1.5' }}>
-                          {briefSummary}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '16px', fontStyle: 'italic' }}>No analyses yet. Upload an OF chat to get started.</div>
-            )}
-
-            {/* Freshly generated analysis (inline, before it gets saved to records) */}
-            {analysis && (
-              <div style={{ marginBottom: '16px', padding: '12px 14px', background: 'rgba(232, 200, 120, 0.05)', border: '1px solid transparent', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11px', color: 'var(--foreground-muted)' }}>
-                    <span style={{ fontWeight: 600, color: '#E88C5C' }}>New Analysis</span>
-                    <span>{analysis.messageCount} msgs ({analysis.fanMessages} fan / {analysis.creatorMessages} creator)</span>
-                    {(analysis.firstMessageDate || analysis.lastMessageDate) && (
-                      <span>Chats: {analysis.firstMessageDate || '?'} → {analysis.lastMessageDate || '?'}</span>
-                    )}
-                    {analysis.saved && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>\u2713 Saved</span>}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {analysis.managerBrief && (
-                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={() => setShowBrief(false)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full</button>
-                        <button onClick={() => setShowBrief(true)} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
-                      </div>
-                    )}
-                    {chatFile && (
-                      <button onClick={() => { setAnalysis(null); setShowBrief(false); handleAnalyze() }} disabled={analyzing}
-                        style={{ fontSize: '10px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                        {analyzing ? 'Re-analyzing...' : 'Re-analyze'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div style={{
-                  background: showBrief ? 'var(--card-bg-solid)' : 'rgba(255,255,255,0.08)',
-                  border: `1px solid ${showBrief ? 'rgba(255,255,255,0.06)' : 'rgba(232, 168, 120, 0.15)'}`,
-                  borderRadius: '6px', padding: '14px 16px', fontSize: '12px', color: 'var(--foreground)', lineHeight: '1.7',
-                }}>
-                  {(() => {
-                    const text = showBrief ? (analysis.managerBrief || analysis.analysis) : analysis.analysis
-                    const accentColor = showBrief ? 'var(--foreground-muted)' : '#E88C5C'
-                    return text.split('\n').map((line, idx) => {
-                      const trimmed = line.trim()
-                      if (!trimmed) return <div key={idx} style={{ height: '8px' }} />
-                      if (/^\*\*[^*]+\*\*/.test(trimmed)) {
-                        const hm = trimmed.match(/^\*\*([^*]+)\*\*:?\s*(.*)/)
-                        if (hm) {
-                          const rest = hm[2]?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''
-                          return <div key={idx} style={{ marginTop: idx > 0 ? '12px' : 0, marginBottom: '3px' }}><div style={{ fontSize: '11px', fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{hm[1]}</div>{rest && <div style={{ marginTop: '2px' }}>{rest}</div>}</div>
-                        }
-                      }
-                      if (/^\d+\.\s/.test(trimmed)) {
-                        const content = trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
-                        const nm = trimmed.match(/^(\d+)\./)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '4px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontWeight: 700, fontSize: '11px', minWidth: '16px' }}>{nm[1]}.</span><span>{content}</span></div>
-                      }
-                      if (/^[-\u2022]\s/.test(trimmed)) {
-                        const content = trimmed.replace(/^[-\u2022]\s*/, '').replace(/\*\*([^*]+)\*\*/g, (_, t) => t)
-                        return <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '3px', paddingLeft: '4px' }}><span style={{ color: accentColor, fontSize: '8px', marginTop: '5px' }}>●</span><span>{content}</span></div>
-                      }
-                      return <div key={idx}>{trimmed.replace(/\*\*([^*]+)\*\*/g, (_, t) => t)}</div>
-                    })
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ═══ SECTION 4: Upload New Chat ═══ */}
-          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
-              Upload Chat for {f.fanName}
-            </div>
-
-            {/* Scroll-back hint */}
-            {(() => {
-              const mostRecent = f.analysisRecords?.[0]
-              const lastDate = mostRecent?.lastMessageDate
-              if (lastDate) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
-                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
-                </div>
-              )
-              if (f.analysisRecords?.length > 0) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
-                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
-                </div>
-              )
-              return null
-            })()}
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input ref={chatFileRef} type="file" accept=".html,.htm"
-                onChange={e => {
-                  const file = e.target.files[0]
-                  if (!file) return
-                  setAnalysisError(null)
-                  if (accountNames.length > 1 && uploadAccountName) {
-                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
-                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
-                    handleAccountUpload(uploadAccountName, file)
-                  } else {
-                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
-                    setChatFile(file)
-                  }
-                  e.target.value = '' // allow re-selecting the same filename
-                }}
-                style={{ display: 'none' }} />
-
-              {accountNames.length > 1 ? (
-                // Multi-account fan: one button per account, color-coded to match the badges.
-                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
-                <>
-                  {accountNames.map(acct => {
-                    const isFree = /free/i.test(acct)
-                    const isVip = /vip/i.test(acct)
-                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
-                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
-                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
-                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
-                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
-                      : state === 'saved' ? `\u2713 ${label} saved`
-                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
-                      : `Upload ${label} chat`
-                    const isSuccess = state === 'saved'
-                    return (
-                      <button key={acct}
-                        disabled={state === 'saving'}
-                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
-                        style={{
-                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
-                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
-                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
-                          cursor: state === 'saving' ? 'wait' : 'pointer',
-                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
-                          opacity: state === 'saving' ? 0.7 : 1,
-                        }}>
-                        {displayText}
-                      </button>
-                    )
-                  })}
-                </>
-              ) : (
-                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
-                  style={{
-                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
-                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
-                  }}>
-                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-                </button>
-              )}
-              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
-                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
-                  combines them with thread headers, and sends to Claude for one unified analysis. */}
-              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
-                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Pull the conversation straight from OF (read-only API) —
-                  replaces the scroll → save HTML → upload dance. */}
-              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
-                style={{
-                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
-                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
-                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
-                }}>
-                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
-              </button>}
-              {ofPull && !chatFile && (
-                <>
-                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
-                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
-                  </span>
-                  <button onClick={handleAnalyze} disabled={analyzing}
-                    style={{
-                      background: '#E88C5C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                    }}>
-                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                  </button>
-                </>
-              )}
-
-              {chatFile && (
-                <button onClick={handleAnalyze} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Re-analyze from Dropbox transcript */}
-              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
-                <>
-                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
-                  </button>
-                  <span style={{ color: 'var(--foreground)' }}>|</span>
-                  <input ref={saveFileRef} type="file" accept=".html,.htm"
-                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
-                    style={{ display: 'none' }} />
-                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
-                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {analysisError && (
-              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
-                {analysisError}
-              </div>
-            )}
-          </div>
-
-          {/* Notes */}
-          {f.notes && (
-            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
-            </div>
-          )}
-
-          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
-          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              onClick={async () => {
-                const isBanned = f.banned
-                const confirmMsg = isBanned
-                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
-                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
-                if (!confirm(confirmMsg)) return
-                try {
-                  const res = await fetch('/api/admin/fan-tracker', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      action: 'update_status',
-                      recordId: f.crmId || null,
-                      fanName: f.fanName,
-                      fanUsername: f.ofUsername,
-                      creatorRecordId,
-                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
-                    }),
-                  })
-                  if (!res.ok) throw new Error('Ban update failed')
-                  // Refresh CRM data
-                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
-                  const refreshData = await refreshRes.json()
-                  if (refreshData.fans) setFans(refreshData.fans)
-                } catch (e) {
-                  alert(`Ban update failed: ${e.message}`)
-                }
-              }}
-              style={{
-                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
-                background: 'none', border: 'none', cursor: 'pointer',
-                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
-              }}
-            >
-              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
-            </button>
-          </div>
         </div>
       )}
 
@@ -2251,7 +2250,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
                 <button onClick={() => setModalFanId(null)}
                   style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '2px 6px' }}>&times;</button>
               </div>
-              <FanRow f={mf} i={0} isExpanded onToggle={() => {}}
+              <FanRow f={mf} i={0} isExpanded inModal onToggle={() => {}}
                 alertStatusColors={alertStatusColors} effectColors={effectColors}
                 fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
                 creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
