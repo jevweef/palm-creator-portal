@@ -159,19 +159,42 @@ export async function POST(request) {
 
     if (!archive || !archive.historyComplete) {
       try {
+        // NEVER re-buy messages we already have (exports bill per row):
+        // export ONLY the missing OLDER window — from 2 years back up to the
+        // archive's oldest stored message (+1 day of dedup overlap). Fans
+        // with no archive get the full window.
         const startIso = new Date(Date.now() - 730 * 86400000).toISOString().slice(0, 19) + 'Z'
-        const exp = await createDataExport({
-          type: 'chat_messages',
-          accountIds: [accountId],
-          startDate: startIso,
-          endDate: new Date().toISOString().slice(0, 19) + 'Z',
-          options: { chatIds: [Number(fan.id)], maxMessages: 1000000 },
-        })
-        const done = await waitForDataExport(exp.id, { maxWaitMs: 200000 })
-        const csv = await downloadExportCsv(done)
-        fresh = csvToMessages(csv)
-        credits = done.credit_cost ?? Math.ceil(fresh.length / 20)
-        historyComplete = true
+        let endIso = new Date().toISOString().slice(0, 19) + 'Z'
+        const oldestStored = archive?.messages?.[0]
+        if (oldestStored?.createdAt) {
+          endIso = new Date(new Date(oldestStored.createdAt).getTime() + 86400000).toISOString().slice(0, 19) + 'Z'
+        }
+        if (new Date(endIso) <= new Date(startIso)) {
+          // Archive already reaches the 2-year horizon — nothing older to buy.
+          historyComplete = true
+        } else {
+          const exp = await createDataExport({
+            type: 'chat_messages',
+            accountIds: [accountId],
+            startDate: startIso,
+            endDate: endIso,
+            options: { chatIds: [Number(fan.id)], maxMessages: 1000000 },
+          })
+          const done = await waitForDataExport(exp.id, { maxWaitMs: 200000 })
+          const csv = await downloadExportCsv(done)
+          fresh = csvToMessages(csv)
+          credits = done.credit_cost ?? Math.ceil(fresh.length / 20)
+          historyComplete = true
+        }
+        // Front end of the thread: new messages since the last pull — cheap
+        // paginated top-up (only when an archive exists; first pulls covered
+        // everything via the export window above).
+        if (archive?.lastMessageAt) {
+          const fwd = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: 20 })
+          fresh = fresh.concat(fwd.messages)
+          pages += fwd.pages
+          credits += fwd.credits
+        }
       } catch (e) {
         // Export path failed (timeout/edge) — fall back to paginated fetch so
         // the button still works; archive stays marked incomplete.
