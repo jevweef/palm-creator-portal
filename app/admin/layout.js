@@ -39,6 +39,9 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
+  // Live Chat — real-time OF message feed off the webhooks (fan replies,
+  // 1:1 chatter messages, PPV unlocks), OF-style bubbles, 8s polling.
+  { href: '/admin/live-chat', label: 'Live Chat', icon: '💬' },
   // Research — OFM competitive-intelligence briefs (how other agencies operate,
   // synthesized from their YouTube content, compared to how Palm works). Fed by
   // the research pipeline (scripts/yt_discover.py → yt_transcript.py → synthesis)
