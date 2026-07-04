@@ -74,7 +74,11 @@ export async function POST(request) {
       const txns = []
       for (const t of parsed) {
         const status = (t.status || '').toLowerCase()
-        if (isSales && status && status !== 'done') continue // pending/failed never hit statements
+        // OF marks recent transactions 'loading' until they clear — those DO
+        // appear on the statements page (the HTML flow always included them),
+        // so only skip explicit failure states. (Bug found 2026-07-03: the
+        // old status==='done' filter silently dropped everything recent.)
+        if (isSales && ['failed', 'cancelled', 'canceled', 'refunded', 'error'].includes(status)) continue
         const created = t.onlyfans_created_at || t.created_at || ''
         if (!created) continue
         const gross = parseFloat(t.amount || '0') || 0
