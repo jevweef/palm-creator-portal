@@ -57,8 +57,10 @@ export async function POST(request) {
     console.log(`[of-webhook] ${event} account=${accountId} keys=${Object.keys(payload).join(',').slice(0, 200)}`)
 
     // Sample the raw event to Dropbox (schemas are undocumented — these
-    // samples are how the mappings get hardened). Non-fatal.
-    saveSample(event, raw).catch(() => {})
+    // samples are how the mappings get hardened). Non-fatal. High-volume
+    // message events (Brett's webhook shares this receiver) sample at 2%.
+    const highVolume = event === 'messages.sent' || event === 'messages.received'
+    if (!highVolume || Math.random() < 0.02) saveSample(event, raw).catch(() => {})
 
     if (event === 'transactions.new') {
       await handleNewTransaction(accountId, payload)
