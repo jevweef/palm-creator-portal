@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { isRealPurchase, parseChatHtmlClient } from '../_lib/parsers'
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
@@ -586,7 +587,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   }
 
   return (
-    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+    <div id={`fanrow-${f.id}`} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
       <div
         onClick={onToggle}
         style={{
@@ -1799,6 +1800,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [showAllFans, setShowAllFans] = useState(false)
+  const searchParams = useSearchParams()
+  const deepLinkedFan = useRef(false)
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
@@ -2018,6 +2021,21 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   }
 
   const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
+
+  // Deep link from the whale watchlist: ?fan=<ofUsername or name> — expand
+  // that fan's card and scroll it into view once the fan list is ready.
+  useEffect(() => {
+    if (deepLinkedFan.current || !allFans.length) return
+    const target = (searchParams?.get('fan') || '').toLowerCase()
+    if (!target) return
+    const match = allFans.find(f => (f.ofUsername || '').toLowerCase() === target)
+      || allFans.find(f => (f.fanName || '').toLowerCase() === target)
+    if (!match) return
+    deepLinkedFan.current = true
+    setExpandedId(match.id)
+    setShowAllFans(true)
+    setTimeout(() => document.getElementById(`fanrow-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)
+  }, [allFans, searchParams])
 
   // Top 20% spend threshold
   const top20Threshold = useMemo(() => {

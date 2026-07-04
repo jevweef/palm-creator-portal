@@ -402,7 +402,9 @@ export default function AuditTab() {
                     <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
                     <td>{w.alertCount || 0}</td>
                     <td>
-                      <Link href={`/admin/creators?creator=${encodeURIComponent(w.creator)}&tab=fans`} style={{ color: '#A06FE8', fontSize: '11px' }}>
+                      {/* creators page matches ?creator= by record ID (a name never matches
+                          and it falls back to the top earner); ?fan= expands + scrolls */}
+                      <Link href={`/admin/creators?creator=${encodeURIComponent(w.creatorId || '')}&tab=fans&fan=${encodeURIComponent(w.ofUsername || w.fanName)}`} style={{ color: '#A06FE8', fontSize: '11px' }}>
                         open in Fans →
                       </Link>
                     </td>
