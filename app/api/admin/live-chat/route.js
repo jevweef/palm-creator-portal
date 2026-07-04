@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox, uploadToDropbox } from '@/lib/dropbox'
 import { readLiveMerged } from '@/lib/ofLiveBuffer'
 
 export const dynamic = 'force-dynamic'
@@ -135,8 +135,41 @@ export async function GET(request) {
       }
       base.set(key, cur)
     }
-    const conversations = [...base.values()].sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || '') || a.fan.localeCompare(b.fan))
+    // muted list (other creators she follows, spam, etc.)
+    let muted = []
+    try {
+      const mb = await downloadFromDropbox(token, ns, `/Palm Ops/OF Webhooks/live/${account}-muted.json`)
+      if (mb) muted = JSON.parse(mb.toString('utf8'))
+    } catch { /* none */ }
+    const mutedSet = new Set(muted)
+    const conversations = [...base.values()]
+      .map((c) => ({ ...c, muted: mutedSet.has(c.fan) }))
+      .sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || '') || a.fan.localeCompare(b.fan))
     return NextResponse.json({ accounts, conversations, live })
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// POST — mute/unmute a conversation for an account (e.g. other creators she
+// follows whose promo blasts land in the inbox). {account, fan, mute: bool}
+export async function POST(request) {
+  try { await requireAdmin() } catch (e) { return e }
+  try {
+    const { account, fan, mute } = await request.json()
+    if (!account || !fan) return NextResponse.json({ error: 'account and fan required' }, { status: 400 })
+    const token = await getDropboxAccessToken()
+    const ns = await getDropboxRootNamespaceId(token)
+    const path = `/Palm Ops/OF Webhooks/live/${account}-muted.json`
+    let muted = []
+    try {
+      const mb = await downloadFromDropbox(token, ns, path)
+      if (mb) muted = JSON.parse(mb.toString('utf8'))
+    } catch { /* none */ }
+    muted = muted.filter((m) => m !== fan)
+    if (mute) muted.push(fan)
+    await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(muted), 'utf8'))
+    return NextResponse.json({ ok: true, muted })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
