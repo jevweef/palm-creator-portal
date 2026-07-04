@@ -60,6 +60,8 @@ export default function AuditTab() {
   const [ofAccounts, setOfAccounts] = useState({}) // creatorRecordId -> [accountName]
   const [pulling, setPulling] = useState(false)
   const [pullResult, setPullResult] = useState(null)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState(null)
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -127,6 +129,31 @@ export default function AuditTab() {
     } catch (e) { setError(e.message) } finally { setPulling(false) }
   }
 
+  // Backfill 2y history — one-time per creator. Only exports the window the
+  // sheet is MISSING (exports bill per row), so a covered tab costs 0 credits.
+  async function runBackfill() {
+    setBackfilling(true); setError(null); setBackfillResult(null)
+    try {
+      const accounts = ofAccounts[creatorId] || []
+      if (!accounts.length) throw new Error('No revenue accounts found for this creator')
+      const parts = []
+      for (const accountName of accounts) {
+        const res = await fetch('/api/admin/invoicing/backfill-transactions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorRecordId: creatorId, accountName }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || `Backfill failed for ${accountName}`)
+        const s = data.Sales || {}, c = data.Chargebacks || {}
+        parts.push(s.note && c.note
+          ? `${accountName}: ${s.note} (0 credits)`
+          : `${accountName}: +${s.uploaded ?? 0} sales, +${c.uploaded ?? 0} chargebacks back to ${s.earliest || c.earliest || '—'} (${(s.credits || 0) + (c.credits || 0)} credits)`)
+      }
+      setBackfillResult(parts.join(' · '))
+      load()
+    } catch (e) { setError(e.message) } finally { setBackfilling(false) }
+  }
+
   async function runAudit() {
     setAuditing(true); setError(null); setAudit(null)
     try {
@@ -184,7 +211,7 @@ export default function AuditTab() {
   return (
     <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); writeCreatorToUrl(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setError(null) }}
+        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); writeCreatorToUrl(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setBackfillResult(null); setError(null) }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           {creators.map((c) => (
             <option key={c.id} value={c.id}>{c.aka}{c.connected ? ' ✓' : ' (not connected)'}</option>
@@ -198,6 +225,10 @@ export default function AuditTab() {
         <div style={{ flex: 1 }} />
         <button onClick={runPull} disabled={pulling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', pulling || !selected?.connected)}>
           {pulling ? 'Updating…' : 'Update Sales & Chargebacks'}
+        </button>
+        <button onClick={runBackfill} disabled={backfilling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.08)', '#6B94B8', backfilling || !selected?.connected)}
+          title="One-time: pulls the older history the sheet is missing, back to 2 years. Costs credits only for missing rows.">
+          {backfilling ? 'Backfilling…' : 'Backfill 2y History'}
         </button>
         <button onClick={runAudit} disabled={auditing} style={btn('rgba(125, 211, 164, 0.12)', '#7DD3A4', auditing)}>
           {auditing ? 'Auditing…' : 'Run Audit'}
@@ -221,6 +252,7 @@ export default function AuditTab() {
       )}
 
       {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
+      {backfillResult && <div style={{ fontSize: '12px', color: '#6B94B8' }}>✓ Backfill — {backfillResult}</div>}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
 
       {/* Audit results */}
