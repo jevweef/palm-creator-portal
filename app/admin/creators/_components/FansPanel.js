@@ -38,6 +38,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
   const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
+  const [bigPull, setBigPull] = useState(null) // {credits, messages} — cost gate awaiting a decision
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
   // null for single-account fans (whose uploads don't need an account tag).
   const [uploadAccountName, setUploadAccountName] = useState(null)
@@ -291,10 +292,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
   // Pull this fan's chat straight from OF (read-only, ~1 credit per 100 msgs).
   // Result feeds the exact same analyze flow as an HTML upload.
-  async function handlePullFromOf() {
+  async function handlePullFromOf(opts = {}) {
     setPullingOf(true)
     setAnalysisError(null)
     setOfPull(null)
+    setBigPull(null)
     try {
       const res = await fetch('/api/admin/creator-earnings/pull-chat', {
         method: 'POST',
@@ -303,9 +305,15 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           creatorRecordId: creatorRecordId || '',
           fanUsername: f.ofUsername || '',
           fanName: f.fanName || '',
+          ...(opts.confirmBig ? { confirmBig: true } : {}),
+          ...(opts.acceptPartial ? { acceptPartial: true } : {}),
         }),
       })
       const data = await res.json()
+      if (res.status === 402 && data.needsConfirm) {
+        setBigPull({ credits: data.estimatedCredits, messages: data.estimatedMessages })
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Pull failed')
       setOfPull({ ...data.parsed, newMessages: data.newMessages, credits: data.credits, historyComplete: data.historyComplete })
       setChatFile(null) // OF pull replaces any picked file
@@ -964,11 +972,37 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
               {/* Pull the conversation straight from OF (read-only API) —
                   replaces the scroll → save HTML → upload dance. */}
+              {bigPull && (
+                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
+                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Pull it anyway ({bigPull.credits} credits)
+                  </button>
+                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
+                    Keep recent only (cheap top-ups from now on)
+                  </button>
+                </div>
+              )}
               {archiveMeta && !ofPull && (
                 <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
                   Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
                   {' '}· {archiveMeta.totalStored.toLocaleString()} messages archived through {archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                 </span>
+              )}
+              {bigPull && (
+                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
+                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Pull it anyway ({bigPull.credits} credits)
+                  </button>
+                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
+                    Keep recent only (cheap top-ups from now on)
+                  </button>
+                </div>
               )}
               {archiveMeta && !ofPull && (
                 <button onClick={handleLoadArchive} disabled={pullingOf || analyzing}

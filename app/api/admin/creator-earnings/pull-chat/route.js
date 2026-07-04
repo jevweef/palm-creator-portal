@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport } from '@/lib/onlyfansApi'
+import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate } from '@/lib/onlyfansApi'
 import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
@@ -93,7 +93,7 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, sinceDate, maxPages, fromArchive } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial } = await request.json()
     if (!creatorRecordId || (!fanUsername && !fanName)) {
       return NextResponse.json({ error: 'creatorRecordId and fanUsername or fanName required' }, { status: 400 })
     }
@@ -177,10 +177,17 @@ export async function POST(request) {
           const parsed2 = toParsedChat(m2, archive.fanId)
           return NextResponse.json({ parsed: parsed2, fan: { id: archive.fanId, username: archive.fanUsername, name: archive.fanName }, pages: 0, credits: pending.credit_cost ?? 0, newMessages: m2.length - archive.messages.length, totalStored: m2.length, incremental: true, historyComplete: true, pulledAt: new Date().toISOString() })
         }
-        if (pending?.status && pending.status !== 'failed') {
+        if (pending?.status && !['failed', 'cancelled'].includes(pending.status)) {
           return NextResponse.json({ error: `His full history export is still running at OF (${pending.progress_percentage ?? 0}% of ${pending.total_rows ?? '?'} rows) — try again in a few minutes. No credits spent on this click.` }, { status: 202 })
         }
       } catch { /* stale pending id — fall through to a fresh backfill */ }
+    }
+
+    // "Keep recent only": Evan declined a pricey full-history export — accept
+    // the partial archive as complete so every future pull is a cheap top-up.
+    if (acceptPartial && archive) {
+      archive.historyComplete = true
+      archive.pendingExportId = null
     }
 
     if (!archive || !archive.historyComplete) {
@@ -199,15 +206,32 @@ export async function POST(request) {
           // Archive already reaches the 2-year horizon — nothing older to buy.
           historyComplete = true
         } else {
+          // Create WITHOUT auto-start → read the exact credit price first.
+          // Over the limit and unconfirmed → cancel and ask (DJ Allen was
+          // about to silently cost ~840 credits; Evan: "way too much").
+          const AUTO_SPEND_LIMIT = 150
           const exp = await createDataExport({
             type: 'chat_messages',
             accountIds: [accountId],
             startDate: startIso,
             endDate: endIso,
             options: { chatIds: [Number(fan.id)], maxMessages: 1000000 },
+            autoStart: false,
           })
           lastExportId = exp?.id || null
-          const done = await waitForDataExport(exp.id, { maxWaitMs: 200000 })
+          const est = await waitForExportEstimate(exp.id)
+          const estCredits = est?.credit_cost ?? null
+          if (estCredits != null && estCredits > AUTO_SPEND_LIMIT && !confirmBig) {
+            await cancelDataExport(exp.id)
+            return NextResponse.json({
+              needsConfirm: true,
+              estimatedCredits: estCredits,
+              estimatedMessages: est?.total_rows ?? null,
+              error: `This fan's full history is ~${est?.total_rows?.toLocaleString?.() || '?'} messages ≈ ${estCredits} credits. Confirm to pull it, or keep recent-only.`,
+            }, { status: 402 })
+          }
+          if (est?.status !== 'completed') await startDataExport(exp.id)
+          const done = est?.status === 'completed' ? est : await waitForDataExport(exp.id, { maxWaitMs: 200000 })
           const csv = await downloadExportCsv(done)
           fresh = csvToMessages(csv)
           credits = done.credit_cost ?? Math.ceil(fresh.length / 20)
