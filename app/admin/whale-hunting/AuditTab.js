@@ -14,6 +14,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
+// Selected creator persists in the URL (?creator=recXXX) so a refresh or
+// share keeps you on the same creator — same pattern as the tab param.
+function creatorFromUrl() {
+  if (typeof window === 'undefined') return ''
+  return new URLSearchParams(window.location.search).get('creator') || ''
+}
+function writeCreatorToUrl(id) {
+  const params = new URLSearchParams(window.location.search)
+  if (id) params.set('creator', id); else params.delete('creator')
+  window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+}
+
 const TIER_COLORS = {
   warning: { bg: 'rgba(232, 200, 120, 0.12)', color: '#E8C878' },
   high: { bg: 'rgba(232, 140, 92, 0.12)', color: '#E88C5C' },
@@ -37,7 +49,7 @@ export default function AuditTab() {
   const [creators, setCreators] = useState([])
   const [watchlist, setWatchlist] = useState([])
   const [showAllWatchlist, setShowAllWatchlist] = useState(false)
-  const [creatorId, setCreatorId] = useState('')
+  const [creatorId, setCreatorId] = useState(creatorFromUrl)
   const [loading, setLoading] = useState(true)
   const [audit, setAudit] = useState(null)
   const [auditing, setAuditing] = useState(false)
@@ -58,9 +70,11 @@ export default function AuditTab() {
         setCreators(data.creators || [])
         setWatchlist(data.watchlist || [])
         // Functional update — avoids the stale-closure reset that snapped the
-        // picker back to the first creator after every audit.
-        const first = (data.creators || []).find((c) => c.connected)
-        if (first) setCreatorId((prev) => prev || first.id)
+        // picker back to the first creator after every audit. Keep a valid
+        // URL-restored selection; only default when there's none.
+        const list = data.creators || []
+        const first = list.find((c) => c.connected)
+        setCreatorId((prev) => (prev && list.some((c) => c.id === prev)) ? prev : (first?.id || prev))
       }
     } finally { setLoading(false) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +184,7 @@ export default function AuditTab() {
   return (
     <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setError(null) }}
+        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); writeCreatorToUrl(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setError(null) }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           {creators.map((c) => (
             <option key={c.id} value={c.id}>{c.aka}{c.connected ? ' ✓' : ' (not connected)'}</option>

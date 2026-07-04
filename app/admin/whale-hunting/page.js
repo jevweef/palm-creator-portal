@@ -18,7 +18,10 @@ export default function WhaleHuntingPage() {
 
   function switchTab(key) {
     setTab(key)
-    router.replace(`${pathname}?tab=${key}`, { scroll: false })
+    // Preserve other params (e.g. ?creator= from the Live Audit picker)
+    const params = new URLSearchParams(window.location.search)
+    params.set('tab', key)
+    router.replace(`${pathname}?${params}`, { scroll: false })
   }
 
   return (
