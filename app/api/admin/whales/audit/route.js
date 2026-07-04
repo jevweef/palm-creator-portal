@@ -135,7 +135,7 @@ export async function POST(request) {
     // Linked-record filter caveat: can't formula-match the Creator link — fetch
     // and JS-match (see reference_airtable_linked_record_filter).
     const trackerRows = await fetchAirtableRecords(FAN_TRACKER, {
-      fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend'],
+      fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
     })
     const mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
     let created = 0, updated = 0
@@ -177,6 +177,29 @@ export async function POST(request) {
       }
     }
 
+    // Refresh Cadence on EVERY existing tracker row we have sheet data for —
+    // not just newly-triggered fans. Otherwise dead/legacy rows (e.g. fans
+    // flagged in the manual era, or ones that slid past 'dead') sit in the
+    // watchlist with blank rhythm columns forever.
+    const cadenceKey = (t) => JSON.stringify({
+      medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
+      rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
+      lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
+    })
+    const triggeredKeys = new Set(triggered.map((t) => (t.ofUsername || t.fanName).toLowerCase()))
+    let cadenceRefreshed = 0
+    for (const r of mine) {
+      const uname = (r.fields?.['OF Username'] || '').toLowerCase()
+      const fname = (r.fields?.['Fan Name'] || '').toLowerCase()
+      if ((uname && triggeredKeys.has(uname)) || triggeredKeys.has(fname)) continue // already written above
+      const res = results.find((t) =>
+        (uname && t.ofUsername && t.ofUsername.toLowerCase() === uname) ||
+        (fname && t.fanName.toLowerCase() === fname)
+      )
+      if (!res) continue
+      try { await patchAirtableRecord(FAN_TRACKER, r.id, { 'Cadence': cadenceKey(res) }); cadenceRefreshed++ } catch {}
+    }
+
     await stampWhaleRun(creatorRecordId, 'audit')
     return NextResponse.json({
       ok: true,
@@ -187,7 +210,7 @@ export async function POST(request) {
       fansOverMinimum: results.length,
       topSpenders: results.slice(0, 25),
       triggered,
-      tracker: { created, updated },
+      tracker: { created, updated, cadenceRefreshed },
       source: `sheet (${tabs.join(', ')})`,
     })
   } catch (err) {

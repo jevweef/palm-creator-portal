@@ -416,7 +416,10 @@ export default function AuditTab() {
                 const cad = w.cadence
                 const sev = cad?.gapRatio >= 5 ? '#E87878' : cad?.gapRatio >= 3 ? '#E88C5C' : '#E8C878'
                 return (
-                  <tr key={w.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
+                  <tr key={w.id} onClick={() => openFan(w)}
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
                     {showAllWatchlist && <td>{w.creator}</td>}
                     <td>{(() => {
@@ -440,11 +443,7 @@ export default function AuditTab() {
                         ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
                         : <span style={{ color: '#7DD3A4' }}>{label}</span>
                     })()}</td>
-                    <td>
-                      <button onClick={() => openFan(w)} style={{ background: 'none', border: 'none', color: '#A06FE8', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
-                        view fan ↓
-                      </button>
-                    </td>
+                    <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
                   </tr>
                 )
               })}
