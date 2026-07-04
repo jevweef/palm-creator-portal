@@ -78,8 +78,19 @@ forward-looking for the current team; past errors define the monitors).
    whale-alert PDF / Telegram brief.
 4. **Monitors:** chatter-QA extends to the error taxonomy (runs on incremental pulls —
    cheap, ~1 credit/fan); per-error counts become forward-looking chatter grades.
-5. **Automation:** webhooks (transactions + messages) keep profiles current in real time;
-   Save List + cards + QA all update without buttons.
+5. **Automation:** webhooks keep profiles current in real time; Save List + cards + QA all
+   update without buttons. Webhook spec (from onlyfansapi support, 2026-07-04):
+   - `messages.ppv.unlocked` — fires on every PPV purchase; payload includes
+     **`fanData.spending` (total / messages / subscribes / posts / tips / streams)** = live
+     lifetime totals per fan, free with every event. Also solves is_opened freshness (no
+     re-fetch needed to know a PPV got bought after our pull).
+   - `transactions.new` / `messages.received` / `messages.sent` — available but payload
+     schemas UNDOCUMENTED; capture real samples once the receiver is live on main (or email
+     hello@onlyfansapi.com for example payloads first).
+   - Cost: 1 credit per 100 webhook events.
+   - Chat backfills: per-fan `chat_messages` export via `options.chatIds` (1 credit/20 rows,
+     complete history, all parser fields). Batch multi-fan chatIds likely supported (format
+     unconfirmed — verify with support before batching).
 
 ## Related
 
