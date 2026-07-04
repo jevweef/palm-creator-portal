@@ -525,12 +525,32 @@ export async function POST(request) {
       ? `\n- IMPORTANT: This spending data is scoped to the chat window ending ${chatLastDate}. Do NOT reference spending or activity after this date.`
       : ''
 
+    // Monthly rollup — the LONG ARC. Daily lines bury the story; the model
+    // must see peak-era vs now (a "$90 hot streak" from a former $500/mo
+    // whale is a revival window, not a hot streak — Chris/mrgnar1979 case).
+    let monthlyArc = ''
+    if (spendingTimeline) {
+      const byMonth = {}
+      for (const line of spendingTimeline.split('\n')) {
+        const m = line.match(/^(\d{4}-\d{2})-\d{2}:\s*\$([\d,.]+)/)
+        if (m) byMonth[m[1]] = (byMonth[m[1]] || 0) + parseFloat(m[2].replace(',', ''))
+      }
+      const keys = Object.keys(byMonth).sort()
+      if (keys.length >= 3) {
+        monthlyArc = keys.map((k) => `${k}: $${Math.round(byMonth[k])}`).join('  ·  ')
+        let peak = keys[0]
+        for (const k of keys) if (byMonth[k] > byMonth[peak]) peak = k
+        monthlyArc += `\nPeak month: ${peak} ($${Math.round(byMonth[peak])}).`
+      }
+    }
+
     const spendingContext = `SPENDING DATA FOR THIS FAN:
 - Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
 - Normal purchase cadence: every ${medianGap} days
 - Gap since last purchase (at end of chat): ${cappedCurrentGap} days
 - Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
 - Creator name (refer to her as this in the brief): ${creatorAka}${chatWindowNote}
+${monthlyArc ? `\nMONTHLY SPENDING ARC (judge the fan against his OWN PEAK ERA, not just his recent average — a small uptick after a long decay is a REVIVAL WINDOW, never a "hot streak"; state explicitly where he is now vs his peak era and whether the trajectory is growing, stable, decayed, or reviving):\n${monthlyArc}` : ''}
 ${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
@@ -688,6 +708,9 @@ QUICK READ
 
 WHAT HAPPENED
 [3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
+
+CHATTER PERFORMANCE
+[2-5 bullets, evidence-quoted. Audit OUR side of the chat: broken promises (anything we said we'd confirm/deliver and never did — video calls, customs, "I'll check"), fan requests repeatedly ignored or deflected (content types he asked to buy that nobody followed up on), price-ceiling violations (pitches far above what he historically pays right after he balked), mass-blast burial (was a high-value fan left on the blast list? does the blast tone clash with his 1:1 dynamic?), and language/persona breaks. Each bullet: what happened, the date, and the quote. If our side was clean, say "No chatter failures found" in one line — do not invent problems.]
 
 WHO HE IS
 [4-7 bulleted timeless facts. One short line each. Name/nickname, location, job, pets, ongoing hobbies, stated values. Each line should still be true 6 months from now — skip stale specifics.]
