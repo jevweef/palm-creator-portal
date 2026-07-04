@@ -307,7 +307,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Pull failed')
-      setOfPull({ ...data.parsed, newMessages: data.newMessages, credits: data.credits })
+      setOfPull({ ...data.parsed, newMessages: data.newMessages, credits: data.credits, historyComplete: data.historyComplete })
       setChatFile(null) // OF pull replaces any picked file
     } catch (e) {
       setAnalysisError(e.message)
@@ -993,6 +993,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <span style={{ fontSize: '11px', color: '#A06FE8' }}>
                     ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
                     {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new since last pull · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'}</span>}
+                    {ofPull.historyComplete === false && <span style={{ color: '#E8C878' }}> · older history remains — pull again to keep deepening</span>}
                   </span>
                   <button onClick={handleAnalyze} disabled={analyzing}
                     style={{

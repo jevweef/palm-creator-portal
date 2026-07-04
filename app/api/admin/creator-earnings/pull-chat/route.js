@@ -37,6 +37,7 @@ export async function GET(request) {
     if (!archive) return NextResponse.json({ archive: null })
     return NextResponse.json({
       archive: {
+        historyComplete: !!archive.historyComplete,
         totalStored: archive.messages.length,
         firstMessageAt: archive.messages[0]?.createdAt || null,
         lastMessageAt: archive.lastMessageAt || null,
@@ -110,10 +111,30 @@ export async function POST(request) {
       ? new Date(new Date(archive.lastMessageAt).getTime() - 60000).toISOString()
       : (sinceDate || null)
 
-    const { messages: fresh, pages, credits } = await fetchChatHistory(accountId, fan.id, {
+    const pageBudget = Math.min(Number(maxPages) || 40, 80)
+    const fwd = await fetchChatHistory(accountId, fan.id, {
       sinceDate: since,
-      maxPages: Math.min(Number(maxPages) || 40, 80),
+      maxPages: pageBudget,
     })
+    let { messages: fresh, pages, credits } = fwd
+
+    // Deepen truncated archives: long threads hit the page cap on their first
+    // pull (the API trickles ~8-90 msgs/page), leaving the oldest history
+    // missing. If the archive isn't marked complete, spend the remaining page
+    // budget digging BACKWARD from the oldest stored message. Each successive
+    // pull keeps chipping until the true thread start is reached.
+    let historyComplete = archive ? !!archive.historyComplete : fwd.complete
+    const oldestStored = archive?.messages?.[0]
+    if (archive && !archive.historyComplete && oldestStored?.id && pages < pageBudget) {
+      const deep = await fetchChatHistory(accountId, fan.id, {
+        maxPages: pageBudget - pages,
+        startCursor: oldestStored.id,
+      })
+      fresh = fresh.concat(deep.messages)
+      pages += deep.pages
+      credits += deep.credits
+      historyComplete = deep.complete
+    }
 
     const { merged, added } = mergeMessages(archive?.messages, fresh)
     if (!merged.length) {
@@ -126,6 +147,7 @@ export async function POST(request) {
       await saveChatArchive(creatorName, fanName, fanUsername, {
         fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '',
         lastMessageAt: last?.createdAt || null, lastMessageId: last?.id ?? null,
+        historyComplete,
         updatedAt: new Date().toISOString(), messages: merged,
       })
     } catch (e) { console.warn('[pull-chat] archive save failed:', e.message) }
@@ -133,7 +155,7 @@ export async function POST(request) {
     // Parse the FULL archive — analysis always sees the whole conversation.
     const parsed = toParsedChat(merged, fan.id)
     console.log(`[pull-chat] ${accountId} fan ${fan.id} (${fan.username || fan.name}): ${parsed.messageCount} total (${added} new), ${pages} pages, ~${credits || pages} credits`)
-    return NextResponse.json({ parsed, fan, pages, credits: credits || pages, newMessages: added, totalStored: merged.length, incremental: !!archive, pulledAt: new Date().toISOString() })
+    return NextResponse.json({ parsed, fan, pages, credits: credits || pages, newMessages: added, totalStored: merged.length, incremental: !!archive, historyComplete, pulledAt: new Date().toISOString() })
   } catch (err) {
     console.error('[pull-chat] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
