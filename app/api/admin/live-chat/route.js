@@ -5,6 +5,12 @@ import { readLiveMerged } from '@/lib/ofLiveBuffer'
 
 export const dynamic = 'force-dynamic'
 
+// Stream caches: one shared 5s response cache (many pollers, one fetch) and
+// a last-good per-account cache so a failed/rate-limited Dropbox read shows
+// the previous events instead of blinking that account out of the stream.
+const STREAM_CACHE = { at: 0, data: null }
+const LAST_GOOD = new Map() // account -> events
+
 // Conversation-list preview cache (per account) — archives are chunky files;
 // don't re-download them on every list load.
 const CONV_CACHE = new Map() // account -> { at, conversations }
@@ -41,14 +47,24 @@ export async function GET(request) {
 
     // ?stream=1 — all creators merged: the raw event firehose for the Stream tab
     if (url.searchParams.get('stream') === '1') {
+      if (STREAM_CACHE.data && Date.now() - STREAM_CACHE.at < 5000) {
+        return NextResponse.json({ accounts, stream: STREAM_CACHE.data })
+      }
       const { readLiveMerged } = await import('@/lib/ofLiveBuffer')
       const chunks = await Promise.all(accounts.map(async (a) => {
         try {
           const evs = await readLiveMerged(a.account)
+          LAST_GOOD.set(a.account, evs)
           return evs.slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
-        } catch { return [] }
+        } catch {
+          // failed read → last-good copy, never a blank (accounts were
+          // visibly blinking out of the stream on transient Dropbox errors)
+          return (LAST_GOOD.get(a.account) || []).slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
+        }
       }))
       const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
+      STREAM_CACHE.at = Date.now()
+      STREAM_CACHE.data = stream
       return NextResponse.json({ accounts, stream })
     }
 

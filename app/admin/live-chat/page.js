@@ -43,10 +43,19 @@ export default function LiveChatPage() {
     if (view !== 'stream') return
     const load = () => fetch('/api/admin/live-chat?stream=1', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => { setStream(d.stream || []); setLastPoll(new Date()) })
+      .then((d) => {
+        // UNION with what's already on screen — a row, once shown, never
+        // disappears (transient fetch gaps looked like deletions).
+        setStream((prev) => {
+          const seen = new Map(prev.map((e) => [`${e.aka}-${e.id}`, e]))
+          for (const e of d.stream || []) seen.set(`${e.aka}-${e.id}`, e)
+          return [...seen.values()].sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 250)
+        })
+        setLastPoll(new Date())
+      })
       .catch(() => {})
     load()
-    const t = setInterval(load, 6000)
+    const t = setInterval(load, 8000)
     return () => clearInterval(t)
   }, [view])
 
