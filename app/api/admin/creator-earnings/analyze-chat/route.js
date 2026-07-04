@@ -713,6 +713,7 @@ Last purchase: [EXACT date from the SPENDING DATA block above — specifically t
 Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
 
 CRITICAL DATE RULES:
+- EVERY date you write anywhere in this brief MUST include a two-digit year: "Jun 17, 26" — never a bare "Jun 17". The conversation now spans multiple years; a date without a year is ambiguous and useless.
 - "Last fan reply" is the FAN's last message, NOT the creator's last message. Creator-side re-engagement pings sent after the fan went quiet do NOT count.
 - If today's date (or any obviously recent date) shows up in the transcript, it's usually a creator-side outbound ping — skip past it to find the fan's actual last reply.
 - The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
@@ -722,6 +723,9 @@ QUICK READ
 
 WHAT HAPPENED
 [3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
+
+PEAK FORMULA — what was working when he spent the most
+[Use the MONTHLY SPENDING ARC to locate his 2-3 biggest months, then go READ the transcript from those months and answer: what was actually happening? Who opened, what content/themes, what session structure, what prices, what relationship dynamic? 3-5 bullets with dated quotes. Then ONE line: "What changed since:" naming the concrete difference between then and now. This is the recipe the chatter is trying to restore — be specific enough to replicate. If his spending has been flat (no distinct peak era), say so in one line and skip the bullets.]
 
 CHATTER PERFORMANCE
 [2-5 bullets, evidence-quoted. Audit OUR side of the chat: broken promises (anything we said we'd confirm/deliver and never did — video calls, customs, "I'll check"), fan requests repeatedly ignored or deflected (content types he asked to buy that nobody followed up on), price-ceiling violations (pitches far above what he historically pays right after he balked), mass-blast burial (was a high-value fan left on the blast list? does the blast tone clash with his 1:1 dynamic?), and language/persona breaks. Each bullet: what happened, the date, and the quote. If our side was clean, say "No chatter failures found" in one line — do not invent problems.]
