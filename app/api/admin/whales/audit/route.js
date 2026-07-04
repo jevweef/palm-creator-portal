@@ -95,11 +95,15 @@ export async function POST(request) {
 
       // Personalized falloff: a fan is "off rhythm" relative to THEIR median
       // gap. One-purchase fans have no rhythm — fall back to absolute silence.
+      // Minimum 7 days of absolute silence before ANY flag — a daily buyer
+      // who's quiet for 2 days is normal life, not going cold (verified
+      // against live OF data 2026-07-04: Vito replied same-day while flagged).
       let tier = null
       let gapRatio = null
       if (medianGap && dates.length >= 3) {
         gapRatio = +(currentGap / Math.max(medianGap, 1)).toFixed(1)
-        if (gapRatio >= 8 || currentGap >= 120) tier = 'dead'
+        if (currentGap < 7) tier = null
+        else if (gapRatio >= 8 || currentGap >= 120) tier = 'dead'
         else if (gapRatio >= 5) tier = 'critical'
         else if (gapRatio >= 3) tier = 'high'
         else if (gapRatio >= 2) tier = 'warning'
@@ -152,8 +156,11 @@ export async function POST(request) {
         const patch = { 'Cadence': cadence }
         if ((existing.fields?.['Lifetime Spend'] || 0) < t.lifetime) patch['Lifetime Spend'] = t.lifetime
         if (t.ofUsername && !existing.fields?.['OF Username']) patch['OF Username'] = t.ofUsername
-        // Don't clobber an in-flight status (Alert Sent / Recovering / …)
-        if (!existing.fields?.Status || existing.fields?.Status === 'Monitoring') patch['Status'] = 'Going Cold'
+        // Status reflects the fan's CURRENT state — sending an alert doesn't
+        // change that they're going cold (the alert lives in Last Alert Sent).
+        // Only statuses that mean "no longer cold" are preserved.
+        const st = existing.fields?.Status
+        if (!st || ['Monitoring', 'Alert Sent', 'Going Cold'].includes(st)) patch['Status'] = 'Going Cold'
         await patchAirtableRecord(FAN_TRACKER, existing.id, patch, { typecast: true }); updated++
       } else {
         await createAirtableRecord(FAN_TRACKER, {

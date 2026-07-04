@@ -409,7 +409,7 @@ export default function AuditTab() {
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Status</th><th>Lifetime</th><th>Rhythm</th><th>Silent</th><th>30d</th><th>Last buy</th><th>Alerts</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Status</th><th>Lifetime</th><th>Rhythm</th><th>Silent</th><th>30d</th><th>Last buy</th><th>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {visibleWatchlist.map((w) => {
@@ -419,13 +419,27 @@ export default function AuditTab() {
                   <tr key={w.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
                     <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
                     {showAllWatchlist && <td>{w.creator}</td>}
-                    <td><span style={{ background: w.status === 'Going Cold' ? 'rgba(232,200,120,0.12)' : 'rgba(125,211,164,0.1)', color: w.status === 'Going Cold' ? '#E8C878' : '#7DD3A4', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>{w.status}</span></td>
+                    <td>{(() => {
+                      // Tier IS the status (how cold, per her own audit data).
+                      // "Alert Sent" is an action we took, not a fan state — it
+                      // lives in the Last alert column instead.
+                      const tc = cad?.tier && TIER_COLORS[cad.tier]
+                      if (tc) return <span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad.tier}</span>
+                      return <span style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>{w.status === 'Alert Sent' ? 'Going Cold' : w.status}</span>
+                    })()}</td>
                     <td style={{ fontWeight: 600 }}>${Math.round(w.lifetime)}</td>
                     <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap ? `every ~${cad.medianGap}d` : '—'}</td>
                     <td>{cad ? <span style={{ color: sev, fontWeight: 600 }}>{cad.currentGap}d{cad.gapRatio ? ` (${cad.gapRatio}×)` : ''}</span> : '—'}</td>
                     <td style={{ color: 'var(--foreground-muted)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
                     <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
-                    <td>{w.alertCount || 0}</td>
+                    <td style={{ fontSize: '11px' }}>{(() => {
+                      if (!w.lastAlert) return <span style={{ color: 'var(--foreground-muted)' }}>never</span>
+                      const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
+                      const label = new Date(w.lastAlert).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      return days > 30
+                        ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
+                        : <span style={{ color: '#7DD3A4' }}>{label}</span>
+                    })()}</td>
                     <td>
                       <button onClick={() => openFan(w)} style={{ background: 'none', border: 'none', color: '#A06FE8', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
                         view fan ↓

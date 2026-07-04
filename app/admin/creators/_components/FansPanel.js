@@ -1802,6 +1802,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   const [showAllFans, setShowAllFans] = useState(false)
   const searchParams = useSearchParams()
   const handledFanTarget = useRef('')
+  const [modalFanId, setModalFanId] = useState(null)
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
@@ -2033,9 +2034,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       || allFans.find(f => (f.fanName || '').toLowerCase() === target)
     if (!match) return
     handledFanTarget.current = target
-    setExpandedId(match.id)
-    setShowAllFans(true)
-    setTimeout(() => document.getElementById(`fanrow-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)
+    setModalFanId(match.id) // modal, not scroll-and-hunt (per Evan)
   }, [allFans, searchParams, focusFan])
 
   // Top 20% spend threshold
@@ -2233,6 +2232,34 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
           )}
         </div>
       )}
+
+      {/* ── Fan modal — opened from the whale watchlist ("view fan") or a
+             ?fan= deep link. Renders the SAME FanRow, expanded, in an overlay
+             instead of scrolling the page down and hunting for the row. ── */}
+      {modalFanId && (() => {
+        const mf = allFans.find(x => x.id === modalFanId)
+        if (!mf) return null
+        return (
+          <div onClick={() => setModalFanId(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '4vh 20px', overflowY: 'auto' }}>
+            <div onClick={(e) => e.stopPropagation()}
+              style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', width: 'min(1000px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'sticky', top: 0, background: 'var(--card-bg-solid)', zIndex: 1 }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>
+                  {mf.fanName}{mf.ofUsername ? <span style={{ color: 'var(--palm-pink)', fontWeight: 400 }}> @{mf.ofUsername}</span> : null}
+                </span>
+                <button onClick={() => setModalFanId(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '2px 6px' }}>&times;</button>
+              </div>
+              <FanRow f={mf} i={0} isExpanded onToggle={() => {}}
+                alertStatusColors={alertStatusColors} effectColors={effectColors}
+                fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
+                creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
+                allTxns={allTxns} availableAccounts={availableAccounts} />
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
