@@ -178,7 +178,7 @@ export default function LiveChatPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-          {[['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing']].map(([k, label]) => (
+          {[['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing'], ['sales', 'Sales']].map(([k, label]) => (
             <button key={k} onClick={() => setView(k)}
               style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer', background: view === k ? 'rgba(160,111,232,0.25)' : 'transparent', color: view === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
               {label}
@@ -193,41 +193,67 @@ export default function LiveChatPage() {
         <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — auto-updating{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 
-      {view !== 'inbox' ? (
+      {view !== 'inbox' ? (() => {
+        const inView = (e) => view === 'in' ? (e.dir === 'in' || e.dir === 'unlock') : view === 'out' ? e.dir === 'out' : e.dir === 'sale'
+        const rows = stream.filter(inView)
+        // A locked send counts as BOUGHT when a sale from the same fan on the
+        // same account for the exact PPV price lands at/after the send.
+        const isBought = (e) => e.price > 0 && stream.some((s) =>
+          s.dir === 'sale' && s.account === e.account && s.fan?.id && s.fan.id === e.fan?.id
+          && Math.abs((+s.price || 0) - (+e.price || 0)) < 0.005 && (s.at || '') >= (e.at || ''))
+        const lockedLabel = (e) => {
+          if (!(e.price > 0)) return ''
+          const parts = []
+          if (e.photos) parts.push(`${e.photos}p`)
+          if (e.videos) parts.push(`${e.videos}v`)
+          if (!parts.length && e.media) parts.push(`${e.media}m`)
+          return `${parts.join(' ')}${parts.length ? ' · ' : ''}$${e.price}`
+        }
+        const grid = view === 'out' ? '110px 110px 150px 150px 1fr 26px' : '110px 110px 150px 64px 1fr 26px'
+        const empty = view === 'in' ? 'Waiting — every fan message and PPV unlock across ALL creators lands here as it happens.'
+          : view === 'out' ? 'Waiting — every 1:1 message your chatters send (mass blasts excluded) lands here as it happens.'
+          : 'Waiting — every sale (PPVs, tips, subs) across ALL creators lands here as it happens.'
+        return (
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span><span></span>
+          <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span>Time</span><span>Creator</span><span>Fan</span><span>{view === 'out' ? 'Locked' : view === 'sales' ? 'Amount' : ''}</span><span>{view === 'sales' ? 'What' : 'Message'}</span><span></span>
           </div>
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
-            {stream.filter((e) => (view === 'in' ? e.dir !== 'out' : e.dir === 'out')).length === 0 && (
-              <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                {view === 'in' ? 'Waiting — every fan message and PPV unlock across ALL creators lands here as it happens.' : 'Waiting — every 1:1 message your chatters send (mass blasts excluded) lands here as it happens.'}
-              </div>
+            {rows.length === 0 && (
+              <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>{empty}</div>
             )}
-            {stream.filter((e) => (view === 'in' ? e.dir !== 'out' : e.dir === 'out')).map((e) => (
+            {rows.map((e) => (
               <div key={`${e.aka}-${e.id}`}
                 onClick={() => openFromStream(e)}
                 onMouseEnter={(ev) => ev.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                 onMouseLeave={(ev) => ev.currentTarget.style.background = 'transparent'}
-                style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline', cursor: 'pointer' }}>
+                style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--foreground-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{fmtListTime(e.at)}</span>
                 <span style={{ color: '#C4A5F7', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.aka}</span>
                 <span style={{ color: 'var(--foreground)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.fan?.name || e.fan?.username || '—'}</span>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: e.dir === 'in' ? '#7DD3A4' : e.dir === 'unlock' ? '#E8C878' : '#78B4E8' }}>
-                  {e.dir === 'in' ? 'FAN' : e.dir === 'unlock' ? `$${e.price}` : 'SENT'}
+                {view === 'out' ? (
+                  <span style={{ fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', color: isBought(e) ? '#7DD3A4' : e.price > 0 ? '#E8C878' : 'var(--foreground-muted)' }}>
+                    {lockedLabel(e)}{isBought(e) ? ' ✓ BOUGHT' : ''}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: e.dir === 'in' ? '#7DD3A4' : '#E8C878' }}>
+                    {e.dir === 'in' ? 'FAN' : `$${e.price}`}
+                  </span>
+                )}
+                <span style={{ color: e.dir === 'in' || e.dir === 'sale' ? 'var(--foreground)' : 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}`
+                    : e.dir === 'sale' ? `${e.kind ? e.kind.toUpperCase() + ' — ' : ''}${e.text || ''}`
+                    : (e.text || '(media)')}
                 </span>
-                <span style={{ color: e.dir === 'in' ? 'var(--foreground)' : 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}` : (e.text || '(media)')}{e.price > 0 && e.dir !== 'unlock' ? `  ·  PPV $${e.price}` : ''}
-                </span>
-                <button title="Mute this fan (hide from stream + inbox — e.g. another creator's junk)"
-                  title="Mute this fan — hides ALL their messages here and in the inbox"
+                <button title="Mute this fan — hides ALL their messages here and in the inbox"
                   onClick={(ev) => { ev.stopPropagation(); muteFromStream(e) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-muted)', padding: 0, opacity: 0.6 }}>✕</button>
               </div>
             ))}
           </div>
         </div>
-      ) : !account ? (
+        )
+      })() : !account ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>
           Pick a creator to open her inbox.
         </div>

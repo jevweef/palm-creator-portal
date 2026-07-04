@@ -63,6 +63,7 @@ export async function POST(request) {
     if (event === 'transactions.new') {
       await handleNewTransaction(accountId, payload)
       await updateFanSignals(accountId, payload.fan || payload.user, payload.fanData).catch((e) => console.warn('[of-webhook] fan update failed:', e.message))
+      await appendLive(accountId, 'sale', payload).catch(() => {})
     } else if (event === 'messages.ppv.unlocked') {
       await updateFanSignals(accountId, payload.fan || payload.user, payload.fanData).catch(() => {})
       await appendLive(accountId, 'unlock', payload).catch(() => {})
@@ -173,13 +174,18 @@ async function appendLive(accountId, dir, p) {
   const f = p.fan || p.fromUser || p.from_user || p.user || {}
   const entry = {
     id: p.id || p.message_id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    dir, // 'in' | 'out' | 'unlock'
+    dir, // 'in' | 'out' | 'unlock' | 'sale'
     at: p.createdAt || p.created_at || new Date().toISOString(),
-    text: stripHtmlText(String(p.text || '')).slice(0, 600),
-    price: num(p.price) || 0,
+    text: stripHtmlText(String(p.text || p.description || '')).slice(0, 600),
+    price: num(p.price) || num(p.amount) || 0, // messages: PPV price; sales: gross amount
     media: p.mediaCount ?? p.media_count ?? (Array.isArray(p.media) ? p.media.length : 0),
     fan: { id: f.id != null ? String(f.id) : '', username: f.username || '', name: f.display_name || f.name || '' },
   }
+  if (Array.isArray(p.media) && p.media.length) {
+    entry.photos = p.media.filter((m) => m?.type === 'photo').length
+    entry.videos = p.media.filter((m) => m?.type === 'video').length
+  }
+  if (dir === 'sale') entry.kind = p.type || '' // 'message' | 'tip' | 'subscribe' | ...
   await writeLiveEvent(accountId, entry)
 }
 
