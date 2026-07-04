@@ -170,7 +170,7 @@ export default function AuditTab() {
   return (
     <div style={{ padding: '18px 0', display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setAudit(null); setQa(null) }}
+        <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setAudit(null); setQa(null); setSync(null); setPullResult(null); setError(null) }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           {creators.map((c) => (
             <option key={c.id} value={c.id}>{c.aka}{c.connected ? ' ✓' : ' (not connected)'}</option>
