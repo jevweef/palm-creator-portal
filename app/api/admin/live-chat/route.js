@@ -28,8 +28,29 @@ export async function GET(request) {
     })
     const accounts = creators
       .filter((c) => c.fields?.['OF API Account ID'])
-      .map((c) => ({ account: c.fields['OF API Account ID'], aka: c.fields.AKA || c.fields.Creator, name: c.fields.Creator || c.fields.AKA }))
+      .flatMap((c) => {
+        const ids = String(c.fields['OF API Account ID']).split(',').map((x) => x.trim()).filter(Boolean)
+        return ids.map((id, i) => ({
+          account: id,
+          aka: (c.fields.AKA || c.fields.Creator) + (ids.length > 1 ? (i > 0 ? ' (VIP)' : ' (Free)') : ''),
+          name: c.fields.Creator || c.fields.AKA,
+          recordId: c.id,
+        }))
+      })
       .sort((a, b) => a.aka.localeCompare(b.aka))
+
+    // ?stream=1 — all creators merged: the raw event firehose for the Stream tab
+    if (url.searchParams.get('stream') === '1') {
+      const { readLiveMerged } = await import('@/lib/ofLiveBuffer')
+      const chunks = await Promise.all(accounts.map(async (a) => {
+        try {
+          const evs = await readLiveMerged(a.account)
+          return evs.slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
+        } catch { return [] }
+      }))
+      const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
+      return NextResponse.json({ accounts, stream })
+    }
 
     if (!account) return NextResponse.json({ accounts })
 

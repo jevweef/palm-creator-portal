@@ -29,12 +29,26 @@ export default function LiveChatPage() {
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
   const [showMuted, setShowMuted] = useState(false)
+  const [view, setView] = useState('inbox') // 'inbox' | 'stream'
+  const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
 
   useEffect(() => {
     fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
   }, [])
+
+  // Stream view: ALL creators' events merged, thin rows, auto-updating
+  useEffect(() => {
+    if (view !== 'stream') return
+    const load = () => fetch('/api/admin/live-chat?stream=1', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { setStream(d.stream || []); setLastPoll(new Date()) })
+      .catch(() => {})
+    load()
+    const t = setInterval(load, 6000)
+    return () => clearInterval(t)
+  }, [view])
 
   // Load conversations when account changes (URL-restored fan survives the
   // first load; manual switches clear it via the select's onChange)
@@ -125,6 +139,14 @@ export default function LiveChatPage() {
     <div style={{ padding: '24px 32px', maxWidth: '1700px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
+          {[['inbox', 'Inbox'], ['stream', 'Stream']].map(([k, label]) => (
+            <button key={k} onClick={() => setView(k)}
+              style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer', background: view === k ? 'rgba(160,111,232,0.25)' : 'transparent', color: view === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <select value={account} onChange={(e) => { setAccount(e.target.value); setFan(''); writeUrl(e.target.value, '') }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           <option value="">Pick a creator…</option>
@@ -133,7 +155,29 @@ export default function LiveChatPage() {
         <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — auto-updating{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 
-      {!account ? (
+      {view === 'stream' ? (
+        <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span>
+          </div>
+          <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
+            {stream.length === 0 && <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Waiting for events — every fan message, 1:1 reply, and PPV unlock across ALL creators lands here as it happens.</div>}
+            {stream.map((e) => (
+              <div key={`${e.aka}-${e.id}`} style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline' }}>
+                <span style={{ color: 'var(--foreground-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{fmtListTime(e.at)}</span>
+                <span style={{ color: '#C4A5F7', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.aka}</span>
+                <span style={{ color: 'var(--foreground)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.fan?.name || e.fan?.username || '—'}</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: e.dir === 'in' ? '#7DD3A4' : e.dir === 'unlock' ? '#E8C878' : '#78B4E8' }}>
+                  {e.dir === 'in' ? 'FAN' : e.dir === 'unlock' ? `$${e.price}` : 'SENT'}
+                </span>
+                <span style={{ color: e.dir === 'in' ? 'var(--foreground)' : 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}` : (e.text || '(media)')}{e.price > 0 && e.dir !== 'unlock' ? `  ·  PPV $${e.price}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : !account ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>
           Pick a creator to open her inbox.
         </div>
