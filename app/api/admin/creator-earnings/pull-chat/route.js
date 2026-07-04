@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv } from '@/lib/onlyfansApi'
+import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport } from '@/lib/onlyfansApi'
 import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
@@ -155,7 +155,33 @@ export async function POST(request) {
     // no 40-page truncation. TOP-UP (archive complete): the paginated
     // endpoint with sinceDate — 1-3 credits.
     let fresh = [], pages = 0, credits = 0
+    let lastExportId = null
     let historyComplete = archive ? !!archive.historyComplete : false
+
+    // A previous pull may have left a big export still running — ATTACH to it
+    // instead of starting (and paying for) a second one.
+    if (archive?.pendingExportId) {
+      try {
+        const pending = await getDataExport(archive.pendingExportId)
+        if (pending?.status === 'completed') {
+          const csv = await downloadExportCsv(pending)
+          const got = csvToMessages(csv)
+          const { merged: m2 } = mergeMessages(archive.messages, got)
+          const last2 = m2[m2.length - 1]
+          await saveChatArchive(creatorName, fanName, fanUsername, {
+            fanId: String(archive.fanId), fanUsername: archive.fanUsername || '', fanName: archive.fanName || '',
+            lastMessageAt: last2?.createdAt || null, lastMessageId: last2?.id ?? null,
+            historyComplete: true, pendingExportId: null,
+            updatedAt: new Date().toISOString(), messages: m2,
+          })
+          const parsed2 = toParsedChat(m2, archive.fanId)
+          return NextResponse.json({ parsed: parsed2, fan: { id: archive.fanId, username: archive.fanUsername, name: archive.fanName }, pages: 0, credits: pending.credit_cost ?? 0, newMessages: m2.length - archive.messages.length, totalStored: m2.length, incremental: true, historyComplete: true, pulledAt: new Date().toISOString() })
+        }
+        if (pending?.status && pending.status !== 'failed') {
+          return NextResponse.json({ error: `His full history export is still running at OF (${pending.progress_percentage ?? 0}% of ${pending.total_rows ?? '?'} rows) — try again in a few minutes. No credits spent on this click.` }, { status: 202 })
+        }
+      } catch { /* stale pending id — fall through to a fresh backfill */ }
+    }
 
     if (!archive || !archive.historyComplete) {
       try {
@@ -180,6 +206,7 @@ export async function POST(request) {
             endDate: endIso,
             options: { chatIds: [Number(fan.id)], maxMessages: 1000000 },
           })
+          lastExportId = exp?.id || null
           const done = await waitForDataExport(exp.id, { maxWaitMs: 200000 })
           const csv = await downloadExportCsv(done)
           fresh = csvToMessages(csv)
@@ -196,8 +223,16 @@ export async function POST(request) {
           credits += fwd.credits
         }
       } catch (e) {
-        // Export path failed (timeout/edge) — fall back to paginated fetch so
-        // the button still works; archive stays marked incomplete.
+        // Big threads outlive the wait — the export keeps running at OF. Park
+        // its id on the archive so the NEXT click attaches to it (no second
+        // export, no pagination burn), and tell the user to come back.
+        if (/timed out/i.test(e.message) && lastExportId) {
+          const stub = archive || { fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '', messages: [], lastMessageAt: null, lastMessageId: null }
+          try {
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...stub, historyComplete: false, pendingExportId: lastExportId, updatedAt: new Date().toISOString() })
+          } catch {}
+          return NextResponse.json({ error: 'His chat history is big — OF is still building the export. Try again in a few minutes; the next click will pull it in (already paid for, no double charge).' }, { status: 202 })
+        }
         console.warn('[pull-chat] export backfill failed, falling back to pagination:', e.message)
         const fb = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: Math.min(Number(maxPages) || 40, 80) })
         fresh = fb.messages; pages = fb.pages; credits = fb.credits
@@ -219,7 +254,7 @@ export async function POST(request) {
       await saveChatArchive(creatorName, fanName, fanUsername, {
         fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '',
         lastMessageAt: last?.createdAt || null, lastMessageId: last?.id ?? null,
-        historyComplete,
+        historyComplete, pendingExportId: null,
         updatedAt: new Date().toISOString(), messages: merged,
       })
     } catch (e) { console.warn('[pull-chat] archive save failed:', e.message) }
