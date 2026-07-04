@@ -31,6 +31,7 @@ export default function LiveChatPage() {
   const [showMuted, setShowMuted] = useState(false)
   const [view, setView] = useState('inbox') // 'inbox' | 'stream'
   const [stream, setStream] = useState([])
+  const [streamDir, setStreamDir] = useState('all') // 'all' | 'in' | 'out' | 'unlock'
   const scroller = useRef(null)
   const timer = useRef(null)
 
@@ -187,12 +188,20 @@ export default function LiveChatPage() {
 
       {view === 'stream' ? (
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: '6px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            {[['all', 'All'], ['in', 'Incoming (fans)'], ['out', 'Outgoing (1:1 sent)'], ['unlock', 'Unlocks 💸']].map(([k, label]) => (
+              <button key={k} onClick={() => setStreamDir(k)}
+                style={{ padding: '4px 12px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', cursor: 'pointer', background: streamDir === k ? 'rgba(160,111,232,0.2)' : 'transparent', color: streamDir === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span><span></span>
           </div>
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
             {stream.length === 0 && <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Waiting for events — every fan message, 1:1 reply, and PPV unlock across ALL creators lands here as it happens.</div>}
-            {stream.map((e) => (
+            {stream.filter((e) => streamDir === 'all' || e.dir === streamDir).map((e) => (
               <div key={`${e.aka}-${e.id}`}
                 onClick={() => openFromStream(e)}
                 onMouseEnter={(ev) => ev.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
