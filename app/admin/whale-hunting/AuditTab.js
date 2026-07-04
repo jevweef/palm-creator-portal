@@ -52,7 +52,7 @@ export default function AuditTab() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/whales/overview')
+      const res = await fetch('/api/admin/whales/overview', { cache: 'no-store' })
       const data = await res.json()
       if (res.ok) {
         setCreators(data.creators || [])
@@ -66,6 +66,16 @@ export default function AuditTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => { load() }, [load])
+
+  // Re-load whenever the user comes back to this tab/window — last-run stamps
+  // and the watchlist must reflect reality, not a cached page state.
+  useEffect(() => {
+    const onFocus = () => load()
+    const onVis = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVis)
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVis) }
+  }, [load])
 
   // Revenue accounts per connected creator (for the transactions pull)
   useEffect(() => {
