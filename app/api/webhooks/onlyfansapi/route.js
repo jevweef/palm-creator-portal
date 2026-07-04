@@ -59,8 +59,11 @@ export async function POST(request) {
     // Sample the raw event to Dropbox (schemas are undocumented — these
     // samples are how the mappings get hardened). Non-fatal. High-volume
     // message events (Brett's webhook shares this receiver) sample at 2%.
-    const highVolume = event === 'messages.sent' || event === 'messages.received'
-    if (!highVolume || Math.random() < 0.02) saveSample(event, raw).catch(() => {})
+    // transactions.new schema CONFIRMED against a live event 2026-07-04 —
+    // sample it sparsely now; messages stay at 2%; unseen event types at 100%.
+    const sampleRate = (event === 'messages.sent' || event === 'messages.received') ? 0.02
+      : event === 'transactions.new' ? 0.1 : 1
+    if (Math.random() < sampleRate) saveSample(event, raw).catch(() => {})
 
     if (event === 'transactions.new') {
       await handleNewTransaction(accountId, payload)
@@ -99,7 +102,10 @@ async function handleNewTransaction(accountId, t) {
   await ensureExtraHeaders(sheets, tabName)
 
   const desc = t.description || ''
-  const displayName = stripHtmlText(String(desc).replace(/^.*?from\s+/i, '')) || (t.user?.displayName || t.user?.name || '')
+  // Confirmed payload shape: fan info lives under `fan` ({id, username, name,
+  // display_name}); `user` kept as a fallback for other shapes.
+  const fan = t.fan || t.user || {}
+  const displayName = stripHtmlText(String(desc).replace(/^.*?from\s+/i, '')) || (fan.display_name || fan.displayName || fan.name || '')
   const dateTimeEt = utcToEtDateTime(String(created).replace('+00:00', 'Z'))
   if (!dateTimeEt) return
 
@@ -112,8 +118,8 @@ async function handleNewTransaction(accountId, t) {
 
   const row = [
     dateTimeEt, gross, fee ?? '', net, mapType(t.type), displayName,
-    t.user?.username || '', '', stripHtmlText(desc),
-    t.user?.id != null ? String(t.user.id) : '', t.vatAmount ?? t.vat_amount ?? '', 'Webhook',
+    fan.username || '', '', stripHtmlText(desc),
+    fan.id != null ? String(fan.id) : '', t.vatAmount ?? t.vat_amount ?? '', 'Webhook',
   ]
   await insertRowsAtTop(sheets, tabName, [row])
   const dt = new Date(dateTimeEt.replace(' ', 'T') + ':00')
