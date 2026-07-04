@@ -23,6 +23,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   // client-side HTML parse; feeds the identical analyze flow.
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
+  const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
   // null for single-account fans (whose uploads don't need an account tag).
   const [uploadAccountName, setUploadAccountName] = useState(null)
@@ -133,6 +134,31 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
     return { fanSpendData: filled, monthlySpendData: allMonths, perAccountMonthly: perMonthly, perAccountDaily: perDaily, accountNames: acctNames }
   }, [allTxns, f.ofUsername, f.fanName])
+
+  // Durable "last pulled from OF" — read from the fan's Dropbox archive so it
+  // survives sessions/devices (button state doesn't).
+  useEffect(() => {
+    if (!isExpanded || !creatorRecordId || (!f.ofUsername && !f.fanName)) return
+    fetch(`/api/admin/creator-earnings/pull-chat?creatorRecordId=${encodeURIComponent(creatorRecordId)}&fanUsername=${encodeURIComponent(f.ofUsername || '')}&fanName=${encodeURIComponent(f.fanName || '')}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setArchiveMeta(d?.archive || null))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, f.id])
+
+  async function handleLoadArchive() {
+    setPullingOf(true); setAnalysisError(null)
+    try {
+      const res = await fetch('/api/admin/creator-earnings/pull-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fromArchive: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Load failed')
+      setOfPull({ ...data.parsed, newMessages: 0, credits: 0 })
+      setChatFile(null)
+    } catch (e) { setAnalysisError(e.message) } finally { setPullingOf(false) }
+  }
 
   // Milestone dates from alert history and analyses
   const milestones = useMemo(() => {
@@ -901,6 +927,22 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
               {/* Pull the conversation straight from OF (read-only API) —
                   replaces the scroll → save HTML → upload dance. */}
+              {archiveMeta && !ofPull && (
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
+                  Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
+                  {' '}· {archiveMeta.totalStored.toLocaleString()} messages archived through {archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </span>
+              )}
+              {archiveMeta && !ofPull && (
+                <button onClick={handleLoadArchive} disabled={pullingOf || analyzing}
+                  style={{
+                    background: 'rgba(125, 211, 164, 0.08)', border: '1px solid rgba(125, 211, 164, 0.3)', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#7DD3A4', fontWeight: 600,
+                    cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                  }}>
+                  {pullingOf ? 'Loading…' : 'Load archived chat (0 credits)'}
+                </button>
+              )}
               {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
                 style={{
                   background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
