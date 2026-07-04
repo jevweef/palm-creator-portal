@@ -463,10 +463,10 @@ export default function AuditTab() {
                 const cad = w.cadence
                 const tc = (cad?.tier && TIER_COLORS[cad.tier]) || { bg: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)' }
                 return (
-                  <tr key={w.id} onClick={() => openFan(w)}
+                  <tr key={w.id} data-kbrow onClick={() => openFan(w)}
                     style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    onMouseLeave={(e) => e.currentTarget.style.background = ''}>
                     <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span></td>
                     <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                       style={{ fontWeight: 600, maxWidth: '210px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
@@ -527,10 +527,10 @@ export default function AuditTab() {
             </tr></thead>
             <tbody>
               {dormantList.map((w) => (
-                <tr key={w.id} onClick={() => openFan(w)}
+                <tr key={w.id} data-kbrow onClick={() => openFan(w)}
                   style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  onMouseLeave={(e) => e.currentTarget.style.background = ''}>
                   <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                     style={{ padding: '7px 8px 7px 0', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>

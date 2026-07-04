@@ -589,6 +589,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   return (
     <div id={`fanrow-${f.id}`} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
       {!inModal && <div
+        data-kbrow
         onClick={onToggle}
         style={{
           display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 80px 90px',
@@ -2318,11 +2319,12 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         const next = idx >= 0 && idx < filtered.length - 1 ? filtered[idx + 1] : null
         const navBtn = (fan, label) => (
           <button disabled={!fan} onClick={() => fan && setModalFanId(fan.id)}
+            {...(label.includes('prev') ? { 'data-kb-prev': '' } : { 'data-kb-next': '' })}
             title={fan ? `${fan.fanName}` : ''}
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: 700, color: fan ? 'var(--foreground)' : 'rgba(255,255,255,0.15)', cursor: fan ? 'pointer' : 'default' }}>{label}</button>
         )
         return (
-          <div onClick={() => setModalFanId(null)}
+          <div data-fan-modal onClick={() => setModalFanId(null)}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3vh 20px' }}>
             <div onClick={(e) => e.stopPropagation()}
               style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', width: 'min(1000px, 100%)', maxHeight: '94vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
@@ -2333,7 +2335,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
                 </span>
                 {navBtn(prev, '‹ prev')}
                 {navBtn(next, 'next ›')}
-                <button onClick={() => setModalFanId(null)}
+                <button data-kb-close onClick={() => setModalFanId(null)}
                   style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '2px 6px' }}>&times;</button>
               </div>
               <FanRow f={mf} i={0} isExpanded inModal onToggle={() => {}}
