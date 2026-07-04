@@ -455,7 +455,7 @@ export default function AuditTab() {
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th style={{ textAlign: 'right' }}>Worth / mo</th><th style={{ textAlign: 'right' }}>Last 30d</th><th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Last alert</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th style={{ textAlign: 'right' }}>Worth / mo</th><th style={{ textAlign: 'right' }}>Last 30d</th><th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -472,6 +472,20 @@ export default function AuditTab() {
                     <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap
                       ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>
                       : 'flagged manually — run the audit for rhythm data'}</td>
+                    <td>{(() => {
+                      const lv = cad?.live
+                      if (!lv) return <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>—</span>
+                      const chip = (txt, color, bg, title) => <span key={txt} title={title} style={{ background: bg, color, padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, marginRight: '4px', whiteSpace: 'nowrap' }}>{txt}</span>
+                      const out = []
+                      if (lv.rebillOff) out.push(chip(`REBILL OFF${lv.subExpires ? ` · exp ${lv.subExpires.slice(5)}` : ''}`, '#E87878', 'rgba(232,120,120,0.15)', 'Sub will not renew — save before it expires'))
+                      if (lv.exposed) out.push(chip('EXPOSED TO BLASTS', '#E88C5C', 'rgba(232,140,92,0.12)', 'Not on any whale/DNM list — mass messages reach this fan'))
+                      else out.push(chip('PROTECTED', '#7DD3A4', 'rgba(125,211,164,0.1)', `On: ${(lv.protectedLists || []).join(', ')}`))
+                      if (lv.lastReplyAt) {
+                        const rd = Math.round((Date.now() - new Date(lv.lastReplyAt)) / 86400000)
+                        if (rd <= 7 && (cad.currentGap || 0) > 7) out.push(chip('TALKING, NOT BUYING', '#A06FE8', 'rgba(160,111,232,0.12)', `Last reply ${rd}d ago while ${cad.currentGap}d without a purchase — chatter should close`))
+                      }
+                      return out.length ? out : <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>ok</span>
+                    })()}</td>
                     <td style={{ textAlign: 'right', fontWeight: 700 }}>{cad?.monthlyAvg90 ? `$${Math.round(cad.monthlyAvg90)}` : '—'}</td>
                     <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
                     <td style={{ textAlign: 'right', color: 'var(--foreground-muted)' }}>${Math.round(w.lifetime).toLocaleString()}</td>

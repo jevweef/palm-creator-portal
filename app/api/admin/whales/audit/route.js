@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord, createAirtableRecord } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { sheetsClient, readTabRows, fetchRevenueAccountNames } from '@/lib/transactionsSheet'
+import { ofApi } from '@/lib/onlyfansApi'
 import { stampWhaleRun } from '@/lib/whaleRuns'
 
 export const dynamic = 'force-dynamic'
@@ -142,6 +143,37 @@ export async function POST(request) {
       fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
     })
     const mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
+
+    // ── Live enrichment (flagged fans only — ~1 credit each, bounded) ──────
+    // One users/{username} call per flagged fan captures the signals the
+    // sheet can't see: rebill off / sub set to expire, last reply (talking-
+    // but-not-buying), and OF list memberships — is he on a whale/DNM list
+    // (protected from mass blasts) or exposed?
+    const accountId = cf['OF API Account ID']
+    const liveByKey = {}
+    if (accountId) {
+      const toCheck = [...triggered, ...dormantWhales].filter((t) => t.ofUsername).slice(0, 40)
+      for (const t of toCheck) {
+        try {
+          const json = await ofApi(`/${accountId}/users/${encodeURIComponent(t.ofUsername)}`)
+          const d = json?.data ?? json ?? {}
+          const so = d.subscribedOnData || {}
+          const lists = (d.listsStates || []).filter((l) => l.hasUser)
+          const protectedLists = lists.filter((l) => l.type === 'custom' && /whale|dnm|do.?not|vip/i.test(l.name || '')).map((l) => l.name)
+          liveByKey[t.ofUsername.toLowerCase()] = {
+            rebillOff: lists.some((l) => l.type === 'rebill_off') || so.status === 'Set to Expire',
+            subStatus: so.status || (d.subscribedOn ? 'active' : 'not subscribed'),
+            subExpires: (so.expiredAt || '').slice(0, 10) || null,
+            lastReplyAt: (d.lastReplyAt || '').slice(0, 10) || null,
+            protectedLists,           // on a whale/DNM list → excluded from mass blasts
+            exposed: protectedLists.length === 0,
+            checkedAt: new Date().toISOString(),
+          }
+          await new Promise((r) => setTimeout(r, 120))
+        } catch { /* fan gone/renamed — cadence still stands */ }
+      }
+    }
+
     let created = 0, updated = 0
     for (const t of [...triggered, ...dormantWhales]) {
       const targetStatus = t.tier === 'dead' ? 'Dormant' : 'Going Cold'
@@ -152,6 +184,7 @@ export async function POST(request) {
         medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
         rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
         lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
+        live: liveByKey[(t.ofUsername || '').toLowerCase()] || null,
       })
       const existing = mine.find((r) =>
         (t.ofUsername && (r.fields?.['OF Username'] || '').toLowerCase() === t.ofUsername.toLowerCase()) ||
