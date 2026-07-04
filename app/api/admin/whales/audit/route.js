@@ -94,6 +94,33 @@ export async function POST(request) {
       const rolling30 = f.purchases.filter((p) => p.date >= thirtyAgo).reduce((s, p) => s + p.net, 0)
       const monthlyAvg90 = f.purchases.filter((p) => p.date >= ninetyAgo).reduce((s, p) => s + p.net, 0) / 3
 
+      // Fan-history shape: peak month, best 6-month stretch (avg/mo over his
+      // hottest contiguous window), and how many $500+ months — separates the
+      // consistent whale from the one-month big spender.
+      const monthly = {}
+      for (const p of f.purchases) { const mo = p.date.slice(0, 7); monthly[mo] = (monthly[mo] || 0) + p.net }
+      const moKeys = Object.keys(monthly).sort()
+      let peakMonth = null, peakMonthSpend = 0
+      for (const k of moKeys) if (monthly[k] > peakMonthSpend) { peakMonthSpend = monthly[k]; peakMonth = k }
+      const monthsOver500 = moKeys.filter((k) => monthly[k] >= 500).length
+      let best6moAvg = 0
+      if (moKeys.length) {
+        const seq = []
+        let [y, m] = moKeys[0].split('-').map(Number)
+        const lastKey = moKeys[moKeys.length - 1]
+        for (let guard = 0; guard < 600; guard++) {
+          const k = `${y}-${String(m).padStart(2, '0')}`
+          seq.push(monthly[k] || 0)
+          if (k === lastKey) break
+          m++; if (m > 12) { m = 1; y++ }
+        }
+        const win = Math.min(6, seq.length)
+        for (let i = 0; i <= seq.length - win; i++) {
+          const avg = seq.slice(i, i + win).reduce((a, b) => a + b, 0) / win
+          if (avg > best6moAvg) best6moAvg = avg
+        }
+      }
+
       // Personalized falloff: a fan is "off rhythm" relative to THEIR median
       // gap. One-purchase fans have no rhythm — fall back to absolute silence.
       // Minimum 7 days of absolute silence before ANY flag — a daily buyer
@@ -123,6 +150,8 @@ export async function POST(request) {
         gapRatio,
         rolling30: +rolling30.toFixed(2),
         monthlyAvg90: +monthlyAvg90.toFixed(2),
+        peakMonth, peakMonthSpend: +peakMonthSpend.toFixed(2),
+        best6moAvg: +best6moAvg.toFixed(2), monthsOver500,
         lastPurchaseDate: lastDate,
         tier,
       })
@@ -162,6 +191,8 @@ export async function POST(request) {
           const protectedLists = lists.filter((l) => l.type === 'custom' && /whale|dnm|do.?not|vip/i.test(l.name || '')).map((l) => l.name)
           liveByKey[t.ofUsername.toLowerCase()] = {
             rebillOff: lists.some((l) => l.type === 'rebill_off') || so.status === 'Set to Expire',
+            fanSince: (so.subscribeAt || '').slice(0, 10) || null,
+            fanFor: so.duration || null,
             subStatus: so.status || (d.subscribedOn ? 'active' : 'not subscribed'),
             subExpires: (so.expiredAt || '').slice(0, 10) || null,
             lastReplyAt: (d.lastReplyAt || '').slice(0, 10) || null,
@@ -183,6 +214,8 @@ export async function POST(request) {
       const cadence = JSON.stringify({
         medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
         rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
+        peakMonth: t.peakMonth, peakMonthSpend: t.peakMonthSpend,
+        best6moAvg: t.best6moAvg, monthsOver500: t.monthsOver500,
         lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
         live: liveByKey[(t.ofUsername || '').toLowerCase()] || null,
       })

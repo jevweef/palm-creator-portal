@@ -455,7 +455,7 @@ export default function AuditTab() {
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th style={{ textAlign: 'right' }}>Worth / mo</th><th style={{ textAlign: 'right' }}>Last 30d</th><th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Last alert</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ width: '24%' }}>Why</th><th>Signals</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Worth / mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Last 30d</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Peak mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Best 6mo avg</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -477,6 +477,7 @@ export default function AuditTab() {
                       if (!lv) return <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>—</span>
                       const chip = (txt, color, bg, title) => <span key={txt} title={title} style={{ background: bg, color, padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, marginRight: '4px', whiteSpace: 'nowrap' }}>{txt}</span>
                       const out = []
+                      if (lv.fanFor) out.push(chip(`FAN ${lv.fanFor.replace(/s$/, '').replace(' year', 'y').replace(' month', 'mo')}`, 'var(--foreground-muted)', 'rgba(255,255,255,0.06)', `Subscribed since ${lv.fanSince || '?'}`))
                       if (lv.rebillOff) out.push(chip(`REBILL OFF${lv.subExpires ? ` · exp ${lv.subExpires.slice(5)}` : ''}`, '#E87878', 'rgba(232,120,120,0.15)', 'Sub will not renew — save before it expires'))
                       if (lv.exposed) out.push(chip('EXPOSED TO BLASTS', '#E88C5C', 'rgba(232,140,92,0.12)', 'Not on any whale/DNM list — mass messages reach this fan'))
                       else out.push(chip('PROTECTED', '#7DD3A4', 'rgba(125,211,164,0.1)', `On: ${(lv.protectedLists || []).join(', ')}`))
@@ -486,10 +487,13 @@ export default function AuditTab() {
                       }
                       return out.length ? out : <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>ok</span>
                     })()}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700 }}>{cad?.monthlyAvg90 ? `$${Math.round(cad.monthlyAvg90)}` : '—'}</td>
-                    <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
-                    <td style={{ textAlign: 'right', color: 'var(--foreground-muted)' }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad?.monthlyAvg90 ? `$${Math.round(cad.monthlyAvg90)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title={cad?.peakMonth ? `his biggest month: ${cad.peakMonth}` : ''}>{cad?.peakMonthSpend ? `$${Math.round(cad.peakMonthSpend)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title="avg $/mo across his hottest 6-month stretch — the consistency stat">{cad?.best6moAvg ? `$${Math.round(cad.best6moAvg)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', color: (cad?.monthsOver500 || 0) >= 3 ? '#7DD3A4' : 'var(--foreground-muted)' }} title="months where he spent $500+">{cad?.monthsOver500 ?? '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--foreground-muted)', padding: '7px 10px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
+                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad?.lastPurchaseDate || '—'}</td>
                     <td style={{ fontSize: '11px' }}>{(() => {
                       if (!w.lastAlert) return <span style={{ color: '#E88C5C' }}>never</span>
                       const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)

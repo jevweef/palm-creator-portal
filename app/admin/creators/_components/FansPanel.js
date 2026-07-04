@@ -765,6 +765,38 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
                 <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.txnCount || 0} sessions</div>
               </div>
+              {(() => {
+                // Fan-history shape from his monthly series: peak month, best
+                // 6-month stretch (consistency), months at $500+.
+                const mo = (monthlySpendData || []).map((d) => d.spend || 0)
+                if (!mo.length) return null
+                const labels = (monthlySpendData || []).map((d) => d.month || d.date || '')
+                let peakI = 0
+                mo.forEach((v, i) => { if (v > mo[peakI]) peakI = i })
+                const win = Math.min(6, mo.length)
+                let best6 = 0
+                for (let i = 0; i <= mo.length - win; i++) {
+                  const avg = mo.slice(i, i + win).reduce((a, b) => a + b, 0) / win
+                  if (avg > best6) best6 = avg
+                }
+                const over500 = mo.filter((v) => v >= 500).length
+                return (
+                  <>
+                    <div>
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Peak Month</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: 600 }}>{fmtMoney(mo[peakI])} <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>{labels[peakI]}</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }} title="avg $/mo across his hottest 6-month stretch">Best 6-Mo Avg</div>
+                      <div style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: 600 }}>{fmtMoney(best6)}/mo</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>$500+ Months</div>
+                      <div style={{ fontSize: '12px', color: over500 >= 3 ? '#7DD3A4' : 'var(--foreground)', fontWeight: 600 }}>{over500}</div>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
 
@@ -1177,8 +1209,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   )}
                 </div>
                 <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
-                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
+                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? '#141414' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
+                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? '#141414' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
                 </div>
                 {accountNames.length > 1 && (
                   <button onClick={() => setSplitByAccount(!splitByAccount)}
