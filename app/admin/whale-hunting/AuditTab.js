@@ -11,7 +11,7 @@
 //  3. Run Chatter QA — recent chatter-sent messages judged against her voice
 //  4. Watchlist — Fan Tracker rows still in play (deep-links to Fans panel)
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import FansPanel from '../creators/_components/FansPanel'
 
@@ -78,6 +78,8 @@ export default function AuditTab() {
   const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
   const [playbook, setPlaybook] = useState(null)
+  const [batch, setBatch] = useState(null) // {i,total,current,log,done} — pull+analyze assembly line
+  const batchAbort = useRef(false)
 
   const load = useCallback(async () => {
     try {
@@ -172,6 +174,78 @@ export default function AuditTab() {
     if (w.creatorId && w.creatorId !== creatorId) { setCreatorId(w.creatorId); writeCreatorToUrl(w.creatorId) }
     setFocusFan(w.ofUsername || w.fanName || '')
     setFocusNonce((n) => n + 1)
+  }
+
+  // ── Pull + Analyze the whole Save List, one click ────────────────────────
+  // Client-driven assembly line: each fan is its own pull request + analyze
+  // request (no single call can time out); progress renders live. Cost gates
+  // still apply per fan — pricey pulls get skipped and logged for a manual
+  // decision instead of blocking the run.
+  async function runBatch() {
+    if (!selected || !urgentList.length) return
+    batchAbort.current = false
+    const log = []
+    const push = (line) => { log.push(line) }
+    for (let i = 0; i < urgentList.length; i++) {
+      if (batchAbort.current) { push('⏹ stopped by user'); break }
+      const w = urgentList[i]
+      const label = w.fanName || w.ofUsername || 'fan'
+      setBatch({ i: i + 1, total: urgentList.length, current: `${label} — pulling chat…`, log: [...log] })
+      try {
+        const pres = await fetch('/api/admin/creator-earnings/pull-chat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creatorRecordId: creatorId, fanUsername: w.ofUsername || '', fanName: w.fanName || '', lifetime: w.lifetime || 0 }),
+        })
+        const pdata = await pres.json().catch(() => ({}))
+        if (pres.status === 402) { push(`${label}: needs cost approval (~${pdata.estimatedCredits} cr) — open his card to decide`); continue }
+        if (pres.status === 202) { push(`${label}: history export still building — rerun the batch in a few minutes`); continue }
+        if (!pres.ok) { push(`${label}: pull failed — ${pdata.error || pres.status}`); continue }
+
+        setBatch({ i: i + 1, total: urgentList.length, current: `${label} — analyzing…`, log: [...log] })
+        const fd = new FormData()
+        fd.append('useTranscript', 'true')
+        fd.append('parsedConversation', pdata.parsed.conversation)
+        fd.append('parsedMessages', JSON.stringify(pdata.parsed.messages))
+        fd.append('parsedFirstDate', pdata.parsed.firstMessageDate)
+        fd.append('parsedLastDate', pdata.parsed.lastMessageDate)
+        fd.append('parsedFanMsgs', String(pdata.parsed.fanMessages))
+        fd.append('parsedCreatorMsgs', String(pdata.parsed.creatorMessages))
+        fd.append('fanName', w.fanName || w.ofUsername || '')
+        fd.append('fanUsername', w.ofUsername || '')
+        fd.append('lifetime', String(w.lifetime || 0))
+        const cad = w.cadence || {}
+        fd.append('medianGap', String(cad.medianGap || 0))
+        fd.append('currentGap', String(cad.currentGap || 0))
+        fd.append('rolling30', String(cad.rolling30 || 0))
+        fd.append('monthlyAvg90', String(cad.monthlyAvg90 || 0))
+        fd.append('lastPurchaseDate', cad.lastPurchaseDate || '')
+        fd.append('creatorName', selected.name || '')
+        fd.append('creatorAka', selected.aka || '')
+        fd.append('creatorRecordId', creatorId)
+        if (cad.live) fd.append('liveSignals', JSON.stringify(cad.live))
+        const txns = earnings?.transactions
+        if (Array.isArray(txns)) {
+          const daily = {}
+          for (const t of txns) {
+            if ((t.ofUsername || '') === (w.ofUsername || '') || (t.displayName || '') === (w.fanName || '')) {
+              if ((t.type || '') === 'Chargeback' || /subscription/i.test(t.type || '')) continue
+              daily[t.date] = (daily[t.date] || 0) + (t.net || 0)
+            }
+          }
+          const timeline = Object.entries(daily).sort(([a], [b]) => a.localeCompare(b)).map(([d, v]) => `${d}: $${v.toFixed(2)}`).join('\n')
+          if (timeline) fd.append('spendingTimeline', timeline)
+        }
+        const ares = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
+        const adata = await ares.json().catch(() => ({}))
+        if (!ares.ok) { push(`${label}: analysis failed — ${adata.error || ares.status}`); continue }
+        push(`${label}: ✓ pulled (${pdata.credits || 0} cr, ${pdata.newMessages ?? 0} new) + analyzed`)
+      } catch (e) {
+        push(`${label}: error — ${e.message}`)
+      }
+      await new Promise((r) => setTimeout(r, 1500))
+    }
+    setBatch({ i: urgentList.length, total: urgentList.length, current: '', log: [...log], done: true })
+    load()
   }
 
   // Update Sales & Chargebacks — pulls new transactions from the OF API into
@@ -311,6 +385,17 @@ export default function AuditTab() {
         <button onClick={runSync} disabled={syncing || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', syncing || !selected?.connected)}>
           {syncing ? 'Updating fan data…' : 'Update Fan Data'}
         </button>
+        {(batch && !batch.done) ? (
+          <button onClick={() => { batchAbort.current = true }} style={btn('rgba(232, 120, 120, 0.12)', '#E87878', false)}>
+            Stop batch ({batch.i}/{batch.total})
+          </button>
+        ) : (
+          <button onClick={runBatch} disabled={!selected?.connected || !urgentList.length}
+            title="Pull each urgent fan's chat (cost-gated) and run the analysis, one by one"
+            style={btn('rgba(232, 168, 120, 0.14)', '#E8A878', !selected?.connected || !urgentList.length)}>
+            Pull + Analyze Save List ({urgentList.length})
+          </button>
+        )}
       </div>
 
       {/* Last-run stamps for the selected creator (stored on her record) */}
@@ -343,6 +428,18 @@ export default function AuditTab() {
 
       {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
       {backfillResult && <div style={{ fontSize: '12px', color: '#6B94B8' }}>✓ Backfill — {backfillResult}</div>}
+
+      {batch && (
+        <div style={{ ...card, padding: '14px 18px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#E8A878', marginBottom: '6px' }}>
+            {batch.done ? `Batch complete — ${batch.log.filter(l => l.includes('✓')).length}/${batch.total} analyzed` : `Batch ${batch.i}/${batch.total}: ${batch.current}`}
+          </div>
+          {batch.log.map((l, i) => (
+            <div key={i} style={{ fontSize: '11px', color: l.includes('✓') ? '#7DD3A4' : l.includes('failed') || l.includes('error') ? '#E87878' : 'var(--foreground-muted)', padding: '1px 0' }}>{l}</div>
+          ))}
+          {!batch.done && <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '6px' }}>Keep this tab open — each fan is pulled and analyzed in sequence.</div>}
+        </div>
+      )}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
 
       {/* Audit results */}
