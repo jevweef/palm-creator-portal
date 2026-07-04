@@ -6,11 +6,24 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 
+// Selection persists in the URL (?account=…&fan=…) — refresh/share keeps
+// you on the same creator and conversation (same pattern as whale-hunting).
+function fromUrl(key) {
+  if (typeof window === 'undefined') return ''
+  return new URLSearchParams(window.location.search).get(key) || ''
+}
+function writeUrl(account, fan) {
+  const params = new URLSearchParams(window.location.search)
+  if (account) params.set('account', account); else params.delete('account')
+  if (fan) params.set('fan', fan); else params.delete('fan')
+  window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? '?' + params : ''}`)
+}
+
 export default function LiveChatPage() {
   const [accounts, setAccounts] = useState([])
-  const [account, setAccount] = useState('')
+  const [account, setAccount] = useState(() => fromUrl('account'))
   const [conversations, setConversations] = useState([])
-  const [fan, setFan] = useState('')
+  const [fan, setFan] = useState(() => fromUrl('fan'))
   const [history, setHistory] = useState([])
   const [transcript, setTranscript] = useState(null)
   const [liveEvents, setLiveEvents] = useState([])
@@ -22,14 +35,17 @@ export default function LiveChatPage() {
     fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
   }, [])
 
-  // Load conversations when account changes
+  // Load conversations when account changes (URL-restored fan survives the
+  // first load; manual switches clear it via the select's onChange)
   useEffect(() => {
     if (!account) return
-    setConversations([]); setFan(''); setHistory([]); setLiveEvents([])
+    setConversations([]); setHistory([]); setLiveEvents([])
+    writeUrl(account, fan)
     fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => { setConversations(d.conversations || []) })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
 
   // Load thread when fan changes; then poll live buffer
@@ -85,7 +101,7 @@ export default function LiveChatPage() {
     <div style={{ padding: '24px 32px', maxWidth: '1700px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
-        <select value={account} onChange={(e) => setAccount(e.target.value)}
+        <select value={account} onChange={(e) => { setAccount(e.target.value); setFan(''); writeUrl(e.target.value, '') }}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           <option value="">Pick a creator…</option>
           {accounts.map((a) => <option key={a.account} value={a.account}>{a.aka}</option>)}
@@ -114,7 +130,7 @@ export default function LiveChatPage() {
               const active = fan === c.fan
               const isLive = c.lastAt && (Date.now() - new Date(c.lastAt)) < 30 * 60000
               return (
-                <div key={c.fan} onClick={() => setFan(c.fan)}
+                <div key={c.fan} onClick={() => { setFan(c.fan); writeUrl(account, c.fan) }}
                   style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '11px 14px', cursor: 'pointer', background: active ? 'rgba(160,111,232,0.10)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                   onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
                   onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = active ? 'rgba(160,111,232,0.10)' : 'transparent' }}>
