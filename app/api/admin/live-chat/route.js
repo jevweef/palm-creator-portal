@@ -51,9 +51,11 @@ export async function GET(request) {
       if (STREAM_CACHE.data && Date.now() - STREAM_CACHE.at < 5000) {
         return NextResponse.json({ accounts, stream: STREAM_CACHE.data })
       }
-      const { readLiveMerged } = await import('@/lib/ofLiveBuffer')
+      const { readLiveMany } = await import('@/lib/ofLiveBuffer')
       const tokenS = await getDropboxAccessToken()
       const nsS = await getDropboxRootNamespaceId(tokenS)
+      let byAccount = {}
+      try { byAccount = await readLiveMany(accounts.map((a) => a.account)) } catch { /* fall to last-good */ }
       const chunks = await Promise.all(accounts.map(async (a) => {
         // muted fans stay out of the stream (junk from other creators etc.)
         let muted = MUTED_CACHE.get(a.account)
@@ -68,13 +70,9 @@ export async function GET(request) {
         }
         const mutedSet = new Set(muted.list)
         const keep = (e) => !mutedSet.has(e.fan?.username || e.fan?.name || '')
-        try {
-          const evs = await readLiveMerged(a.account)
-          LAST_GOOD.set(a.account, evs)
-          return evs.filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
-        } catch {
-          return (LAST_GOOD.get(a.account) || []).filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
-        }
+        const evs = byAccount[a.account] || LAST_GOOD.get(a.account) || []
+        if (byAccount[a.account]) LAST_GOOD.set(a.account, evs)
+        return evs.filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
       }))
       const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
       STREAM_CACHE.at = Date.now()
