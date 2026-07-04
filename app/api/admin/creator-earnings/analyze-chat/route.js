@@ -544,6 +544,20 @@ export async function POST(request) {
       }
     }
 
+    // Grading boundary: the CURRENT chat team's start date for this creator
+    // (Palm Creators 'Chat Team Start'). Chatter failures BEFORE this date
+    // belong to a previous agency — context, not grades.
+    let chatTeamStart = null
+    try {
+      const crId = formData.get('creatorRecordId') || ''
+      if (crId) {
+        const r = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Palm Creators')}/${crId}?fields%5B%5D=Chat%20Team%20Start`, {
+          headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` },
+        })
+        if (r.ok) chatTeamStart = (await r.json())?.fields?.['Chat Team Start'] || null
+      }
+    } catch { /* optional */ }
+
     // Live OF account signals from the audit (rebill, sub expiry, tenure) —
     // a dying subscription outranks everything else in the brief.
     let liveBlock = ''
@@ -565,7 +579,7 @@ export async function POST(request) {
 - Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
 - Creator name (refer to her as this in the brief): ${creatorAka}${chatWindowNote}
 ${monthlyArc ? `\nMONTHLY SPENDING ARC (judge the fan against his OWN PEAK ERA, not just his recent average — a small uptick after a long decay is a REVIVAL WINDOW, never a "hot streak"; state explicitly where he is now vs his peak era and whether the trajectory is growing, stable, decayed, or reviving):\n${monthlyArc}` : ''}
-${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}${liveBlock}`
+${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}${liveBlock}${chatTeamStart ? `\n\nCHAT TEAM BOUNDARY: our CURRENT chat team took over this creator on ${chatTeamStart}. In CHATTER PERFORMANCE, GRADE only what happened ON/AFTER that date — failures before it were a PREVIOUS agency: cite them as history/context (they explain the fan's scars and what to avoid) but attribute them explicitly to the prior team, never to ours.` : ''}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
     const exampleAnalysis = `EXAMPLE OF THE DEPTH AND SPECIFICITY EXPECTED:
