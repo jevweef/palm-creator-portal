@@ -591,7 +591,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       {!inModal && <div
         onClick={onToggle}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
           background: isExpanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
         }}
@@ -627,6 +627,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           </span>
         )}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }} title="Average spend per month over the last 6 months — the consistent-whale stat">{fmtMoney((f.last180 || 0) / 6)}</span>
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{f.txnCount || 0}</span>
         <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{f.lastDate || '—'}</span>
@@ -1860,6 +1861,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       const thirtyAgo = new Date()
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
+      const sixMoAgo = new Date(); sixMoAgo.setDate(sixMoAgo.getDate() - 180)
+      const sixMoAgoStr = sixMoAgo.toISOString().split('T')[0]
 
       for (const t of allTxns) {
         // Accept ALL transaction types for account membership tracking,
@@ -1880,6 +1883,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
             ofUsername: t.ofUsername || '',
             lifetimeSpend: 0,
             last30: 0,
+            last180: 0,
             txnCount: 0,
             lastDate: '',
             firstDate: '',
@@ -1913,6 +1917,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+        if (t.date >= sixMoAgoStr) fan.last180 += t.net || 0
         fanTxnMap.get(key).push(t)
       }
     }
@@ -1956,7 +1961,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         // CRM-only record (no transactions)
         const mapped = crmToAlertStatus(c.status)
         fanMap.set(key, {
-          ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '',
+          ...c, id: c.id, txnCount: 0, last30: 0, last180: 0, lastDate: '', firstDate: '',
           source: 'crm', heatStatus: 'Stable',
           alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
           banned: c.status === 'Banned',
@@ -2108,6 +2113,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         let av, bv
         if (sortField === 'lifetime') { av = a.lifetimeSpend || 0; bv = b.lifetimeSpend || 0 }
         else if (sortField === 'last30') { av = a.last30 || 0; bv = b.last30 || 0 }
+        else if (sortField === 'moAvg6') { av = (a.last180 || 0) / 6; bv = (b.last180 || 0) / 6 }
         else if (sortField === 'txns') { av = a.txnCount || 0; bv = b.txnCount || 0 }
         else if (sortField === 'lastDate') { av = a.lastDate || ''; bv = b.lastDate || '' }
         else return 0
@@ -2243,9 +2249,9 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       ) : (
         <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
             <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
-            {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
+            {[['lifetime', 'Lifetime'], ['moAvg6', '$/mo (6m)'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
               <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
                 {label}{sortField === key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </span>

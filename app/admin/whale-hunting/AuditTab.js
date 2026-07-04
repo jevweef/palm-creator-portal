@@ -303,6 +303,24 @@ export default function AuditTab() {
         </div>
       )}
 
+      {/* ── Summary strip — the 10-second read ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+        {[
+          { label: 'At risk / month', value: `$${Math.round(atRiskMonthly).toLocaleString()}`, sub: 'what the urgent fans normally spend', color: '#E87878' },
+          { label: 'Urgent fans', value: urgentList.length, sub: 'off their own buying rhythm now', color: '#E8C878' },
+          { label: 'Dormant whales', value: dormantList.length, sub: `$${Math.round(dormantLifetime).toLocaleString()} lifetime parked`, color: '#A06FE8' },
+          { label: 'Need a fresh alert', value: staleAlerts, sub: 'no alert sent in 30+ days', color: staleAlerts ? '#E88C5C' : '#7DD3A4' },
+          { label: 'Data freshness', value: fmtRun(selected?.runs?.sales), sub: 'last sales & chargebacks pull', color: '#78B4E8' },
+        ].map((c) => (
+          <div key={c.label} style={{ ...card, padding: '14px 16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>{c.label}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: c.color, lineHeight: 1.1 }}>{c.value}</div>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '3px' }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+
       {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
       {backfillResult && <div style={{ fontSize: '12px', color: '#6B94B8' }}>✓ Backfill — {backfillResult}</div>}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
@@ -413,23 +431,6 @@ export default function AuditTab() {
           )}
         </div>
       )}
-
-      {/* ── Summary strip — the 10-second read ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-        {[
-          { label: 'At risk / month', value: `$${Math.round(atRiskMonthly).toLocaleString()}`, sub: 'what the urgent fans normally spend', color: '#E87878' },
-          { label: 'Urgent fans', value: urgentList.length, sub: 'off their own buying rhythm now', color: '#E8C878' },
-          { label: 'Dormant whales', value: dormantList.length, sub: `$${Math.round(dormantLifetime).toLocaleString()} lifetime parked`, color: '#A06FE8' },
-          { label: 'Need a fresh alert', value: staleAlerts, sub: 'no alert sent in 30+ days', color: staleAlerts ? '#E88C5C' : '#7DD3A4' },
-          { label: 'Data freshness', value: fmtRun(selected?.runs?.sales), sub: 'last sales & chargebacks pull', color: '#78B4E8' },
-        ].map((c) => (
-          <div key={c.label} style={{ ...card, padding: '14px 16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '4px' }}>{c.label}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: c.color, lineHeight: 1.1 }}>{c.value}</div>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '3px' }}>{c.sub}</div>
-          </div>
-        ))}
-      </div>
 
       {/* ── SAVE LIST — urgent: go get these fans back NOW ── */}
       <div style={card}>

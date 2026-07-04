@@ -18,14 +18,14 @@ const FAN_TRACKER = 'Fan Tracker'
 // Upserts flagged fans into Fan Tracker so the existing whale flow (alerts,
 // analyses, Wendy) picks them up. Zero OF-API credits per audit.
 //
-// Body: { creatorRecordId, days?=365, minLifetime?=100 }
+// Body: { creatorRecordId, days?=730, minLifetime?=100 }
 // Tiers (personalized): gapRatio = daysSinceLastPurchase / medianGap
 //   warning ≥ 2×   high ≥ 3×   critical ≥ 5×   dead ≥ 8× (or 120d+ silent)
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorRecordId, days = 365, minLifetime = 100 } = await request.json()
+    const { creatorRecordId, days = 730, minLifetime = 100 } = await request.json()
     if (!creatorRecordId) return NextResponse.json({ error: 'creatorRecordId required' }, { status: 400 })
 
     const creators = await fetchAirtableRecords('Palm Creators', {
