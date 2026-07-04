@@ -1,126 +1,179 @@
 'use client'
 
-// LIVE CHAT — real-time message feed straight off the OF webhooks.
-// Pick a creator; every fan reply, 1:1 chatter message, and PPV unlock
-// appears within seconds (webhook → Dropbox buffer → 8s poll). OF-style
-// bubbles: fan left, creator right, unlocks as green money events.
+// LIVE CHAT — OF-style two-pane view fed by the webhooks.
+// Left: conversations (archived deep-pull fans + anyone with live activity).
+// Right: the thread — archive history + live events, updating every 8s.
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 
 export default function LiveChatPage() {
   const [accounts, setAccounts] = useState([])
   const [account, setAccount] = useState('')
-  const [events, setEvents] = useState([])
-  const [fanFilter, setFanFilter] = useState('')
+  const [conversations, setConversations] = useState([])
+  const [fan, setFan] = useState('')
+  const [history, setHistory] = useState([])
+  const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
+  const scroller = useRef(null)
   const timer = useRef(null)
 
-  async function poll(acct) {
-    try {
-      const res = await fetch(`/api/admin/live-chat?account=${encodeURIComponent(acct || '')}`, { cache: 'no-store' })
-      const data = await res.json()
-      if (data.accounts) setAccounts(data.accounts)
-      if (acct) setEvents(data.events || [])
-      setLastPoll(new Date())
-    } catch { /* next poll */ }
-  }
+  useEffect(() => {
+    fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
+  }, [])
 
-  useEffect(() => { poll('') }, [])
+  // Load conversations when account changes
   useEffect(() => {
     if (!account) return
-    poll(account)
-    timer.current = setInterval(() => poll(account), 8000)
-    return () => clearInterval(timer.current)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setConversations([]); setFan(''); setHistory([]); setLiveEvents([])
+    fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { setConversations(d.conversations || []) })
+      .catch(() => {})
   }, [account])
 
-  const fans = useMemo(() => {
-    const m = new Map()
-    for (const e of events) {
-      const key = e.fan?.username || e.fan?.name || ''
-      if (key && !m.has(key)) m.set(key, e.fan)
-    }
-    return [...m.entries()]
-  }, [events])
+  // Load thread when fan changes; then poll live buffer
+  useEffect(() => {
+    if (!account || !fan) return
+    fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&fan=${encodeURIComponent(fan)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => { setHistory(d.history || []); setLiveEvents(d.live || []); setLastPoll(new Date()) })
+      .catch(() => {})
+    timer.current = setInterval(() => {
+      fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&liveOnly=1`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          const mine = (d.live || []).filter((e) => (e.fan?.username || e.fan?.name || '') === fan)
+          setLiveEvents(mine)
+          setLastPoll(new Date())
+        })
+        .catch(() => {})
+    }, 8000)
+    return () => clearInterval(timer.current)
+  }, [account, fan])
 
-  const shown = useMemo(() => {
-    const list = fanFilter
-      ? events.filter((e) => (e.fan?.username || e.fan?.name || '') === fanFilter)
-      : events
-    return [...list].reverse() // oldest → newest, like a chat
-  }, [events, fanFilter])
+  // Merge archive history + live events (dedup by id), ascending
+  const thread = useMemo(() => {
+    const seen = new Set(history.map((m) => String(m.id)))
+    const extra = liveEvents.filter((e) => !seen.has(String(e.id))).map((e) => ({
+      id: e.id, dir: e.dir, at: e.at, text: e.text, price: e.price || 0,
+      bought: e.dir === 'unlock', mass: false, media: e.media || 0, liveEvent: true,
+    }))
+    return [...history, ...extra].sort((a, b) => (a.at || '').localeCompare(b.at || ''))
+  }, [history, liveEvents])
+
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
+  }, [thread.length, fan])
 
   const fmtT = (iso) => {
     const d = new Date(iso)
-    return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
+    return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: '900px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
-      <p style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '6px 0 18px' }}>
-        Real-time feed off the OF webhooks — fan replies, 1:1 chatter messages, and PPV unlocks appear within seconds.
-        {lastPoll && <span> · updated {lastPoll.toLocaleTimeString('en-US')}</span>}
-      </p>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <select value={account} onChange={(e) => { setAccount(e.target.value); setFanFilter(''); setEvents([]) }}
+    <div style={{ padding: '24px 32px', maxWidth: '1700px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
+        <select value={account} onChange={(e) => setAccount(e.target.value)}
           style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
           <option value="">Pick a creator…</option>
           {accounts.map((a) => <option key={a.account} value={a.account}>{a.aka}</option>)}
         </select>
-        {fans.length > 0 && (
-          <select value={fanFilter} onChange={(e) => setFanFilter(e.target.value)}
-            style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
-            <option value="">All fans ({fans.length})</option>
-            {fans.map(([key, f]) => <option key={key} value={key}>{f.name || f.username}{f.username ? ` @${f.username}` : ''}</option>)}
-          </select>
-        )}
-        <span style={{ alignSelf: 'center', fontSize: '11px', color: '#7DD3A4' }}>● LIVE — polling every 8s</span>
+        <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — updates every 8s{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 
       {!account ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>
-          Pick a creator to watch her conversations live.
-        </div>
-      ) : shown.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>
-          Nothing in the buffer yet — the feed fills as messages happen from this point on. Leave it open.
+        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>
+          Pick a creator to open her inbox.
         </div>
       ) : (
-        <div style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {shown.map((e) => {
-            const isFan = e.dir === 'in'
-            const isUnlock = e.dir === 'unlock'
-            return (
-              <div key={e.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isFan ? 'flex-start' : 'flex-end' }}>
-                <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', margin: '0 6px 2px' }}>
-                  {isFan ? `${e.fan?.name || e.fan?.username || 'fan'}` : isUnlock ? `${e.fan?.name || e.fan?.username || 'fan'} unlocked` : 'creator'} · {fmtT(e.at)} ET
-                </div>
-                <div style={{
-                  maxWidth: '70%', padding: '9px 13px', borderRadius: isFan ? '14px 14px 14px 4px' : '14px 14px 4px 14px',
-                  fontSize: '13px', lineHeight: 1.45, whiteSpace: 'pre-wrap',
-                  background: isUnlock ? 'rgba(125, 211, 164, 0.12)' : isFan ? 'rgba(255,255,255,0.06)' : 'rgba(0, 145, 234, 0.16)',
-                  border: isUnlock ? '1px solid rgba(125,211,164,0.35)' : '1px solid rgba(255,255,255,0.05)',
-                  color: 'var(--foreground)',
-                }}>
-                  {isUnlock ? (
-                    <b style={{ color: '#7DD3A4' }}>💸 PPV unlocked{e.price ? ` — $${e.price}` : ''}</b>
-                  ) : (
-                    <>
-                      {e.text || <i style={{ color: 'var(--foreground-muted)' }}>(no text)</i>}
-                      {(e.price > 0 || e.media > 0) && (
-                        <div style={{ marginTop: '5px', display: 'flex', gap: '6px' }}>
-                          {e.price > 0 && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(232,200,120,0.15)', color: '#E8C878', padding: '1px 7px', borderRadius: '4px' }}>PPV ${e.price}</span>}
-                          {e.media > 0 && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground-muted)', padding: '1px 7px', borderRadius: '4px' }}>📷 {e.media} media</span>}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '0', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 170px)' }}>
+
+          {/* ── Conversation list ── */}
+          <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto' }}>
+            <div style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              Conversations ({conversations.length})
+            </div>
+            {conversations.length === 0 && (
+              <div style={{ padding: '20px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                No archived or live conversations yet for this creator.
               </div>
-            )
-          })}
+            )}
+            {conversations.map((c) => {
+              const active = fan === c.fan
+              const isLive = c.lastAt && (Date.now() - new Date(c.lastAt)) < 30 * 60000
+              return (
+                <div key={c.fan} onClick={() => setFan(c.fan)}
+                  style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '11px 14px', cursor: 'pointer', background: active ? 'rgba(160,111,232,0.10)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = active ? 'rgba(160,111,232,0.10)' : 'transparent' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(160,111,232,0.18)', color: '#C4A5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', flexShrink: 0 }}>
+                    {(c.name || c.fan).slice(0, 1).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.name || c.fan} {isLive && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>● live</span>}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.lastText || (c.archived ? 'archived history' : '')}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Thread ── */}
+          {!fan ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground-muted)', fontSize: '13px' }}>
+              Pick a conversation.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>
+                @{fan}
+              </div>
+              <div ref={scroller} style={{ flex: 1, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {thread.length === 0 && <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', marginTop: '40px' }}>No messages loaded — history appears after a chat pull; live messages appear as they happen.</div>}
+                {thread.map((m) => {
+                  const isFan = m.dir === 'in'
+                  const isUnlock = m.dir === 'unlock'
+                  return (
+                    <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isFan ? 'flex-start' : 'flex-end' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', margin: '0 6px 2px' }}>
+                        {fmtT(m.at)} ET{m.mass ? ' · mass' : ''}{m.liveEvent ? ' · live' : ''}
+                      </div>
+                      <div style={{
+                        maxWidth: '62%', padding: '9px 14px', borderRadius: isFan ? '15px 15px 15px 4px' : '15px 15px 4px 15px',
+                        fontSize: '13px', lineHeight: 1.45, whiteSpace: 'pre-wrap',
+                        background: isUnlock ? 'rgba(125, 211, 164, 0.12)' : isFan ? 'rgba(255,255,255,0.07)' : 'rgba(0, 145, 234, 0.18)',
+                        border: isUnlock ? '1px solid rgba(125,211,164,0.35)' : '1px solid rgba(255,255,255,0.04)',
+                        color: 'var(--foreground)', opacity: m.mass ? 0.55 : 1,
+                      }}>
+                        {isUnlock ? (
+                          <b style={{ color: '#7DD3A4' }}>💸 PPV unlocked{m.price ? ` — $${m.price}` : ''}</b>
+                        ) : (
+                          <>
+                            {m.text || <i style={{ color: 'var(--foreground-muted)' }}>(media message)</i>}
+                            {(m.price > 0 || m.media > 0) && (
+                              <div style={{ marginTop: '5px', display: 'flex', gap: '6px', justifyContent: isFan ? 'flex-start' : 'flex-end' }}>
+                                {m.price > 0 && (
+                                  <span style={{ fontSize: '10px', fontWeight: 700, background: m.bought ? 'rgba(125,211,164,0.15)' : 'rgba(232,200,120,0.15)', color: m.bought ? '#7DD3A4' : '#E8C878', padding: '1px 7px', borderRadius: '4px' }}>
+                                    PPV ${m.price}{m.bought ? ' · bought' : ' · not bought'}
+                                  </span>
+                                )}
+                                {m.media > 0 && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.07)', color: 'var(--foreground-muted)', padding: '1px 7px', borderRadius: '4px' }}>📷 {m.media}</span>}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
