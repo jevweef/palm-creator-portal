@@ -92,7 +92,7 @@ export async function GET(request) {
     let live = []
     try { live = await readLiveMerged(account) } catch { /* none yet */ }
 
-    if (liveOnly) return NextResponse.json({ live })
+    if (liveOnly) return NextResponse.json({ live: live.filter((e) => e.dir !== 'sale') })
 
     if (fan) {
       // Thread: archive tail + live events for this fan
@@ -125,7 +125,7 @@ export async function GET(request) {
           } catch { /* try next */ }
         }
       }
-      const liveForFan = live.filter((e) => (e.fan?.username || e.fan?.name || '') === fan)
+      const liveForFan = live.filter((e) => e.dir !== 'sale' && (e.fan?.username || e.fan?.name || '') === fan)
       return NextResponse.json({ history, live: liveForFan, transcript })
     }
 
@@ -173,6 +173,7 @@ export async function GET(request) {
       CONV_CACHE.set(account, { at: Date.now(), conversations: [...base.values()] })
     }
     for (const e of live) {
+      if (e.dir === 'sale') continue // money rows live in the Sales stream, not the inbox
       const key = e.fan?.username || e.fan?.name || ''
       if (!key) continue
       const cur = base.get(key) || { fan: key, name: e.fan?.name || key, username: e.fan?.username || key, archived: false, lastAt: null, lastText: '' }
