@@ -817,7 +817,11 @@ HARD RULES:
       })
     }
 
-    const maxChars = isHighValue ? 80000 : 20000
+    // Deep dives run on Opus (1M context) — feed the WHOLE conversation.
+    // The old 80k cap kept 25% start + 75% end and amputated the middle,
+    // which is where Chris's broken VC promise / Nov-25 gouge / ignored
+    // custom all lived — the model literally never saw them (found 2026-07-04).
+    const maxChars = isHighValue ? 400000 : 20000
 
     // Fetch prior analysis context (if fan has been analyzed before)
     const priorResult = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
