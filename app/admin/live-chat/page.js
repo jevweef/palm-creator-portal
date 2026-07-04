@@ -119,6 +119,15 @@ export default function LiveChatPage() {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
   }, [thread.length, fan])
 
+  function openFromStream(e) {
+    const fanKey = e.fan?.username || e.fan?.name || ''
+    if (!e.account || !fanKey) return
+    setView('inbox')
+    setAccount(e.account)
+    setFan(fanKey)
+    writeUrl(e.account, fanKey)
+  }
+
   async function muteFromStream(e) {
     const fanKey = e.fan?.username || e.fan?.name || ''
     if (!fanKey || !e.account) return
@@ -184,7 +193,11 @@ export default function LiveChatPage() {
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
             {stream.length === 0 && <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Waiting for events — every fan message, 1:1 reply, and PPV unlock across ALL creators lands here as it happens.</div>}
             {stream.map((e) => (
-              <div key={`${e.aka}-${e.id}`} style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline' }}>
+              <div key={`${e.aka}-${e.id}`}
+                onClick={() => openFromStream(e)}
+                onMouseEnter={(ev) => ev.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                onMouseLeave={(ev) => ev.currentTarget.style.background = 'transparent'}
+                style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--foreground-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{fmtListTime(e.at)}</span>
                 <span style={{ color: '#C4A5F7', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.aka}</span>
                 <span style={{ color: 'var(--foreground)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.fan?.name || e.fan?.username || '—'}</span>
@@ -195,7 +208,7 @@ export default function LiveChatPage() {
                   {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}` : (e.text || '(media)')}{e.price > 0 && e.dir !== 'unlock' ? `  ·  PPV $${e.price}` : ''}
                 </span>
                 <button title="Mute this fan (hide from stream + inbox — e.g. another creator's junk)"
-                  onClick={() => muteFromStream(e)}
+                  onClick={(ev) => { ev.stopPropagation(); muteFromStream(e) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-muted)', padding: 0, opacity: 0.6 }}>✕</button>
               </div>
             ))}
