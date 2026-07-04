@@ -915,7 +915,10 @@ HARD RULES:
         fullConversation,
       ].filter(Boolean).join('\n\n')
       const stream = anthropic.messages.stream({
-        model: 'claude-sonnet-4-6',
+        // Whale deep-dives get the strongest model — the trigger/formula
+        // reasoning (fan-intel system) is exactly where model depth shows.
+        // Quick snapshots stay on Sonnet (cost).
+        model: isHighValue ? 'claude-opus-4-8' : 'claude-sonnet-4-6',
         max_tokens: claudeMaxTokens,
         system: [
           { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
