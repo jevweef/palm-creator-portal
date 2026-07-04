@@ -33,6 +33,10 @@ export default function LiveChatPage() {
   const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
+  // Fans muted THIS session ("account|fanKey") — the append-only stream union
+  // would otherwise re-add their rows from an in-flight or server-cached poll
+  // and they'd never leave. The server persists the mute for future loads.
+  const mutedKeys = useRef(new Set())
 
   useEffect(() => {
     fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
@@ -49,7 +53,9 @@ export default function LiveChatPage() {
         setStream((prev) => {
           const seen = new Map(prev.map((e) => [`${e.aka}-${e.id}`, e]))
           for (const e of d.stream || []) seen.set(`${e.aka}-${e.id}`, e)
-          return [...seen.values()].sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 250)
+          return [...seen.values()]
+            .filter((e) => !mutedKeys.current.has(`${e.account}|${e.fan?.username || e.fan?.name || ''}`))
+            .sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 250)
         })
         setLastPoll(new Date())
       })
@@ -128,27 +134,29 @@ export default function LiveChatPage() {
     writeUrl(e.account, fanKey)
   }
 
-  async function muteFromStream(e) {
-    const fanKey = e.fan?.username || e.fan?.name || ''
-    if (!fanKey || !e.account) return
-    setStream((prev) => prev.filter((x) => (x.fan?.username || x.fan?.name || '') !== fanKey || x.account !== e.account))
-    try {
-      await fetch('/api/admin/live-chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: e.account, fan: fanKey, mute: true }),
-      })
-    } catch { /* server filter catches next poll */ }
-  }
-
-  async function toggleMute(fanKey, mute) {
+  // Muting a FAN (from either the stream ✕ or the inbox ✕) hides ALL their
+  // messages: every row of theirs leaves the stream, and their conversation
+  // leaves that account's inbox. Server persists it; mutedKeys keeps the
+  // append-only stream union from resurrecting their rows this session.
+  async function muteFan(acct, fanKey, mute) {
+    if (!fanKey || !acct) return
+    const key = `${acct}|${fanKey}`
+    if (mute) mutedKeys.current.add(key)
+    else mutedKeys.current.delete(key)
+    setStream((prev) => (mute
+      ? prev.filter((x) => (x.fan?.username || x.fan?.name || '') !== fanKey || x.account !== acct)
+      : prev))
     setConversations((cs) => cs.map((c) => (c.fan === fanKey ? { ...c, muted: mute } : c)))
     try {
       await fetch('/api/admin/live-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, fan: fanKey, mute }),
+        body: JSON.stringify({ account: acct, fan: fanKey, mute }),
       })
-    } catch { /* next poll restores truth */ }
+    } catch { /* server filter catches next poll */ }
   }
+
+  const muteFromStream = (e) => muteFan(e.account, e.fan?.username || e.fan?.name || '', true)
+  const toggleMute = (fanKey, mute) => muteFan(account, fanKey, mute)
 
   const fmtListTime = (iso) => {
     if (!iso) return ''
@@ -212,6 +220,7 @@ export default function LiveChatPage() {
                   {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}` : (e.text || '(media)')}{e.price > 0 && e.dir !== 'unlock' ? `  ·  PPV $${e.price}` : ''}
                 </span>
                 <button title="Mute this fan (hide from stream + inbox — e.g. another creator's junk)"
+                  title="Mute this fan — hides ALL their messages here and in the inbox"
                   onClick={(ev) => { ev.stopPropagation(); muteFromStream(e) }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-muted)', padding: 0, opacity: 0.6 }}>✕</button>
               </div>
