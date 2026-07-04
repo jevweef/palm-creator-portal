@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
+import { readLiveMerged } from '@/lib/ofLiveBuffer'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,12 +39,9 @@ export async function GET(request) {
     const token = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(token)
 
-    // Live buffer (always)
+    // Live buffer (always) — merges any pending event files (race-proof)
     let live = []
-    try {
-      const buf = await downloadFromDropbox(token, ns, `/Palm Ops/OF Webhooks/live/${account}.json`)
-      if (buf) live = JSON.parse(buf.toString('utf8'))
-    } catch { /* none yet */ }
+    try { live = await readLiveMerged(account) } catch { /* none yet */ }
 
     if (liveOnly) return NextResponse.json({ live })
 

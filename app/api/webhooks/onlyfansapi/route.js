@@ -5,7 +5,8 @@ import {
   insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, mapType, stripHtmlText,
   fetchRevenueAccountNames,
 } from '@/lib/transactionsSheet'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxFolder } from '@/lib/dropbox'
+import { writeLiveEvent } from '@/lib/ofLiveBuffer'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -159,7 +160,8 @@ async function updateFanSignals(accountId, fan, fanData, extra = {}) {
   if (res.ok) console.log(`[of-webhook] ✓ tracker updated: ${fan.username || fan.name} (${Object.keys(patch).join(',')})`)
 }
 
-// ── live chat buffer (per account, last 400 events) — feeds the live view ───
+// ── live chat buffer — one FILE PER EVENT (concurrent webhook deliveries
+// were clobbering a shared buffer; see lib/ofLiveBuffer.js) ─────────────────
 async function appendLive(accountId, dir, p) {
   const f = p.fan || p.fromUser || p.from_user || p.user || {}
   const entry = {
@@ -171,19 +173,7 @@ async function appendLive(accountId, dir, p) {
     media: p.mediaCount ?? p.media_count ?? (Array.isArray(p.media) ? p.media.length : 0),
     fan: { id: f.id != null ? String(f.id) : '', username: f.username || '', name: f.display_name || f.name || '' },
   }
-  const token = await getDropboxAccessToken()
-  const ns = await getDropboxRootNamespaceId(token)
-  await createDropboxFolder(token, ns, '/Palm Ops/OF Webhooks')
-  await createDropboxFolder(token, ns, '/Palm Ops/OF Webhooks/live')
-  const path = `/Palm Ops/OF Webhooks/live/${accountId}.json`
-  let buf = []
-  try {
-    const existing = await downloadFromDropbox(token, ns, path)
-    if (existing) buf = JSON.parse(existing.toString('utf8'))
-  } catch { /* first event */ }
-  if (!buf.some((e) => e.id === entry.id)) buf.unshift(entry)
-  buf = buf.slice(0, 400)
-  await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(buf), 'utf8'))
+  await writeLiveEvent(accountId, entry)
 }
 
 // ── ops alert: creator connection problems go straight to Telegram ──────────
