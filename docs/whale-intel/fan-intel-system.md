@@ -40,7 +40,7 @@ and eventually automation):
 ## Engagement-trigger taxonomy (v0 — grows with each case study)
 
 1. **Participation** — buys while co-authoring the fantasy (Chris)
-2. **Worship / simp** — buys to please her, responds to gratitude + exclusivity
+2. **Worship / guided submission** — buys the ritual of being led (Chuck: $200 steps, command framing, the $2,000 "VIP pledge"); short compliant replies; do NOT chase — one strong re-entry when he resurfaces
 3. **Routine** — fixed-schedule buyer, same night/type; disruption = churn signal
 4. **GFE / emotional** — buys after genuine connection moments (the "Chucky" pattern)
 5. **Collector** — buys content itself (bundles, completeness), chat optional
@@ -64,6 +64,7 @@ forward-looking for the current team; past errors define the monitors).
 | 6 | **Missed activation** (fan engaged, nobody capitalized / slow replies mid-session) | Fan msg unanswered >X min during an active buying session | Session alerts; inbound-first staffing (research corpus) |
 | 7 | **Wrong formula** (cold pitch at a rapport fan; forced chat at a silent buyer) | Compare approach used vs fan's trigger type | Trigger type + formula line on the card |
 | 8 | **Begging after refusal** ("what if I lower it 🥺" 90 min later) | Discount-chase pattern after a "no" | Rule: after a balk, drop the pitch, return to the formula |
+| 9 | **Desperation pinging** (Chuck: ~25 needy check-ins in 30 days, all ignored — "you owe me at least one reply") | Consecutive unanswered creator messages > 5 | Cadence cap; re-enter only on a trigger (his return, renewal date, new content in his lane) |
 
 ## Roadmap
 

@@ -544,6 +544,20 @@ export async function POST(request) {
       }
     }
 
+    // Live OF account signals from the audit (rebill, sub expiry, tenure) —
+    // a dying subscription outranks everything else in the brief.
+    let liveBlock = ''
+    try {
+      const lv = JSON.parse(formData.get('liveSignals') || 'null')
+      if (lv) {
+        const bits = []
+        if (lv.rebillOff) bits.push(`REBILL IS OFF — his subscription will NOT renew${lv.subExpires ? ` and EXPIRES ${lv.subExpires}` : ''}. This is the single most urgent fact: QUICK READ and NEXT MOVE must center on saving the subscription before that date.`)
+        if (lv.fanFor) bits.push(`Subscriber tenure: ${lv.fanFor}${lv.fanSince ? ` (since ${lv.fanSince})` : ''}.`)
+        if (lv.subStatus && !lv.rebillOff) bits.push(`Subscription status: ${lv.subStatus}.`)
+        if (bits.length) liveBlock = `\n\nLIVE ACCOUNT SIGNALS (from OnlyFans right now — these postdate the chat window and ARE current):\n- ${bits.join('\n- ')}`
+      }
+    } catch { /* optional */ }
+
     const spendingContext = `SPENDING DATA FOR THIS FAN:
 - Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
 - Normal purchase cadence: every ${medianGap} days
@@ -551,7 +565,7 @@ export async function POST(request) {
 - Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
 - Creator name (refer to her as this in the brief): ${creatorAka}${chatWindowNote}
 ${monthlyArc ? `\nMONTHLY SPENDING ARC (judge the fan against his OWN PEAK ERA, not just his recent average — a small uptick after a long decay is a REVIVAL WINDOW, never a "hot streak"; state explicitly where he is now vs his peak era and whether the trajectory is growing, stable, decayed, or reviving):\n${monthlyArc}` : ''}
-${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
+${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}${liveBlock}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
     const exampleAnalysis = `EXAMPLE OF THE DEPTH AND SPECIFICITY EXPECTED:

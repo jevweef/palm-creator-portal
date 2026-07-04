@@ -227,6 +227,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
     formData.append('lifetime', f.lifetimeSpend || 0)
+    if (f.liveSignals) formData.append('liveSignals', JSON.stringify(f.liveSignals))
     if (f.goingCold) {
       formData.append('medianGap', f.goingCold.medianGap || 0)
       formData.append('currentGap', f.goingCold.currentGap || 0)
@@ -2149,9 +2150,10 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90,
         lastPurchase: cad.lastPurchaseDate,
       }
-      if (cad.tier === 'dead') return { ...f, heatStatus: 'Dead', goingCold: null, heatDetail: detail }
+      if (cad.tier === 'dead') return { ...f, heatStatus: 'Dead', goingCold: null, heatDetail: detail, liveSignals: cad.live || null }
       return {
         ...f,
+        liveSignals: cad.live || null,
         heatStatus: 'Going Cold',
         goingCold: { ...(f.goingCold || {}), urgency: cad.tier, medianGap: cad.medianGap, currentGap: cad.currentGap, rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90, lastPurchaseDate: cad.lastPurchaseDate },
         heatDetail: detail,

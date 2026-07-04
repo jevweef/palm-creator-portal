@@ -136,7 +136,11 @@ export default function AuditTab() {
   const urgentList = visibleWatchlist.filter((w) => !isDormant(w))
     .sort((a, b) => ((TIER_RANK[a.cadence?.tier] ?? 3) - (TIER_RANK[b.cadence?.tier] ?? 3)) || ((b.cadence?.monthlyAvg90 || 0) - (a.cadence?.monthlyAvg90 || 0)))
   const dormantList = visibleWatchlist.filter(isDormant).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
-  const atRiskMonthly = urgentList.reduce((sum, w) => sum + (w.cadence?.monthlyAvg90 || 0), 0)
+  // "Worth/mo" = his PROVEN level (best 6-month stretch), not the recent 90d
+  // average — a going-cold fan's recent average is already depressed, which
+  // made the at-risk number absurdly small (Evan: "$401/mo from 5,000 fans?").
+  const worthMo = (w) => Math.max(w.cadence?.best6moAvg || 0, w.cadence?.monthlyAvg90 || 0)
+  const atRiskMonthly = urgentList.reduce((sum, w) => sum + worthMo(w), 0)
   const dormantLifetime = dormantList.reduce((sum, w) => sum + (w.lifetime || 0), 0)
   const staleAlerts = urgentList.filter((w) => !w.lastAlert || (Date.now() - new Date(w.lastAlert)) / 86400000 > 30).length
 
@@ -499,7 +503,7 @@ export default function AuditTab() {
                       }
                       return out.length ? out : <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>ok</span>
                     })()}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad?.monthlyAvg90 ? `$${Math.round(cad.monthlyAvg90)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }} title="his proven level — avg $/mo across his best 6-month stretch">{worthMo(w) ? `$${Math.round(worthMo(w))}` : '—'}</td>
                     <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
                     <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title={cad?.peakMonth ? `his biggest month: ${cad.peakMonth}` : ''}>{cad?.peakMonthSpend ? `$${Math.round(cad.peakMonthSpend)}` : '—'}</td>
                     <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title="avg $/mo across his hottest 6-month stretch — the consistency stat">{cad?.best6moAvg ? `$${Math.round(cad.best6moAvg)}` : '—'}</td>
