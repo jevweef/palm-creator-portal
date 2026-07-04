@@ -644,10 +644,10 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 border: `1px solid ${f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.1)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
                 color: f.heatStatus === 'Dead' ? 'var(--foreground-muted)' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
               }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
-                  <strong>{f.heatStatus}</strong>
-                  <span>{f.heatDetail.reason}</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '15px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
+                  <strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{f.heatStatus}</strong>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>{f.heatDetail.reason}</span>
                 </div>
                 {f.heatDetail.peakMonth && (
                   <div style={{ fontSize: '10px', opacity: 0.85 }}>
@@ -707,7 +707,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
                     onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
                   >
-                    <strong>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
+                    <strong style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em' }}>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
                     {f.lifetimeOverride > 0 && (
                       <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
                     )}
@@ -728,11 +728,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#E87878' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>({f.heatDetail.medianGap}d median)</span></div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#E87878' }}>{f.heatDetail.currentGap}d silent <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs ~{f.heatDetail.medianGap}d rhythm</span></div>
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: (f.heatDetail.rolling30 || 0) < (f.heatDetail.monthlyAvg90 || 0) * 0.5 ? '#E87878' : '#7DD3A4' }}>{fmtMoney(f.heatDetail.rolling30)} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs {fmtMoney(f.heatDetail.monthlyAvg90)}/mo avg</span></div>
                   </div>
                   <div>
                     <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
