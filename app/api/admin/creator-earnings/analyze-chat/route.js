@@ -2,12 +2,29 @@ import { auth } from '@clerk/nextjs/server'
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
+import fs from 'fs'
+import path from 'path'
+
+// Whale Win-Back Playbook (synthesized from the OFM research corpus) — the
+// NEXT MOVE prescriptions should draw on what top agencies actually do.
+// Non-fatal: if the file is missing the analysis just runs without it.
+function loadWhalePlaybook(maxChars = 2200) {
+  try {
+    const md = fs.readFileSync(path.join(process.cwd(), 'research', 'knowledge', 'whale-playbook.md'), 'utf8')
+    return md.replace(/^#.*$/m, '').replace(/\(.*?—.*?\)/g, '').replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, maxChars)
+  } catch { return null }
+}
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 120
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) // still used for the lightweight manager-brief summary
+// Lazy: created on first call, NOT at module load, so `next build` page-data
+// collection doesn't fail when OPENAI_API_KEY is absent in the build env (the
+// OpenAI SDK throws in its constructor without a key). Used for the lightweight
+// manager-brief summary.
+let _openai
+const getOpenAI = () => (_openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY }))
 
 // ── Airtable ───────────────────────────────────────────────────────────────
 
@@ -138,6 +155,12 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
       }
       context += `\n- The conversation may include both old and new messages. Look for changes in tone, engagement, or spending after the last alert date.`
       context += `\n- NEVER open the output with "This is a follow-up," "This is a re-analysis," or any meta-commentary. QUICK READ must start with the fan's actual situation.`
+
+      // Ground NEXT MOVE in the research-corpus playbook (what top agencies do)
+      const playbook = loadWhalePlaybook()
+      if (playbook) {
+        context += `\n\nAGENCY BEST PRACTICES (from our competitive-research corpus — use these to inform NEXT MOVE where they fit this fan's situation, without citing the corpus):\n${playbook}`
+      }
     }
 
     // Return both the context string and whether fan is currently hot
@@ -910,7 +933,7 @@ HARD RULES:
 
     // Run manager brief + fan tracker in parallel
     const [briefResult] = await Promise.all([
-      openai.chat.completions.create({
+      getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: `You write chat manager briefs for an OnlyFans agency. Distill the full fan analysis into a scannable brief, around 150-175 words total. Plain language, no jargon.

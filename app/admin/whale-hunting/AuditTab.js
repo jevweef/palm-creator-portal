@@ -68,6 +68,7 @@ export default function AuditTab() {
   const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
   const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
+  const [playbook, setPlaybook] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -97,6 +98,12 @@ export default function AuditTab() {
     document.addEventListener('visibilitychange', onVis)
     return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVis) }
   }, [load])
+
+  // Win-back playbook (synthesized from the OFM research corpus)
+  useEffect(() => {
+    fetch('/api/admin/whales/playbook').then(r => r.ok ? r.json() : null)
+      .then(d => setPlaybook(d?.markdown || null)).catch(() => {})
+  }, [])
 
   // Revenue accounts per connected creator (for the transactions pull)
   useEffect(() => {
@@ -513,6 +520,25 @@ export default function AuditTab() {
               ))}
             </tbody>
           </table>
+        </details>
+      )}
+
+      {/* ── Win-Back Playbook — research-corpus tactics for the chatters ── */}
+      {playbook && (
+        <details style={{ ...card, padding: '14px 18px' }}>
+          <summary style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+            Win-Back Playbook — from the OFM research corpus
+          </summary>
+          <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.65, marginTop: '10px', maxWidth: '900px' }}>
+            {playbook.split('\n').map((line, i) => {
+              if (line.startsWith('# ')) return null // page already has a title
+              if (line.startsWith('## ')) return <div key={i} style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#A06FE8', margin: '14px 0 4px' }}>{line.slice(3)}</div>
+              if (line.startsWith('> ')) return <div key={i} style={{ borderLeft: '2px solid rgba(160,111,232,0.5)', paddingLeft: '10px', color: 'var(--foreground-muted)', fontStyle: 'italic', margin: '6px 0' }}>{line.slice(2).replace(/"/g, '')}</div>
+              if (/^\d+\. /.test(line) || line.startsWith('- ')) return <div key={i} style={{ margin: '4px 0 4px 8px' }}>{line.replace(/\*\*/g, '')}</div>
+              if (line.startsWith('_') || !line.trim()) return null
+              return <div key={i} style={{ margin: '4px 0' }}>{line.replace(/\*\*/g, '')}</div>
+            })}
+          </div>
         </details>
       )}
 
