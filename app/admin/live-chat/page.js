@@ -90,7 +90,7 @@ export default function LiveChatPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '0', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 170px)' }}>
 
           {/* ── Conversation list ── */}
-          <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto' }}>
+          <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', minHeight: 0 }}>
             <div style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               Conversations ({conversations.length})
             </div>
@@ -129,11 +129,11 @@ export default function LiveChatPage() {
               Pick a conversation.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>
                 @{fan}
               </div>
-              <div ref={scroller} style={{ flex: 1, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div ref={scroller} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {thread.length === 0 && <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', marginTop: '40px' }}>No messages loaded — history appears after a chat pull; live messages appear as they happen.</div>}
                 {thread.map((m) => {
                   const isFan = m.dir === 'in'
