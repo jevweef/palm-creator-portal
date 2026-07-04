@@ -35,7 +35,7 @@ export async function POST(request) {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorRecordId)}`,
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
-    const accountId = creators[0]?.fields?.['OF API Account ID']
+    const accountId = String(creators[0]?.fields?.['OF API Account ID'] || '').split(',')[0].trim()
     if (!accountId) {
       return NextResponse.json({
         error: `${creators[0]?.fields?.AKA || 'This creator'} isn't connected to the OnlyFans API yet — connect her account at app.onlyfansapi.com, then set 'OF API Account ID' on her Palm Creators record.`,

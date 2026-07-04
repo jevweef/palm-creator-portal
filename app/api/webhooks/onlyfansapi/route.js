@@ -213,8 +213,10 @@ async function resolveAccount(accountId) {
     const data = await res.json()
     const map = {}
     for (const r of data.records || []) {
-      const acct = r.fields?.['OF API Account ID']
-      if (acct) map[acct] = { aka: r.fields?.AKA || r.fields?.Creator, name: r.fields?.Creator, recordId: r.id }
+      const ids = String(r.fields?.['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+      ids.forEach((acct, i) => {
+        map[acct] = { aka: r.fields?.AKA || r.fields?.Creator, name: r.fields?.Creator, recordId: r.id, isVip: ids.length > 1 && i > 0 }
+      })
     }
     CACHE.accounts = map
     CACHE.accountsAt = now
@@ -223,7 +225,9 @@ async function resolveAccount(accountId) {
   if (!hit) return null
   if (!hit.accountName) {
     const names = await fetchRevenueAccountNames(hit.aka)
-    hit.accountName = names[0] || `${hit.aka} - Free OF`
+    hit.accountName = (hit.isVip
+      ? names.find((n) => /vip/i.test(n))
+      : names.find((n) => !/vip/i.test(n))) || names[0] || `${hit.aka} - ${hit.isVip ? 'VIP' : 'Free'} OF`
   }
   return hit
 }

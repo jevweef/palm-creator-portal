@@ -31,7 +31,7 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const accountId = cf['OF API Account ID']
+    const accountId = String(cf['OF API Account ID'] || '').split(',')[0].trim()
     if (!accountId) {
       return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
     }

@@ -28,7 +28,15 @@ export async function GET(request) {
     })
     const accounts = creators
       .filter((c) => c.fields?.['OF API Account ID'])
-      .map((c) => ({ account: c.fields['OF API Account ID'], aka: c.fields.AKA || c.fields.Creator, name: c.fields.Creator || c.fields.AKA }))
+      .flatMap((c) => {
+        const ids = String(c.fields['OF API Account ID']).split(',').map((x) => x.trim()).filter(Boolean)
+        return ids.map((id, i) => ({
+          account: id,
+          aka: (c.fields.AKA || c.fields.Creator) + (ids.length > 1 ? (i > 0 ? ' (VIP)' : ' (Free)') : ''),
+          name: c.fields.Creator || c.fields.AKA,
+          recordId: c.id,
+        }))
+      })
       .sort((a, b) => a.aka.localeCompare(b.aka))
 
     if (!account) return NextResponse.json({ accounts })

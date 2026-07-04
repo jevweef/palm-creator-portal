@@ -37,7 +37,10 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const ofAccountId = cf['OF API Account ID']
+    // Multi-account creators (Taby): pick the id matching this revenue
+    // account — VIP name → second id, else first.
+    const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+    const ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
     if (!ofAccountId) {
       return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
     }
