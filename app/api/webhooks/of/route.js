@@ -70,8 +70,12 @@ export async function POST(request) {
       await appendLive(accountId, 'in', payload).catch(() => {})
       await updateFanSignals(accountId, payload.fan || payload.fromUser || payload.user, payload.fanData, { lastReplyAt: new Date().toISOString() }).catch(() => {})
     } else if (event === 'messages.sent') {
-      // 1:1 only — mass-queue sends would flood the buffer
-      if (!(payload.isFromQueue || payload.is_from_queue || payload.queueId || payload.queue_id)) {
+      // 1:1 only — mass-queue blasts would flood the buffer. IMPORTANT: filter
+      // ONLY on isFromQueue — OF assigns a queueId to EVERY send (its internal
+      // delivery queue), so checking queueId dropped 100% of creator replies
+      // for weeks (verified via samples 2026-07-04: real 1:1 replies all had
+      // isFromQueue:false + a non-null queueId).
+      if (!(payload.isFromQueue || payload.is_from_queue)) {
         await appendLive(accountId, 'out', payload).catch(() => {})
       }
     } else if (event.startsWith('accounts.')) {
