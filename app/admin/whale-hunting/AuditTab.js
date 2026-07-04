@@ -66,6 +66,7 @@ export default function AuditTab() {
   const [earnings, setEarnings] = useState(null)       // transactions etc. for the Fan CRM below
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
+  const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -129,6 +130,7 @@ export default function AuditTab() {
   function openFan(w) {
     if (w.creatorId && w.creatorId !== creatorId) { setCreatorId(w.creatorId); writeCreatorToUrl(w.creatorId) }
     setFocusFan(w.ofUsername || w.fanName || '')
+    setFocusNonce((n) => n + 1)
   }
 
   // Update Sales & Chargebacks — pulls new transactions from the OF API into
@@ -459,7 +461,7 @@ export default function AuditTab() {
           {earningsLoading && !earnings ? (
             <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '20px 0' }}>Loading {selected.aka}&apos;s fans…</div>
           ) : (
-            <FansPanel key={selected.id} creator={selected} allTxns={earnings?.transactions} goingColdAlerts={earnings?.goingColdAlerts || []} availableAccounts={earnings?.accounts || []} focusFan={focusFan} />
+            <FansPanel key={selected.id} creator={selected} allTxns={earnings?.transactions} goingColdAlerts={earnings?.goingColdAlerts || []} availableAccounts={earnings?.accounts || []} focusFan={focusFan} focusNonce={focusNonce} />
           )}
         </div>
       )}

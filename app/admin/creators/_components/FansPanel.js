@@ -1794,7 +1794,7 @@ const URGENCY_COLORS = {
   warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' },
 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan }) {
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan, focusNonce }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -2029,13 +2029,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   useEffect(() => {
     if (!allFans.length) return
     const target = (focusFan || searchParams?.get('fan') || '').toLowerCase()
-    if (!target || target === handledFanTarget.current) return
+    if (!target) return
+    // Stamp includes the click nonce — re-clicking the SAME fan must reopen
+    // the modal (the old target-only guard blocked every repeat click).
+    const stamp = `${target}#${focusNonce ?? 0}`
+    if (stamp === handledFanTarget.current) return
     const match = allFans.find(f => (f.ofUsername || '').toLowerCase() === target)
       || allFans.find(f => (f.fanName || '').toLowerCase() === target)
     if (!match) return
-    handledFanTarget.current = target
+    handledFanTarget.current = stamp
     setModalFanId(match.id) // modal, not scroll-and-hunt (per Evan)
-  }, [allFans, searchParams, focusFan])
+  }, [allFans, searchParams, focusFan, focusNonce])
 
   // Top 20% spend threshold
   const top20Threshold = useMemo(() => {
