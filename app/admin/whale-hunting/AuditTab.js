@@ -453,9 +453,10 @@ export default function AuditTab() {
             No one is falling off their rhythm right now. Run an audit after pulling fresh sales to re-check.
           </div>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-            <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ width: '24%' }}>Why</th><th>Signals</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Worth / mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Last 30d</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Peak mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Best 6mo avg</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
+            <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Worth / mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Last 30d</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Peak mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Best 6mo avg</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -467,12 +468,14 @@ export default function AuditTab() {
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span></td>
-                    <td style={{ fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
-                    {showAllWatchlist && <td>{w.creator}</td>}
-                    <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap
+                    <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
+                      style={{ fontWeight: 600, maxWidth: '210px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
+                      {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
+                    {showAllWatchlist && <td style={{ whiteSpace: 'nowrap' }}>{w.creator}</td>}
+                    <td style={{ color: 'var(--foreground-muted)', whiteSpace: 'nowrap', padding: '6px 10px 6px 0' }}>{cad?.medianGap
                       ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>
                       : 'flagged manually — run the audit for rhythm data'}</td>
-                    <td>{(() => {
+                    <td style={{ whiteSpace: 'nowrap' }}>{(() => {
                       const lv = cad?.live
                       if (!lv) return <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>—</span>
                       const chip = (txt, color, bg, title) => <span key={txt} title={title} style={{ background: bg, color, padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, marginRight: '4px', whiteSpace: 'nowrap' }}>{txt}</span>
@@ -508,6 +511,7 @@ export default function AuditTab() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -527,7 +531,9 @@ export default function AuditTab() {
                   style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '7px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
+                  <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
+                    style={{ padding: '7px 8px 7px 0', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
                   {showAllWatchlist && <td>{w.creator}</td>}
                   <td style={{ textAlign: 'right', fontWeight: 700 }}>${Math.round(w.lifetime).toLocaleString()}</td>
                   <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.cadence?.lastPurchaseDate || '—'}</td>
