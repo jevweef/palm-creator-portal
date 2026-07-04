@@ -29,9 +29,8 @@ export default function LiveChatPage() {
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
   const [showMuted, setShowMuted] = useState(false)
-  const [view, setView] = useState('inbox') // 'inbox' | 'stream'
+  const [view, setView] = useState('inbox') // 'inbox' | 'in' | 'out'
   const [stream, setStream] = useState([])
-  const [streamDir, setStreamDir] = useState('all') // 'all' | 'in' | 'out' | 'unlock'
   const scroller = useRef(null)
   const timer = useRef(null)
 
@@ -39,9 +38,9 @@ export default function LiveChatPage() {
     fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
   }, [])
 
-  // Stream view: ALL creators' events merged, thin rows, auto-updating
+  // Stream views: ALL creators' events merged, thin rows, auto-updating
   useEffect(() => {
-    if (view !== 'stream') return
+    if (view === 'inbox') return
     const load = () => fetch('/api/admin/live-chat?stream=1', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
@@ -171,7 +170,7 @@ export default function LiveChatPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-          {[['inbox', 'Inbox'], ['stream', 'Stream']].map(([k, label]) => (
+          {[['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing']].map(([k, label]) => (
             <button key={k} onClick={() => setView(k)}
               style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer', background: view === k ? 'rgba(160,111,232,0.25)' : 'transparent', color: view === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
               {label}
@@ -186,22 +185,18 @@ export default function LiveChatPage() {
         <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — auto-updating{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 
-      {view === 'stream' ? (
+      {view !== 'inbox' ? (
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', gap: '6px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            {[['all', 'All'], ['in', 'Incoming (fans)'], ['out', 'Outgoing (1:1 sent)'], ['unlock', 'Unlocks 💸']].map(([k, label]) => (
-              <button key={k} onClick={() => setStreamDir(k)}
-                style={{ padding: '4px 12px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', cursor: 'pointer', background: streamDir === k ? 'rgba(160,111,232,0.2)' : 'transparent', color: streamDir === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
-                {label}
-              </button>
-            ))}
-          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span><span></span>
           </div>
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
-            {stream.length === 0 && <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Waiting for events — every fan message, 1:1 reply, and PPV unlock across ALL creators lands here as it happens.</div>}
-            {stream.filter((e) => streamDir === 'all' || e.dir === streamDir).map((e) => (
+            {stream.filter((e) => (view === 'in' ? e.dir !== 'out' : e.dir === 'out')).length === 0 && (
+              <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+                {view === 'in' ? 'Waiting — every fan message and PPV unlock across ALL creators lands here as it happens.' : 'Waiting — every 1:1 message your chatters send (mass blasts excluded) lands here as it happens.'}
+              </div>
+            )}
+            {stream.filter((e) => (view === 'in' ? e.dir !== 'out' : e.dir === 'out')).map((e) => (
               <div key={`${e.aka}-${e.id}`}
                 onClick={() => openFromStream(e)}
                 onMouseEnter={(ev) => ev.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
