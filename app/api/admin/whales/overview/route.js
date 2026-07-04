@@ -15,7 +15,7 @@ export async function GET() {
       }),
       fetchAirtableRecords('Fan Tracker', {
         fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend',
-          'First Flagged', 'Last Alert Sent', 'Alert Count', 'Effectiveness', 'Notes', 'Last Chat Upload'],
+          'First Flagged', 'Last Alert Sent', 'Alert Count', 'Effectiveness', 'Notes', 'Last Chat Upload', 'Cadence'],
       }),
     ])
 
@@ -55,6 +55,7 @@ export async function GET() {
           alertCount: f['Alert Count'] || 0,
           effectiveness: typeof f.Effectiveness === 'string' ? f.Effectiveness : f.Effectiveness?.name || '',
           notes: f.Notes || '',
+          cadence: (() => { try { return JSON.parse(f.Cadence || 'null') } catch { return null } })(),
         }
       })
       .filter((w) => w.status && !['Reactivated', 'Lost', 'Banned'].includes(w.status))

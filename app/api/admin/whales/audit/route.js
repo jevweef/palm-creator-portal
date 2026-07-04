@@ -136,17 +136,25 @@ export async function POST(request) {
     const mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
     let created = 0, updated = 0
     for (const t of triggered) {
+      // Cadence snapshot — structured copy of what the audit computed, so the
+      // watchlist can show the SAME columns as the audit table (rhythm, silent
+      // days, 30d spend) instead of just a lifetime number.
+      const cadence = JSON.stringify({
+        medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
+        rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
+        lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
+      })
       const existing = mine.find((r) =>
         (t.ofUsername && (r.fields?.['OF Username'] || '').toLowerCase() === t.ofUsername.toLowerCase()) ||
         ((r.fields?.['Fan Name'] || '').toLowerCase() === t.fanName.toLowerCase())
       )
       if (existing) {
-        const patch = {}
+        const patch = { 'Cadence': cadence }
         if ((existing.fields?.['Lifetime Spend'] || 0) < t.lifetime) patch['Lifetime Spend'] = t.lifetime
         if (t.ofUsername && !existing.fields?.['OF Username']) patch['OF Username'] = t.ofUsername
         // Don't clobber an in-flight status (Alert Sent / Recovering / …)
         if (!existing.fields?.Status || existing.fields?.Status === 'Monitoring') patch['Status'] = 'Going Cold'
-        if (Object.keys(patch).length) { await patchAirtableRecord(FAN_TRACKER, existing.id, patch, { typecast: true }); updated++ }
+        await patchAirtableRecord(FAN_TRACKER, existing.id, patch, { typecast: true }); updated++
       } else {
         await createAirtableRecord(FAN_TRACKER, {
           'Fan Name': t.fanName,
@@ -155,6 +163,7 @@ export async function POST(request) {
           'Status': 'Going Cold',
           'First Flagged': new Date().toISOString(),
           'Lifetime Spend': t.lifetime,
+          'Cadence': cadence,
           'Notes': `Auto-flagged by OF API audit — ${t.tier}: ${t.currentGap}d silent vs ${t.medianGap}d rhythm (${t.gapRatio}×), $${t.rolling30}/30d vs $${Math.round(t.monthlyAvg90)}/mo avg`,
         }, { typecast: true })
         created++

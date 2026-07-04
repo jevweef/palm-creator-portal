@@ -608,7 +608,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               return (
                 <span key={acct} style={{
                   fontSize: '8px', fontWeight: 600, marginLeft: '4px', padding: '1px 5px', borderRadius: '3px',
-                  background: isFree ? '#DBEAFE' : 'rgba(167, 139, 250, 0.1)', color: isFree ? '#1D4ED8' : '#A78BFA',
+                  background: isFree ? 'rgba(59,130,246,0.12)' : 'rgba(167, 139, 250, 0.1)', color: isFree ? '#78B4E8' : '#A78BFA',
                 }}>{acct}</span>
               )
             })
@@ -630,7 +630,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
       </div>
 
       {isExpanded && (
-        <div style={{ padding: '12px 16px 16px 40px', background: 'rgba(232, 200, 120, 0.05)' }}>
+        <div style={{ padding: '14px 16px 18px 40px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
 
           {/* ═══ SECTION 1: Fan Info Header ═══ */}
           <div style={{ marginBottom: '16px' }}>
@@ -639,9 +639,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               <div style={{
                 marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
                 display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
-                background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : '#FFF7ED',
-                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
-                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
+                background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : 'rgba(232, 168, 120, 0.08)',
+                border: `1px solid ${f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.1)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
+                color: f.heatStatus === 'Dead' ? 'var(--foreground-muted)' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
               }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
@@ -664,7 +664,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             )}
 
             {/* Stats grid */}
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px 28px', flexWrap: 'wrap', background: 'var(--background)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '10px 14px' }}>
               {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
               <div>
                 <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -841,7 +841,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
                     {sharedTicks.map(v => (
                       <g key={v}>
-                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
@@ -966,7 +966,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   >
                     {sharedTicks.map(v => (
                       <g key={v}>
-                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
                         <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
                       </g>
                     ))}
@@ -1216,12 +1216,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               const mostRecent = f.analysisRecords?.[0]
               const lastDate = mostRecent?.lastMessageDate
               if (lastDate) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
                   Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
                 </div>
               )
               if (f.analysisRecords?.length > 0) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
                   Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
                 </div>
               )
@@ -1254,7 +1254,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                     const isFree = /free/i.test(acct)
                     const isVip = /vip/i.test(acct)
                     const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
-                    const baseBg = isFree ? '#EFF6FF' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
+                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
                     const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
                     const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
                     const displayText = state === 'saving' ? `Saving ${label}\u2026`
@@ -1561,7 +1561,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             </div>
 
             {/* PDF Preview */}
-            <div style={{ background: '#F9FAFB', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {previewLoading && (
                 <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Generating PDF preview...</div>
               )}
@@ -1608,7 +1608,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
             {sendResult?.success && sendResult.trackerError && (
-              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid rgba(232, 200, 120, 0.25)', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
                 <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
                 <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
@@ -1781,7 +1781,7 @@ const ALERT_STATUS_COLORS = {
   'Alert Triggered': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
   'Fan Analyzed': { bg: 'rgba(167, 139, 250, 0.1)', text: '#A78BFA' },
   'Sent to Manager': { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' },
-  'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
+  'Manager Received': { bg: 'rgba(59,130,246,0.12)', text: '#78B4E8' },
   'Action Taken': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
   'Banned': { bg: '#1F2937', text: 'var(--foreground)' },
 }

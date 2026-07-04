@@ -384,24 +384,31 @@ export default function AuditTab() {
         ) : (
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th><th>Creator</th><th>Status</th><th>Lifetime</th><th>Alerts</th><th>Last result</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Status</th><th>Lifetime</th><th>Rhythm</th><th>Silent</th><th>30d</th><th>Last buy</th><th>Alerts</th><th></th>
             </tr></thead>
             <tbody>
-              {visibleWatchlist.map((w) => (
-                <tr key={w.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
-                  <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
-                  <td>{w.creator}</td>
-                  <td><span style={{ background: w.status === 'Going Cold' ? 'rgba(232,200,120,0.12)' : 'rgba(125,211,164,0.1)', color: w.status === 'Going Cold' ? '#E8C878' : '#7DD3A4', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>{w.status}</span></td>
-                  <td>${Math.round(w.lifetime)}</td>
-                  <td>{w.alertCount || 0}</td>
-                  <td style={{ color: 'var(--foreground-muted)' }}>{w.effectiveness || '—'}</td>
-                  <td>
-                    <Link href={`/admin/creators?creator=${encodeURIComponent(w.creator)}&tab=fans`} style={{ color: '#A06FE8', fontSize: '11px' }}>
-                      open in Fans →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {visibleWatchlist.map((w) => {
+                const cad = w.cadence
+                const sev = cad?.gapRatio >= 5 ? '#E87878' : cad?.gapRatio >= 3 ? '#E88C5C' : '#E8C878'
+                return (
+                  <tr key={w.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{w.ofUsername}</span> : null}</td>
+                    {showAllWatchlist && <td>{w.creator}</td>}
+                    <td><span style={{ background: w.status === 'Going Cold' ? 'rgba(232,200,120,0.12)' : 'rgba(125,211,164,0.1)', color: w.status === 'Going Cold' ? '#E8C878' : '#7DD3A4', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>{w.status}</span></td>
+                    <td style={{ fontWeight: 600 }}>${Math.round(w.lifetime)}</td>
+                    <td style={{ color: 'var(--foreground-muted)' }}>{cad?.medianGap ? `every ~${cad.medianGap}d` : '—'}</td>
+                    <td>{cad ? <span style={{ color: sev, fontWeight: 600 }}>{cad.currentGap}d{cad.gapRatio ? ` (${cad.gapRatio}×)` : ''}</span> : '—'}</td>
+                    <td style={{ color: 'var(--foreground-muted)' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
+                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
+                    <td>{w.alertCount || 0}</td>
+                    <td>
+                      <Link href={`/admin/creators?creator=${encodeURIComponent(w.creator)}&tab=fans`} style={{ color: '#A06FE8', fontSize: '11px' }}>
+                        open in Fans →
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
