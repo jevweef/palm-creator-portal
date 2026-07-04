@@ -116,7 +116,7 @@ export async function POST(request) {
 
       // Dedup — same fingerprint as the HTML upload (datetime|net|displayName),
       // against the tab's recent rows.
-      const existingFps = await getLastFingerprints(sheets, tabName, 120)
+      const existingFps = await getLastFingerprints(sheets, tabName)
       const fresh = txns.filter((t) => !existingFps.has(txnFingerprint(t.dateTimeEt, t.net, t.displayName)))
         .filter((t) => !cutoff || new Date(t.dateTimeEt.replace(' ', 'T') + ':00') > new Date(cutoff.getTime() - 4 * 86400000))
 
