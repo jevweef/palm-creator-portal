@@ -178,6 +178,18 @@ export async function POST(request) {
           return NextResponse.json({ parsed: parsed2, fan: { id: archive.fanId, username: archive.fanUsername, name: archive.fanName }, pages: 0, credits: pending.credit_cost ?? 0, newMessages: m2.length - archive.messages.length, totalStored: m2.length, incremental: true, historyComplete: true, pulledAt: new Date().toISOString() })
         }
         if (pending?.status && !['failed', 'cancelled'].includes(pending.status)) {
+          // Same cost gate on the way back in: if the running export has
+          // grown past the limit and the user hasn't confirmed, cancel it
+          // (free until completion) and ask.
+          const projected = pending.credit_cost ?? (pending.total_rows != null ? Math.ceil(pending.total_rows / 20) : null)
+          if (projected != null && projected > 150 && !confirmBig) {
+            await cancelDataExport(archive.pendingExportId)
+            try { await saveChatArchive(creatorName, fanName, fanUsername, { ...archive, pendingExportId: null, updatedAt: new Date().toISOString() }) } catch {}
+            return NextResponse.json({
+              needsConfirm: true, estimatedCredits: projected, estimatedMessages: pending.total_rows ?? null,
+              error: `His history export reached ~${pending.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits — cancelled before billing. Confirm to re-run it, or keep recent-only.`,
+            }, { status: 402 })
+          }
           return NextResponse.json({ error: `His full history export is still running at OF (${pending.progress_percentage ?? 0}% of ${pending.total_rows ?? '?'} rows) — try again in a few minutes. No credits spent on this click.` }, { status: 202 })
         }
       } catch { /* stale pending id — fall through to a fresh backfill */ }
@@ -206,9 +218,11 @@ export async function POST(request) {
           // Archive already reaches the 2-year horizon — nothing older to buy.
           historyComplete = true
         } else {
-          // Create WITHOUT auto-start → read the exact credit price first.
-          // Over the limit and unconfirmed → cancel and ask (DJ Allen was
-          // about to silently cost ~840 credits; Evan: "way too much").
+          // Cost gate: chat exports only reveal their size once scraping
+          // starts (pre-start estimates come back null). So: start, PEEK at
+          // the discovered row count, and CANCEL (proven free mid-scrape) if
+          // it's over the limit and unconfirmed. Billing happens only at
+          // completion, so we get the whole scrape window to bail.
           const AUTO_SPEND_LIMIT = 150
           const exp = await createDataExport({
             type: 'chat_messages',
@@ -216,22 +230,25 @@ export async function POST(request) {
             startDate: startIso,
             endDate: endIso,
             options: { chatIds: [Number(fan.id)], maxMessages: 1000000 },
-            autoStart: false,
           })
           lastExportId = exp?.id || null
-          const est = await waitForExportEstimate(exp.id)
-          const estCredits = est?.credit_cost ?? null
-          if (estCredits != null && estCredits > AUTO_SPEND_LIMIT && !confirmBig) {
+          let est = null
+          for (let i = 0; i < 15; i++) {
+            est = await getDataExport(exp.id)
+            if (est?.total_rows != null || est?.status === 'completed' || est?.failed_at) break
+            await new Promise((r) => setTimeout(r, 6000))
+          }
+          const estCredits = est?.credit_cost ?? (est?.total_rows != null ? Math.ceil(est.total_rows / 20) : null)
+          if (estCredits != null && estCredits > AUTO_SPEND_LIMIT && !confirmBig && est?.status !== 'completed') {
             await cancelDataExport(exp.id)
             return NextResponse.json({
               needsConfirm: true,
               estimatedCredits: estCredits,
               estimatedMessages: est?.total_rows ?? null,
-              error: `This fan's full history is ~${est?.total_rows?.toLocaleString?.() || '?'} messages ≈ ${estCredits} credits. Confirm to pull it, or keep recent-only.`,
+              error: `This fan's history is ~${est?.total_rows?.toLocaleString?.() || '?'}+ messages ≈ ${estCredits}+ credits. Confirm to pull it, or keep recent-only.`,
             }, { status: 402 })
           }
-          if (est?.status !== 'completed') await startDataExport(exp.id)
-          const done = est?.status === 'completed' ? est : await waitForDataExport(exp.id, { maxWaitMs: 200000 })
+          const done = est?.status === 'completed' ? est : await waitForDataExport(exp.id, { maxWaitMs: 170000 })
           const csv = await downloadExportCsv(done)
           fresh = csvToMessages(csv)
           credits = done.credit_cost ?? Math.ceil(fresh.length / 20)

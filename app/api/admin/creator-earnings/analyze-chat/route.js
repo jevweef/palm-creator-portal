@@ -736,7 +736,7 @@ QUICK READ
 [1-2 sentences. Lead with the FAN'S situation and what's at stake — not with meta-commentary about the analysis itself. Do NOT open with "This is a follow-up," "This is the first analysis," "The record shows," or anything describing the brief. If prior context exists and is genuinely relevant, fold it in naturally ("Since the last analysis he's gone another 3 weeks silent"). Otherwise just describe what's happening with the fan right now.]
 
 WHAT HAPPENED
-[3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
+[3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. End with a verdict on the CAUSE, choosing honestly between: (a) CHATTER-CAUSED — name the action; (b) FAN-SIDE — budget, life event, stated reason; (c) NATURAL FADE — interest simply decayed with no failure on our side; the chatting may have been perfectly good. Do NOT invent a chatter fault when the evidence doesn't show one — "the team did fine, he just drifted" is a legitimate and common conclusion. State which hypothesis the evidence favors and how confident you are.]
 
 PEAK FORMULA — what was working when he spent the most
 [Use the MONTHLY SPENDING ARC to locate his 2-3 biggest months, then go READ the transcript from those months and answer: what was actually happening? Who opened, what content/themes, what session structure, what prices, what relationship dynamic? 3-5 bullets with dated quotes. Then ONE line: "What changed since:" naming the concrete difference between then and now. This is the recipe the chatter is trying to restore — be specific enough to replicate. If his spending has been flat (no distinct peak era), say so in one line and skip the bullets.]
@@ -769,7 +769,7 @@ NEXT MOVE
 
 CHATTER CARD
 [The spoon-feed — the ONLY part most chatters will read. Max 6 lines, telegraphic (no paragraphs), every line load-bearing. Format EXACTLY:
-CARD: [Name] @[username] — $[lifetime] · [state] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
+CARD: [Name] @[username] — $[lifetime] · [state + likely cause, e.g. "decayed — trust broken Oct 25" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
 FORMULA: [his buying recipe in one sentence, distilled from PEAK FORMULA]
 WANTS: [content/themes he buys + any waiting sale from SLEEPING THREADS]
 PRICE: [his band + how he negotiates]
