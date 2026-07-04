@@ -1794,14 +1794,14 @@ const URGENCY_COLORS = {
   warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' },
 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [showAllFans, setShowAllFans] = useState(false)
   const searchParams = useSearchParams()
-  const deepLinkedFan = useRef(false)
+  const handledFanTarget = useRef('')
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
@@ -2022,20 +2022,21 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
 
   const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
 
-  // Deep link from the whale watchlist: ?fan=<ofUsername or name> — expand
-  // that fan's card and scroll it into view once the fan list is ready.
+  // Focus a specific fan (from the whale watchlist button or a ?fan= deep
+  // link): expand that fan's card and scroll it into view once the list is
+  // ready. Re-fires whenever the target changes.
   useEffect(() => {
-    if (deepLinkedFan.current || !allFans.length) return
-    const target = (searchParams?.get('fan') || '').toLowerCase()
-    if (!target) return
+    if (!allFans.length) return
+    const target = (focusFan || searchParams?.get('fan') || '').toLowerCase()
+    if (!target || target === handledFanTarget.current) return
     const match = allFans.find(f => (f.ofUsername || '').toLowerCase() === target)
       || allFans.find(f => (f.fanName || '').toLowerCase() === target)
     if (!match) return
-    deepLinkedFan.current = true
+    handledFanTarget.current = target
     setExpandedId(match.id)
     setShowAllFans(true)
     setTimeout(() => document.getElementById(`fanrow-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)
-  }, [allFans, searchParams])
+  }, [allFans, searchParams, focusFan])
 
   // Top 20% spend threshold
   const top20Threshold = useMemo(() => {

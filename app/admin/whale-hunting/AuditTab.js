@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import FansPanel from '../creators/_components/FansPanel'
 
 // Selected creator persists in the URL (?creator=recXXX) so a refresh or
 // share keeps you on the same creator — same pattern as the tab param.
@@ -62,6 +63,9 @@ export default function AuditTab() {
   const [pullResult, setPullResult] = useState(null)
   const [backfilling, setBackfilling] = useState(false)
   const [backfillResult, setBackfillResult] = useState(null)
+  const [earnings, setEarnings] = useState(null)       // transactions etc. for the Fan CRM below
+  const [earningsLoading, setEarningsLoading] = useState(false)
+  const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -105,6 +109,27 @@ export default function AuditTab() {
 
   const selected = creators.find((c) => c.id === creatorId)
   const visibleWatchlist = showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)
+
+  // Fan CRM data for the selected creator — same endpoint the Creators page
+  // used before the Fans tab moved here.
+  useEffect(() => {
+    if (!selected) return
+    let dead = false
+    setEarnings(null); setEarningsLoading(true)
+    fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(selected.aka || selected.name)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!dead) setEarnings(d?.error ? null : d) })
+      .catch(() => {})
+      .finally(() => { if (!dead) setEarningsLoading(false) })
+    return () => { dead = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creatorId, creators.length])
+
+  // Jump to a fan in the CRM below (switching creator first if needed)
+  function openFan(w) {
+    if (w.creatorId && w.creatorId !== creatorId) { setCreatorId(w.creatorId); writeCreatorToUrl(w.creatorId) }
+    setFocusFan(w.ofUsername || w.fanName || '')
+  }
 
   // Update Sales & Chargebacks — pulls new transactions from the OF API into
   // the SAME invoice sheet tabs (same as the Invoicing page button). This is
@@ -356,7 +381,7 @@ export default function AuditTab() {
                     <td>{f.expireDate ? new Date(f.expireDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
                     <td style={{ color: 'var(--foreground-muted)' }}>{f.lastSeen ? new Date(f.lastSeen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
                     <td>
-                      <Link href={'/admin/creators?creator=' + encodeURIComponent(sync.creator) + '&tab=fans'} style={{ color: '#A06FE8', fontSize: '11px' }}>open in Fans →</Link>
+                      <button onClick={() => openFan({ creatorId, ofUsername: f.username, fanName: f.name })} style={{ background: 'none', border: 'none', color: '#A06FE8', fontSize: '11px', cursor: 'pointer', padding: 0 }}>view fan ↓</button>
                     </td>
                   </tr>
                 ))}
@@ -402,11 +427,9 @@ export default function AuditTab() {
                     <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{cad?.lastPurchaseDate || '—'}</td>
                     <td>{w.alertCount || 0}</td>
                     <td>
-                      {/* creators page matches ?creator= by record ID (a name never matches
-                          and it falls back to the top earner); ?fan= expands + scrolls */}
-                      <Link href={`/admin/creators?creator=${encodeURIComponent(w.creatorId || '')}&tab=fans&fan=${encodeURIComponent(w.ofUsername || w.fanName)}`} style={{ color: '#A06FE8', fontSize: '11px' }}>
-                        open in Fans →
-                      </Link>
+                      <button onClick={() => openFan(w)} style={{ background: 'none', border: 'none', color: '#A06FE8', fontSize: '11px', cursor: 'pointer', padding: 0 }}>
+                        view fan ↓
+                      </button>
                     </td>
                   </tr>
                 )
@@ -415,6 +438,18 @@ export default function AuditTab() {
           </table>
         )}
       </div>
+
+      {/* ── Fan CRM — the per-fan workbench (moved from Creators → Fans) ── */}
+      {selected && (
+        <div style={card}>
+          <h2 style={h2}>Fan CRM — {selected.aka}</h2>
+          {earningsLoading && !earnings ? (
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '20px 0' }}>Loading {selected.aka}&apos;s fans…</div>
+          ) : (
+            <FansPanel key={selected.id} creator={selected} allTxns={earnings?.transactions} goingColdAlerts={earnings?.goingColdAlerts || []} availableAccounts={earnings?.accounts || []} focusFan={focusFan} />
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1576,7 +1576,7 @@ export default function AdminDashboard() {
                       <div
                         key={a.fan}
                         onClick={() => {
-                          if (creatorId) router.push(`/admin/creators?tab=fans&creator=${creatorId}&fan=${encodeURIComponent(a.fan)}`)
+                          if (creatorId) router.push(`/admin/whale-hunting?tab=audit&creator=${creatorId}&fan=${encodeURIComponent(a.fan)}`)
                         }}
                         title={creatorId ? `Open ${creator}'s fan tab` : ''}
                         style={{
