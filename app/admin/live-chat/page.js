@@ -119,6 +119,18 @@ export default function LiveChatPage() {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
   }, [thread.length, fan])
 
+  async function muteFromStream(e) {
+    const fanKey = e.fan?.username || e.fan?.name || ''
+    if (!fanKey || !e.account) return
+    setStream((prev) => prev.filter((x) => (x.fan?.username || x.fan?.name || '') !== fanKey || x.account !== e.account))
+    try {
+      await fetch('/api/admin/live-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: e.account, fan: fanKey, mute: true }),
+      })
+    } catch { /* server filter catches next poll */ }
+  }
+
   async function toggleMute(fanKey, mute) {
     setConversations((cs) => cs.map((c) => (c.fan === fanKey ? { ...c, muted: mute } : c)))
     try {
@@ -166,13 +178,13 @@ export default function LiveChatPage() {
 
       {view === 'stream' ? (
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span>Time</span><span>Creator</span><span>Fan</span><span></span><span>Message</span><span></span>
           </div>
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
             {stream.length === 0 && <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Waiting for events — every fan message, 1:1 reply, and PPV unlock across ALL creators lands here as it happens.</div>}
             {stream.map((e) => (
-              <div key={`${e.aka}-${e.id}`} style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline' }}>
+              <div key={`${e.aka}-${e.id}`} style={{ display: 'grid', gridTemplateColumns: '110px 110px 150px 64px 1fr 26px', gap: '10px', padding: '6px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'baseline' }}>
                 <span style={{ color: 'var(--foreground-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{fmtListTime(e.at)}</span>
                 <span style={{ color: '#C4A5F7', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.aka}</span>
                 <span style={{ color: 'var(--foreground)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.fan?.name || e.fan?.username || '—'}</span>
@@ -182,6 +194,9 @@ export default function LiveChatPage() {
                 <span style={{ color: e.dir === 'in' ? 'var(--foreground)' : 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}` : (e.text || '(media)')}{e.price > 0 && e.dir !== 'unlock' ? `  ·  PPV $${e.price}` : ''}
                 </span>
+                <button title="Mute this fan (hide from stream + inbox — e.g. another creator's junk)"
+                  onClick={() => muteFromStream(e)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--foreground-muted)', padding: 0, opacity: 0.6 }}>✕</button>
               </div>
             ))}
           </div>
