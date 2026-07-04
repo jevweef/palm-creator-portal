@@ -4,6 +4,10 @@ import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox }
 
 export const dynamic = 'force-dynamic'
 
+// Conversation-list preview cache (per account) — archives are chunky files;
+// don't re-download them on every list load.
+const CONV_CACHE = new Map() // account -> { at, conversations }
+
 // GET — data for /admin/live-chat (OF-style two-pane view).
 //   ?account=acct_…            → conversation list: archived fans (the ones
 //                                we pulled 2-year histories for) + any fan
@@ -78,36 +82,62 @@ export async function GET(request) {
       return NextResponse.json({ history, live: liveForFan, transcript })
     }
 
-    // Conversation list: archived fans + live-active fans
-    const conv = new Map()
-    try {
-      const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
-          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: ns }),
-        },
-        body: JSON.stringify({ path: `/Palm Ops/Chat Logs/${safeCreator}` }),
-      })
-      if (res.ok) {
-        const d = await res.json()
-        for (const e of d.entries || []) {
-          if (e['.tag'] === 'folder') conv.set(e.name, { fan: e.name, name: e.name, archived: true, lastAt: null, lastText: '' })
-        }
-      }
-    } catch { /* no archives yet */ }
+    // Conversation list: archived fans (with real last-message previews, like
+    // the OF inbox) + live-active fans. Archive previews cached 2 min.
+    const cached = CONV_CACHE.get(account)
+    let base
+    if (cached && Date.now() - cached.at < 120000) {
+      base = new Map(cached.conversations.map((c) => [c.fan, { ...c }]))
+    } else {
+      base = new Map()
+      let folders = []
+      try {
+        const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+            'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: ns }),
+          },
+          body: JSON.stringify({ path: `/Palm Ops/Chat Logs/${safeCreator}` }),
+        })
+        if (res.ok) folders = ((await res.json()).entries || []).filter((e) => e['.tag'] === 'folder').map((e) => e.name)
+      } catch { /* no archives yet */ }
+      await Promise.all(folders.map(async (fanFolder) => {
+        const c = { fan: fanFolder, name: fanFolder, username: fanFolder, archived: true, lastAt: null, lastText: 'archived transcript only' }
+        try {
+          const buf = await downloadFromDropbox(token, ns, `/Palm Ops/Chat Logs/${safeCreator}/${fanFolder}/messages.json`)
+          if (buf) {
+            const arc = JSON.parse(buf.toString('utf8'))
+            c.name = arc.fanName || fanFolder
+            c.username = arc.fanUsername || fanFolder
+            c.lastAt = arc.lastMessageAt || null
+            const msgs = arc.messages || []
+            // newest message with text, preferring non-mass (like OF's preview)
+            const lastReal = [...msgs].reverse().find((m) => !m.isFromQueue && String(m.text || '').trim())
+              || [...msgs].reverse().find((m) => String(m.text || '').trim())
+            if (lastReal) {
+              const txt = String(lastReal.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              c.lastText = txt.length > 64 ? txt.slice(0, 64) + '…' : txt
+            } else if (msgs.length) c.lastText = '(media)'
+          }
+        } catch { /* transcript-only folder */ }
+        base.set(fanFolder, c)
+      }))
+      CONV_CACHE.set(account, { at: Date.now(), conversations: [...base.values()] })
+    }
     for (const e of live) {
       const key = e.fan?.username || e.fan?.name || ''
       if (!key) continue
-      const cur = conv.get(key) || { fan: key, name: e.fan?.name || key, archived: false, lastAt: null, lastText: '' }
+      const cur = base.get(key) || { fan: key, name: e.fan?.name || key, username: e.fan?.username || key, archived: false, lastAt: null, lastText: '' }
       if (!cur.lastAt || (e.at && e.at > cur.lastAt)) {
         cur.lastAt = e.at
-        cur.lastText = e.dir === 'unlock' ? `💸 unlocked $${e.price}` : (e.text || '(media)').slice(0, 60)
+        const txt = e.dir === 'unlock' ? `💸 unlocked $${e.price}` : (e.text || '(media)')
+        cur.lastText = txt.length > 64 ? txt.slice(0, 64) + '…' : txt
         cur.name = e.fan?.name || cur.name
       }
-      conv.set(key, cur)
+      base.set(key, cur)
     }
-    const conversations = [...conv.values()].sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || '') || a.fan.localeCompare(b.fan))
+    const conversations = [...base.values()].sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || '') || a.fan.localeCompare(b.fan))
     return NextResponse.json({ accounts, conversations, live })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
