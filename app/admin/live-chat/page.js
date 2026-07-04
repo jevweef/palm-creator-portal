@@ -48,6 +48,19 @@ export default function LiveChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
 
+  // The conversation LIST is live too — new fans appear as they message
+  // (webhook → buffer → this 20s poll), not just the open thread.
+  useEffect(() => {
+    if (!account) return
+    const t = setInterval(() => {
+      fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => { if (d.conversations) setConversations(d.conversations) })
+        .catch(() => {})
+    }, 20000)
+    return () => clearInterval(t)
+  }, [account])
+
   // Load thread when fan changes; then poll live buffer
   useEffect(() => {
     if (!account || !fan) return
