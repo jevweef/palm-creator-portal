@@ -769,7 +769,7 @@ NEXT MOVE
 
 CHATTER CARD
 [The spoon-feed — the ONLY part most chatters will read. Max 6 lines, telegraphic (no paragraphs), every line load-bearing. Format EXACTLY:
-CARD: [Name] @[username] — $[lifetime] · [state + likely cause, e.g. "decayed — trust broken Oct 25" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
+CARD: [EXACT display name and @username from the FAN: line at the top — never invent or shorten the handle] — $[lifetime] · [state + likely cause, e.g. "decayed — trust broken Oct 25" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
 FORMULA: [his buying recipe in one sentence, distilled from PEAK FORMULA]
 WANTS: [content/themes he buys + any waiting sale from SLEEPING THREADS]
 PRICE: [his band + how he negotiates]
