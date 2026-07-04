@@ -63,8 +63,19 @@ export async function GET(request) {
           }))
         }
       } catch { /* no archive for this fan */ }
+      // Fallback: fans from the manual-analysis era have transcripts but no
+      // structured archive — show the transcript so the pane isn't empty.
+      let transcript = null
+      if (!history.length) {
+        for (const fname of ['transcript.txt', 'transcript-free.txt', 'transcript-vip.txt']) {
+          try {
+            const tbuf = await downloadFromDropbox(token, ns, `/Palm Ops/Chat Logs/${safeCreator}/${fan}/${fname}`)
+            if (tbuf) { transcript = tbuf.toString('utf8').slice(-15000); break }
+          } catch { /* try next */ }
+        }
+      }
       const liveForFan = live.filter((e) => (e.fan?.username || e.fan?.name || '') === fan)
-      return NextResponse.json({ history, live: liveForFan })
+      return NextResponse.json({ history, live: liveForFan, transcript })
     }
 
     // Conversation list: archived fans + live-active fans
