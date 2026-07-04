@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 // the previous events instead of blinking that account out of the stream.
 const STREAM_CACHE = { at: 0, data: null }
 const LAST_GOOD = new Map() // account -> events
+const MUTED_CACHE = new Map() // account -> { at, list }
 
 // Conversation-list preview cache (per account) — archives are chunky files;
 // don't re-download them on every list load.
@@ -51,15 +52,28 @@ export async function GET(request) {
         return NextResponse.json({ accounts, stream: STREAM_CACHE.data })
       }
       const { readLiveMerged } = await import('@/lib/ofLiveBuffer')
+      const tokenS = await getDropboxAccessToken()
+      const nsS = await getDropboxRootNamespaceId(tokenS)
       const chunks = await Promise.all(accounts.map(async (a) => {
+        // muted fans stay out of the stream (junk from other creators etc.)
+        let muted = MUTED_CACHE.get(a.account)
+        if (!muted || Date.now() - muted.at > 60000) {
+          let list = []
+          try {
+            const mb = await downloadFromDropbox(tokenS, nsS, `/Palm Ops/OF Webhooks/live/${a.account}-muted.json`)
+            if (mb) list = JSON.parse(mb.toString('utf8'))
+          } catch { /* none */ }
+          muted = { at: Date.now(), list }
+          MUTED_CACHE.set(a.account, muted)
+        }
+        const mutedSet = new Set(muted.list)
+        const keep = (e) => !mutedSet.has(e.fan?.username || e.fan?.name || '')
         try {
           const evs = await readLiveMerged(a.account)
           LAST_GOOD.set(a.account, evs)
-          return evs.slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
+          return evs.filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
         } catch {
-          // failed read → last-good copy, never a blank (accounts were
-          // visibly blinking out of the stream on transient Dropbox errors)
-          return (LAST_GOOD.get(a.account) || []).slice(0, 60).map((e) => ({ ...e, aka: a.aka }))
+          return (LAST_GOOD.get(a.account) || []).filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
         }
       }))
       const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
@@ -206,6 +220,8 @@ export async function POST(request) {
     muted = muted.filter((m) => m !== fan)
     if (mute) muted.push(fan)
     await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(muted), 'utf8'))
+    MUTED_CACHE.set(account, { at: Date.now(), list: muted })
+    STREAM_CACHE.at = 0 // rebuild the stream without the muted fan
     return NextResponse.json({ ok: true, muted })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
