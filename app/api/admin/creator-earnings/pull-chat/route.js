@@ -93,7 +93,11 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime } = await request.json()
+    // Auto-spend scales with the fan's value: ~2% of lifetime in credits
+    // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
+    // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
+    const AUTO_SPEND_LIMIT = Math.max(15, Math.min(250, Math.round((Number(lifetime) || 0) / 50) || 15))
     if (!creatorRecordId || (!fanUsername && !fanName)) {
       return NextResponse.json({ error: 'creatorRecordId and fanUsername or fanName required' }, { status: 400 })
     }
@@ -182,7 +186,7 @@ export async function POST(request) {
           // grown past the limit and the user hasn't confirmed, cancel it
           // (free until completion) and ask.
           const projected = pending.credit_cost ?? (pending.total_rows != null ? Math.ceil(pending.total_rows / 20) : null)
-          if (projected != null && projected > 150 && !confirmBig) {
+          if (projected != null && projected > AUTO_SPEND_LIMIT && !confirmBig) {
             await cancelDataExport(archive.pendingExportId)
             try { await saveChatArchive(creatorName, fanName, fanUsername, { ...archive, pendingExportId: null, updatedAt: new Date().toISOString() }) } catch {}
             return NextResponse.json({
@@ -223,7 +227,6 @@ export async function POST(request) {
           // the discovered row count, and CANCEL (proven free mid-scrape) if
           // it's over the limit and unconfirmed. Billing happens only at
           // completion, so we get the whole scrape window to bail.
-          const AUTO_SPEND_LIMIT = 150
           const exp = await createDataExport({
             type: 'chat_messages',
             accountIds: [accountId],

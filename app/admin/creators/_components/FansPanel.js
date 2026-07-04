@@ -305,6 +305,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           creatorRecordId: creatorRecordId || '',
           fanUsername: f.ofUsername || '',
           fanName: f.fanName || '',
+          lifetime: f.lifetimeSpend || 0,
           ...(opts.confirmBig ? { confirmBig: true } : {}),
           ...(opts.acceptPartial ? { acceptPartial: true } : {}),
         }),
