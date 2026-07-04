@@ -28,6 +28,7 @@ export default function LiveChatPage() {
   const [transcript, setTranscript] = useState(null)
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
+  const [showMuted, setShowMuted] = useState(false)
   const scroller = useRef(null)
   const timer = useRef(null)
 
@@ -95,6 +96,16 @@ export default function LiveChatPage() {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight
   }, [thread.length, fan])
 
+  async function toggleMute(fanKey, mute) {
+    setConversations((cs) => cs.map((c) => (c.fan === fanKey ? { ...c, muted: mute } : c)))
+    try {
+      await fetch('/api/admin/live-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account, fan: fanKey, mute }),
+      })
+    } catch { /* next poll restores truth */ }
+  }
+
   const fmtListTime = (iso) => {
     if (!iso) return ''
     const d = new Date(iso)
@@ -130,7 +141,7 @@ export default function LiveChatPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '0', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 170px)' }}>
 
           {/* ── Conversation list ── */}
-          <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', minHeight: 0 }}>
+          <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               Conversations ({conversations.length})
             </div>
@@ -139,7 +150,7 @@ export default function LiveChatPage() {
                 No archived or live conversations yet for this creator.
               </div>
             )}
-            {conversations.map((c) => {
+            {conversations.filter((c) => showMuted || !c.muted).map((c) => {
               const active = fan === c.fan
               const isLive = c.lastAt && (Date.now() - new Date(c.lastAt)) < 30 * 60000
               return (
@@ -152,10 +163,17 @@ export default function LiveChatPage() {
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'baseline' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: c.muted ? 'var(--foreground-muted)' : 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {c.name || c.fan} {isLive && <span style={{ color: '#7DD3A4', fontSize: '10px' }}>●</span>}
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', flexShrink: 0 }}>{fmtListTime(c.lastAt)}</div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline', flexShrink: 0 }}>
+                        <div style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{fmtListTime(c.lastAt)}</div>
+                        <button title={c.muted ? 'Unmute — show this conversation again' : 'Mute — hide this conversation (e.g. another creator\'s promos)'}
+                          onClick={(ev) => { ev.stopPropagation(); toggleMute(c.fan, !c.muted) }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: c.muted ? '#E8C878' : 'var(--foreground-muted)', padding: 0, opacity: 0.8 }}>
+                          {c.muted ? '↺' : '✕'}
+                        </button>
+                      </div>
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {c.lastText || (c.archived ? 'archived history' : '')}
@@ -164,6 +182,12 @@ export default function LiveChatPage() {
                 </div>
               )
             })}
+            {conversations.some((c) => c.muted) && (
+              <button onClick={() => setShowMuted((v) => !v)}
+                style={{ margin: '8px 14px', padding: '5px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer', textAlign: 'left' }}>
+                {showMuted ? 'Hide muted' : `Show muted (${conversations.filter((c) => c.muted).length})`}
+              </button>
+            )}
           </div>
 
           {/* ── Thread ── */}
