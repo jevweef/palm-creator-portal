@@ -35,6 +35,15 @@ const TIER_COLORS = {
 }
 const SEV_COLORS = { low: '#E8C878', medium: '#E88C5C', high: '#E87878' }
 
+// House date style: "Jan 1, 25"
+function fmtD(v) {
+  if (!v) return '—'
+  const str = String(v)
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(str) ? str + 'T12:00:00' : str)
+  if (isNaN(d)) return str
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
 // "2h ago" / "Jun 30" style last-run label (ET)
 function fmtRun(iso) {
   if (!iso) return 'never'
@@ -496,11 +505,11 @@ export default function AuditTab() {
                     <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title="avg $/mo across his hottest 6-month stretch — the consistency stat">{cad?.best6moAvg ? `$${Math.round(cad.best6moAvg)}` : '—'}</td>
                     <td style={{ textAlign: 'right', padding: '7px 10px', color: (cad?.monthsOver500 || 0) >= 3 ? '#7DD3A4' : 'var(--foreground-muted)' }} title="months where he spent $500+">{cad?.monthsOver500 ?? '—'}</td>
                     <td style={{ textAlign: 'right', color: 'var(--foreground-muted)', padding: '7px 10px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad?.lastPurchaseDate || '—'}</td>
+                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{fmtD(cad?.lastPurchaseDate)}</td>
                     <td style={{ fontSize: '11px' }}>{(() => {
                       if (!w.lastAlert) return <span style={{ color: '#E88C5C' }}>never</span>
                       const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
-                      const label = new Date(w.lastAlert).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      const label = fmtD(w.lastAlert)
                       return days > 30
                         ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
                         : <span style={{ color: '#7DD3A4' }}>{label}</span>
@@ -536,9 +545,9 @@ export default function AuditTab() {
                     {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
                   {showAllWatchlist && <td>{w.creator}</td>}
                   <td style={{ textAlign: 'right', fontWeight: 700 }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.cadence?.lastPurchaseDate || '—'}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{fmtD(w.cadence?.lastPurchaseDate)}</td>
                   <td style={{ color: 'var(--foreground-muted)' }}>{w.cadence?.currentGap ? `${w.cadence.currentGap}d` : '—'}</td>
-                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastAlert ? new Date(w.lastAlert).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'never'}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastAlert ? fmtD(w.lastAlert) : 'never'}</td>
                   <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
                 </tr>
               ))}

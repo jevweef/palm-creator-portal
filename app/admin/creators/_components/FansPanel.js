@@ -17,6 +17,20 @@ function getClientAccountKey(accountName) {
   return slug || null
 }
 
+// House date style: "Jan 1, 25" (3-letter month, day, 2-digit year).
+// Month-only values ("2026-04") render as "Apr'26" (chart style).
+function fmtD(v) {
+  if (!v) return '—'
+  const str = String(v)
+  if (/^\d{4}-\d{2}$/.test(str)) {
+    const d = new Date(str + '-15T12:00:00')
+    return isNaN(d) ? str : d.toLocaleDateString('en-US', { month: 'short' }) + "'" + str.slice(2, 4)
+  }
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(str) ? str + 'T12:00:00' : str)
+  if (isNaN(d)) return str
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
 function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal }) {
   const [chatFile, setChatFile] = useState(null)
   // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
@@ -694,137 +708,159 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
 
-            {/* Stats grid */}
-            <div style={{ display: 'flex', gap: '10px 28px', flexWrap: 'wrap', background: 'var(--background)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '10px 14px' }}>
-              {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
-              <div>
-                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  Lifetime
-                  {f.lifetimeOverride > 0 && (
-                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: 'rgba(232, 200, 120, 0.1)', color: '#E8A878', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
-                  )}
-                </div>
-                {editingLifetime ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--foreground)' }}>$</span>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={lifetimeDraft}
-                      onChange={e => setLifetimeDraft(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
-                        if (e.key === 'Escape') setEditingLifetime(false)
-                      }}
-                      placeholder="blank to clear"
-                      disabled={savingLifetime}
-                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px' }}
-                    />
-                    <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
-                      {savingLifetime ? '…' : 'Save'}
-                    </button>
-                    <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
-                    title="Click to set a manual lifetime override (used on the Telegram PDF when the actual OF lifetime is higher than what earnings data shows)"
-                    style={{ fontSize: '12px', color: 'var(--foreground)', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
-                    onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
-                    onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
-                  >
-                    <strong style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em' }}>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
-                    {f.lifetimeOverride > 0 && (
-                      <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+            {/* Stats grid — grouped rows: Money / Timeline / Alerts, one date style */}
+            {(() => {
+              const mo = (monthlySpendData || []).map((d) => d.spend || 0)
+              const labels = (monthlySpendData || []).map((d) => d.month || d.date || '')
+              let peakI = -1
+              mo.forEach((v, idx) => { if (peakI < 0 || v > mo[peakI]) peakI = idx })
+              const win = Math.min(6, mo.length)
+              let best6 = 0
+              for (let idx = 0; win > 0 && idx + win <= mo.length; idx++) {
+                const avg = mo.slice(idx, idx + win).reduce((a, b) => a + b, 0) / win
+                if (avg > best6) best6 = avg
+              }
+              const over500 = mo.filter((v) => v >= 500).length
+              const hd = f.heatDetail
+              const last30 = hd ? hd.rolling30 : f.last30
+              const cellLabel = { fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', whiteSpace: 'nowrap' }
+              const cellVal = { fontSize: '13px', color: 'var(--foreground)', whiteSpace: 'nowrap' }
+              const groupTag = { fontSize: '9px', fontWeight: 700, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.08em', width: '62px', flexShrink: 0, paddingBottom: '3px' }
+              const groupRow = { display: 'flex', gap: '8px 26px', flexWrap: 'wrap', alignItems: 'flex-end', padding: '7px 0' }
+              return (
+                <div style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px 14px' }}>
+
+                  {/* ── MONEY ── */}
+                  <div style={groupRow}>
+                    <div style={groupTag}>Money</div>
+                    <div>
+                      <div style={{ ...cellLabel, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Lifetime
+                        {f.lifetimeOverride > 0 && (
+                          <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: 'rgba(232, 200, 120, 0.1)', color: '#E8A878', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
+                        )}
+                      </div>
+                      {editingLifetime ? (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--foreground)' }}>$</span>
+                          <input
+                            type="text" autoFocus value={lifetimeDraft}
+                            onChange={e => setLifetimeDraft(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
+                              if (e.key === 'Escape') setEditingLifetime(false)
+                            }}
+                            placeholder="blank to clear" disabled={savingLifetime}
+                            style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px' }} />
+                          <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
+                            style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
+                            {savingLifetime ? '…' : 'Save'}
+                          </button>
+                          <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
+                            style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
+                          title="Click to set a manual lifetime override (used on the Telegram PDF)"
+                          style={{ cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
+                          onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
+                          onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                          <strong style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
+                          {f.lifetimeOverride > 0 && (
+                            <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={cellLabel}>Last 30d</div>
+                      <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: hd && (hd.rolling30 || 0) < (hd.monthlyAvg90 || 0) * 0.5 ? '#E87878' : '#7DD3A4' }}>
+                        {fmtMoney(last30)}{hd ? <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}> vs {fmtMoney(hd.monthlyAvg90)}/mo avg</span> : null}
+                      </div>
+                    </div>
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>90d avg/mo</div>
+                        <div style={cellVal}>{fmtMoney(hd.monthlyAvg90)}</div>
+                      </div>
+                    )}
+                    {mo.length > 0 && (
+                      <div>
+                        <div style={cellLabel} title="avg $/mo across his hottest 6-month stretch">Best 6-mo avg</div>
+                        <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(best6)}/mo</div>
+                      </div>
+                    )}
+                    {peakI >= 0 && (
+                      <div>
+                        <div style={cellLabel}>Peak month</div>
+                        <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(mo[peakI])} <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>{fmtD(labels[peakI])}</span></div>
+                      </div>
+                    )}
+                    {mo.length > 0 && (
+                      <div>
+                        <div style={cellLabel} title="months where he spent $500+">$500+ months</div>
+                        <div style={{ ...cellVal, fontWeight: 600, color: over500 >= 3 ? '#7DD3A4' : 'var(--foreground)' }}>{over500}</div>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              {f.firstDate && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.firstDate}</div>
-                </div>
-              )}
-              {f.heatDetail && (
-                <>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.heatDetail.lastPurchase}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#E87878' }}>{f.heatDetail.currentGap}d silent <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs ~{f.heatDetail.medianGap}d rhythm</span></div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: (f.heatDetail.rolling30 || 0) < (f.heatDetail.monthlyAvg90 || 0) * 0.5 ? '#E87878' : '#7DD3A4' }}>{fmtMoney(f.heatDetail.rolling30)} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs {fmtMoney(f.heatDetail.monthlyAvg90)}/mo avg</span></div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
-                  </div>
-                </>
-              )}
-              {f.firstFlagged && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtDate(f.firstFlagged)}</div>
-                </div>
-              )}
-              {f.timesGoneCold > 0 && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.timesGoneCold}</div>
-                </div>
-              )}
-              {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
-                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#7DD3A4' : '#E87878', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
-                <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.txnCount || 0} sessions</div>
-              </div>
-              {(() => {
-                // Fan-history shape from his monthly series: peak month, best
-                // 6-month stretch (consistency), months at $500+.
-                const mo = (monthlySpendData || []).map((d) => d.spend || 0)
-                if (!mo.length) return null
-                const labels = (monthlySpendData || []).map((d) => d.month || d.date || '')
-                let peakI = 0
-                mo.forEach((v, i) => { if (v > mo[peakI]) peakI = i })
-                const win = Math.min(6, mo.length)
-                let best6 = 0
-                for (let i = 0; i <= mo.length - win; i++) {
-                  const avg = mo.slice(i, i + win).reduce((a, b) => a + b, 0) / win
-                  if (avg > best6) best6 = avg
-                }
-                const over500 = mo.filter((v) => v >= 500).length
-                return (
-                  <>
+
+                  {/* ── TIMELINE ── */}
+                  <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={groupTag}>Timeline</div>
+                    {f.firstDate && (
+                      <div>
+                        <div style={cellLabel}>First buy</div>
+                        <div style={cellVal}>{fmtD(f.firstDate)}</div>
+                      </div>
+                    )}
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>Last buy</div>
+                        <div style={cellVal}>{fmtD(hd.lastPurchase)}</div>
+                      </div>
+                    )}
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>Silent</div>
+                        <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: '#E87878' }}>{hd.currentGap}d <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs ~{hd.medianGap}d rhythm</span></div>
+                      </div>
+                    )}
                     <div>
-                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Peak Month</div>
-                      <div style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: 600 }}>{fmtMoney(mo[peakI])} <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>{labels[peakI]}</span></div>
+                      <div style={cellLabel}>Sessions</div>
+                      <div style={cellVal}>{f.txnCount || 0}</div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }} title="avg $/mo across his hottest 6-month stretch">Best 6-Mo Avg</div>
-                      <div style={{ fontSize: '12px', color: 'var(--foreground)', fontWeight: 600 }}>{fmtMoney(best6)}/mo</div>
+                  </div>
+
+                  {/* ── ALERTS ── */}
+                  {(f.firstFlagged || f.timesGoneCold > 0 || f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+                    <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={groupTag}>Alerts</div>
+                      {f.firstFlagged && (
+                        <div>
+                          <div style={cellLabel}>First flagged</div>
+                          <div style={cellVal}>{fmtD(f.firstFlagged)}</div>
+                        </div>
+                      )}
+                      {f.timesGoneCold > 0 && (
+                        <div>
+                          <div style={cellLabel}>Times gone cold</div>
+                          <div style={cellVal}>{f.timesGoneCold}</div>
+                        </div>
+                      )}
+                      {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+                        <div>
+                          <div style={cellLabel}>Post-alert 30d</div>
+                          <div style={{ ...cellVal, fontWeight: 600, color: f.postAlertSpend30d > f.preAlertSpend30d ? '#7DD3A4' : '#E87878' }}>{fmtMoney(f.postAlertSpend30d)}</div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>$500+ Months</div>
-                      <div style={{ fontSize: '12px', color: over500 >= 3 ? '#7DD3A4' : 'var(--foreground)', fontWeight: 600 }}>{over500}</div>
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* ═══ SECTION 4: Upload New Chat ═══ */}
