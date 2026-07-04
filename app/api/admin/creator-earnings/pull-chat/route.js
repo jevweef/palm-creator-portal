@@ -3,6 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { resolveFanId, fetchChatHistory, toParsedChat } from '@/lib/onlyfansApi'
+import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -42,24 +43,52 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Fan username/name → OF user id
-    const fan = await resolveFanId(accountId, { username: fanUsername, name: fanName })
-    if (!fan) {
-      return NextResponse.json({ error: `Couldn't find fan "${fanUsername || fanName}" on this OF account` }, { status: 404 })
+    const creatorName = creators[0]?.fields?.Creator || creators[0]?.fields?.AKA || ''
+
+    // ── Incremental: the Dropbox archive remembers what we already have ─────
+    // (0 credits to read). We only fetch messages NEWER than its last message,
+    // and the archived fanId skips the resolveFanId lookup on repeat pulls.
+    const archive = await loadChatArchive(creatorName, fanName, fanUsername)
+
+    let fan
+    if (archive?.fanId) {
+      fan = { id: archive.fanId, username: archive.fanUsername || fanUsername, name: archive.fanName || fanName }
+    } else {
+      fan = await resolveFanId(accountId, { username: fanUsername, name: fanName })
+      if (!fan) {
+        return NextResponse.json({ error: `Couldn't find fan "${fanUsername || fanName}" on this OF account` }, { status: 404 })
+      }
     }
 
-    // Pull history (capped pages = capped credits; ~1 credit per page)
-    const { messages, pages, credits } = await fetchChatHistory(accountId, fan.id, {
-      sinceDate: sinceDate || null,
+    // Overlap the boundary by a minute — dedup by id makes it harmless.
+    const since = archive?.lastMessageAt
+      ? new Date(new Date(archive.lastMessageAt).getTime() - 60000).toISOString()
+      : (sinceDate || null)
+
+    const { messages: fresh, pages, credits } = await fetchChatHistory(accountId, fan.id, {
+      sinceDate: since,
       maxPages: Math.min(Number(maxPages) || 40, 80),
     })
-    if (!messages.length) {
+
+    const { merged, added } = mergeMessages(archive?.messages, fresh)
+    if (!merged.length) {
       return NextResponse.json({ error: 'No messages found in this chat' }, { status: 404 })
     }
 
-    const parsed = toParsedChat(messages, fan.id)
-    console.log(`[pull-chat] ${accountId} fan ${fan.id} (${fan.username || fan.name}): ${parsed.messageCount} msgs, ${pages} pages, ~${credits || pages} credits`)
-    return NextResponse.json({ parsed, fan, pages, credits: credits || pages })
+    // Persist the updated archive (non-fatal — the pull still works without it)
+    const last = merged[merged.length - 1]
+    try {
+      await saveChatArchive(creatorName, fanName, fanUsername, {
+        fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '',
+        lastMessageAt: last?.createdAt || null, lastMessageId: last?.id ?? null,
+        updatedAt: new Date().toISOString(), messages: merged,
+      })
+    } catch (e) { console.warn('[pull-chat] archive save failed:', e.message) }
+
+    // Parse the FULL archive — analysis always sees the whole conversation.
+    const parsed = toParsedChat(merged, fan.id)
+    console.log(`[pull-chat] ${accountId} fan ${fan.id} (${fan.username || fan.name}): ${parsed.messageCount} total (${added} new), ${pages} pages, ~${credits || pages} credits`)
+    return NextResponse.json({ parsed, fan, pages, credits: credits || pages, newMessages: added, totalStored: merged.length, incremental: !!archive })
   } catch (err) {
     console.error('[pull-chat] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
