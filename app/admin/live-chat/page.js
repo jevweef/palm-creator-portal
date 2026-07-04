@@ -12,6 +12,7 @@ export default function LiveChatPage() {
   const [conversations, setConversations] = useState([])
   const [fan, setFan] = useState('')
   const [history, setHistory] = useState([])
+  const [transcript, setTranscript] = useState(null)
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
   const scroller = useRef(null)
@@ -36,7 +37,7 @@ export default function LiveChatPage() {
     if (!account || !fan) return
     fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&fan=${encodeURIComponent(fan)}`, { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => { setHistory(d.history || []); setLiveEvents(d.live || []); setLastPoll(new Date()) })
+      .then((d) => { setHistory(d.history || []); setTranscript(d.transcript || null); setLiveEvents(d.live || []); setLastPoll(new Date()) })
       .catch(() => {})
     timer.current = setInterval(() => {
       fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&liveOnly=1`, { cache: 'no-store' })
@@ -134,7 +135,21 @@ export default function LiveChatPage() {
                 @{fan}
               </div>
               <div ref={scroller} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {thread.length === 0 && <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', marginTop: '40px' }}>No messages loaded — history appears after a chat pull; live messages appear as they happen.</div>}
+                {thread.length === 0 && !transcript && (
+                  <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', marginTop: '40px', lineHeight: 1.7 }}>
+                    No message archive for @{fan} yet — this folder only has old analysis files.<br />
+                    Open his fan card on Whale Hunting and hit <b>Pull from OF</b> to load his history.<br />
+                    Live messages will still appear here the moment he chats.
+                  </div>
+                )}
+                {thread.length === 0 && transcript && (
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#E8C878', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                      Old transcript (manual-era) — Pull from OF on his fan card for the full structured history
+                    </div>
+                    <pre style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.55, margin: 0 }}>{transcript}</pre>
+                  </div>
+                )}
                 {thread.map((m) => {
                   const isFan = m.dir === 'in'
                   const isUnlock = m.dir === 'unlock'
