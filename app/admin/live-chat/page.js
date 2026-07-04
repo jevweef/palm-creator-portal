@@ -57,7 +57,7 @@ export default function LiveChatPage() {
         .then((r) => r.json())
         .then((d) => { if (d.conversations) setConversations(d.conversations) })
         .catch(() => {})
-    }, 20000)
+    }, 12000)
     return () => clearInterval(t)
   }, [account])
 
@@ -77,7 +77,7 @@ export default function LiveChatPage() {
           setLastPoll(new Date())
         })
         .catch(() => {})
-    }, 8000)
+    }, 5000)
     return () => clearInterval(timer.current)
   }, [account, fan])
 
@@ -119,7 +119,7 @@ export default function LiveChatPage() {
           <option value="">Pick a creator…</option>
           {accounts.map((a) => <option key={a.account} value={a.account}>{a.aka}</option>)}
         </select>
-        <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — updates every 8s{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
+        <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — auto-updating{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 
       {!account ? (
