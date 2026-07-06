@@ -79,7 +79,7 @@ export default function LiveChatPage() {
     writeUrl(account, fan)
     fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => { setConversations(d.conversations || []) })
+      .then((d) => { setConversations(overlayMutes(account, d.conversations || [])) })
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
@@ -91,7 +91,7 @@ export default function LiveChatPage() {
     const t = setInterval(() => {
       fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
         .then((r) => r.json())
-        .then((d) => { if (d.conversations) setConversations(d.conversations) })
+        .then((d) => { if (d.conversations) setConversations(overlayMutes(account, d.conversations)) })
         .catch(() => {})
     }, 12000)
     return () => clearInterval(t)
@@ -138,6 +138,12 @@ export default function LiveChatPage() {
     setAccount(e.account)
     setFan(fanKey)
     writeUrl(e.account, fanKey)
+  }
+
+  // Poll responses can't un-mute what was muted this session — a list fetch
+  // that raced the mute save would otherwise flash the conversation back.
+  function overlayMutes(acct, convs) {
+    return convs.map((c) => (mutedKeys.current.has(`${acct}|${c.fan}`) ? { ...c, muted: true } : c))
   }
 
   // Muting a FAN (from either the stream ✕ or the inbox ✕) hides ALL their
@@ -191,11 +197,13 @@ export default function LiveChatPage() {
             </button>
           ))}
         </div>
-        <select value={account} onChange={(e) => { setAccount(e.target.value); setFan(''); writeUrl(e.target.value, '') }}
-          style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
-          <option value="">Pick a creator…</option>
-          {accounts.map((a) => <option key={a.account} value={a.account}>{a.aka}</option>)}
-        </select>
+        {view === 'inbox' && (
+          <select value={account} onChange={(e) => { setAccount(e.target.value); setFan(''); writeUrl(e.target.value, '') }}
+            style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
+            <option value="">Pick a creator…</option>
+            {accounts.map((a) => <option key={a.account} value={a.account}>{a.aka}</option>)}
+          </select>
+        )}
         <span style={{ fontSize: '11px', color: '#7DD3A4' }}>● LIVE — auto-updating{lastPoll ? ` · last check ${lastPoll.toLocaleTimeString('en-US')}` : ''}</span>
       </div>
 

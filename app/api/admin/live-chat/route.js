@@ -229,7 +229,9 @@ export async function POST(request) {
     } catch { /* none */ }
     muted = muted.filter((m) => m !== fan)
     if (mute) muted.push(fan)
-    await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(muted), 'utf8'))
+    // overwrite is required — default 'add' mode 409s once the file exists,
+    // which silently dropped every mute after the first (fan kept coming back)
+    await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(muted), 'utf8'), { overwrite: true })
     MUTED_CACHE.set(account, { at: Date.now(), list: muted })
     STREAM_CACHE.at = 0 // rebuild the stream without the muted fan
     return NextResponse.json({ ok: true, muted })
