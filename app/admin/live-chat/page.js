@@ -170,9 +170,13 @@ export default function LiveChatPage() {
   const muteFromStream = (e) => muteFan(e.account, e.fan?.username || e.fan?.name || '', true)
   const toggleMute = (fanKey, mute) => muteFan(account, fanKey, mute)
 
+  // Older sale events stored `at` as "YYYY-MM-DD HH:MM:SS" (UTC, no zone) —
+  // parsing that as local shifted times 4h. Treat zoneless as UTC.
+  const parseAt = (iso) => new Date(iso.includes('T') || iso.includes('+') ? iso : iso.replace(' ', 'T') + 'Z')
+
   const fmtListTime = (iso) => {
     if (!iso) return ''
-    const d = new Date(iso)
+    const d = parseAt(iso)
     if (isNaN(d)) return ''
     const today = new Date().toDateString() === d.toDateString()
     return today
@@ -181,7 +185,7 @@ export default function LiveChatPage() {
   }
 
   const fmtT = (iso) => {
-    const d = new Date(iso)
+    const d = parseAt(String(iso || ''))
     return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: '2-digit', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
   }
 
