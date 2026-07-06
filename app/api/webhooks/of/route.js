@@ -243,10 +243,18 @@ async function appendLive(accountId, dir, p) {
   const f = p.fan || p.fromUser || p.from_user
     || (dir === 'out' ? (p.toUser || p.to_user) : null)
     || p.user || {}
+  // transactions.new sends created_at as "YYYY-MM-DD HH:MM:SS" (UTC, no zone)
+  // while message events send ISO — normalize so sorting and client display
+  // treat every event the same (space-format parsed as local showed sale
+  // times 4h ahead in the Sales tab).
+  const rawAt = String(p.createdAt || p.created_at || '')
+  const at = !rawAt ? new Date().toISOString()
+    : rawAt.includes('T') ? rawAt
+    : rawAt.replace(' ', 'T') + (rawAt.includes('+') ? '' : '+00:00')
   const entry = {
     id: p.id || p.message_id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     dir, // 'in' | 'out' | 'unlock' | 'sale'
-    at: p.createdAt || p.created_at || new Date().toISOString(),
+    at,
     text: stripHtmlText(String(p.text || p.description || '')).slice(0, 600),
     price: num(p.price) || num(p.amount) || 0, // messages: PPV price; sales: gross amount
     media: p.mediaCount ?? p.media_count ?? (Array.isArray(p.media) ? p.media.length : 0),
