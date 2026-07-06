@@ -46,19 +46,15 @@
     },
     {
       "path": "/api/cron/penny-postprep",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/hourly-telegram-push",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     },
     {
-      "path": "/api/cron/ai-postprep",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/ai-telegram-push",
-      "schedule": "*/15 * * * *"
+      "path": "/api/cron/trueup-transactions",
+      "schedule": "20 8 * * *"
     }
   ]
 }
