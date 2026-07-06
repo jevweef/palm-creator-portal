@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import ContentRequestUploadModal from './ContentRequestUploadModal'
 
 const FILE_TYPE_LABELS = {
   'image/*': 'Photos',
@@ -17,10 +18,10 @@ export default function ContentRequestSectionCard({
   month,
   onFilesUploaded,
 }) {
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState([])
   const fileInputRef = useRef(null)
 
   const { name, description, minCount, acceptedFileTypes, scripts, files, uploadedCount, itemType } = section
@@ -28,136 +29,10 @@ export default function ContentRequestSectionCard({
   const progressPercent = minCount > 0 ? Math.min(100, Math.round((uploadedCount / minCount) * 100)) : 0
   const typeLabel = FILE_TYPE_LABELS[acceptedFileTypes] || 'Files'
 
-  const handleFileSelect = async (selectedFiles) => {
-    if (!selectedFiles || selectedFiles.length === 0) return
-
-    setUploading(true)
-    const fileArray = Array.from(selectedFiles)
-    const uploaded = []
-
-    try {
-      setUploadProgress('Getting upload credentials...')
-      const tokenRes = await fetch('/api/upload-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorHqId: hqId }),
-      })
-      if (!tokenRes.ok) throw new Error('Failed to get upload token')
-      const { accessToken, rootNamespaceId, creatorName } = await tokenRes.json()
-
-      // Format month as "{MM} {Month}" for chronological sorting (e.g. "04 April")
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-      const [year, monthNum] = month.split('-')
-      const monthFolder = `${monthNum} ${monthNames[parseInt(monthNum, 10) - 1]}`
-
-      for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i]
-        setUploadProgress(`Uploading ${i + 1} of ${fileArray.length}: ${file.name}`)
-
-        const ext = file.name.split('.').pop()
-        const safeName = `${creatorName}_${Date.now()}_${i + 1}.${ext}`
-        // Path: /Vault Content/{AKA}/{MMMYY}/{Section}/{filename}
-        // Top-level Vault Content folder, then per-creator AKA folder
-        // Example: /Vault Content/Raya/APR26/PPV's/raya_xxx.mp4
-        const uploadPath = `/Vault Content/${creatorName}/${monthFolder}/${name}/${safeName}`
-
-        // Upload to Dropbox
-        const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({
-              path: uploadPath,
-              mode: 'add',
-              autorename: true,
-              mute: true,
-            }),
-            'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: rootNamespaceId }),
-            'Content-Type': 'application/octet-stream',
-          },
-          body: file,
-        })
-
-        if (!uploadRes.ok) {
-          console.error(`Upload failed for ${file.name}:`, await uploadRes.text())
-          continue
-        }
-
-        const uploadData = await uploadRes.json()
-        const actualPath = uploadData.path_display
-
-        // Create shared link
-        let dropboxLink = ''
-        const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: rootNamespaceId }),
-          },
-          body: JSON.stringify({ path: actualPath, settings: { requested_visibility: 'public' } }),
-        })
-        if (linkRes.ok) {
-          dropboxLink = (await linkRes.json()).url
-        } else if (linkRes.status === 409) {
-          const existing = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-              'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: rootNamespaceId }),
-            },
-            body: JSON.stringify({ path: actualPath, direct_only: true }),
-          })
-          if (existing.ok) {
-            const data = await existing.json()
-            if (data.links?.length) dropboxLink = data.links[0].url
-          }
-        }
-
-        // Save to Airtable
-        setUploadProgress(`Saving ${i + 1} of ${fileArray.length}...`)
-        const saveRes = await fetch('/api/content-request/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requestId,
-            creatorOpsId,
-            section: name,
-            dropboxPath: actualPath,
-            dropboxLink,
-            fileName: file.name,
-            fileSize: file.size,
-          }),
-        })
-
-        if (saveRes.ok) {
-          const { recordId } = await saveRes.json()
-          uploaded.push({
-            id: recordId,
-            section: name,
-            fileName: file.name,
-            fileSize: file.size,
-            dropboxLink,
-            dropboxPath: actualPath,
-            uploadedAt: new Date().toISOString(),
-            status: 'Draft',
-          })
-        }
-      }
-
-      if (uploaded.length > 0) {
-        onFilesUploaded(name, uploaded)
-      }
-      setUploadProgress('')
-    } catch (err) {
-      console.error('Upload error:', err)
-      setUploadProgress(`Error: ${err.message}`)
-      setTimeout(() => setUploadProgress(''), 3000)
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+  // Hand selected/dropped files to the upload modal, which manages the queue.
+  const openWith = (fileList) => {
+    setPendingFiles(Array.from(fileList || []))
+    setModalOpen(true)
   }
 
   const formatFileSize = (bytes) => {
@@ -283,67 +158,55 @@ export default function ContentRequestSectionCard({
         </div>
       )}
 
-      {/* Drop zone */}
-      {!uploading && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDragOver(false)
-            handleFileSelect(e.dataTransfer.files)
-          }}
-          onClick={() => fileInputRef.current?.click()}
-          style={{
-            border: `2px dashed ${dragOver ? 'var(--palm-pink)' : 'transparent'}`,
-            borderRadius: 12,
-            padding: '28px 20px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            background: dragOver ? 'var(--background)' : 'var(--card-bg-solid)',
-            transition: 'all 0.15s',
-            marginBottom: files.length > 0 ? 16 : 0,
-          }}
-        >
-          <div style={{ fontSize: 13, color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500 }}>
-            Drop {typeLabel.toLowerCase()} here or click to browse
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--foreground-subtle)', marginTop: 4 }}>
-            You can select multiple files at once
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            style={{ display: 'none' }}
-            accept={acceptedFileTypes || '*'}
-            onChange={(e) => handleFileSelect(e.target.files)}
-          />
-        </div>
-      )}
-
-      {/* Upload progress */}
-      {uploading && (
-        <div style={{
-          padding: '24px 20px',
-          textAlign: 'center',
-          border: '2px solid #E8C4CC',
+      {/* Drop zone — opens the upload queue modal */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+          openWith(e.dataTransfer.files)
+        }}
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragOver ? 'var(--palm-pink)' : 'transparent'}`,
           borderRadius: 12,
-          background: 'var(--background)',
+          padding: '28px 20px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          background: dragOver ? 'var(--background)' : 'var(--card-bg-solid)',
+          transition: 'all 0.15s',
           marginBottom: files.length > 0 ? 16 : 0,
-        }}>
-          <div style={{
-            width: 24,
-            height: 24,
-            border: '3px solid #F0D0D8',
-            borderTopColor: 'var(--palm-pink)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 8px',
-          }} />
-          <div style={{ fontSize: 13, color: 'var(--palm-pink)', fontWeight: 500 }}>{uploadProgress}</div>
+        }}
+      >
+        <div style={{ fontSize: 13, color: 'rgba(240, 236, 232, 0.75)', fontWeight: 500 }}>
+          Drop {typeLabel.toLowerCase()} here or click to browse
         </div>
-      )}
+        <div style={{ fontSize: 11, color: 'var(--foreground-subtle)', marginTop: 4 }}>
+          You can select multiple files at once — large files are fine
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          accept={acceptedFileTypes || '*'}
+          onChange={(e) => { openWith(e.target.files); e.target.value = '' }}
+        />
+      </div>
+
+      <ContentRequestUploadModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        sectionName={name}
+        acceptedFileTypes={acceptedFileTypes}
+        hqId={hqId}
+        requestId={requestId}
+        creatorOpsId={creatorOpsId}
+        month={month}
+        initialFiles={pendingFiles}
+        onUploaded={onFilesUploaded}
+      />
 
       {/* Uploaded files list */}
       {files.length > 0 && (
