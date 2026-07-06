@@ -171,7 +171,11 @@ async function updateFanSignals(accountId, fan, fanData, extra = {}) {
 // ── live chat buffer — one FILE PER EVENT (concurrent webhook deliveries
 // were clobbering a shared buffer; see lib/ofLiveBuffer.js) ─────────────────
 async function appendLive(accountId, dir, p) {
-  const f = p.fan || p.fromUser || p.from_user || p.user || {}
+  // On SENT messages the fan is the recipient (toUser) — fan/fromUser/user are
+  // absent, and an empty fan orphans the event from every inbox thread.
+  const f = p.fan || p.fromUser || p.from_user
+    || (dir === 'out' ? (p.toUser || p.to_user) : null)
+    || p.user || {}
   const entry = {
     id: p.id || p.message_id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     dir, // 'in' | 'out' | 'unlock' | 'sale'
@@ -186,6 +190,12 @@ async function appendLive(accountId, dir, p) {
     entry.videos = p.media.filter((m) => m?.type === 'video').length
   }
   if (dir === 'sale') entry.kind = p.type || '' // 'message' | 'tip' | 'subscribe' | ...
+  // ppv.unlocked arrives as a notification with no price field — the amount
+  // only lives in its text ("has purchased your message for $7.77!").
+  if (dir === 'unlock' && !entry.price) {
+    const m = String(p.text || '').match(/\$(\d+(?:\.\d+)?)/)
+    if (m) entry.price = parseFloat(m[1])
+  }
   await writeLiveEvent(accountId, entry)
 }
 
