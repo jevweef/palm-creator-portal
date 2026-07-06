@@ -5,7 +5,7 @@ import {
   insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, mapType, stripHtmlText,
   fetchRevenueAccountNames,
 } from '@/lib/transactionsSheet'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxFolder } from '@/lib/dropbox'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 import { writeLiveEvent } from '@/lib/ofLiveBuffer'
 
 export const dynamic = 'force-dynamic'
@@ -70,6 +70,7 @@ export async function POST(request) {
     } else if (event === 'messages.received') {
       await appendLive(accountId, 'in', payload).catch(() => {})
       await updateFanSignals(accountId, payload.fan || payload.fromUser || payload.user, payload.fanData, { lastReplyAt: new Date().toISOString() }).catch(() => {})
+      await maybeAutoMuteCreator(accountId, payload).catch(() => {})
     } else if (event === 'messages.sent') {
       // 1:1 only — mass-queue blasts would flood the buffer. IMPORTANT: filter
       // ONLY on isFromQueue — OF assigns a queueId to EVERY send (its internal
@@ -164,6 +165,43 @@ async function stampCoverageEnd(accountName) {
     headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: { [F.earningsEnd]: nowIso.split('T')[0], [F.earningsLastUpload]: nowIso } }),
   })
+}
+
+// ── auto-mute other creators (junk promo DMs, not fans) ─────────────────────
+// A sender with isVerified + canEarn is a verified earning OF creator — the
+// "hey check my page" promo blasts. Auto-add to the account's muted list so
+// they never clutter the inbox or streams ("Show muted" reveals them).
+// Guards: anyone who has SPENT on us is a customer, never muted; anyone Evan
+// manually unmuted lives on the allow list and is never re-muted.
+const AUTOMUTE_SEEN = new Map() // `${account}|${username}` -> ts (skip repeat work)
+async function maybeAutoMuteCreator(accountId, p) {
+  const u = p.fromUser || p.from_user || p.user || {}
+  const fanKey = u.username || u.name || ''
+  if (!fanKey) return
+  if (!(u.isVerified && u.canEarn)) return
+  if ((num(p.fanData?.spending?.total) || 0) > 0) return // paying customer
+  const seenKey = `${accountId}|${fanKey}`
+  if (Date.now() - (AUTOMUTE_SEEN.get(seenKey) || 0) < 6 * 3600000) return
+  AUTOMUTE_SEEN.set(seenKey, Date.now())
+
+  const token = await getDropboxAccessToken()
+  const ns = await getDropboxRootNamespaceId(token)
+  const base = `/Palm Ops/OF Webhooks/live/${accountId}`
+  let allow = []
+  try {
+    const ab = await downloadFromDropbox(token, ns, `${base}-allow.json`)
+    if (ab) allow = JSON.parse(ab.toString('utf8'))
+  } catch { /* none */ }
+  if (allow.includes(fanKey)) return
+  let muted = []
+  try {
+    const mb = await downloadFromDropbox(token, ns, `${base}-muted.json`)
+    if (mb) muted = JSON.parse(mb.toString('utf8'))
+  } catch { /* none */ }
+  if (muted.includes(fanKey)) return
+  muted.push(fanKey)
+  await uploadToDropbox(token, ns, `${base}-muted.json`, Buffer.from(JSON.stringify(muted), 'utf8'), { overwrite: true })
+  console.log(`[of-webhook] auto-muted creator @${fanKey} on ${accountId}`)
 }
 
 // ── fan tracker auto-update from fanData (zero credits, real-time) ──────────

@@ -232,6 +232,16 @@ export async function POST(request) {
     // overwrite is required — default 'add' mode 409s once the file exists,
     // which silently dropped every mute after the first (fan kept coming back)
     await uploadToDropbox(token, ns, path, Buffer.from(JSON.stringify(muted), 'utf8'), { overwrite: true })
+    // Manual unmutes go on the allow list so the webhook's creator auto-mute
+    // never re-mutes them; muting again lifts the exemption.
+    const allowPath = `/Palm Ops/OF Webhooks/live/${account}-allow.json`
+    let allow = []
+    try {
+      const ab = await downloadFromDropbox(token, ns, allowPath)
+      if (ab) allow = JSON.parse(ab.toString('utf8'))
+    } catch { /* none */ }
+    const nextAllow = mute ? allow.filter((a) => a !== fan) : [...allow.filter((a) => a !== fan), fan]
+    await uploadToDropbox(token, ns, allowPath, Buffer.from(JSON.stringify(nextAllow), 'utf8'), { overwrite: true })
     MUTED_CACHE.set(account, { at: Date.now(), list: muted })
     STREAM_CACHE.at = 0 // rebuild the stream without the muted fan
     return NextResponse.json({ ok: true, muted })
