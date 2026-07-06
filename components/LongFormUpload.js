@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { uploadFileToDropbox } from '@/lib/dropboxUpload'
 
 export default function LongFormUpload({ showToast }) {
   const [creators, setCreators] = useState([])
@@ -49,21 +50,19 @@ export default function LongFormUpload({ showToast }) {
         const file = files[i]
         setProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
 
-        const buffer = await file.arrayBuffer()
         const filePath = `${uploadFolder}/${file.name}`
 
-        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({ path: filePath, mode: 'add', autorename: true, mute: true }),
-            'Dropbox-API-Path-Root': pathRoot,
-            'Content-Type': 'application/octet-stream',
-          },
-          body: buffer,
+        // Chunked, retrying, any-size uploader — long-form videos routinely
+        // exceed Dropbox's 150 MB single-request cap, and buffering them in
+        // memory (arrayBuffer) crashed on multi-GB files.
+        const result = await uploadFileToDropbox({
+          file,
+          path: filePath,
+          accessToken,
+          pathRoot,
+          onProgress: (frac) =>
+            setProgress(`Uploading ${i + 1}/${files.length}: ${file.name}... ${Math.round(frac * 100)}%`),
         })
-        if (!dbxRes.ok) throw new Error(`Upload failed for ${file.name}: ${await dbxRes.text()}`)
-        const result = await dbxRes.json()
         completed.push({ name: file.name, path: result.path_display, size: file.size })
       }
 
