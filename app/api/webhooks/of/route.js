@@ -134,7 +134,36 @@ async function handleNewTransaction(accountId, t) {
   await insertRowsAtTop(sheets, tabName, [row])
   const dt = new Date(dateTimeEt.replace(' ', 'T') + ':00')
   if (!isNaN(dt)) await updateCutoffBanner(sheets, tabName, dt)
+  await stampCoverageEnd(acct.accountName).catch(() => {})
   console.log(`[of-webhook] ✓ wrote ${tabName}: ${displayName} net $${net} @ ${dateTimeEt}`)
+}
+
+// Keep the invoicing UI's "Last upload / covered to" honest: webhook writes
+// keep the sheet current, so stamp earnings End + Last Upload as data lands
+// (throttled to once an hour per account — not one Airtable PATCH per sale).
+const COVERAGE_STAMPED = new Map() // accountName -> ts
+async function stampCoverageEnd(accountName) {
+  const last = COVERAGE_STAMPED.get(accountName) || 0
+  if (Date.now() - last < 3600000) return
+  COVERAGE_STAMPED.set(accountName, Date.now())
+  const HQ_BASE = 'appL7c4Wtotpz07KS'
+  const RA_TABLE = 'tblQqPWlsjiyJA0ba'
+  const F = { earningsEnd: 'fldZtO52nDZXKY0R7', earningsLastUpload: 'fldxD7iDFZHWttC9n' }
+  const params = new URLSearchParams()
+  params.append('filterByFormula', `{Account Name} = '${String(accountName).replace(/'/g, "\\'")}'`)
+  params.append('pageSize', '1')
+  const res = await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${RA_TABLE}?${params}`, {
+    headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` },
+  })
+  if (!res.ok) return
+  const record = (await res.json()).records?.[0]
+  if (!record) return
+  const nowIso = new Date().toISOString()
+  await fetch(`https://api.airtable.com/v0/${HQ_BASE}/${RA_TABLE}/${record.id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { [F.earningsEnd]: nowIso.split('T')[0], [F.earningsLastUpload]: nowIso } }),
+  })
 }
 
 // ── fan tracker auto-update from fanData (zero credits, real-time) ──────────
