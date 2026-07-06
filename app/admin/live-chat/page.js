@@ -53,9 +53,15 @@ export default function LiveChatPage() {
         setStream((prev) => {
           const seen = new Map(prev.map((e) => [`${e.aka}-${e.id}`, e]))
           for (const e of d.stream || []) seen.set(`${e.aka}-${e.id}`, e)
-          return [...seen.values()]
+          const all = [...seen.values()]
             .filter((e) => !mutedKeys.current.has(`${e.account}|${e.fan?.username || e.fan?.name || ''}`))
-            .sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 250)
+            .sort((a, b) => (b.at || '').localeCompare(a.at || ''))
+          // Sales survive the cap separately — high message volume would
+          // otherwise push every sale out and empty the Sales tab.
+          return [
+            ...all.filter((e) => e.dir !== 'sale').slice(0, 250),
+            ...all.filter((e) => e.dir === 'sale').slice(0, 100),
+          ].sort((a, b) => (b.at || '').localeCompare(a.at || ''))
         })
         setLastPoll(new Date())
       })

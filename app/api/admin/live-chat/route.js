@@ -72,9 +72,20 @@ export async function GET(request) {
         const keep = (e) => !mutedSet.has(e.fan?.username || e.fan?.name || '')
         const evs = byAccount[a.account] || LAST_GOOD.get(a.account) || []
         if (byAccount[a.account]) LAST_GOOD.set(a.account, evs)
-        return evs.filter(keep).slice(0, 60).map((e) => ({ ...e, aka: a.aka, account: a.account }))
+        // Sales get their own lane through every cap: they're ~3/hour vs
+        // ~170 messages/hour, so a shared newest-N slice starves them and
+        // the Sales tab sits empty.
+        const kept = evs.filter(keep)
+        const recent = kept.slice(0, 60)
+        const ids = new Set(recent.map((e) => String(e.id)))
+        const sales = kept.filter((e) => e.dir === 'sale' && !ids.has(String(e.id))).slice(0, 30)
+        return [...recent, ...sales].map((e) => ({ ...e, aka: a.aka, account: a.account }))
       }))
-      const stream = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 150)
+      const flat = chunks.flat().sort((a, b) => (b.at || '').localeCompare(a.at || ''))
+      const stream = [
+        ...flat.filter((e) => e.dir !== 'sale').slice(0, 150),
+        ...flat.filter((e) => e.dir === 'sale').slice(0, 100),
+      ].sort((a, b) => (b.at || '').localeCompare(a.at || ''))
       STREAM_CACHE.at = Date.now()
       STREAM_CACHE.data = stream
       return NextResponse.json({ accounts, stream })
