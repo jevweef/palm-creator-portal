@@ -38,21 +38,22 @@ export async function POST(request) {
     const creator = await creatorRes.json()
     const creatorName = creator.fields['Creator'] || ''
 
-    // Find onboarding record for Dropbox path
-    const nameFilter = encodeURIComponent(`FIND("${creatorName}", {Creator})`)
-    const onboardingRes = await fetch(
-      `https://api.airtable.com/v0/${HQ_BASE}/${HQ_ONBOARDING}?filterByFormula=${nameFilter}&maxRecords=1`,
-      { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
-    )
-    if (!onboardingRes.ok) throw new Error('Failed to fetch onboarding record')
-    const onboarding = await onboardingRes.json()
-
-    if (!onboarding.records?.length) {
-      throw new Error('No onboarding record found')
-    }
-
-    const rootPath = onboarding.records[0].fields['Dropbox Creator Root Path']
-    if (!rootPath) throw new Error('No Dropbox root path configured')
+    // Find the onboarding record for the creator's Dropbox root path. This is
+    // NON-FATAL: only UploadModal (my-content) needs uploadFolder — the
+    // content-request uploader builds its own /Vault Content path. A creator
+    // without an onboarding record must still be able to upload there.
+    let rootPath = null
+    try {
+      const nameFilter = encodeURIComponent(`FIND("${creatorName}", {Creator})`)
+      const onboardingRes = await fetch(
+        `https://api.airtable.com/v0/${HQ_BASE}/${HQ_ONBOARDING}?filterByFormula=${nameFilter}&maxRecords=1`,
+        { headers: { Authorization: `Bearer ${AIRTABLE_PAT}` }, cache: 'no-store' }
+      )
+      if (onboardingRes.ok) {
+        const onboarding = await onboardingRes.json()
+        rootPath = onboarding.records?.[0]?.fields?.['Dropbox Creator Root Path'] || null
+      }
+    } catch { /* consumers that need uploadFolder handle null */ }
 
     // Get Dropbox access token and namespace
     const accessToken = await getDropboxAccessToken()
@@ -64,7 +65,7 @@ export async function POST(request) {
       accessToken,
       rootNamespaceId,
       rootPath,
-      uploadFolder: `${rootPath}/Social Media/20_NEEDS_EDIT`,
+      uploadFolder: rootPath ? `${rootPath}/Social Media/20_NEEDS_EDIT` : null,
       creatorName: aka,
     })
   } catch (err) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { uploadFileToDropbox } from '@/lib/dropboxUpload'
 
 export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose, onSuccess, replaceAssetId }) {
   const [files, setFiles] = useState([])
@@ -103,6 +104,9 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
       }
 
       const { accessToken, rootNamespaceId, uploadFolder, creatorName } = await tokenRes.json()
+      if (!uploadFolder) {
+        throw new Error('No Dropbox folder is configured for this creator yet — contact your manager.')
+      }
 
       // Build file names: {InspoTitle}_{CreatorName}_{timestamp}_{fileNumber}.ext
       const titleSlug = slugify(record.title || 'untitled')
@@ -121,31 +125,18 @@ export default function UploadModal({ record, creatorOpsId, creatorHqId, onClose
 
         setProgress(`Uploading ${i + 1} of ${files.length}: ${newName}...`)
 
-        const buffer = await file.arrayBuffer()
         const filePath = `${uploadFolder}/${newName}`
 
-        const dbxRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Dropbox-API-Arg': JSON.stringify({
-              path: filePath,
-              mode: 'add',
-              autorename: true,
-              mute: true,
-            }),
-            'Dropbox-API-Path-Root': pathRoot,
-            'Content-Type': 'application/octet-stream',
-          },
-          body: buffer,
+        // Chunked, retrying, any-size uploader (lib/dropboxUpload) — streams the
+        // file without buffering it in memory and has no 150 MB ceiling.
+        const result = await uploadFileToDropbox({
+          file,
+          path: filePath,
+          accessToken,
+          pathRoot,
+          onProgress: (frac) =>
+            setProgress(`Uploading ${i + 1} of ${files.length}: ${newName}... ${Math.round(frac * 100)}%`),
         })
-
-        if (!dbxRes.ok) {
-          const errText = await dbxRes.text()
-          throw new Error(`Dropbox upload failed for ${newName}: ${errText}`)
-        }
-
-        const result = await dbxRes.json()
 
         // Create shared link for the uploaded file
         let sharedLink = ''
