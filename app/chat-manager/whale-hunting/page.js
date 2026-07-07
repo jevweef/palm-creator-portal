@@ -28,7 +28,14 @@ export default function ChatManagerWhaleHunting() {
   const [fanFull, setFanFull] = useState({}) // fanKey -> {fan, txns} | 'loading' | null
 
   useEffect(() => {
-    fetch('/api/chat-team/watchlist', { cache: 'no-store' })
+    // Admin "View As <chat manager>" uses the same localStorage contract as
+    // the photo library — pass it through so team scoping matches.
+    let viewAs = ''
+    try {
+      const raw = window.localStorage.getItem('superadmin_chatManager')
+      viewAs = raw ? (JSON.parse(raw)?.id || '') : ''
+    } catch { /* none */ }
+    fetch(`/api/chat-team/watchlist${viewAs ? `?viewAsUserId=${encodeURIComponent(viewAs)}` : ''}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => { if (d.error) setError(d.error); else setData(d) })
       .catch((e) => setError(e.message))
