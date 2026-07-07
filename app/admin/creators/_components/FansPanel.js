@@ -2158,6 +2158,10 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
           f.analysisRecords = c.analysisRecords
           if (f.alertStatus === 'None') f.alertStatus = 'Fan Analyzed'
         }
+        // The tracker's Lifetime Spend is fed by OF's own fanData total (via
+        // webhook) and the audit — it sees money our sheet buckets miss when a
+        // fan's rename-split rows lack a username. Take the higher figure.
+        if ((c.lifetimeSpend || 0) > f.lifetimeSpend) f.lifetimeSpend = c.lifetimeSpend
         f.effectiveness = c.effectiveness || f.effectiveness
         f.preAlertSpend30d = c.preAlertSpend30d || f.preAlertSpend30d
         f.postAlertSpend30d = c.postAlertSpend30d || f.postAlertSpend30d
