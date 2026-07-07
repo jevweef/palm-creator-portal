@@ -15,7 +15,7 @@ export default function Header() {
   const isAiEditor = role === 'ai_editor'
   const isEditorPath = pathname?.startsWith('/editor')
   const isCreatorPath = pathname?.startsWith('/creator')
-  const isChatWallPath = pathname?.startsWith('/photo-library')
+  const isChatWallPath = pathname?.startsWith('/photo-library') || pathname?.startsWith('/chat-manager')
   // Like isEditorPath above — keep AI editor nav scoped to the route so
   // admins (and super admins viewing-as via SuperAdminBar) see the same
   // single-link nav a real ai_editor sees when they're on /ai-editor,
