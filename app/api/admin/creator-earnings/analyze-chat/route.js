@@ -441,7 +441,7 @@ export async function POST(request) {
     }
 
     if (parsed.messageCount === 0) {
-      return Response.json({ error: 'No messages found' }, { status: 400 })
+      return Response.json({ error: 'No messages to analyze yet — if his history export is still running at OF, give it a few minutes and click Pull from OF again (it attaches to the same export, no double charge).' }, { status: 400 })
     }
 
     // Save transcript to Dropbox only (no AI analysis)
