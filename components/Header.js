@@ -134,7 +134,7 @@ export default function Header() {
               </Link>
               <Link href="/my-content" style={linkStyle(pathname === '/my-content')}>My Content</Link>
               <Link href="/inspo" style={linkStyle(pathname === '/inspo')}>Inspo Board</Link>
-              {isAdmin && (
+              {(isAdmin || role === 'creator') && (
                 <Link href="/content-request" style={linkStyle(pathname === '/content-request')}>Content Request</Link>
               )}
               {isAdmin && (
