@@ -305,6 +305,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           creatorRecordId: creatorRecordId || '',
           fanUsername: f.ofUsername || '',
           fanName: f.fanName || '',
+          fanId: f.fanId || '',
           lifetime: f.lifetimeSpend || 0,
           ...(opts.confirmBig ? { confirmBig: true } : {}),
           ...(opts.acceptPartial ? { acceptPartial: true } : {}),
@@ -1015,7 +1016,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   {pullingOf ? 'Loading…' : 'Load archived chat (0 credits)'}
                 </button>
               )}
-              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+              {(f.ofUsername || f.fanId || f.fanName) && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
                 style={{
                   background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
@@ -2178,8 +2179,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   // history (no competing 'Going Cold'/'Dead' from the legacy detectors).
   const allFans = useMemo(() => {
     if (!auditTiers || !Object.keys(auditTiers).length) return allFansBase
-    return allFansBase.map((f) => {
-      const cad = auditTiers[(f.ofUsername || f.fanName || '').toLowerCase()]
+    return allFansBase.map((fBase) => {
+      const cad = auditTiers[(fBase.ofUsername || fBase.fanName || '').toLowerCase()]
+      // Carry the OF fan id from the audit (sheet column J) — dormant/deleted
+      // fans often have no username, and the id lets Pull from OF work anyway.
+      const f = cad?.fanId && !fBase.fanId ? { ...fBase, fanId: cad.fanId } : fBase
       if (!cad?.tier) {
         return (f.heatStatus === 'Going Cold' || f.heatStatus === 'Dead')
           ? { ...f, heatStatus: 'Stable', heatDetail: null, goingCold: null }
