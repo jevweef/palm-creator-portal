@@ -1023,7 +1023,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                 }}>
                 {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
-              {ofPull && !chatFile && (
+              {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
+                <span style={{ fontSize: '11px', color: '#E8C878' }}>
+                  Nothing to analyze yet — his history export is still building at OF. Pull again in a few minutes (attaches to the same export, no double charge).
+                </span>
+              )}
+              {ofPull && !chatFile && ofPull.messageCount > 0 && (
                 <>
                   <span style={{ fontSize: '11px', color: '#A06FE8' }}>
                     ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
