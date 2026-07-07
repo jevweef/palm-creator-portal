@@ -122,10 +122,15 @@ export async function POST(request) {
         })
       }
 
-      // Usernames from fan_ids (mass endpoint, 10 per call)
+      // Usernames from fan_ids (mass endpoint, 10 per call) — TIME-BOXED:
+      // thousands of backfilled fans = hundreds of lookup calls, which blew
+      // the function window (Taby 2y, 2026-07-07). Stop at the deadline and
+      // leave the rest blank (same as deleted accounts).
+      const lookupDeadline = Date.now() + 90000
       const fanIds = [...new Set(txns.map((t) => t.fanId).filter(Boolean))]
       const userMap = {}
       for (let i = 0; i < fanIds.length; i += 10) {
+        if (Date.now() > lookupDeadline) { console.warn(`[backfill] username lookups time-boxed at ${i}/${fanIds.length}`); break }
         try {
           const json = await ofApi(`/${ofAccountId}/users/list?ids=${fanIds.slice(i, i + 10).join(',')}`)
           const users = json?.data ?? json ?? []
