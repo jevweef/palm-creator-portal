@@ -156,7 +156,7 @@ export async function POST(request) {
     } else {
       fan = await resolveFanId(accountId, { username: fanUsername, name: fanName })
       if (!fan) {
-        return NextResponse.json({ error: `Couldn't find fan "${fanUsername || fanName}" on this OF account` }, { status: 404 })
+        return NextResponse.json({ error: `Couldn't find "${fanUsername || fanName}" on this OF account${fanUsername ? ' — a 404 on a known @username almost always means he DELETED his OF account (his chat is gone with it)' : ' — he may have been renamed; try pulling from his fan card after a fresh audit'}` }, { status: 404 })
       }
     }
 
