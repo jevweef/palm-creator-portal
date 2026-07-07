@@ -157,7 +157,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     if (!isExpanded || !creatorRecordId || (!f.ofUsername && !f.fanName)) return
     fetch(`/api/admin/creator-earnings/pull-chat?creatorRecordId=${encodeURIComponent(creatorRecordId)}&fanUsername=${encodeURIComponent(f.ofUsername || '')}&fanName=${encodeURIComponent(f.fanName || '')}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setArchiveMeta(d?.archive || null))
+      .then((d) => {
+        setArchiveMeta(d?.archive || null)
+        // PRE-LOAD: when a saved chat exists, load it into the modal
+        // automatically (0 credits) so Analyze is one click away — no hunting
+        // for a Load button (Evan, 2026-07-07).
+        if (d?.archive?.totalStored > 0) handleLoadArchive()
+      })
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, f.id])
