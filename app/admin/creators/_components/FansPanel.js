@@ -2064,8 +2064,13 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         if (t.displayName) fan.fanName = t.displayName
         if (!fan.ofUsername && t.ofUsername) fan.ofUsername = t.ofUsername
         if (t.account) fan.accounts.add(t.account)
-        // Only count real purchases toward spend/cadence/heat math
-        if (!isReal) continue
+        // Paid subs are real money — count toward LIFETIME (matches the whale
+        // audit, which is why the Save List said $1,301 while this said $275)
+        // but never toward cadence/heat math (renewals are passive).
+        if (!isReal) {
+          if (!/chargeback/i.test(t.type || '') && (t.net || 0) > 0) fan.lifetimeSpend += t.net || 0
+          continue
+        }
         fan.lifetimeSpend += t.net || 0
         fan.txnCount += 1
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
