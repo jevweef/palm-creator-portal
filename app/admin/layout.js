@@ -40,8 +40,8 @@ const ADMIN_NAV = [
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
-  // Same page the chat managers see (role-gated web view of all analyses)
-  { href: '/chat-team', label: 'Team Analyses', icon: '📖' },
+  // Same view the chat managers see (analyses tab inside their photo-library login)
+  { href: '/photo-library?tab=analyses', label: 'Team Analyses', icon: '📖' },
   { href: '/admin/live-chat', label: 'Live Chat', icon: '💬' },
   // Research — OFM competitive-intelligence briefs (how other agencies operate,
   // synthesized from their YouTube content, compared to how Palm works). Fed by
