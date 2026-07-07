@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { isRealPurchase, parseChatHtmlClient } from '../_lib/parsers'
 
 // ── Fans CRM Panel ──────────────────────────────────────────────────────────
@@ -16,12 +17,28 @@ function getClientAccountKey(accountName) {
   return slug || null
 }
 
-function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts }) {
+// House date style: "Jan 1, 25" (3-letter month, day, 2-digit year).
+// Month-only values ("2026-04") render as "Apr'26" (chart style).
+function fmtD(v) {
+  if (!v) return '—'
+  const str = String(v)
+  if (/^\d{4}-\d{2}$/.test(str)) {
+    const d = new Date(str + '-15T12:00:00')
+    return isNaN(d) ? str : d.toLocaleDateString('en-US', { month: 'short' }) + "'" + str.slice(2, 4)
+  }
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(str) ? str + 'T12:00:00' : str)
+  if (isNaN(d)) return str
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
+function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal }) {
   const [chatFile, setChatFile] = useState(null)
   // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
   // client-side HTML parse; feeds the identical analyze flow.
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
+  const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
+  const [bigPull, setBigPull] = useState(null) // {credits, messages} — cost gate awaiting a decision
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
   // null for single-account fans (whose uploads don't need an account tag).
   const [uploadAccountName, setUploadAccountName] = useState(null)
@@ -43,7 +60,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   const [previewLoading, setPreviewLoading] = useState(false)
   const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0)
   const [chartMode, setChartMode] = useState('monthly') // 'daily' | 'monthly'
-  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [showAllHistory, setShowAllHistory] = useState(true) // full history by default (per Evan)
   const [splitByAccount, setSplitByAccount] = useState(false)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [savingTranscript, setSavingTranscript] = useState(false)
@@ -133,6 +150,31 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     return { fanSpendData: filled, monthlySpendData: allMonths, perAccountMonthly: perMonthly, perAccountDaily: perDaily, accountNames: acctNames }
   }, [allTxns, f.ofUsername, f.fanName])
 
+  // Durable "last pulled from OF" — read from the fan's Dropbox archive so it
+  // survives sessions/devices (button state doesn't).
+  useEffect(() => {
+    if (!isExpanded || !creatorRecordId || (!f.ofUsername && !f.fanName)) return
+    fetch(`/api/admin/creator-earnings/pull-chat?creatorRecordId=${encodeURIComponent(creatorRecordId)}&fanUsername=${encodeURIComponent(f.ofUsername || '')}&fanName=${encodeURIComponent(f.fanName || '')}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setArchiveMeta(d?.archive || null))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded, f.id])
+
+  async function handleLoadArchive() {
+    setPullingOf(true); setAnalysisError(null)
+    try {
+      const res = await fetch('/api/admin/creator-earnings/pull-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fromArchive: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Load failed')
+      setOfPull({ ...data.parsed, newMessages: 0, credits: 0 })
+      setChatFile(null)
+    } catch (e) { setAnalysisError(e.message) } finally { setPullingOf(false) }
+  }
+
   // Milestone dates from alert history and analyses
   const milestones = useMemo(() => {
     const m = []
@@ -186,6 +228,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     formData.append('fanName', f.fanName)
     formData.append('fanUsername', f.ofUsername || '')
     formData.append('lifetime', f.lifetimeSpend || 0)
+    if (f.liveSignals) formData.append('liveSignals', JSON.stringify(f.liveSignals))
     if (f.goingCold) {
       formData.append('medianGap', f.goingCold.medianGap || 0)
       formData.append('currentGap', f.goingCold.currentGap || 0)
@@ -249,10 +292,11 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
 
   // Pull this fan's chat straight from OF (read-only, ~1 credit per 100 msgs).
   // Result feeds the exact same analyze flow as an HTML upload.
-  async function handlePullFromOf() {
+  async function handlePullFromOf(opts = {}) {
     setPullingOf(true)
     setAnalysisError(null)
     setOfPull(null)
+    setBigPull(null)
     try {
       const res = await fetch('/api/admin/creator-earnings/pull-chat', {
         method: 'POST',
@@ -261,11 +305,18 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           creatorRecordId: creatorRecordId || '',
           fanUsername: f.ofUsername || '',
           fanName: f.fanName || '',
+          lifetime: f.lifetimeSpend || 0,
+          ...(opts.confirmBig ? { confirmBig: true } : {}),
+          ...(opts.acceptPartial ? { acceptPartial: true } : {}),
         }),
       })
       const data = await res.json()
+      if (res.status === 402 && data.needsConfirm) {
+        setBigPull({ credits: data.estimatedCredits, messages: data.estimatedMessages })
+        return
+      }
       if (!res.ok) throw new Error(data.error || 'Pull failed')
-      setOfPull(data.parsed)
+      setOfPull({ ...data.parsed, newMessages: data.newMessages, credits: data.credits, historyComplete: data.historyComplete })
       setChatFile(null) // OF pull replaces any picked file
     } catch (e) {
       setAnalysisError(e.message)
@@ -586,11 +637,12 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   }
 
   return (
-    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-      <div
+    <div id={`fanrow-${f.id}`} style={{ borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+      {!inModal && <div
+        data-kbrow
         onClick={onToggle}
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px',
+          display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 80px 90px',
           padding: '8px 16px', fontSize: '12px', cursor: 'pointer',
           background: isExpanded ? 'rgba(232, 200, 120, 0.05)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
         }}
@@ -608,7 +660,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               return (
                 <span key={acct} style={{
                   fontSize: '8px', fontWeight: 600, marginLeft: '4px', padding: '1px 5px', borderRadius: '3px',
-                  background: isFree ? '#DBEAFE' : 'rgba(167, 139, 250, 0.1)', color: isFree ? '#1D4ED8' : '#A78BFA',
+                  background: isFree ? 'rgba(59,130,246,0.12)' : 'rgba(167, 139, 250, 0.1)', color: isFree ? '#78B4E8' : '#A78BFA',
                 }}>{acct}</span>
               )
             })
@@ -616,21 +668,24 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           {f.alertCount > 0 && <span style={{ fontSize: '9px', color: 'var(--foreground-muted)', marginLeft: '6px' }}>{f.alertCount} alert{f.alertCount !== 1 ? 's' : ''}</span>}
         </div>
         <span title={heat.label} style={{ fontSize: '14px', lineHeight: '20px', textAlign: 'center' }}>{heat.emoji}</span>
-        <span>{f.alertStatus !== 'None' && (
+        <span>{(f.heatStatus === 'Going Cold' && urgency) ? (
+          <span style={{ background: (URGENCY_COLORS[urgency] || {}).bg, color: (URGENCY_COLORS[urgency] || {}).text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' }}>
+            {urgency}
+          </span>
+        ) : f.alertStatus !== 'None' && (
           <span style={{ background: ac.bg, color: ac.text, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600 }}>
-            {f.alertStatus === 'Alert Triggered' && urgency
-              ? `${urgency.toUpperCase()}`
-              : f.alertStatus}
+            {f.alertStatus}
           </span>
         )}</span>
         <span style={{ textAlign: 'right', fontWeight: 600, color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeSpend)}</span>
+        <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }} title="Average spend per month over the last 6 months — the consistent-whale stat">{fmtMoney((f.last180 || 0) / 6)}</span>
         <span style={{ textAlign: 'right', color: f.last30 === 0 ? '#E87878' : 'rgba(240, 236, 232, 0.75)', fontWeight: f.last30 === 0 && f.lifetimeSpend > 100 ? 600 : 400 }}>{fmtMoney(f.last30)}</span>
         <span style={{ textAlign: 'right', color: 'rgba(240, 236, 232, 0.75)' }}>{f.txnCount || 0}</span>
         <span style={{ textAlign: 'right', color: 'var(--foreground-muted)', fontSize: '11px' }}>{f.lastDate || '—'}</span>
-      </div>
+      </div>}
 
       {isExpanded && (
-        <div style={{ padding: '12px 16px 16px 40px', background: 'rgba(232, 200, 120, 0.05)' }}>
+        <div style={{ padding: '14px 16px 18px 40px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
 
           {/* ═══ SECTION 1: Fan Info Header ═══ */}
           <div style={{ marginBottom: '16px' }}>
@@ -639,14 +694,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               <div style={{
                 marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
                 display: 'flex', gap: '6px', alignItems: 'flex-start', flexDirection: 'column',
-                background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : '#FFF7ED',
-                border: `1px solid ${f.heatStatus === 'Dead' ? '#D1D5DB' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
-                color: f.heatStatus === 'Dead' ? '#374151' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
+                background: f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.08)' : 'rgba(232, 168, 120, 0.08)',
+                border: `1px solid ${f.heatStatus === 'Dead' ? 'rgba(255,255,255,0.1)' : f.heatStatus === 'Going Cold' ? 'rgba(232, 120, 120, 0.2)' : 'rgba(232, 168, 120, 0.15)'}`,
+                color: f.heatStatus === 'Dead' ? 'var(--foreground-muted)' : f.heatStatus === 'Going Cold' ? '#E87878' : '#E8A878',
               }}>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '14px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
-                  <strong>{f.heatStatus}</strong>
-                  <span>{f.heatDetail.reason}</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '15px' }}>{(HEAT_CONFIG[f.heatStatus] || {}).emoji}</span>
+                  <strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{f.heatStatus}</strong>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>{f.heatDetail.reason}</span>
                 </div>
                 {f.heatDetail.peakMonth && (
                   <div style={{ fontSize: '10px', opacity: 0.85 }}>
@@ -663,386 +718,419 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
 
-            {/* Stats grid */}
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              {/* Lifetime — inline editable. Override used in PDF/Telegram; computed shown as faded secondary when override active. */}
-              <div>
-                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  Lifetime
-                  {f.lifetimeOverride > 0 && (
-                    <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: 'rgba(232, 200, 120, 0.1)', color: '#E8A878', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
-                  )}
-                </div>
-                {editingLifetime ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--foreground)' }}>$</span>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={lifetimeDraft}
-                      onChange={e => setLifetimeDraft(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
-                        if (e.key === 'Escape') setEditingLifetime(false)
-                      }}
-                      placeholder="blank to clear"
-                      disabled={savingLifetime}
-                      style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px' }}
-                    />
-                    <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
-                      {savingLifetime ? '…' : 'Save'}
-                    </button>
-                    <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
-                      style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
-                    title="Click to set a manual lifetime override (used on the Telegram PDF when the actual OF lifetime is higher than what earnings data shows)"
-                    style={{ fontSize: '12px', color: 'var(--foreground)', cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
-                    onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
-                    onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}
-                  >
-                    <strong>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
-                    {f.lifetimeOverride > 0 && (
-                      <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+            {/* Stats grid — grouped rows: Money / Timeline / Alerts, one date style */}
+            {(() => {
+              const mo = (monthlySpendData || []).map((d) => d.spend || 0)
+              const labels = (monthlySpendData || []).map((d) => d.month || d.date || '')
+              let peakI = -1
+              mo.forEach((v, idx) => { if (peakI < 0 || v > mo[peakI]) peakI = idx })
+              const win = Math.min(6, mo.length)
+              let best6 = 0
+              for (let idx = 0; win > 0 && idx + win <= mo.length; idx++) {
+                const avg = mo.slice(idx, idx + win).reduce((a, b) => a + b, 0) / win
+                if (avg > best6) best6 = avg
+              }
+              const over500 = mo.filter((v) => v >= 500).length
+              const hd = f.heatDetail
+              const last30 = hd ? hd.rolling30 : f.last30
+              const cellLabel = { fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', whiteSpace: 'nowrap' }
+              const cellVal = { fontSize: '13px', color: 'var(--foreground)', whiteSpace: 'nowrap' }
+              const groupTag = { fontSize: '9px', fontWeight: 700, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.08em', width: '62px', flexShrink: 0, paddingBottom: '3px' }
+              const groupRow = { display: 'flex', gap: '8px 26px', flexWrap: 'wrap', alignItems: 'flex-end', padding: '7px 0' }
+              return (
+                <div style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px 14px' }}>
+
+                  {/* ── MONEY ── */}
+                  <div style={groupRow}>
+                    <div style={groupTag}>Money</div>
+                    <div>
+                      <div style={{ ...cellLabel, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Lifetime
+                        {f.lifetimeOverride > 0 && (
+                          <span title="Manual override in effect — used on the Telegram PDF" style={{ fontSize: '8px', background: 'rgba(232, 200, 120, 0.1)', color: '#E8A878', padding: '0 4px', borderRadius: '3px', fontWeight: 700 }}>OVERRIDE</span>
+                        )}
+                      </div>
+                      {editingLifetime ? (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--foreground)' }}>$</span>
+                          <input
+                            type="text" autoFocus value={lifetimeDraft}
+                            onChange={e => setLifetimeDraft(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveLifetimeOverride(lifetimeDraft)
+                              if (e.key === 'Escape') setEditingLifetime(false)
+                            }}
+                            placeholder="blank to clear" disabled={savingLifetime}
+                            style={{ width: '80px', fontSize: '12px', padding: '2px 4px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px' }} />
+                          <button onClick={() => saveLifetimeOverride(lifetimeDraft)} disabled={savingLifetime}
+                            style={{ fontSize: '10px', padding: '2px 6px', border: 'none', background: '#7DD3A4', color: 'var(--foreground)', borderRadius: '3px', cursor: 'pointer' }}>
+                            {savingLifetime ? '…' : 'Save'}
+                          </button>
+                          <button onClick={() => setEditingLifetime(false)} disabled={savingLifetime}
+                            style={{ fontSize: '10px', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.08)', background: 'var(--card-bg-solid)', borderRadius: '3px', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
+                          title="Click to set a manual lifetime override (used on the Telegram PDF)"
+                          style={{ cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
+                          onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
+                          onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                          <strong style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--foreground)' }}>{fmtMoney(f.lifetimeOverride > 0 ? f.lifetimeOverride : f.lifetimeSpend)}</strong>
+                          {f.lifetimeOverride > 0 && (
+                            <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>{fmtMoney(f.lifetimeSpend)}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={cellLabel}>Last 30d</div>
+                      <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: hd && (hd.rolling30 || 0) < (hd.monthlyAvg90 || 0) * 0.5 ? '#E87878' : '#7DD3A4' }}>
+                        {fmtMoney(last30)}{hd ? <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}> vs {fmtMoney(hd.monthlyAvg90)}/mo avg</span> : null}
+                      </div>
+                    </div>
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>90d avg/mo</div>
+                        <div style={cellVal}>{fmtMoney(hd.monthlyAvg90)}</div>
+                      </div>
+                    )}
+                    {mo.length > 0 && (
+                      <div>
+                        <div style={cellLabel} title="avg $/mo across his hottest 6-month stretch">Best 6-mo avg</div>
+                        <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(best6)}/mo</div>
+                      </div>
+                    )}
+                    {peakI >= 0 && (
+                      <div>
+                        <div style={cellLabel}>Peak month</div>
+                        <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(mo[peakI])} <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>{fmtD(labels[peakI])}</span></div>
+                      </div>
+                    )}
+                    {mo.length > 0 && (
+                      <div>
+                        <div style={cellLabel} title="months where he spent $500+">$500+ months</div>
+                        <div style={{ ...cellVal, fontWeight: 600, color: over500 >= 3 ? '#7DD3A4' : 'var(--foreground)' }}>{over500}</div>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              {f.firstDate && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Purchase</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.firstDate}</div>
-                </div>
-              )}
-              {f.heatDetail && (
-                <>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last Purchase</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.heatDetail.lastPurchase}</div>
+
+                  {/* ── TIMELINE ── */}
+                  <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={groupTag}>Timeline</div>
+                    {f.firstDate && (
+                      <div>
+                        <div style={cellLabel}>First buy</div>
+                        <div style={cellVal}>{fmtD(f.firstDate)}</div>
+                      </div>
+                    )}
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>Last buy</div>
+                        <div style={cellVal}>{fmtD(hd.lastPurchase)}</div>
+                      </div>
+                    )}
+                    {hd && (
+                      <div>
+                        <div style={cellLabel}>Silent</div>
+                        <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: '#E87878' }}>{hd.currentGap}d <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs ~{hd.medianGap}d rhythm</span></div>
+                      </div>
+                    )}
+                    <div>
+                      <div style={cellLabel}>Sessions</div>
+                      <div style={cellVal}>{f.txnCount || 0}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Gap</div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#E87878' }}>{f.heatDetail.currentGap}d <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>({f.heatDetail.medianGap}d median)</span></div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Last 30d</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.rolling30)}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>90d Avg/mo</div>
-                    <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtMoney(f.heatDetail.monthlyAvg90)}</div>
-                  </div>
-                </>
-              )}
-              {f.firstFlagged && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>First Flagged</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{fmtDate(f.firstFlagged)}</div>
+
+                  {/* ── ALERTS ── */}
+                  {(f.firstFlagged || f.timesGoneCold > 0 || f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+                    <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={groupTag}>Alerts</div>
+                      {f.firstFlagged && (
+                        <div>
+                          <div style={cellLabel}>First flagged</div>
+                          <div style={cellVal}>{fmtD(f.firstFlagged)}</div>
+                        </div>
+                      )}
+                      {f.timesGoneCold > 0 && (
+                        <div>
+                          <div style={cellLabel}>Times gone cold</div>
+                          <div style={cellVal}>{f.timesGoneCold}</div>
+                        </div>
+                      )}
+                      {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
+                        <div>
+                          <div style={cellLabel}>Post-alert 30d</div>
+                          <div style={{ ...cellVal, fontWeight: 600, color: f.postAlertSpend30d > f.preAlertSpend30d ? '#7DD3A4' : '#E87878' }}>{fmtMoney(f.postAlertSpend30d)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-              {f.timesGoneCold > 0 && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Times Gone Cold</div>
-                  <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.timesGoneCold}</div>
-                </div>
-              )}
-              {(f.preAlertSpend30d > 0 || f.postAlertSpend30d > 0) && (
-                <div>
-                  <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Post-Alert 30d</div>
-                  <div style={{ fontSize: '12px', color: f.postAlertSpend30d > f.preAlertSpend30d ? '#7DD3A4' : '#E87878', fontWeight: 600 }}>{fmtMoney(f.postAlertSpend30d)}</div>
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px' }}>Total Purchases</div>
-                <div style={{ fontSize: '12px', color: 'var(--foreground)' }}>{f.txnCount || 0} sessions</div>
-              </div>
-            </div>
+              )
+            })()}
           </div>
 
-          {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
-          {(fanSpendData || monthlySpendData) && (() => {
-            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-            const VW = 900, H = 150, padL = 50, padR = 30, padT = 16, padB = 24
-            const chartW = VW - padL - padR, chartH = H - padT - padB
-            const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
+          {/* ═══ SECTION 4: Upload New Chat ═══ */}
+          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              {inModal ? <>Analyze Chat — {f.fanName}</> : <>Upload Chat for {f.fanName}</>}
+            </div>
 
-            const allMonthly = monthlySpendData || []
-            const defaultMonthly = allMonthly.length > 7 ? allMonthly.slice(-7) : allMonthly
-            const visibleMonthly = showAllHistory ? allMonthly : defaultMonthly
-            const canExpandMonthly = allMonthly.length > 7
-            const startMonth = visibleMonthly.length > 0 ? visibleMonthly[0].month : null
-            const allDaily = fanSpendData || []
-            const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
-
-            // Shared y-axis scale across both charts with round tick numbers
-            const monthlyMax = visibleMonthly.length > 0 ? Math.max(...visibleMonthly.map(d => d.spend)) : 0
-            const dailyMax = visibleDaily.length > 0 ? Math.max(...visibleDaily.map(d => d.spend)) : 0
-            const rawMax = Math.max(monthlyMax, dailyMax, 1)
-            // Round up to a nice number
-            const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)))
-            const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
-            const sharedMax = niceSteps.map(s => s * magnitude).find(s => s >= rawMax) || rawMax
-            const sharedTicks = [0, Math.round(sharedMax / 2), Math.round(sharedMax)]
-
-            const headerRow = (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
-                  {canExpandMonthly && (
-                    <button onClick={() => setShowAllHistory(!showAllHistory)}
-                      style={{ fontSize: '10px', color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
-                      {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
-                    </button>
-                  )}
+            {/* Scroll-back hint — HTML-flow only, hidden in the modal */}
+            {!inModal && (() => {
+              const mostRecent = f.analysisRecords?.[0]
+              const lastDate = mostRecent?.lastMessageDate
+              if (lastDate) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
+                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
                 </div>
-                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
-                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
+              )
+              if (f.analysisRecords?.length > 0) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
+                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
                 </div>
-                {accountNames.length > 1 && (
-                  <button onClick={() => setSplitByAccount(!splitByAccount)}
-                    style={{
-                      padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
-                      borderRadius: '4px', background: splitByAccount ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: splitByAccount ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)',
-                    }}>
-                    Split by account
+              )
+              return null
+            })()}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input ref={chatFileRef} type="file" accept=".html,.htm"
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setAnalysisError(null)
+                  if (accountNames.length > 1 && uploadAccountName) {
+                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
+                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
+                    handleAccountUpload(uploadAccountName, file)
+                  } else {
+                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
+                    setChatFile(file)
+                  }
+                  e.target.value = '' // allow re-selecting the same filename
+                }}
+                style={{ display: 'none' }} />
+
+              {!inModal && (accountNames.length > 1 ? (
+                // Multi-account fan: one button per account, color-coded to match the badges.
+                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
+                <>
+                  {accountNames.map(acct => {
+                    const isFree = /free/i.test(acct)
+                    const isVip = /vip/i.test(acct)
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
+                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
+                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
+                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
+                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
+                      : state === 'saved' ? `\u2713 ${label} saved`
+                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
+                      : `Upload ${label} chat`
+                    const isSuccess = state === 'saved'
+                    return (
+                      <button key={acct}
+                        disabled={state === 'saving'}
+                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
+                        style={{
+                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
+                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                          cursor: state === 'saving' ? 'wait' : 'pointer',
+                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          opacity: state === 'saving' ? 0.7 : 1,
+                        }}>
+                        {displayText}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
+                  style={{
+                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+              ))}
+              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
+                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
+                  combines them with thread headers, and sends to Claude for one unified analysis. */}
+              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
+                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Pull the conversation straight from OF (read-only API) —
+                  replaces the scroll → save HTML → upload dance. */}
+              {bigPull && (
+                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
+                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Pull it anyway ({bigPull.credits} credits)
                   </button>
-                )}
-                {splitByAccount && accountNames.length > 1 && (
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)' }}>
-                    {accountNames.map(acct => {
-                      const isFree = /free/i.test(acct)
-                      const color = isFree ? '#60A5FA' : '#A78BFA'
-                      return (
-                        <span key={acct} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: color }} />
-                          {acct}
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
+                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
+                    Keep recent only (cheap top-ups from now on)
+                  </button>
+                </div>
+              )}
+              {archiveMeta && !ofPull && (
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
+                  Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
+                  {' '}· {archiveMeta.totalStored.toLocaleString()} messages archived through {archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </span>
+              )}
+              {bigPull && (
+                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
+                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Pull it anyway ({bigPull.credits} credits)
+                  </button>
+                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
+                    Keep recent only (cheap top-ups from now on)
+                  </button>
+                </div>
+              )}
+              {archiveMeta && !ofPull && (
+                <button onClick={handleLoadArchive} disabled={pullingOf || analyzing}
+                  style={{
+                    background: 'rgba(125, 211, 164, 0.08)', border: '1px solid rgba(125, 211, 164, 0.3)', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#7DD3A4', fontWeight: 600,
+                    cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                  }}>
+                  {pullingOf ? 'Loading…' : 'Load archived chat (0 credits)'}
+                </button>
+              )}
+              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+                style={{
+                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
+                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
+                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                }}>
+                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+              </button>}
+              {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
+                <span style={{ fontSize: '11px', color: '#E8C878' }}>
+                  Nothing to analyze yet — his history export is still building at OF. Pull again in a few minutes (attaches to the same export, no double charge).
+                </span>
+              )}
+              {ofPull && !chatFile && ofPull.messageCount > 0 && (
+                <>
+                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
+                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
+                    {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new since last pull · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'}</span>}
+                    {ofPull.historyComplete === false && <span style={{ color: '#E8C878' }}> · older history remains — pull again to keep deepening</span>}
+                  </span>
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    style={{
+                      background: '#E88C5C', border: 'none', borderRadius: '6px',
+                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                    }}>
+                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                  </button>
+                </>
+              )}
+
+              {chatFile && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Re-analyze from Dropbox transcript */}
+              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
+                <>
+                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
+                  </button>
+                  <span style={{ color: 'var(--foreground)' }}>|</span>
+                  <input ref={saveFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
+                {analysisError}
               </div>
-            )
+            )}
+          </div>
 
-            if (chartMode === 'monthly' && visibleMonthly.length >= 1) {
-              const data = visibleMonthly
-              const barW = Math.min(chartW / data.length * 0.7, 40)
-              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
+          {/* Notes */}
+          {f.notes && (
+            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+            </div>
+          )}
 
-              return (
-                <div style={{ marginBottom: '12px' }}>
-                  {headerRow}
-                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
-                    {sharedTicks.map(v => (
-                      <g key={v}>
-                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
-                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
-                      </g>
-                    ))}
-                    {data.map((d, i) => {
-                      const cx = padL + ((i + 0.5) / data.length) * chartW
-                      const barH = Math.max((d.spend / sharedMax) * chartH, d.spend > 0 ? 2 : 0)
-                      const moNum = parseInt(d.month.slice(5))
-                      const yr = d.month.slice(2, 4)
-                      const hasMilestone = milestoneMonths.includes(d.month)
-                      const spendLabelY = padT + chartH - barH - 3
-                      const defaultDotY = padT - 6
-                      const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
-                      // Stacked segments when splitting by account
-                      let segments = null
-                      if (splitByAccount && accountNames.length > 1 && d.spend > 0) {
-                        let yCursor = padT + chartH
-                        segments = accountNames.map(acct => {
-                          const acctSpend = perAccountMonthly[acct]?.[i]?.spend || 0
-                          if (acctSpend <= 0) return null
-                          const segH = (acctSpend / sharedMax) * chartH
-                          const isFree = /free/i.test(acct)
-                          const color = isFree ? '#60A5FA' : '#A78BFA'
-                          const rect = <rect key={acct} x={cx - barW / 2} y={yCursor - segH} width={barW} height={segH} fill={color} />
-                          yCursor -= segH
-                          return rect
-                        })
-                      }
-                      return (
-                        <g key={d.month}>
-                          {segments ? (
-                            <>
-                              <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill="none" />
-                              {segments}
-                            </>
-                          ) : (
-                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? 'rgba(255,255,255,0.04)' : 'var(--palm-pink)'} rx="2" />
-                          )}
-                          {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
-                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#A78BFA' : 'var(--foreground-muted)'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
-                          {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
-                        </g>
-                      )
-                    })}
-                  </svg>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
-                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
-                  </div>
-                </div>
-              )
-            }
-
-            if (chartMode === 'daily' && visibleDaily.length >= 2) {
-              const data = visibleDaily
-              // Time-based x positioning so daily dates align with monthly bars
-              const timestamps = data.map(d => new Date(d.date + 'T12:00:00').getTime())
-              const tStart = timestamps[0]
-              // Extend to end of the last month so partial months match the monthly bar width
-              const lastDate = new Date(data[data.length - 1].date + 'T12:00:00')
-              const monthEnd = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0, 12, 0, 0)
-              const tEnd = monthEnd.getTime()
-              const tRange = tEnd - tStart || 1
-              const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
-              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
-              const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
-              // Split into solid (active) and dashed (gap after last spend) segments
-              const lastSpendIdx = (() => {
-                for (let i = data.length - 1; i >= 0; i--) {
-                  if (!data[i].afterLastSpend) return i
+          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={async () => {
+                const isBanned = f.banned
+                const confirmMsg = isBanned
+                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
+                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
+                if (!confirm(confirmMsg)) return
+                try {
+                  const res = await fetch('/api/admin/fan-tracker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'update_status',
+                      recordId: f.crmId || null,
+                      fanName: f.fanName,
+                      fanUsername: f.ofUsername,
+                      creatorRecordId,
+                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Ban update failed')
+                  // Refresh CRM data
+                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+                  const refreshData = await refreshRes.json()
+                  if (refreshData.fans) setFans(refreshData.fans)
+                } catch (e) {
+                  alert(`Ban update failed: ${e.message}`)
                 }
-                return data.length - 1
-              })()
-              const solidPoints = points.slice(0, lastSpendIdx + 1)
-              const dashedPoints = lastSpendIdx < data.length - 1 ? points.slice(lastSpendIdx) : []
-              const solidPath = solidPoints.length > 0 ? 'M' + solidPoints.join(' L') : ''
-              const dashedPath = dashedPoints.length > 1 ? 'M' + dashedPoints.join(' L') : ''
-              const linePath = 'M' + points.join(' L')
-              const areaPath = solidPath + ` L${xScale(lastSpendIdx)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
-              const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-              const fmtDateLabel = (dateStr) => {
-                const dt = new Date(dateStr + 'T12:00:00')
-                return `${moAbbr[dt.getMonth()]} ${dt.getDate()}`
-              }
-              // Generate labels at month boundaries for better alignment with monthly chart
-              const xLabels = []
-              const seenMonths = new Set()
-              data.forEach((d, i) => {
-                const mo = d.date.slice(0, 7)
-                if (!seenMonths.has(mo)) {
-                  seenMonths.add(mo)
-                  xLabels.push({ i, label: fmtDateLabel(d.date) })
-                }
-              })
-              // Include last date only if far enough from the previous label
-              const lastIdx = data.length - 1
-              const lastLabelIdx = xLabels[xLabels.length - 1]?.i ?? -Infinity
-              if (lastIdx !== lastLabelIdx) {
-                const lastX = xScale(lastIdx)
-                const prevX = xScale(lastLabelIdx)
-                if (lastX - prevX > 40) {
-                  xLabels.push({ i: lastIdx, label: fmtDateLabel(data[lastIdx].date) })
-                }
-              }
-              const dateToIndex = {}
-              data.forEach((d, i) => { dateToIndex[d.date] = i })
-
-              return (
-                <div style={{ marginBottom: '12px' }}>
-                  {headerRow}
-                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto', cursor: 'crosshair' }}
-                    onMouseMove={e => {
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      const scale = VW / rect.width
-                      const mx = (e.clientX - rect.left) * scale
-                      let closest = 0, closestDist = Infinity
-                      for (let i = 0; i < data.length; i++) {
-                        const dist = Math.abs(xScale(i) - mx)
-                        if (dist < closestDist) { closestDist = dist; closest = i }
-                      }
-                      setHoverIdx(closest)
-                    }}
-                    onMouseLeave={() => setHoverIdx(null)}
-                  >
-                    {sharedTicks.map(v => (
-                      <g key={v}>
-                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="#F3F4F6" strokeWidth="1" />
-                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
-                      </g>
-                    ))}
-                    {splitByAccount && accountNames.length > 1 ? (
-                      // Per-account lines, clipped to visible daily window
-                      accountNames.map(acct => {
-                        const isFree = /free/i.test(acct)
-                        const color = isFree ? '#60A5FA' : '#A78BFA'
-                        const acctAll = perAccountDaily[acct] || []
-                        const visible = startMonth ? acctAll.filter(d => d.date >= startMonth) : acctAll
-                        const pts = visible.map((_, i) => `${xScale(i)},${yScale(visible[i].spend)}`)
-                        if (pts.length < 2) return null
-                        return (
-                          <g key={acct}>
-                            <path d={'M' + pts.join(' L')} fill="none" stroke={color} strokeWidth="1.5" />
-                            {visible.map((d, i) => d.spend > 0 ? (
-                              <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={2} fill={color} />
-                            ) : null)}
-                          </g>
-                        )
-                      })
-                    ) : (
-                      <>
-                        <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
-                        {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
-                        {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
-                        {data.map((d, i) => d.spend > 0 ? (
-                          <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
-                        ) : null)}
-                      </>
-                    )}
-                    {hoverIdx !== null && data[hoverIdx] && (() => {
-                      const d = data[hoverIdx]
-                      const hx = xScale(hoverIdx)
-                      const hy = yScale(d.spend)
-                      const moN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-                      const dt = new Date(d.date + 'T12:00:00')
-                      const label = `${moN[dt.getMonth()]} ${dt.getDate()}`
-                      const tooltipW = 90
-                      const tx = Math.max(padL, Math.min(hx - tooltipW / 2, VW - padR - tooltipW))
-                      return (
-                        <g>
-                          <line x1={hx} x2={hx} y1={padT} y2={padT + chartH} stroke="#7C3AED" strokeWidth="0.5" strokeDasharray="2,2" opacity="0.5" />
-                          <rect x={tx} y={hy - 28} width={tooltipW} height="22" rx="4" fill="#1a1a1a" />
-                          <text x={tx + tooltipW / 2} y={hy - 14} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="600">{label}: {fmtMoney(d.spend)}</text>
-                        </g>
-                      )
-                    })()}
-                    {milestones.map((m, idx) => {
-                      const mi = dateToIndex[m.date]
-                      if (mi === undefined) return null
-                      const x = xScale(mi)
-                      return (
-                        <g key={idx}>
-                          <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
-                          <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
-                        </g>
-                      )
-                    })}
-                    {xLabels.map(({ i: xi, label }) => (
-                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
-                    ))}
-                  </svg>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
-                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
-                  </div>
-                </div>
-              )
-            }
-            return null
-          })()}
-
-          {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
-          {/* (chart code above this block) */}
-
-          {/* ═══ SECTION 3: Analysis History ═══ */}
+              }}
+              style={{
+                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
+                background: 'none', border: 'none', cursor: 'pointer',
+                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
+              }}
+            >
+              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
+            </button>
+          </div>          {/* ═══ SECTION 3: Analysis History ═══ */}
           <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
               Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
@@ -1205,215 +1293,284 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             )}
           </div>
 
-          {/* ═══ SECTION 4: Upload New Chat ═══ */}
-          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
-              Upload Chat for {f.fanName}
-            </div>
+          {/* Spending chart — full width, monthly bars (default) / daily line toggle */}
+          {(fanSpendData || monthlySpendData) && (() => {
+            const moNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            const VW = 900, H = 150, padL = 50, padR = 30, padT = 16, padB = 24
+            const chartW = VW - padL - padR, chartH = H - padT - padB
+            const milestoneMonths = milestones.map(m => m.date.slice(0, 7))
 
-            {/* Scroll-back hint */}
-            {(() => {
-              const mostRecent = f.analysisRecords?.[0]
-              const lastDate = mostRecent?.lastMessageDate
-              if (lastDate) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#FFF7ED', border: '1px solid transparent', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
-                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
+            const allMonthly = monthlySpendData || []
+            const defaultMonthly = allMonthly.length > 7 ? allMonthly.slice(-7) : allMonthly
+            const visibleMonthly = showAllHistory ? allMonthly : defaultMonthly
+            const canExpandMonthly = allMonthly.length > 7
+            const startMonth = visibleMonthly.length > 0 ? visibleMonthly[0].month : null
+            const allDaily = fanSpendData || []
+            const visibleDaily = startMonth ? allDaily.filter(d => d.date >= startMonth) : allDaily
+
+            // Shared y-axis scale across both charts with round tick numbers
+            const monthlyMax = visibleMonthly.length > 0 ? Math.max(...visibleMonthly.map(d => d.spend)) : 0
+            const dailyMax = visibleDaily.length > 0 ? Math.max(...visibleDaily.map(d => d.spend)) : 0
+            const rawMax = Math.max(monthlyMax, dailyMax, 1)
+            // Round up to a nice number
+            const magnitude = Math.pow(10, Math.floor(Math.log10(rawMax)))
+            const niceSteps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+            const sharedMax = niceSteps.map(s => s * magnitude).find(s => s >= rawMax) || rawMax
+            const sharedTicks = [0, Math.round(sharedMax / 2), Math.round(sharedMax)]
+
+            const headerRow = (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Spending History</div>
+                  {canExpandMonthly && (
+                    <button onClick={() => setShowAllHistory(!showAllHistory)}
+                      style={{ fontSize: '10px', color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
+                      {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
+                    </button>
+                  )}
                 </div>
-              )
-              if (f.analysisRecords?.length > 0) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '6px', fontSize: '11px', color: '#0369A1' }}>
-                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <button onClick={() => setChartMode('monthly')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: chartMode === 'monthly' ? '#A78BFA' : 'transparent', color: chartMode === 'monthly' ? '#141414' : 'rgba(240, 236, 232, 0.75)' }}>Monthly</button>
+                  <button onClick={() => setChartMode('daily')} style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: chartMode === 'daily' ? '#A78BFA' : 'transparent', color: chartMode === 'daily' ? '#141414' : 'rgba(240, 236, 232, 0.75)' }}>Daily</button>
                 </div>
-              )
-              return null
-            })()}
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input ref={chatFileRef} type="file" accept=".html,.htm"
-                onChange={e => {
-                  const file = e.target.files[0]
-                  if (!file) return
-                  setAnalysisError(null)
-                  if (accountNames.length > 1 && uploadAccountName) {
-                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
-                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
-                    handleAccountUpload(uploadAccountName, file)
-                  } else {
-                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
-                    setChatFile(file)
-                  }
-                  e.target.value = '' // allow re-selecting the same filename
-                }}
-                style={{ display: 'none' }} />
-
-              {accountNames.length > 1 ? (
-                // Multi-account fan: one button per account, color-coded to match the badges.
-                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
-                <>
-                  {accountNames.map(acct => {
-                    const isFree = /free/i.test(acct)
-                    const isVip = /vip/i.test(acct)
-                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
-                    const baseBg = isFree ? '#EFF6FF' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
-                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
-                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
-                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
-                      : state === 'saved' ? `\u2713 ${label} saved`
-                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
-                      : `Upload ${label} chat`
-                    const isSuccess = state === 'saved'
-                    return (
-                      <button key={acct}
-                        disabled={state === 'saving'}
-                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
-                        style={{
-                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
-                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
-                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
-                          cursor: state === 'saving' ? 'wait' : 'pointer',
-                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
-                          opacity: state === 'saving' ? 0.7 : 1,
-                        }}>
-                        {displayText}
-                      </button>
-                    )
-                  })}
-                </>
-              ) : (
-                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
-                  style={{
-                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
-                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
-                  }}>
-                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-                </button>
-              )}
-              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
-                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
-                  combines them with thread headers, and sends to Claude for one unified analysis. */}
-              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
-                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Pull the conversation straight from OF (read-only API) —
-                  replaces the scroll → save HTML → upload dance. */}
-              {f.ofUsername && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
-                style={{
-                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
-                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
-                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
-                }}>
-                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
-              </button>}
-              {ofPull && !chatFile && (
-                <>
-                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
-                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
-                  </span>
-                  <button onClick={handleAnalyze} disabled={analyzing}
+                {accountNames.length > 1 && (
+                  <button onClick={() => setSplitByAccount(!splitByAccount)}
                     style={{
-                      background: '#E88C5C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                      padding: '3px 8px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                      borderRadius: '4px', background: splitByAccount ? '#A78BFA' : 'rgba(255,255,255,0.04)', color: splitByAccount ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)',
                     }}>
-                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                    Split by account
                   </button>
-                </>
-              )}
-
-              {chatFile && (
-                <button onClick={handleAnalyze} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Re-analyze from Dropbox transcript */}
-              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
-                <>
-                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
-                  </button>
-                  <span style={{ color: 'var(--foreground)' }}>|</span>
-                  <input ref={saveFileRef} type="file" accept=".html,.htm"
-                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
-                    style={{ display: 'none' }} />
-                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
-                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {analysisError && (
-              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
-                {analysisError}
+                )}
+                {splitByAccount && accountNames.length > 1 && (
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: 'rgba(240, 236, 232, 0.75)' }}>
+                    {accountNames.map(acct => {
+                      const isFree = /free/i.test(acct)
+                      const color = isFree ? '#60A5FA' : '#A78BFA'
+                      return (
+                        <span key={acct} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: color }} />
+                          {acct}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
 
-          {/* Notes */}
-          {f.notes && (
-            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
-            </div>
-          )}
+            if (chartMode === 'monthly' && visibleMonthly.length >= 1) {
+              const data = visibleMonthly
+              const barW = Math.min(chartW / data.length * 0.7, 40)
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
 
-          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
-          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              onClick={async () => {
-                const isBanned = f.banned
-                const confirmMsg = isBanned
-                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
-                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
-                if (!confirm(confirmMsg)) return
-                try {
-                  const res = await fetch('/api/admin/fan-tracker', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      action: 'update_status',
-                      recordId: f.crmId || null,
-                      fanName: f.fanName,
-                      fanUsername: f.ofUsername,
-                      creatorRecordId,
-                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
-                    }),
-                  })
-                  if (!res.ok) throw new Error('Ban update failed')
-                  // Refresh CRM data
-                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
-                  const refreshData = await refreshRes.json()
-                  if (refreshData.fans) setFans(refreshData.fans)
-                } catch (e) {
-                  alert(`Ban update failed: ${e.message}`)
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  {headerRow}
+                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+                    {sharedTicks.map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
+                      </g>
+                    ))}
+                    {data.map((d, i) => {
+                      const cx = padL + ((i + 0.5) / data.length) * chartW
+                      const barH = Math.max((d.spend / sharedMax) * chartH, d.spend > 0 ? 2 : 0)
+                      const moNum = parseInt(d.month.slice(5))
+                      const yr = d.month.slice(2, 4)
+                      const hasMilestone = milestoneMonths.includes(d.month)
+                      const spendLabelY = padT + chartH - barH - 3
+                      const defaultDotY = padT - 6
+                      const dotY = hasMilestone && d.spend > 0 && spendLabelY < defaultDotY + 12 ? spendLabelY - 10 : defaultDotY
+                      // Stacked segments when splitting by account
+                      let segments = null
+                      if (splitByAccount && accountNames.length > 1 && d.spend > 0) {
+                        let yCursor = padT + chartH
+                        segments = accountNames.map(acct => {
+                          const acctSpend = perAccountMonthly[acct]?.[i]?.spend || 0
+                          if (acctSpend <= 0) return null
+                          const segH = (acctSpend / sharedMax) * chartH
+                          const isFree = /free/i.test(acct)
+                          const color = isFree ? '#60A5FA' : '#A78BFA'
+                          const rect = <rect key={acct} x={cx - barW / 2} y={yCursor - segH} width={barW} height={segH} fill={color} />
+                          yCursor -= segH
+                          return rect
+                        })
+                      }
+                      return (
+                        <g key={d.month}>
+                          {segments ? (
+                            <>
+                              <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill="none" />
+                              {segments}
+                            </>
+                          ) : (
+                            <rect x={cx - barW / 2} y={padT + chartH - barH} width={barW} height={barH} fill={d.spend === 0 ? 'rgba(255,255,255,0.04)' : 'var(--palm-pink)'} rx="2" />
+                          )}
+                          {d.spend > 0 && <text x={cx} y={spendLabelY} textAnchor="middle" fontSize="8" fill="#666">{fmtMoney(d.spend)}</text>}
+                          <text x={cx} y={H - 4} textAnchor="middle" fontSize="9" fill={hasMilestone ? '#A78BFA' : 'var(--foreground-muted)'} fontWeight={hasMilestone ? '700' : '400'}>{moNames[moNum]}{data.length > 12 ? `'${yr}` : ''}</text>
+                          {hasMilestone && <circle cx={cx} cy={dotY} r="3.5" fill="#7C3AED" />}
+                        </g>
+                      )
+                    })}
+                  </svg>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
+                </div>
+              )
+            }
+
+            if (chartMode === 'daily' && visibleDaily.length >= 2) {
+              const data = visibleDaily
+              // Time-based x positioning so daily dates align with monthly bars
+              const timestamps = data.map(d => new Date(d.date + 'T12:00:00').getTime())
+              const tStart = timestamps[0]
+              // Extend to end of the last month so partial months match the monthly bar width
+              const lastDate = new Date(data[data.length - 1].date + 'T12:00:00')
+              const monthEnd = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0, 12, 0, 0)
+              const tEnd = monthEnd.getTime()
+              const tRange = tEnd - tStart || 1
+              const xScale = (i) => padL + ((timestamps[i] - tStart) / tRange) * chartW
+              const yScale = (v) => padT + chartH - (v / sharedMax) * chartH
+              const points = data.map((d, i) => `${xScale(i)},${yScale(d.spend)}`)
+              // Split into solid (active) and dashed (gap after last spend) segments
+              const lastSpendIdx = (() => {
+                for (let i = data.length - 1; i >= 0; i--) {
+                  if (!data[i].afterLastSpend) return i
                 }
-              }}
-              style={{
-                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
-                background: 'none', border: 'none', cursor: 'pointer',
-                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
-              }}
-            >
-              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
-            </button>
-          </div>
+                return data.length - 1
+              })()
+              const solidPoints = points.slice(0, lastSpendIdx + 1)
+              const dashedPoints = lastSpendIdx < data.length - 1 ? points.slice(lastSpendIdx) : []
+              const solidPath = solidPoints.length > 0 ? 'M' + solidPoints.join(' L') : ''
+              const dashedPath = dashedPoints.length > 1 ? 'M' + dashedPoints.join(' L') : ''
+              const linePath = 'M' + points.join(' L')
+              const areaPath = solidPath + ` L${xScale(lastSpendIdx)},${yScale(0)} L${xScale(0)},${yScale(0)} Z`
+              const moAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              const fmtDateLabel = (dateStr) => {
+                const dt = new Date(dateStr + 'T12:00:00')
+                return `${moAbbr[dt.getMonth()]} ${dt.getDate()}`
+              }
+              // Generate labels at month boundaries for better alignment with monthly chart
+              const xLabels = []
+              const seenMonths = new Set()
+              data.forEach((d, i) => {
+                const mo = d.date.slice(0, 7)
+                if (!seenMonths.has(mo)) {
+                  seenMonths.add(mo)
+                  xLabels.push({ i, label: fmtDateLabel(d.date) })
+                }
+              })
+              // Include last date only if far enough from the previous label
+              const lastIdx = data.length - 1
+              const lastLabelIdx = xLabels[xLabels.length - 1]?.i ?? -Infinity
+              if (lastIdx !== lastLabelIdx) {
+                const lastX = xScale(lastIdx)
+                const prevX = xScale(lastLabelIdx)
+                if (lastX - prevX > 40) {
+                  xLabels.push({ i: lastIdx, label: fmtDateLabel(data[lastIdx].date) })
+                }
+              }
+              const dateToIndex = {}
+              data.forEach((d, i) => { dateToIndex[d.date] = i })
+
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  {headerRow}
+                  <svg viewBox={`0 0 ${VW} ${H}`} style={{ display: 'block', width: '100%', height: 'auto', cursor: 'crosshair' }}
+                    onMouseMove={e => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const scale = VW / rect.width
+                      const mx = (e.clientX - rect.left) * scale
+                      let closest = 0, closestDist = Infinity
+                      for (let i = 0; i < data.length; i++) {
+                        const dist = Math.abs(xScale(i) - mx)
+                        if (dist < closestDist) { closestDist = dist; closest = i }
+                      }
+                      setHoverIdx(closest)
+                    }}
+                    onMouseLeave={() => setHoverIdx(null)}
+                  >
+                    {sharedTicks.map(v => (
+                      <g key={v}>
+                        <line x1={padL} x2={VW - padR} y1={yScale(v)} y2={yScale(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                        <text x={padL - 6} y={yScale(v) + 3} textAnchor="end" fontSize="9" fill="#999">${v > 0 ? v.toLocaleString() : '0'}</text>
+                      </g>
+                    ))}
+                    {splitByAccount && accountNames.length > 1 ? (
+                      // Per-account lines, clipped to visible daily window
+                      accountNames.map(acct => {
+                        const isFree = /free/i.test(acct)
+                        const color = isFree ? '#60A5FA' : '#A78BFA'
+                        const acctAll = perAccountDaily[acct] || []
+                        const visible = startMonth ? acctAll.filter(d => d.date >= startMonth) : acctAll
+                        const pts = visible.map((_, i) => `${xScale(i)},${yScale(visible[i].spend)}`)
+                        if (pts.length < 2) return null
+                        return (
+                          <g key={acct}>
+                            <path d={'M' + pts.join(' L')} fill="none" stroke={color} strokeWidth="1.5" />
+                            {visible.map((d, i) => d.spend > 0 ? (
+                              <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={2} fill={color} />
+                            ) : null)}
+                          </g>
+                        )
+                      })
+                    ) : (
+                      <>
+                        <path d={areaPath} fill="rgba(124, 58, 237, 0.08)" />
+                        {solidPath && <path d={solidPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" />}
+                        {dashedPath && <path d={dashedPath} fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />}
+                        {data.map((d, i) => d.spend > 0 ? (
+                          <circle key={i} cx={xScale(i)} cy={yScale(d.spend)} r={hoverIdx === i ? 4 : 2} fill="#7C3AED" />
+                        ) : null)}
+                      </>
+                    )}
+                    {hoverIdx !== null && data[hoverIdx] && (() => {
+                      const d = data[hoverIdx]
+                      const hx = xScale(hoverIdx)
+                      const hy = yScale(d.spend)
+                      const moN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                      const dt = new Date(d.date + 'T12:00:00')
+                      const label = `${moN[dt.getMonth()]} ${dt.getDate()}`
+                      const tooltipW = 90
+                      const tx = Math.max(padL, Math.min(hx - tooltipW / 2, VW - padR - tooltipW))
+                      return (
+                        <g>
+                          <line x1={hx} x2={hx} y1={padT} y2={padT + chartH} stroke="#7C3AED" strokeWidth="0.5" strokeDasharray="2,2" opacity="0.5" />
+                          <rect x={tx} y={hy - 28} width={tooltipW} height="22" rx="4" fill="#1a1a1a" />
+                          <text x={tx + tooltipW / 2} y={hy - 14} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="600">{label}: {fmtMoney(d.spend)}</text>
+                        </g>
+                      )
+                    })()}
+                    {milestones.map((m, idx) => {
+                      const mi = dateToIndex[m.date]
+                      if (mi === undefined) return null
+                      const x = xScale(mi)
+                      return (
+                        <g key={idx}>
+                          <line x1={x} x2={x} y1={padT} y2={H - padB} stroke={m.color} strokeWidth="1.5" strokeDasharray="4,3" />
+                          <text x={x} y={padT - 2} textAnchor="middle" fontSize="8" fill={m.color} fontWeight="600">{m.label}</text>
+                        </g>
+                      )
+                    })}
+                    {xLabels.map(({ i: xi, label }) => (
+                      <text key={xi} x={xScale(xi)} y={H - 4} textAnchor="middle" fontSize="7.5" fill="#999">{label}</text>
+                    ))}
+                  </svg>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '9px', color: 'var(--foreground-muted)', visibility: milestones.length > 0 ? 'visible' : 'hidden' }}>
+                    <span><span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#A78BFA', marginRight: '3px', verticalAlign: 'middle' }} />Analysis/Alert sent</span>
+                  </div>
+                </div>
+              )
+            }
+            return null
+          })()}
+
+          {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
+          {/* (chart code above this block) */}
+
         </div>
       )}
 
@@ -1561,7 +1718,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             </div>
 
             {/* PDF Preview */}
-            <div style={{ background: '#F9FAFB', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '12px', marginBottom: '16px', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {previewLoading && (
                 <div style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>Generating PDF preview...</div>
               )}
@@ -1608,7 +1765,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
             {sendResult?.success && sendResult.trackerError && (
-              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(232, 200, 120, 0.06)', border: '1px solid rgba(232, 200, 120, 0.25)', borderRadius: '6px', fontSize: '12px', color: '#E8A878' }}>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>&#10003; Sent to Telegram &mdash; but Fan Tracker log failed</div>
                 <div style={{ fontSize: '11px', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-word' }}>{sendResult.trackerError}</div>
                 <div style={{ fontSize: '11px', marginTop: '6px' }}>The fan's Alert column won't update. Please share this error so we can fix it.</div>
@@ -1781,7 +1938,7 @@ const ALERT_STATUS_COLORS = {
   'Alert Triggered': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
   'Fan Analyzed': { bg: 'rgba(167, 139, 250, 0.1)', text: '#A78BFA' },
   'Sent to Manager': { bg: 'rgba(232, 200, 120, 0.08)', text: '#E8A878' },
-  'Manager Received': { bg: '#DBEAFE', text: '#1D4ED8' },
+  'Manager Received': { bg: 'rgba(59,130,246,0.12)', text: '#78B4E8' },
   'Action Taken': { bg: 'rgba(125, 211, 164, 0.08)', text: '#7DD3A4' },
   'Banned': { bg: '#1F2937', text: 'var(--foreground)' },
 }
@@ -1793,12 +1950,15 @@ const URGENCY_COLORS = {
   warning: { bg: 'rgba(232, 200, 120, 0.12)', text: '#E8C878' },
 }
 
-function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
+function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focusFan, focusNonce, auditTiers }) {
   const [crmData, setCrmData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
   const [showAllFans, setShowAllFans] = useState(false)
+  const searchParams = useSearchParams()
+  const handledFanTarget = useRef('')
+  const [modalFanId, setModalFanId] = useState(null)
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
@@ -1845,7 +2005,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   }
 
   // Build comprehensive fan list from allTxns + CRM data + going cold alerts
-  const allFans = useMemo(() => {
+  const allFansBase = useMemo(() => {
     const fanMap = new Map() // keyed by ofUsername or displayName
     const fanTxnMap = new Map() // accumulate per-fan transactions for heat computation
 
@@ -1854,6 +2014,8 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       const thirtyAgo = new Date()
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const thirtyAgoStr = thirtyAgo.toISOString().split('T')[0]
+      const sixMoAgo = new Date(); sixMoAgo.setDate(sixMoAgo.getDate() - 180)
+      const sixMoAgoStr = sixMoAgo.toISOString().split('T')[0]
 
       for (const t of allTxns) {
         // Accept ALL transaction types for account membership tracking,
@@ -1874,6 +2036,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
             ofUsername: t.ofUsername || '',
             lifetimeSpend: 0,
             last30: 0,
+            last180: 0,
             txnCount: 0,
             lastDate: '',
             firstDate: '',
@@ -1907,6 +2070,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         if (!fan.lastDate || t.date > fan.lastDate) fan.lastDate = t.date
         if (!fan.firstDate || t.date < fan.firstDate) fan.firstDate = t.date
         if (t.date >= thirtyAgoStr) fan.last30 += t.net || 0
+        if (t.date >= sixMoAgoStr) fan.last180 += t.net || 0
         fanTxnMap.get(key).push(t)
       }
     }
@@ -1950,7 +2114,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         // CRM-only record (no transactions)
         const mapped = crmToAlertStatus(c.status)
         fanMap.set(key, {
-          ...c, id: c.id, txnCount: 0, last30: 0, lastDate: '', firstDate: '',
+          ...c, id: c.id, txnCount: 0, last30: 0, last180: 0, lastDate: '', firstDate: '',
           source: 'crm', heatStatus: 'Stable',
           alertStatus: mapped !== 'None' ? mapped : 'Fan Analyzed',
           banned: c.status === 'Banned',
@@ -2008,6 +2172,36 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       })
   }, [allTxns, crmData, goingColdAlerts])
 
+  // ── ONE BRAIN: when the whale audit has a verdict for a fan, it OVERRIDES
+  // the CRM's own heat math — the Save List above and this list must never
+  // disagree (Evan, 2026-07-04). Fans the audit didn't flag show as plain
+  // history (no competing 'Going Cold'/'Dead' from the legacy detectors).
+  const allFans = useMemo(() => {
+    if (!auditTiers || !Object.keys(auditTiers).length) return allFansBase
+    return allFansBase.map((f) => {
+      const cad = auditTiers[(f.ofUsername || f.fanName || '').toLowerCase()]
+      if (!cad?.tier) {
+        return (f.heatStatus === 'Going Cold' || f.heatStatus === 'Dead')
+          ? { ...f, heatStatus: 'Stable', heatDetail: null, goingCold: null }
+          : f
+      }
+      const detail = {
+        reason: cad.medianGap ? `buys every ~${cad.medianGap}d — silent ${cad.currentGap}d (${cad.gapRatio}×)` : `silent ${cad.currentGap ?? '—'}d`,
+        currentGap: cad.currentGap, medianGap: cad.medianGap,
+        rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90,
+        lastPurchase: cad.lastPurchaseDate,
+      }
+      if (cad.tier === 'dead') return { ...f, heatStatus: 'Dead', goingCold: null, heatDetail: detail, liveSignals: cad.live || null }
+      return {
+        ...f,
+        liveSignals: cad.live || null,
+        heatStatus: 'Going Cold',
+        goingCold: { ...(f.goingCold || {}), urgency: cad.tier, medianGap: cad.medianGap, currentGap: cad.currentGap, rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90, lastPurchaseDate: cad.lastPurchaseDate },
+        heatDetail: detail,
+      }
+    })
+  }, [allFansBase, auditTiers])
+
   const alertStatusColors = ALERT_STATUS_COLORS
 
   const effectColors = {
@@ -2018,6 +2212,24 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
   }
 
   const deletedCount = useMemo(() => allFans.filter(f => !f.ofUsername).length, [allFans])
+
+  // Focus a specific fan (from the whale watchlist button or a ?fan= deep
+  // link): expand that fan's card and scroll it into view once the list is
+  // ready. Re-fires whenever the target changes.
+  useEffect(() => {
+    if (!allFans.length) return
+    const target = (focusFan || searchParams?.get('fan') || '').toLowerCase()
+    if (!target) return
+    // Stamp includes the click nonce — re-clicking the SAME fan must reopen
+    // the modal (the old target-only guard blocked every repeat click).
+    const stamp = `${target}#${focusNonce ?? 0}`
+    if (stamp === handledFanTarget.current) return
+    const match = allFans.find(f => (f.ofUsername || '').toLowerCase() === target)
+      || allFans.find(f => (f.fanName || '').toLowerCase() === target)
+    if (!match) return
+    handledFanTarget.current = stamp
+    setModalFanId(match.id) // modal, not scroll-and-hunt (per Evan)
+  }, [allFans, searchParams, focusFan, focusNonce])
 
   // Top 20% spend threshold
   const top20Threshold = useMemo(() => {
@@ -2055,6 +2267,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
         let av, bv
         if (sortField === 'lifetime') { av = a.lifetimeSpend || 0; bv = b.lifetimeSpend || 0 }
         else if (sortField === 'last30') { av = a.last30 || 0; bv = b.last30 || 0 }
+        else if (sortField === 'moAvg6') { av = (a.last180 || 0) / 6; bv = (b.last180 || 0) / 6 }
         else if (sortField === 'txns') { av = a.txnCount || 0; bv = b.txnCount || 0 }
         else if (sortField === 'lastDate') { av = a.lastDate || ''; bv = b.lastDate || '' }
         else return 0
@@ -2112,7 +2325,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           <p style={{ fontSize: '12px', color: 'var(--foreground-muted)', margin: '2px 0 0' }}>
             {allFans.length} fan{allFans.length !== 1 ? 's' : ''}
             {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0) > 0 && (
-              <span style={{ color: '#E87878', fontWeight: 600 }}> &middot; {(heatCounts['Going Cold'] || 0) + (heatCounts['Dead'] || 0)} need attention</span>
+              <span style={{ color: '#E87878', fontWeight: 600 }}> &middot; {heatCounts['Going Cold'] || 0} need attention</span>
             )}
             {(heatCounts['Hot'] || 0) > 0 && <span style={{ color: '#EF4444', fontWeight: 600 }}> &middot; {heatCounts['Hot']} hot</span>}
           </p>
@@ -2190,17 +2403,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
       ) : (
         <div style={{ background: 'var(--card-bg-solid)', borderRadius: '10px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 32px 100px 90px 80px 80px 80px 90px', padding: '8px 16px', fontSize: '9px', fontWeight: 600, color: 'var(--foreground-muted)', textTransform: 'uppercase', borderBottom: '1px solid transparent' }}>
             <span></span><span>Fan</span><span title="Heat Status">🌡️</span><span>Alert</span>
-            {[['lifetime', 'Lifetime'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
+            {[['lifetime', 'Lifetime'], ['moAvg6', '$/mo (6m)'], ['last30', 'Last 30d'], ['txns', 'Txns'], ['lastDate', 'Last Active']].map(([key, label]) => (
               <span key={key} onClick={() => toggleSort(key)} style={{ textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>
                 {label}{sortField === key ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </span>
             ))}
           </div>
           {displayFans.map((f, i) => (
-            <FanRow key={f.id} f={f} i={i} isExpanded={expandedId === f.id}
-              onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
+            <FanRow key={f.id} f={f} i={i} isExpanded={false}
+              onToggle={() => setModalFanId(f.id)}
               alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
               creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
@@ -2214,6 +2427,47 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts }) {
           )}
         </div>
       )}
+
+      {/* ── Fan modal — opened from the whale watchlist ("view fan") or a
+             ?fan= deep link. Renders the SAME FanRow, expanded, in an overlay
+             instead of scrolling the page down and hunting for the row. ── */}
+      {modalFanId && (() => {
+        const mf = allFans.find(x => x.id === modalFanId)
+        if (!mf) return null
+        // Prev/next steps through the CURRENT filtered+sorted list
+        const idx = filtered.findIndex(x => x.id === modalFanId)
+        const prev = idx > 0 ? filtered[idx - 1] : null
+        const next = idx >= 0 && idx < filtered.length - 1 ? filtered[idx + 1] : null
+        const navBtn = (fan, label) => (
+          <button disabled={!fan} onClick={() => fan && setModalFanId(fan.id)}
+            {...(label.includes('prev') ? { 'data-kb-prev': '' } : { 'data-kb-next': '' })}
+            title={fan ? `${fan.fanName}` : ''}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: 700, color: fan ? 'var(--foreground)' : 'rgba(255,255,255,0.15)', cursor: fan ? 'pointer' : 'default' }}>{label}</button>
+        )
+        return (
+          <div data-fan-modal onClick={() => setModalFanId(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3vh 20px' }}>
+            <div onClick={(e) => e.stopPropagation()}
+              style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', width: 'min(1000px, 100%)', maxHeight: '94vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'sticky', top: 0, background: 'var(--card-bg-solid)', zIndex: 1 }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {mf.fanName}{mf.ofUsername ? <span style={{ color: 'var(--palm-pink)', fontWeight: 400 }}> @{mf.ofUsername}</span> : null}
+                  {idx >= 0 && <span style={{ color: 'var(--foreground-muted)', fontWeight: 400, fontSize: '11px' }}>  ·  {idx + 1} of {filtered.length}</span>}
+                </span>
+                {navBtn(prev, '‹ prev')}
+                {navBtn(next, 'next ›')}
+                <button data-kb-close onClick={() => setModalFanId(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '2px 6px' }}>&times;</button>
+              </div>
+              <FanRow f={mf} i={0} isExpanded inModal onToggle={() => {}}
+                alertStatusColors={alertStatusColors} effectColors={effectColors}
+                fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
+                creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
+                allTxns={allTxns} availableAccounts={availableAccounts} />
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

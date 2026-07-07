@@ -5,7 +5,6 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import CreatorsCommunication from '@/components/CreatorsCommunication'
 import AISuperClonePanel from './AISuperClonePanel'
 import OffboardModal from '../OffboardModal'
-import FansPanel from './_components/FansPanel'
 import { isRealPurchase, parseChatHtmlClient } from './_lib/parsers'
 
 const TAG_CATEGORIES = [
@@ -2274,10 +2273,8 @@ function CreatorDetail({ creator, onProfileUpdated, activeSection }) {
         />
       )}
 
-      {/* ── Fans CRM section ────────────────────────────────────────────── */}
-      {activeSection === 'fans' && (
-        <FansPanel creator={creator} allTxns={earningsData?.transactions} goingColdAlerts={earningsData?.goingColdAlerts || []} availableAccounts={earningsData?.accounts || []} />
-      )}
+      {/* Fans CRM moved to /admin/whale-hunting (Live Audit tab) — one home for
+          whale work, no redundancy with this page. */}
 
       {/* ── DNA section ──────────────────────────────────────────────────── */}
       {activeSection === 'dna' && (<>
@@ -2716,7 +2713,7 @@ export default function CreatorsPage() {
     return (
       <div>
         <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)', marginBottom: '20px' }}>
-          {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
+          {[['earnings', 'Earnings'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
             <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
               style={{
                 padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,
@@ -2759,7 +2756,7 @@ export default function CreatorsPage() {
         </select>
         {selected && (
           <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid rgba(0,0,0,0.04)' }}>
-            {[['earnings', 'Earnings'], ['fans', 'Fans'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
+            {[['earnings', 'Earnings'], ['dna', 'DNA Profile'], ['communication', 'Communication']].map(([key, label]) => (
               <button key={key} onClick={() => { setActiveSection(key); updateUrl(selected?.id, key) }}
                 style={{
                   padding: '6px 16px', fontSize: '13px', fontWeight: activeSection === key ? 700 : 400,

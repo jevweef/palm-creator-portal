@@ -2,15 +2,29 @@ import { auth } from '@clerk/nextjs/server'
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
+import fs from 'fs'
+import path from 'path'
+
+// Whale Win-Back Playbook (synthesized from the OFM research corpus) — the
+// NEXT MOVE prescriptions should draw on what top agencies actually do.
+// Non-fatal: if the file is missing the analysis just runs without it.
+function loadWhalePlaybook(maxChars = 2200) {
+  try {
+    const md = fs.readFileSync(path.join(process.cwd(), 'research', 'knowledge', 'whale-playbook.md'), 'utf8')
+    return md.replace(/^#.*$/m, '').replace(/\(.*?—.*?\)/g, '').replace(/\*\*/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, maxChars)
+  } catch { return null }
+}
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const maxDuration = 120
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Lazy: created on first call, NOT at module load, so `next build` page-data
-// collection doesn't fail when OPENAI_API_KEY is absent in the build env.
+// collection doesn't fail when OPENAI_API_KEY is absent in the build env (the
+// OpenAI SDK throws in its constructor without a key). Used for the lightweight
+// manager-brief summary.
 let _openai
-const getOpenAI = () => (_openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY })) // lightweight manager-brief summary
+const getOpenAI = () => (_openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY }))
 
 // ── Airtable ───────────────────────────────────────────────────────────────
 
@@ -141,6 +155,12 @@ async function fetchPriorContext(fanName, creatorName, { rolling30 = 0, monthlyA
       }
       context += `\n- The conversation may include both old and new messages. Look for changes in tone, engagement, or spending after the last alert date.`
       context += `\n- NEVER open the output with "This is a follow-up," "This is a re-analysis," or any meta-commentary. QUICK READ must start with the fan's actual situation.`
+
+      // Ground NEXT MOVE in the research-corpus playbook (what top agencies do)
+      const playbook = loadWhalePlaybook()
+      if (playbook) {
+        context += `\n\nAGENCY BEST PRACTICES (from our competitive-research corpus — use these to inform NEXT MOVE where they fit this fan's situation, without citing the corpus):\n${playbook}`
+      }
     }
 
     // Return both the context string and whether fan is currently hot
@@ -421,7 +441,7 @@ export async function POST(request) {
     }
 
     if (parsed.messageCount === 0) {
-      return Response.json({ error: 'No messages found' }, { status: 400 })
+      return Response.json({ error: 'No messages to analyze yet — if his history export is still running at OF, give it a few minutes and click Pull from OF again (it attaches to the same export, no double charge).' }, { status: 400 })
     }
 
     // Save transcript to Dropbox only (no AI analysis)
@@ -505,13 +525,61 @@ export async function POST(request) {
       ? `\n- IMPORTANT: This spending data is scoped to the chat window ending ${chatLastDate}. Do NOT reference spending or activity after this date.`
       : ''
 
+    // Monthly rollup — the LONG ARC. Daily lines bury the story; the model
+    // must see peak-era vs now (a "$90 hot streak" from a former $500/mo
+    // whale is a revival window, not a hot streak — Chris/mrgnar1979 case).
+    let monthlyArc = ''
+    if (spendingTimeline) {
+      const byMonth = {}
+      for (const line of spendingTimeline.split('\n')) {
+        const m = line.match(/^(\d{4}-\d{2})-\d{2}:\s*\$([\d,.]+)/)
+        if (m) byMonth[m[1]] = (byMonth[m[1]] || 0) + parseFloat(m[2].replace(',', ''))
+      }
+      const keys = Object.keys(byMonth).sort()
+      if (keys.length >= 3) {
+        monthlyArc = keys.map((k) => `${k}: $${Math.round(byMonth[k])}`).join('  ·  ')
+        let peak = keys[0]
+        for (const k of keys) if (byMonth[k] > byMonth[peak]) peak = k
+        monthlyArc += `\nPeak month: ${peak} ($${Math.round(byMonth[peak])}).`
+      }
+    }
+
+    // Grading boundary: the CURRENT chat team's start date for this creator
+    // (Palm Creators 'Chat Team Start'). Chatter failures BEFORE this date
+    // belong to a previous agency — context, not grades.
+    let chatTeamStart = null
+    try {
+      const crId = formData.get('creatorRecordId') || ''
+      if (crId) {
+        const r = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Palm Creators')}/${crId}?fields%5B%5D=Chat%20Team%20Start`, {
+          headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` },
+        })
+        if (r.ok) chatTeamStart = (await r.json())?.fields?.['Chat Team Start'] || null
+      }
+    } catch { /* optional */ }
+
+    // Live OF account signals from the audit (rebill, sub expiry, tenure) —
+    // a dying subscription outranks everything else in the brief.
+    let liveBlock = ''
+    try {
+      const lv = JSON.parse(formData.get('liveSignals') || 'null')
+      if (lv) {
+        const bits = []
+        if (lv.rebillOff) bits.push(`REBILL IS OFF — his subscription will NOT renew${lv.subExpires ? ` and EXPIRES ${lv.subExpires}` : ''}. This is the single most urgent fact: QUICK READ and NEXT MOVE must center on saving the subscription before that date.`)
+        if (lv.fanFor) bits.push(`Subscriber tenure: ${lv.fanFor}${lv.fanSince ? ` (since ${lv.fanSince})` : ''}.`)
+        if (lv.subStatus && !lv.rebillOff) bits.push(`Subscription status: ${lv.subStatus}.`)
+        if (bits.length) liveBlock = `\n\nLIVE ACCOUNT SIGNALS (from OnlyFans right now — these postdate the chat window and ARE current):\n- ${bits.join('\n- ')}`
+      }
+    } catch { /* optional */ }
+
     const spendingContext = `SPENDING DATA FOR THIS FAN:
 - Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
 - Normal purchase cadence: every ${medianGap} days
 - Gap since last purchase (at end of chat): ${cappedCurrentGap} days
 - Last 30 days of chat window: $${cappedRolling30.toLocaleString()} (vs their normal ~$${monthlyAvg90.toLocaleString()}/month)
 - Creator name (refer to her as this in the brief): ${creatorAka}${chatWindowNote}
-${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}`
+${monthlyArc ? `\nMONTHLY SPENDING ARC (judge the fan against his OWN PEAK ERA, not just his recent average — a small uptick after a long decay is a REVIVAL WINDOW, never a "hot streak"; state explicitly where he is now vs his peak era and whether the trajectory is growing, stable, decayed, or reviving):\n${monthlyArc}` : ''}
+${spendingTimeline ? `\nSPENDING HISTORY (use these dates to correlate with conversation moments — when spending was high, what was happening in the chat?):\n${spendingTimeline}` : ''}${liveBlock}${chatTeamStart ? `\n\nCHAT TEAM BOUNDARY: our CURRENT chat team took over this creator on ${chatTeamStart}. In CHATTER PERFORMANCE, GRADE only what happened ON/AFTER that date — failures before it were a PREVIOUS agency: cite them as history/context (they explain the fan's scars and what to avoid) but attribute them explicitly to the prior team, never to ours.` : ''}`
 
     // ── Example of a great analysis (few-shot calibration) ─────────────
     const exampleAnalysis = `EXAMPLE OF THE DEPTH AND SPECIFICITY EXPECTED:
@@ -659,6 +727,7 @@ Last purchase: [EXACT date from the SPENDING DATA block above — specifically t
 Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
 
 CRITICAL DATE RULES:
+- EVERY date you write anywhere in this brief MUST include a two-digit year: "Jun 17, 26" — never a bare "Jun 17". The conversation now spans multiple years; a date without a year is ambiguous and useless.
 - "Last fan reply" is the FAN's last message, NOT the creator's last message. Creator-side re-engagement pings sent after the fan went quiet do NOT count.
 - If today's date (or any obviously recent date) shows up in the transcript, it's usually a creator-side outbound ping — skip past it to find the fan's actual last reply.
 - The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
@@ -667,7 +736,13 @@ QUICK READ
 [1-2 sentences. Lead with the FAN'S situation and what's at stake — not with meta-commentary about the analysis itself. Do NOT open with "This is a follow-up," "This is the first analysis," "The record shows," or anything describing the brief. If prior context exists and is genuinely relevant, fold it in naturally ("Since the last analysis he's gone another 3 weeks silent"). Otherwise just describe what's happening with the fan right now.]
 
 WHAT HAPPENED
-[3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. If a chatter action triggered it, say what. If a fan-side factor, cite the quote. If genuinely unclear, say so. Do not speculate past the evidence.]
+[3-6 sentences. Name the specific dated moment(s) that caused the current situation with quoted evidence. End with a verdict on the CAUSE, choosing honestly between: (a) CHATTER-CAUSED — name the action; (b) FAN-SIDE — budget, life event, stated reason; (c) NATURAL FADE — interest simply decayed with no failure on our side; the chatting may have been perfectly good. Do NOT invent a chatter fault when the evidence doesn't show one — "the team did fine, he just drifted" is a legitimate and common conclusion. State which hypothesis the evidence favors and how confident you are.]
+
+PEAK FORMULA — what was working when he spent the most
+[Use the MONTHLY SPENDING ARC to locate his 2-3 biggest months, then go READ the transcript from those months and answer: what was actually happening? Who opened, what content/themes, what session structure, what prices, what relationship dynamic? 3-5 bullets with dated quotes. Then ONE line: "What changed since:" naming the concrete difference between then and now. This is the recipe the chatter is trying to restore — be specific enough to replicate. If his spending has been flat (no distinct peak era), say so in one line and skip the bullets.]
+
+CHATTER PERFORMANCE
+[2-5 bullets, evidence-quoted. Audit OUR side of the chat: broken promises (anything we said we'd confirm/deliver and never did — video calls, customs, "I'll check"), fan requests repeatedly ignored or deflected (content types he asked to buy that nobody followed up on), price-ceiling violations (pitches far above what he historically pays right after he balked), mass-blast burial (was a high-value fan left on the blast list? does the blast tone clash with his 1:1 dynamic?), and language/persona breaks. Each bullet: what happened, the date, and the quote. If our side was clean, say "No chatter failures found" in one line — do not invent problems.]
 
 WHO HE IS
 [4-7 bulleted timeless facts. One short line each. Name/nickname, location, job, pets, ongoing hobbies, stated values. Each line should still be true 6 months from now — skip stale specifics.]
@@ -690,7 +765,16 @@ NEXT MOVE
 
 > "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing.]"
 
-[1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]`
+[1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]
+
+CHATTER CARD
+[The spoon-feed — the ONLY part most chatters will read. Max 6 lines, telegraphic (no paragraphs), every line load-bearing. Format EXACTLY:
+CARD: [EXACT display name and @username from the FAN: line at the top — never invent or shorten the handle] — $[lifetime] · [state + likely cause, e.g. "decayed — trust broken Oct 25" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
+FORMULA: [his buying recipe in one sentence, distilled from PEAK FORMULA]
+WANTS: [content/themes he buys + any waiting sale from SLEEPING THREADS]
+PRICE: [his band + how he negotiates]
+NEVER: [the 2-4 things that kill him]
+OPENER: "[the ready-to-send message from NEXT MOVE]"]`
 
       : `You are a whale-hunting analyst for an OnlyFans agency. Your output is a short brief a chat manager will hand to a chatter. Write plainly, no jargon.
 
@@ -756,7 +840,11 @@ HARD RULES:
       })
     }
 
-    const maxChars = isHighValue ? 80000 : 20000
+    // Deep dives run on Opus (1M context) — feed the WHOLE conversation.
+    // The old 80k cap kept 25% start + 75% end and amputated the middle,
+    // which is where Chris's broken VC promise / Nov-25 gouge / ignored
+    // custom all lived — the model literally never saw them (found 2026-07-04).
+    const maxChars = isHighValue ? 400000 : 20000
 
     // Fetch prior analysis context (if fan has been analyzed before)
     const priorResult = await fetchPriorContext(fanName, creatorName, { rolling30, monthlyAvg90, currentGap, medianGap })
@@ -872,7 +960,10 @@ HARD RULES:
         fullConversation,
       ].filter(Boolean).join('\n\n')
       const stream = anthropic.messages.stream({
-        model: 'claude-sonnet-4-6',
+        // Whale deep-dives get the strongest model — the trigger/formula
+        // reasoning (fan-intel system) is exactly where model depth shows.
+        // Quick snapshots stay on Sonnet (cost).
+        model: isHighValue ? 'claude-opus-4-8' : 'claude-sonnet-4-6',
         max_tokens: claudeMaxTokens,
         system: [
           { type: 'text', text: systemWithContext, cache_control: { type: 'ephemeral' } },
@@ -911,9 +1002,16 @@ HARD RULES:
     const creatorRecordId = formData.get('creatorRecordId') || ''
     const lastPurchaseDate = formData.get('lastPurchaseDate') || ''
 
+    // The deep dive ends with a CHATTER CARD written by the SAME model that
+    // read the whole conversation — use it verbatim as the manager brief
+    // (no lossy re-compression through a smaller model). The old gpt-4o-mini
+    // condenser remains only as a fallback for outputs missing the card.
+    const cardMatch = fullAnalysis.match(/\nCHATTER CARD\s*\n([\s\S]+?)$/)
+    const cardBrief = cardMatch ? cardMatch[1].trim() : null
+
     // Run manager brief + fan tracker in parallel
     const [briefResult] = await Promise.all([
-      getOpenAI().chat.completions.create({
+      cardBrief ? Promise.resolve(null) : getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: `You write chat manager briefs for an OnlyFans agency. Distill the full fan analysis into a scannable brief, around 150-175 words total. Plain language, no jargon.
@@ -948,7 +1046,7 @@ Rules:
         : Promise.resolve(),
     ])
 
-    const managerBrief = briefResult?.choices?.[0]?.message?.content || ''
+    const managerBrief = cardBrief || briefResult?.choices?.[0]?.message?.content || ''
 
     // Dropbox save + Airtable save in parallel (both need managerBrief)
     await Promise.all([

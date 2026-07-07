@@ -9,6 +9,50 @@ export default function WhaleHuntingPage() {
   const pathname = usePathname()
   const [tab, setTab] = useState('audit')
 
+  // ── Universal keyboard navigation ─────────────────────────────────────────
+  // Works over ANY element tagged data-kbrow, in document order — Save List,
+  // Dormant Whales, Fan CRM, and whatever gets added later; no per-section
+  // wiring. ↑/↓ move the highlight (auto-opens a closed <details>), Enter
+  // clicks the row (opens its modal). While a fan modal is open
+  // ([data-fan-modal]): ←/→ = prev/next fan, Esc closes.
+  useEffect(() => {
+    let current = null
+    const clear = () => { if (current) { current.style.outline = ''; current.style.backgroundColor = '' } }
+    const setCur = (el) => {
+      clear(); current = el
+      if (el) {
+        el.style.outline = '1px solid rgba(160,111,232,0.55)'
+        el.style.backgroundColor = 'rgba(160,111,232,0.12)'
+        el.scrollIntoView({ block: 'nearest' })
+      }
+    }
+    function onKey(e) {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+      const modal = document.querySelector('[data-fan-modal]')
+      if (modal) {
+        if (e.key === 'Escape') modal.querySelector('[data-kb-close]')?.click()
+        else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); modal.querySelector('[data-kb-next]')?.click() }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); modal.querySelector('[data-kb-prev]')?.click() }
+        return
+      }
+      const list = [...document.querySelectorAll('[data-kbrow]')]
+      if (!list.length) return
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        let i = current ? list.indexOf(current) : -1
+        i = e.key === 'ArrowDown' ? Math.min(i + 1, list.length - 1) : Math.max(i - 1, 0)
+        const el = list[i]
+        const det = el.closest('details')
+        if (det && !det.open) det.open = true
+        setCur(el)
+      } else if (e.key === 'Enter' && current) {
+        current.click()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); clear() }
+  }, [])
+
   // Read tab from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -25,7 +69,7 @@ export default function WhaleHuntingPage() {
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '32px 40px', maxWidth: '1600px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>🐋 Whale Hunting</h1>
         <p style={{ fontSize: '13px', color: 'rgba(240, 236, 232, 0.75)', margin: '6px 0 0' }}>
