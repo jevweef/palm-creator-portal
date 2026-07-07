@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import ChatTeamAnalyses from '@/components/ChatTeamAnalyses'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 
@@ -286,52 +285,12 @@ export default function ChatWallPage() {
 
   const selectedCreator = creators.find(c => c.id === creatorId)
 
-  // Page sections: the photo library + the whale analyses feed (merged here
-  // 2026-07-07 — chat managers get both in one login). ?tab=analyses deep-links
-  // (Telegram alert links land there).
-  const [section, setSectionState] = useState(() => {
-    if (typeof window === 'undefined') return 'photos'
-    return new URLSearchParams(window.location.search).get('tab') === 'analyses' ? 'analyses' : 'photos'
-  })
-  const setSection = (sec) => {
-    setSectionState(sec)
-    try {
-      const params = new URLSearchParams(window.location.search)
-      if (sec === 'analyses') params.set('tab', 'analyses'); else params.delete('tab')
-      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? '?' + params : ''}`)
-    } catch { /* SSR */ }
-  }
-  const sectionTabs = (
-    <div style={{ display: 'flex', gap: '4px', margin: '0 0 18px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '3px', width: 'fit-content' }}>
-      {[['photos', 'Photo Library'], ['analyses', 'Whale Analyses']].map(([k, label]) => (
-        <button key={k} onClick={() => setSection(k)}
-          style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '6px', cursor: 'pointer', background: section === k ? 'rgba(232,160,160,0.15)' : 'transparent', color: section === k ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-
-  if (section === 'analyses') {
-    return (
-      <div>
-        <div style={{ marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{greeting}, </span>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>{firstName}</span>
-        </div>
-        {sectionTabs}
-        <ChatTeamAnalyses />
-      </div>
-    )
-  }
-
   return (
     <div>
       <div style={{ marginBottom: '8px' }}>
         <span style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>{greeting}, </span>
         <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>{firstName}</span>
       </div>
-      {sectionTabs}
 
       <div style={{ marginBottom: '16px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>

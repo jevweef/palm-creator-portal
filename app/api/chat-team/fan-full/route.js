@@ -11,6 +11,7 @@ export const maxDuration = 300
 // rows. Role-gated to admins + chat managers.
 
 const OPS_BASE = 'applLIT2t83plMqNx'
+const FAN_ANALYSIS_TABLE = 'tblNMtOEg2AIzvLDK'
 const HEADERS = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }
 const CACHE = new Map()
 
@@ -59,6 +60,32 @@ export async function GET(request) {
     let cad = null
     try { cad = JSON.parse(tf.Cadence || 'null') } catch { /* none */ }
 
+    // 3) his analyses — the modal's Analysis History section
+    const ap = new URLSearchParams()
+    ap.set('pageSize', '10')
+    ap.set('sort[0][field]', 'Analyzed Date')
+    ap.set('sort[0][direction]', 'desc')
+    ap.set('filterByFormula', fanUsername
+      ? `LOWER({OF Username}) = '${fanUsername.replace(/'/g, "\\'")}'`
+      : `{Fan Name} = '${fanName.replace(/'/g, "\\'")}'`)
+    const ares = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${ap}`, { headers: HEADERS, cache: 'no-store' })
+    const analysisRecords = (((await ares.json()).records) || []).map((r) => {
+      const af = r.fields || {}
+      return {
+        id: r.id,
+        date: af['Analyzed Date'] || '',
+        analyzedDate: af['Analyzed Date'] || '',
+        type: af['Analysis Type']?.name || af['Analysis Type'] || '',
+        analysisType: af['Analysis Type']?.name || af['Analysis Type'] || '',
+        brief: af['Manager Brief'] || '',
+        managerBrief: af['Manager Brief'] || '',
+        fullAnalysis: af['Full Analysis'] || '',
+        messageCount: af['Message Count'] || 0,
+        firstMessageDate: af['First Message Date'] || '',
+        lastMessageDate: af['Last Message Date'] || '',
+      }
+    })
+
     // fan object in the CRM's shape — real purchases only for cadence stats
     const isReal = (t) => !/chargeback|subscription/i.test(t.type || '')
     const real = txns.filter((t) => isReal(t) && t.net > 0)
@@ -93,7 +120,7 @@ export async function GET(request) {
       alertStatus: status === 'Alert Sent' ? 'Sent to Manager' : status === 'Analyzed' ? 'Fan Analyzed' : 'None',
       alertCount: tf['Alert Count'] || 0,
       alertHistory: (() => { try { return JSON.parse(tf['Alert History'] || '[]') } catch { return [] } })(),
-      analysisRecords: [],
+      analysisRecords,
       firstFlagged: tf['First Flagged'] || null,
       lastAlertSent: tf['Last Alert Sent'] || null,
       timesGoneCold: tf['Times Gone Cold'] || 0,

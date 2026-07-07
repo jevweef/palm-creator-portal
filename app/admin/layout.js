@@ -41,7 +41,7 @@ const ADMIN_NAV = [
     { key: 'team', label: 'Chat Team Report' },
   ]},
   // Same view the chat managers see (analyses tab inside their photo-library login)
-  { href: '/photo-library?tab=analyses', label: 'Team Analyses', icon: '📖' },
+  { href: '/chat-manager/whale-hunting', label: 'Team Analyses', icon: '📖' },
   { href: '/admin/live-chat', label: 'Live Chat', icon: '💬' },
   // Research — OFM competitive-intelligence briefs (how other agencies operate,
   // synthesized from their YouTube content, compared to how Palm works). Fed by
