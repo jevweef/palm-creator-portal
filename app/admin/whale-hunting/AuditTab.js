@@ -355,7 +355,11 @@ export default function AuditTab() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ creatorRecordId: creatorId, accountName }),
         })
-        const data = await res.json()
+        const raw = await res.text()
+        let data
+        try { data = JSON.parse(raw) } catch {
+          throw new Error(`Backfill for ${accountName} hit a server timeout — the export keeps building at OF. Click Backfill again in a few minutes; it attaches to the same export (no double charge).`)
+        }
         if (!res.ok) throw new Error(data.error || `Backfill failed for ${accountName}`)
         const s = data.Sales || {}, c = data.Chargebacks || {}
         const bits = []
