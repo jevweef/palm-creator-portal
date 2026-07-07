@@ -225,6 +225,15 @@ export async function POST(request) {
             Status: 'Deleted',
             Notes: `OF account deleted (auto-detected by audit ${new Date().toISOString().slice(0, 10)})`,
           }).catch(() => {})
+        } else {
+          // First-time flag AND deleted — leave a tombstone so the CRM knows
+          // (otherwise he silently vanishes from audits but still shows as a
+          // pullable fan in the CRM and the pull dead-ends confusingly).
+          await createAirtableRecord(FAN_TRACKER, {
+            'Fan Name': t.fanName, 'OF Username': t.ofUsername, 'Creator': [creatorRecordId],
+            'Status': 'Deleted', 'Lifetime Spend': t.lifetime, 'First Flagged': new Date().toISOString(),
+            'Notes': `OF account deleted (auto-detected by audit ${new Date().toISOString().slice(0, 10)})`,
+          }, { typecast: true }).catch(() => {})
         }
       }
       const keep = (t) => !isDeleted(t)
