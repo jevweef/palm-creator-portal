@@ -21,6 +21,7 @@ export default function ChatTeamAnalyses() {
   const [search, setSearch] = useState('')
   const [req, setReq] = useState({ creator: '', fanName: '', note: '' })
   const [reqState, setReqState] = useState(null) // 'sending' | 'sent' | error string
+  const [fanStats, setFanStats] = useState({}) // analysisId -> stats | 'loading' | null
 
   useEffect(() => {
     fetch('/api/chat-team/analyses', { cache: 'no-store' })
@@ -46,6 +47,16 @@ export default function ChatTeamAnalyses() {
     if (!q) return analyses
     return analyses.filter((a) => a.fanName.toLowerCase().includes(q) || a.creator.toLowerCase().includes(q))
   }, [analyses, search])
+
+  // Same money picture the admin fan modal shows — fetched lazily per card.
+  function loadFanStats(a) {
+    if (fanStats[a.id] !== undefined) return
+    setFanStats((m) => ({ ...m, [a.id]: 'loading' }))
+    fetch(`/api/chat-team/fan?creator=${encodeURIComponent(a.creator)}&fanName=${encodeURIComponent(a.fanName)}&fanUsername=${encodeURIComponent(a.ofUsername || '')}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setFanStats((m) => ({ ...m, [a.id]: d.error ? null : d })))
+      .catch(() => setFanStats((m) => ({ ...m, [a.id]: null })))
+  }
 
   async function submitRequest(e) {
     e.preventDefault()
@@ -100,7 +111,7 @@ export default function ChatTeamAnalyses() {
           const open = openId === a.id
           return (
             <div key={a.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
-              <button onClick={() => setOpenId(open ? null : a.id)}
+              <button onClick={() => { setOpenId(open ? null : a.id); if (!open) loadFanStats(a) }}
                 style={{ display: 'flex', width: '100%', alignItems: 'baseline', gap: '10px', background: 'none', border: 'none', color: 'inherit', textAlign: 'left', padding: '12px 16px', cursor: 'pointer' }}>
                 <span style={{ fontWeight: 700, fontSize: '14px', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.fanName}</span>
                 <span style={{ fontSize: '12px', color: '#C4A5F7', whiteSpace: 'nowrap' }}>{a.creator}</span>
@@ -112,6 +123,55 @@ export default function ChatTeamAnalyses() {
                   {a.managerBrief.replace(/\*\*/g, '')}
                 </div>
               )}
+              {open && (() => {
+                const st = fanStats[a.id]
+                if (st === 'loading') return <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--foreground-muted, #8B8680)' }}>Loading his numbers…</div>
+                if (!st) return null
+                const money = [
+                  ['Lifetime', '$' + (st.lifetime || 0).toLocaleString()],
+                  ['Last 30d', '$' + (st.rolling30 || 0).toLocaleString()],
+                  ['90d avg/mo', '$' + (st.monthlyAvg90 || 0).toLocaleString()],
+                  ['Best 6-mo avg', '$' + (st.best6moAvg || 0).toLocaleString() + '/mo'],
+                  ['Peak month', st.peakMonth ? `$${st.peakMonthSpend.toLocaleString()} (${st.peakMonth})` : '—'],
+                ]
+                const timeline = [
+                  ['First buy', st.firstBuy || '—'],
+                  ['Last buy', st.lastBuy || '—'],
+                  ['Silent', st.silentDays != null ? st.silentDays + 'd' : '—'],
+                  ['Purchases', String(st.purchases || 0)],
+                ]
+                const maxNet = Math.max(1, ...(st.series || []).map((x) => x.net))
+                return (
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      {money.map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted, #8B8680)' }}>{label}</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800 }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                      {timeline.map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted, #8B8680)' }}>{label}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600 }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {st.series?.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '90px' }}>
+                        {st.series.map((pt) => (
+                          <div key={pt.month} title={`${pt.month}: $${pt.net.toLocaleString()}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '3px', minWidth: 0 }}>
+                            <div style={{ width: '100%', maxWidth: '26px', height: `${Math.max(2, Math.round((pt.net / maxNet) * 70))}px`, background: 'rgba(232,160,160,0.55)', borderRadius: '3px 3px 0 0' }} />
+                            <div style={{ fontSize: '8px', color: 'var(--foreground-muted, #8B8680)', whiteSpace: 'nowrap' }}>{pt.month.slice(2).replace('-', "'")}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               {open && a.fullAnalysis && (
                 <div style={{ padding: '14px 16px', fontSize: '13px', lineHeight: 1.65, whiteSpace: 'pre-wrap', color: 'var(--foreground, #F0ECE8)', maxHeight: '70vh', overflowY: 'auto' }}>
                   {a.fullAnalysis.replace(/\*\*/g, '')}

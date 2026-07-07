@@ -40,7 +40,7 @@ export async function GET() {
     params.set('pageSize', '60')
     params.set('sort[0][field]', 'Analyzed Date')
     params.set('sort[0][direction]', 'desc')
-    for (const f of ['Fan Name', 'Creator', 'Analyzed Date', 'Manager Brief', 'Full Analysis', 'Analysis Type', 'Message Count']) {
+    for (const f of ['Fan Name', 'OF Username', 'Creator', 'Analyzed Date', 'Manager Brief', 'Full Analysis', 'Analysis Type', 'Message Count']) {
       params.append('fields[]', f)
     }
     const res = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${FAN_ANALYSIS_TABLE}?${params}`, {
@@ -50,11 +50,13 @@ export async function GET() {
     const data = await res.json()
     const analyses = (data.records || []).map((r) => {
       const f = r.fields || {}
-      const creatorId = (Array.isArray(f.Creator) ? f.Creator[0] : null)
+      // Creator is a text field on some rows, a linked record on others
+      const creator = Array.isArray(f.Creator) ? (nameById[f.Creator[0]] || '') : (f.Creator || '')
       return {
         id: r.id,
         fanName: f['Fan Name'] || '',
-        creator: nameById[creatorId] || '',
+        ofUsername: f['OF Username'] || '',
+        creator,
         analyzedAt: f['Analyzed Date'] || '',
         type: f['Analysis Type']?.name || f['Analysis Type'] || '',
         managerBrief: f['Manager Brief'] || '',
