@@ -3,9 +3,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
-import { generateWhaleAlertPdf } from '@/lib/generateWhaleAlertPdf'
 import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
-import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, createDropboxSharedLink, createDropboxFolder } from '@/lib/dropbox'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const FAN_TRACKER_TABLE = 'Fan Tracker'
@@ -36,36 +34,10 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Generate PDF (full analysis only, no manager brief)
-    const pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
-
-    // Upload PDF to Dropbox — same folder as chat transcripts and analysis JSONs
-    const accessToken = await getDropboxAccessToken()
-    const rootNamespaceId = await getDropboxRootNamespaceId(accessToken)
-    // Match getChatBasePath() slug logic from analyze-chat route
-    const fanSlug = (alert.username || alert.fan || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
-    const creatorSlug = creatorName.replace(/[^a-zA-Z0-9_-]/g, '_')
-    const fanFolder = `/Palm Ops/Chat Logs/${creatorSlug}/${fanSlug}`
-
-    // Use chat window dates for PDF filename (matches transcript/analysis naming)
-    const cleanDate = (d) => {
-      if (!d) return null
-      const dateOnly = d.replace(/,?\s*\d{1,2}:\d{2}\s*(am|pm)?\s*$/i, '').trim()
-      return dateOnly.replace(/[,]/g, '').replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '') || null
-    }
-    const chatStart = cleanDate(chatWindow?.firstMessageDate)
-    const chatEnd = cleanDate(chatWindow?.lastMessageDate)
-    const dateSuffix = chatStart && chatEnd ? `${chatStart}_to_${chatEnd}` : new Date().toISOString().slice(0, 10)
-    const dropboxPath = `${fanFolder}/whale-alert-${dateSuffix}.pdf`
-
-    // Ensure folder hierarchy exists before uploading
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs`)
-    await createDropboxFolder(accessToken, rootNamespaceId, `/Palm Ops/Chat Logs/${creatorSlug}`)
-    await createDropboxFolder(accessToken, rootNamespaceId, fanFolder)
-    console.log('[Whale Alert] Uploading PDF to', dropboxPath)
-    await uploadToDropbox(accessToken, rootNamespaceId, dropboxPath, pdfBuffer, { overwrite: true })
-    console.log('[Whale Alert] Upload complete')
-    const shareLink = await createDropboxSharedLink(accessToken, rootNamespaceId, dropboxPath)
+    // Portal link instead of a PDF: full analyses live on /chat-team (role-
+    // gated web view) — legible, searchable, and no PDF/Dropbox render chain
+    // (which was both low-res and the #1 send-timeout cause).
+    const portalLink = `https://app.palm-mgmt.com/chat-team?fan=${encodeURIComponent(alert.username || alert.fan || '')}&creator=${encodeURIComponent(creatorAka || creatorName)}`
 
     // Build Telegram text message
     const urgencyEmoji = { critical: '\u{1F6A8}', high: '\u26A0\uFE0F', warning: '\u{1F7E1}' }
@@ -94,8 +66,8 @@ export async function POST(request) {
       message += `\n${briefText}\n`
     }
 
-    // Dropbox link to full analysis PDF
-    message += `\n\u{1F4CE} Full analysis: ${shareLink}`
+    // Portal link to the full analysis (chat-team page)
+    message += `\n\u{1F4CE} Full analysis: ${portalLink}`
 
     // Send text message to Telegram
     const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
