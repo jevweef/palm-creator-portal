@@ -219,11 +219,17 @@ export default function AuditTab() {
       try {
         // Chunked pull: ~25 pages per request, looping until the chat start or
         // his value-scaled credit cap. No timeouts, no stuck exports.
+        const isDormant = w.cadence?.tier === 'dead' || w.status === 'Dormant'
+        const exportWindow = (isDormant && (w.cadence?.firstPurchaseDate || w.cadence?.lastPurchaseDate)) ? {
+          start: new Date(new Date(w.cadence.firstPurchaseDate || w.cadence.lastPurchaseDate).getTime() - 30 * 86400000).toISOString().slice(0, 10),
+          end: new Date(new Date(w.cadence.lastPurchaseDate || Date.now()).getTime() + 60 * 86400000).toISOString().slice(0, 10),
+        } : null
         const body = {
           creatorRecordId: w.creatorId || creatorId,
           fanUsername: w.ofUsername || '', fanName: w.fanName || '',
           fanId: w.fanId || w.cadence?.fanId || '',
           lifetime: w.lifetime || 0, light: true, maxPages: 25,
+          ...(exportWindow ? { exportWindow } : {}),
         }
         let spent = 0, cap = null, newMsgs = 0, total = 0
         let chunkErr = null, retries = 0
@@ -248,8 +254,9 @@ export default function AuditTab() {
           cur = cdata.cursor || cur
           chunkFanId = cdata.fan?.id || chunkFanId
           lastComplete = !!cdata.historyComplete
-          setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — pulling… ${total.toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
+          setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: cdata.waiting ? `${label} — building his spending-era export… ${cdata.progress ?? 0}%` : `${label} — pulling… ${total.toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
           if (!cdata.morePages) break
+          if (cdata.waiting) { await new Promise((r) => setTimeout(r, 6000)); continue }
           if (cap && spent >= cap) { capped = true; push(`${label}: stopped at his ${cap}cr cap — older history remains`); break }
         }
         if (chunkErr) { push(`${label}: pull failed — ${chunkErr}`); continue }

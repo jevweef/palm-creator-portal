@@ -93,7 +93,7 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete, exportWindow } = await request.json()
     // Auto-spend scales with the fan's value: ~2% of lifetime in credits
     // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
     // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
@@ -193,6 +193,50 @@ export async function POST(request) {
     }
 
     if (chunked) {
+      // ── DORMANT-FAN TARGETED EXPORT ────────────────────────────────────────
+      // Walking backward through a dead fan's chat wastes credits on months of
+      // unanswered mass blasts (Chris: 83cr of blasts, never reached his
+      // spending era). When the client passes exportWindow {start,end} (his
+      // buying period from the sheet), use a chat EXPORT instead: date-bounded,
+      // skipMassMessages, chatIds-scoped — only his REAL conversation, only
+      // the months that matter. Runs async at OF; each chunk call polls status
+      // (free) so the client loop stays timeout-proof.
+      if (exportWindow?.start) {
+        const arcX = await loadChatArchive(creatorName, fanName, fanUsername)
+        const pendingId = arcX?.pendingExportId || null
+        if (pendingId) {
+          const st = await getDataExport(pendingId).catch(() => null)
+          if (st?.status === 'completed') {
+            const csv = await downloadExportCsv(st)
+            const got = csvToMessages(csv)
+            if (got.length) await saveChunkShard(creatorName, fanName, fanUsername, got)
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
+            return NextResponse.json({ fan, pages: 0, credits: st.credit_cost ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
+          }
+          if (st && !['failed', 'cancelled'].includes(st.status)) {
+            const projected = st.credit_cost ?? (st.total_rows != null ? Math.ceil(st.total_rows / 20) : null)
+            if (projected != null && projected > AUTO_SPEND_LIMIT && !confirmBig) {
+              await cancelDataExport(pendingId).catch(() => {})
+              await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
+              return NextResponse.json({ error: `His targeted export reached ~${st.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits (cap ${AUTO_SPEND_LIMIT}) — cancelled free. Pull again to approve going over.` }, { status: 402 })
+            }
+            return NextResponse.json({ fan, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0 })
+          }
+          // failed/cancelled — clear and start fresh below
+          await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
+        }
+        const exp = await createDataExport({
+          type: 'chat_messages',
+          accountIds: [accountId],
+          startDate: new Date(exportWindow.start).toISOString().slice(0, 19) + 'Z',
+          endDate: new Date(exportWindow.end || Date.now()).toISOString().slice(0, 19) + 'Z',
+          options: { chatIds: [Number(fan.id)], maxMessages: 1000000, skipMassMessages: true },
+        })
+        const stub = arcX || { fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '', messages: [], lastMessageAt: null, lastMessageId: null, historyComplete: false }
+        await saveChatArchive(creatorName, fanName, fanUsername, { ...stub, pendingExportId: exp?.id || null, updatedAt: new Date().toISOString() })
+        return NextResponse.json({ fan, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: stub.messages.length, oldestAt: null, morePages: true, waiting: true, progress: 0 })
+      }
+
       const deadline = Date.now() + 45000
       const budget = Math.min(Number(maxPages) || 25, 30)
       let fresh = [], pages = 0, credits = 0, reachedStart = false
