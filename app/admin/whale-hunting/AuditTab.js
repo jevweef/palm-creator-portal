@@ -151,7 +151,7 @@ export default function AuditTab() {
   for (const w of watchlist) {
     if (w.creatorId !== creatorId) continue
     const k = (w.ofUsername || w.fanName || '').toLowerCase()
-    if (k) auditTiers[k] = { ...(w.cadence || {}), tier: w.cadence?.tier || (w.status === 'Dormant' ? 'dead' : null) }
+    if (k) auditTiers[k] = { ...(w.cadence || {}), fanId: w.fanId || null, tier: w.cadence?.tier || (w.status === 'Dormant' ? 'dead' : null) }
   }
 
   // Fan CRM data for the selected creator — same endpoint the Creators page
