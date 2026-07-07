@@ -151,6 +151,11 @@ export default function ChatWallPage() {
         if (cancelled) return
         setCreators(data.creators || [])
         if (data.viewer) setViewer(data.viewer)
+        // Chat managers (and admins impersonating one) belong in the tabbed
+        // /chat-manager section, where Whale Hunting sits next to the library.
+        if ((data.viewer?.isRealChatManager || data.viewer?.impersonatingUserId) && window.location.pathname === '/photo-library') {
+          window.location.replace('/chat-manager/photo-library' + window.location.search)
+        }
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setCreatorsLoading(false) })
