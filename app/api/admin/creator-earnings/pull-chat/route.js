@@ -3,7 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate } from '@/lib/onlyfansApi'
-import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
+import { loadChatArchive, saveChatArchive, mergeMessages, saveChunkShard, finalizeChunks } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -69,7 +69,11 @@ export async function GET(request) {
       fields: ['Creator', 'AKA'],
     })
     const creatorName = creators[0]?.fields?.Creator || creators[0]?.fields?.AKA || ''
-    const archive = await loadChatArchive(creatorName, fanName, fanUsername)
+    // Cursor chunks and finalize NEVER read the merged archive here — that
+    // multi-MB read per request is exactly what made big pulls time out.
+    // (finalizeChunks does its own single read; cursor chunks get fanId from
+    // the client.)
+    const archive = ((chunked && cursor) || finalize) ? null : await loadChatArchive(creatorName, fanName, fanUsername)
     if (!archive) return NextResponse.json({ archive: null })
     return NextResponse.json({
       archive: {
@@ -93,7 +97,7 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete } = await request.json()
     // Auto-spend scales with the fan's value: ~2% of lifetime in credits
     // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
     // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
@@ -119,7 +123,11 @@ export async function POST(request) {
     // ── Incremental: the Dropbox archive remembers what we already have ─────
     // (0 credits to read). We only fetch messages NEWER than its last message,
     // and the archived fanId skips the resolveFanId lookup on repeat pulls.
-    const archive = await loadChatArchive(creatorName, fanName, fanUsername)
+    // Cursor chunks and finalize NEVER read the merged archive here — that
+    // multi-MB read per request is exactly what made big pulls time out.
+    // (finalizeChunks does its own single read; cursor chunks get fanId from
+    // the client.)
+    const archive = ((chunked && cursor) || finalize) ? null : await loadChatArchive(creatorName, fanName, fanUsername)
 
     // Load-from-archive: no API call, no credits — just parse what we have
     // (the Analyze button path for an already-pulled fan).
@@ -160,6 +168,73 @@ export async function POST(request) {
     const since = archive?.lastMessageAt
       ? new Date(new Date(archive.lastMessageAt).getTime() - 60000).toISOString()
       : (sinceDate || null)
+
+    // ── SHARD PROTOCOL (2026-07-07): timeout-proof by construction ──────────
+    // Every chunk request does ONLY pagination + one small shard write — it
+    // never reads or rewrites the (multi-MB) merged archive, so its runtime is
+    // bounded no matter how big the fan's history gets. FINALIZE merges all
+    // shards into messages.json once at the end.
+    if (finalize) {
+      const merged = await finalizeChunks(creatorName, fanName, fanUsername, {
+        fanId: fanId || fan?.id || '', historyComplete: complete === true ? true : complete === false ? false : undefined,
+      })
+      if (!merged.messages.length) {
+        return NextResponse.json({ error: 'No messages found in this chat' }, { status: 404 })
+      }
+      const parsedFin = light ? undefined : toParsedChat(merged.messages, merged.fanId)
+      return NextResponse.json({
+        parsed: parsedFin,
+        fan: { id: merged.fanId, username: merged.fanUsername, name: merged.fanName },
+        totalStored: merged.messages.length,
+        historyComplete: !!merged.historyComplete,
+        coverage: {
+          oldestMessageAt: merged.messages[0]?.createdAt || null,
+          newestMessageAt: merged.messages[merged.messages.length - 1]?.createdAt || null,
+          historyComplete: !!merged.historyComplete,
+        },
+        pulledAt: merged.updatedAt,
+      })
+    }
+
+    if (chunked) {
+      const deadline = Date.now() + 45000
+      const budget = Math.min(Number(maxPages) || 25, 30)
+      let fresh = [], pages = 0, credits = 0, reachedStart = false
+      let storedCount = 0
+      let backCursor = cursor || null
+      if (!cursor) {
+        // FIRST chunk: one archive read to find where to resume + what's new.
+        const arc0 = await loadChatArchive(creatorName, fanName, fanUsername)
+        storedCount = arc0?.messages?.length || 0
+        if (arc0?.historyComplete && !acceptPartial) reachedStart = true
+        if (arc0?.pendingExportId) { try { await cancelDataExport(arc0.pendingExportId) } catch {} }
+        if (arc0?.lastMessageAt) {
+          const fwd = await fetchChatHistory(accountId, fan.id, {
+            sinceDate: new Date(new Date(arc0.lastMessageAt).getTime() - 60000).toISOString(),
+            maxPages: 10, deadline,
+          })
+          fresh = fresh.concat(fwd.messages); pages += fwd.pages; credits += fwd.credits
+        }
+        backCursor = arc0?.messages?.[0]?.id ?? null
+      }
+      if (!reachedStart && pages < budget) {
+        const back = await fetchChatHistory(accountId, fan.id, {
+          maxPages: budget - pages, startCursor: backCursor, deadline,
+        })
+        fresh = fresh.concat(back.messages); pages += back.pages; credits += back.credits
+        if (back.messages.length) backCursor = back.messages[0].id
+        // Only a real empty/terminal page means the chat start; a deadline
+        // stop mid-run must NOT be mistaken for completion.
+        if (back.complete && Date.now() <= deadline) reachedStart = true
+      }
+      if (fresh.length) await saveChunkShard(creatorName, fanName, fanUsername, fresh)
+      return NextResponse.json({
+        fan, cursor: backCursor, pages, credits: credits || pages, capCredits: AUTO_SPEND_LIMIT,
+        fetchedCount: fresh.length, storedCount,
+        oldestAt: fresh[0]?.createdAt || null,
+        morePages: !reachedStart, historyComplete: reachedStart,
+      })
+    }
 
     // ── Fetch strategy v3 (2026-07-07): PAGINATED, CHUNKED ──────────────────
     // OF-side chat exports proved unreliable (stuck for hours at 0-2%) and

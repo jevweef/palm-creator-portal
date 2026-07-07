@@ -225,29 +225,37 @@ export default function AuditTab() {
           fanId: w.fanId || w.cadence?.fanId || '',
           lifetime: w.lifetime || 0, light: true, maxPages: 25,
         }
-        let spent = 0, cap = null, newMsgs = 0
+        let spent = 0, cap = null, newMsgs = 0, total = 0
         let chunkErr = null, retries = 0
-        for (let c = 0; c < 40; c++) {
+        let cur = null, chunkFanId = body.fanId || '', lastComplete = false, capped = false
+        for (let c = 0; c < 60; c++) {
           if (batchAbort.current) break
           const cres = await fetch('/api/admin/creator-earnings/pull-chat', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...body, chunked: true, fanId: chunkFanId, ...(cur ? { cursor: cur } : {}) }),
           })
-          // 504/5xx = gateway blip; the archive kept our progress — retry.
-          if (!cres.ok && cres.status >= 500 && retries < 3) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
+          // Timeouts/5xx are expected on big histories — finished chunks are
+          // safe in shards; retry and continue.
+          if (!cres.ok && cres.status >= 500 && retries < 4) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
           const cdata = await cres.json().catch(() => ({}))
           if (!cres.ok) { chunkErr = cdata.error || cres.status; break }
           retries = 0
           spent += cdata.credits || 0
-          newMsgs += cdata.newMessages || 0
+          newMsgs += cdata.fetchedCount || 0
+          if (c === 0) total = (cdata.storedCount || 0) + (cdata.fetchedCount || 0)
+          else total += cdata.fetchedCount || 0
           cap = cdata.capCredits ?? cap
-          setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — pulling… ${(cdata.totalStored || 0).toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
+          cur = cdata.cursor || cur
+          chunkFanId = cdata.fan?.id || chunkFanId
+          lastComplete = !!cdata.historyComplete
+          setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — pulling… ${total.toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
           if (!cdata.morePages) break
-          if (cap && spent >= cap) { push(`${label}: stopped at his ${cap}cr cap — older history remains`); break }
+          if (cap && spent >= cap) { capped = true; push(`${label}: stopped at his ${cap}cr cap — older history remains`); break }
         }
         if (chunkErr) { push(`${label}: pull failed — ${chunkErr}`); continue }
         const pres = await fetch('/api/admin/creator-earnings/pull-chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creatorRecordId: w.creatorId || creatorId, fanUsername: w.ofUsername || '', fanName: w.fanName || '', fanId: w.fanId || w.cadence?.fanId || '', fromArchive: true }),
+          body: JSON.stringify({ creatorRecordId: w.creatorId || creatorId, fanUsername: w.ofUsername || '', fanName: w.fanName || '', fanId: chunkFanId || w.fanId || w.cadence?.fanId || '', finalize: true, complete: capped ? false : lastComplete }),
         })
         const pdata = await pres.json().catch(() => ({}))
         if (!pres.ok) { push(`${label}: pull failed — ${pdata.error || pres.status}`); continue }

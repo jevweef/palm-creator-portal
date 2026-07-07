@@ -303,38 +303,47 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     setBigPull(null)
     try {
       let spent = 0, cap = null, newMsgs = 0, capped = false
-      const fmtOld = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'
+      let cur = null, chunkFanId = f.fanId || '', total = 0, lastComplete = false
+      const baseBody = {
+        creatorRecordId: creatorRecordId || '',
+        fanUsername: f.ofUsername || '',
+        fanName: f.fanName || '',
+        lifetime: f.lifetimeSpend || 0,
+      }
       let retries = 0
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 60; i++) {
         const res = await fetch('/api/admin/creator-earnings/pull-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            creatorRecordId: creatorRecordId || '',
-            fanUsername: f.ofUsername || '',
-            fanName: f.fanName || '',
-            fanId: f.fanId || '',
-            lifetime: f.lifetimeSpend || 0,
-            light: true, maxPages: 25,
+            ...baseBody, chunked: true, maxPages: 25,
+            fanId: chunkFanId,
+            ...(cur ? { cursor: cur } : {}),
             ...(opts.acceptPartial ? { acceptPartial: true } : {}),
           }),
         })
-        // Gateway hiccups (504) mustn't kill the run — progress is already
-        // saved in the archive; retry the chunk and keep going.
-        if (!res.ok && res.status >= 500 && retries < 3) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
+        // Timeouts/5xx are EXPECTED for big histories — every finished chunk is
+        // already safe in its shard, so just retry and keep rolling.
+        if (!res.ok && res.status >= 500 && retries < 4) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Pull failed')
+        retries = 0
         spent += data.credits || 0
-        newMsgs += data.newMessages || 0
+        newMsgs += data.fetchedCount || 0
+        if (i === 0) total = (data.storedCount || 0) + (data.fetchedCount || 0)
+        else total += data.fetchedCount || 0
         cap = data.capCredits ?? cap
-        setPullProgress({ spent, total: data.totalStored, oldest: data.coverage?.oldestMessageAt })
+        cur = data.cursor || cur
+        chunkFanId = data.fan?.id || chunkFanId
+        lastComplete = !!data.historyComplete
+        setPullProgress({ spent, total, oldest: data.oldestAt })
         if (!data.morePages) break
         if (cap && spent >= cap && !opts.confirmBig) { capped = true; break }
       }
       // Final: load the parsed archive (0 credits) and auto-run the analysis.
       const fin = await fetch('/api/admin/creator-earnings/pull-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fanId: f.fanId || '', fromArchive: true }),
+        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fanId: chunkFanId || f.fanId || '', finalize: true, complete: capped ? false : lastComplete }),
       })
       const fdata = await fin.json()
       if (!fin.ok) throw new Error(fdata.error || 'Pull finished but the archive would not load')
