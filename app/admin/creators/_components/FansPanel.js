@@ -37,6 +37,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
   // client-side HTML parse; feeds the identical analyze flow.
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
+  const [pullProgress, setPullProgress] = useState(null) // { spent, total, oldest } while a chunked pull runs
   const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
   const [bigPull, setBigPull] = useState(null) // {credits, messages} — cost gate awaiting a decision
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
@@ -191,18 +192,19 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     return m
   }, [f.alertHistory, f.analysisRecords])
 
-  async function buildFormData(fromTranscript = false) {
+  async function buildFormData(fromTranscript = false, parsedOverride = null) {
     const formData = new FormData()
+    const pulled = parsedOverride || ofPull
     if (fromTranscript) {
       formData.append('useTranscript', 'true')
-    } else if (ofPull && !chatFile) {
+    } else if (pulled && !chatFile) {
       // Chat pulled live from the OF API — already in parsed shape.
-      formData.append('parsedConversation', ofPull.conversation)
-      formData.append('parsedMessages', JSON.stringify(ofPull.messages))
-      formData.append('parsedFirstDate', ofPull.firstMessageDate)
-      formData.append('parsedLastDate', ofPull.lastMessageDate)
-      formData.append('parsedFanMsgs', String(ofPull.fanMessages))
-      formData.append('parsedCreatorMsgs', String(ofPull.creatorMessages))
+      formData.append('parsedConversation', pulled.conversation)
+      formData.append('parsedMessages', JSON.stringify(pulled.messages))
+      formData.append('parsedFirstDate', pulled.firstMessageDate)
+      formData.append('parsedLastDate', pulled.lastMessageDate)
+      formData.append('parsedFanMsgs', String(pulled.fanMessages))
+      formData.append('parsedCreatorMsgs', String(pulled.creatorMessages))
     } else {
       // Parse chat HTML client-side — sends only the extracted transcript text
       // instead of the full HTML (which can be 20-100MB and blow past Vercel's
@@ -290,49 +292,71 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     return formData
   }
 
-  // Pull this fan's chat straight from OF (read-only, ~1 credit per 100 msgs).
-  // Result feeds the exact same analyze flow as an HTML upload.
+  // Pull this fan's chat straight from OF, in CHUNKS: each request does ~25
+  // pages, reports progress, and the loop continues until the chat start or
+  // his value-scaled credit cap. When the pull lands, analysis starts
+  // automatically — no dead "no messages" ends, no timeouts.
   async function handlePullFromOf(opts = {}) {
     setPullingOf(true)
     setAnalysisError(null)
     setOfPull(null)
     setBigPull(null)
     try {
-      const res = await fetch('/api/admin/creator-earnings/pull-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creatorRecordId: creatorRecordId || '',
-          fanUsername: f.ofUsername || '',
-          fanName: f.fanName || '',
-          fanId: f.fanId || '',
-          lifetime: f.lifetimeSpend || 0,
-          ...(opts.confirmBig ? { confirmBig: true } : {}),
-          ...(opts.acceptPartial ? { acceptPartial: true } : {}),
-        }),
-      })
-      const data = await res.json()
-      if (res.status === 402 && data.needsConfirm) {
-        setBigPull({ credits: data.estimatedCredits, messages: data.estimatedMessages })
-        return
+      let spent = 0, cap = null, newMsgs = 0, capped = false
+      const fmtOld = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'
+      for (let i = 0; i < 30; i++) {
+        const res = await fetch('/api/admin/creator-earnings/pull-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creatorRecordId: creatorRecordId || '',
+            fanUsername: f.ofUsername || '',
+            fanName: f.fanName || '',
+            fanId: f.fanId || '',
+            lifetime: f.lifetimeSpend || 0,
+            light: true, maxPages: 25,
+            ...(opts.acceptPartial ? { acceptPartial: true } : {}),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Pull failed')
+        spent += data.credits || 0
+        newMsgs += data.newMessages || 0
+        cap = data.capCredits ?? cap
+        setPullProgress({ spent, total: data.totalStored, oldest: data.coverage?.oldestMessageAt })
+        if (!data.morePages) break
+        if (cap && spent >= cap && !opts.confirmBig) { capped = true; break }
       }
-      if (!res.ok) throw new Error(data.error || 'Pull failed')
-      setOfPull({ ...data.parsed, newMessages: data.newMessages, credits: data.credits, historyComplete: data.historyComplete })
+      // Final: load the parsed archive (0 credits) and auto-run the analysis.
+      const fin = await fetch('/api/admin/creator-earnings/pull-chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fanId: f.fanId || '', fromArchive: true }),
+      })
+      const fdata = await fin.json()
+      if (!fin.ok) throw new Error(fdata.error || 'Pull finished but the archive would not load')
+      const pulledParsed = { ...fdata.parsed, newMessages: newMsgs, credits: spent, historyComplete: fdata.historyComplete, coverage: fdata.coverage, capped }
+      setOfPull(pulledParsed)
       setChatFile(null) // OF pull replaces any picked file
+      setArchiveMeta((m) => ({ ...(m || {}), historyComplete: !!fdata.historyComplete, totalStored: fdata.totalStored, firstMessageAt: fdata.coverage?.oldestMessageAt || null, lastMessageAt: fdata.coverage?.newestMessageAt || null, pulledAt: fdata.pulledAt || null }))
+      setPullProgress(null)
+      if (fdata.parsed?.messageCount > 0 && !opts.noAutoAnalyze) {
+        await handleAnalyze(false, pulledParsed)
+      }
     } catch (e) {
       setAnalysisError(e.message)
+      setPullProgress(null)
     } finally {
       setPullingOf(false)
     }
   }
 
-  async function handleAnalyze(fromTranscript) {
+  async function handleAnalyze(fromTranscript, parsedOverride = null) {
     fromTranscript = fromTranscript === true // guard against React event objects
-    if (!fromTranscript && !chatFile && !ofPull) return
+    if (!fromTranscript && !chatFile && !ofPull && !parsedOverride) return
     setAnalyzing(true)
     setAnalysisError(null)
     try {
-      const fd = await (fromTranscript ? buildFormData(true) : buildFormData())
+      const fd = await (fromTranscript ? buildFormData(true) : buildFormData(false, parsedOverride))
       const res = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
       const raw = await res.text()
       let data
@@ -1022,7 +1046,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
                   cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                 }}>
-                {pullingOf ? 'Pulling from OF…' : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+                {pullingOf ? (pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
               {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
                 <span style={{ fontSize: '11px', color: '#E8C878' }}>
@@ -1034,7 +1058,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                   <span style={{ fontSize: '11px', color: '#A06FE8' }}>
                     ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
                     {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new since last pull · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'}</span>}
-                    {ofPull.historyComplete === false && <span style={{ color: '#E8C878' }}> · older history remains — pull again to keep deepening</span>}
+                    {ofPull.historyComplete === false && <span style={{ color: '#E8C878' }}> · {ofPull.capped ? 'stopped at his credit cap' : 'older history remains'} — pull again to keep deepening</span>}
                   </span>
                   <button onClick={handleAnalyze} disabled={analyzing}
                     style={{
@@ -1328,6 +1352,14 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                       style={{ fontSize: '10px', color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 500 }}>
                       {showAllHistory ? `Last 7 months` : `Show all (${allMonthly.length} months)`}
                     </button>
+                  )}
+                  {archiveMeta?.totalStored > 0 && (
+                    <span title="How far back we have his OF messages — pull again to deepen if it doesn't cover the whole chart"
+                      style={{ fontSize: '10px', color: archiveMeta.historyComplete ? '#7DD3A4' : '#E8C878', whiteSpace: 'nowrap' }}>
+                      💬 chat: {archiveMeta.firstMessageAt ? new Date(archiveMeta.firstMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?'}
+                      {' → '}{archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?'}
+                      {archiveMeta.historyComplete ? ' · full history' : ' · partial — pull again for older'}
+                    </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>

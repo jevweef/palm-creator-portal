@@ -80,6 +80,7 @@ export default function AuditTab() {
   const [error, setError] = useState(null)
   const [playbook, setPlaybook] = useState(null)
   const [batch, setBatch] = useState(null) // {i,total,current,log,done} — pull+analyze assembly line
+  const [batchSel, setBatchSel] = useState(() => new Set()) // fan tracker row ids picked for a selective batch run
   const batchAbort = useRef(false)
 
   const load = useCallback(async () => {
@@ -199,26 +200,55 @@ export default function AuditTab() {
   // still apply per fan — pricey pulls get skipped and logged for a manual
   // decision instead of blocking the run.
   async function runBatch() {
-    if (!selected || !urgentList.length) return
+    const pool = batchSel.size
+      ? [...urgentList, ...dormantList].filter((w) => batchSel.has(w.id))
+      : urgentList
+    if (!selected || !pool.length) return
     batchAbort.current = false
     const log = []
     const push = (line) => { log.push(line) }
-    for (let i = 0; i < urgentList.length; i++) {
+    for (let i = 0; i < pool.length; i++) {
       if (batchAbort.current) { push('⏹ stopped by user'); break }
-      const w = urgentList[i]
+      const w = pool[i]
       const label = w.fanName || w.ofUsername || 'fan'
-      setBatch({ i: i + 1, total: urgentList.length, current: `${label} — pulling chat…`, log: [...log] })
+      setBatch({ i: i + 1, total: pool.length, current: `${label} — pulling chat…`, log: [...log] })
       try {
+        // Chunked pull: ~25 pages per request, looping until the chat start or
+        // his value-scaled credit cap. No timeouts, no stuck exports.
+        const body = {
+          creatorRecordId: w.creatorId || creatorId,
+          fanUsername: w.ofUsername || '', fanName: w.fanName || '',
+          fanId: w.fanId || w.cadence?.fanId || '',
+          lifetime: w.lifetime || 0, light: true, maxPages: 25,
+        }
+        let spent = 0, cap = null, newMsgs = 0
+        let chunkErr = null
+        for (let c = 0; c < 30; c++) {
+          if (batchAbort.current) break
+          const cres = await fetch('/api/admin/creator-earnings/pull-chat', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          })
+          const cdata = await cres.json().catch(() => ({}))
+          if (!cres.ok) { chunkErr = cdata.error || cres.status; break }
+          spent += cdata.credits || 0
+          newMsgs += cdata.newMessages || 0
+          cap = cdata.capCredits ?? cap
+          setBatch({ i: i + 1, total: pool.length, current: `${label} — pulling… ${(cdata.totalStored || 0).toLocaleString()} msgs · ${spent}cr`, log: [...log] })
+          if (!cdata.morePages) break
+          if (cap && spent >= cap) { push(`${label}: stopped at his ${cap}cr cap — older history remains`); break }
+        }
+        if (chunkErr) { push(`${label}: pull failed — ${chunkErr}`); continue }
         const pres = await fetch('/api/admin/creator-earnings/pull-chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creatorRecordId: creatorId, fanUsername: w.ofUsername || '', fanName: w.fanName || '', lifetime: w.lifetime || 0 }),
+          body: JSON.stringify({ creatorRecordId: w.creatorId || creatorId, fanUsername: w.ofUsername || '', fanName: w.fanName || '', fanId: w.fanId || w.cadence?.fanId || '', fromArchive: true }),
         })
         const pdata = await pres.json().catch(() => ({}))
-        if (pres.status === 402) { push(`${label}: needs cost approval (~${pdata.estimatedCredits} cr) — open his card to decide`); continue }
-        if (pres.status === 202) { push(`${label}: history export still building — rerun the batch in a few minutes`); continue }
         if (!pres.ok) { push(`${label}: pull failed — ${pdata.error || pres.status}`); continue }
+        pdata.credits = spent
+        pdata.newMessages = newMsgs
+        if (!(pdata.parsed?.messageCount > 0)) { push(`${label}: no messages found in this chat — skipped`); continue }
 
-        setBatch({ i: i + 1, total: urgentList.length, current: `${label} — analyzing…`, log: [...log] })
+        setBatch({ i: i + 1, total: pool.length, current: `${label} — analyzing…`, log: [...log] })
         const fd = new FormData()
         fd.append('useTranscript', 'true')
         fd.append('parsedConversation', pdata.parsed.conversation)
@@ -261,7 +291,7 @@ export default function AuditTab() {
       }
       await new Promise((r) => setTimeout(r, 1500))
     }
-    setBatch({ i: urgentList.length, total: urgentList.length, current: '', log: [...log], done: true })
+    setBatch((b) => ({ i: b?.total || 0, total: b?.total || 0, current: '', log: [...log], done: true }))
     load()
   }
 
@@ -410,7 +440,7 @@ export default function AuditTab() {
           <button onClick={runBatch} disabled={!selected?.connected || !urgentList.length}
             title="Pull each urgent fan's chat (cost-gated) and run the analysis, one by one"
             style={btn('rgba(232, 168, 120, 0.14)', '#E8A878', !selected?.connected || !urgentList.length)}>
-            Pull + Analyze Save List ({urgentList.length})
+            {batchSel.size ? `Pull + Analyze selected (${batchSel.size})` : `Pull + Analyze Save List (${urgentList.length})`}
           </button>
         )}
       </div>
@@ -583,7 +613,7 @@ export default function AuditTab() {
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th onClick={() => clickSort('worth')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'worth' ? '#C4A5F7' : undefined }}>Worth / mo{sortArrow('worth')}</th><th onClick={() => clickSort('last30')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'last30' ? '#C4A5F7' : undefined }}>Last 30d{sortArrow('last30')}</th><th onClick={() => clickSort('peak')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'peak' ? '#C4A5F7' : undefined }}>Peak mo{sortArrow('peak')}</th><th onClick={() => clickSort('best6')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'best6' ? '#C4A5F7' : undefined }}>Best 6mo avg{sortArrow('best6')}</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
+              <th style={{ padding: '4px 4px' }} title="pick fans for a selective Pull + Analyze run"><input type="checkbox" checked={urgentList.length > 0 && urgentList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); urgentList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th onClick={() => clickSort('worth')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'worth' ? '#C4A5F7' : undefined }}>Worth / mo{sortArrow('worth')}</th><th onClick={() => clickSort('last30')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'last30' ? '#C4A5F7' : undefined }}>Last 30d{sortArrow('last30')}</th><th onClick={() => clickSort('peak')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'peak' ? '#C4A5F7' : undefined }}>Peak mo{sortArrow('peak')}</th><th onClick={() => clickSort('best6')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'best6' ? '#C4A5F7' : undefined }}>Best 6mo avg{sortArrow('best6')}</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -594,7 +624,10 @@ export default function AuditTab() {
                     style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = ''}>
-                    <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span></td>
+                    <td style={{ padding: '7px 4px' }} onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={batchSel.has(w.id)} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); e.target.checked ? n.add(w.id) : n.delete(w.id); return n })} />
+                    </td>
+                    <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span>{w.status === 'Analyzed' && <span title="an analysis is saved on his card but no alert has been sent to the team yet" style={{ marginLeft: '5px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>ANALYSIS READY</span>}</td>
                     <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                       style={{ fontWeight: 600, maxWidth: '210px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
                       {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
@@ -650,7 +683,7 @@ export default function AuditTab() {
           </summary>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '10px' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Last buy</th><th style={{ padding: '4px 12px' }}>Silent</th><th style={{ padding: '4px 12px' }}>Last alert</th><th></th>
+              <th style={{ padding: '4px 4px' }}><input type="checkbox" checked={dormantList.length > 0 && dormantList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); dormantList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Last buy</th><th style={{ padding: '4px 12px' }}>Silent</th><th style={{ padding: '4px 12px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {dormantList.map((w) => (
@@ -658,9 +691,13 @@ export default function AuditTab() {
                   style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = ''}>
+                  <td style={{ padding: '7px 4px' }} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={batchSel.has(w.id)} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); e.target.checked ? n.add(w.id) : n.delete(w.id); return n })} />
+                  </td>
                   <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                     style={{ padding: '7px 8px 7px 0', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
+                    {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}
+                    {w.status === 'Analyzed' && <span title="analysis saved, alert not sent yet" style={{ marginLeft: '6px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>}</td>
                   {showAllWatchlist && <td>{w.creator}</td>}
                   <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
                   <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{fmtD(w.cadence?.lastPurchaseDate)}</td>
