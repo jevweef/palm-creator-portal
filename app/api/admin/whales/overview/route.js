@@ -58,7 +58,7 @@ export async function GET() {
           cadence: (() => { try { return JSON.parse(f.Cadence || 'null') } catch { return null } })(),
         }
       })
-      .filter((w) => w.status && !['Reactivated', 'Lost', 'Banned'].includes(w.status))
+      .filter((w) => w.status && !['Reactivated', 'Lost', 'Banned', 'Deleted'].includes(w.status))
       .sort((a, b) => b.lifetime - a.lifetime)
 
     return NextResponse.json({ creators: creatorList, watchlist })

@@ -668,7 +668,7 @@ export default function AuditTab() {
                     <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span>{w.status === 'Analyzed' && <span title="an analysis is saved on his card but no alert has been sent to the team yet" style={{ marginLeft: '5px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>ANALYSIS READY</span>}</td>
                     <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                       style={{ fontWeight: 600, maxWidth: '210px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
-                      {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
+                      {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : <span title="no OF username on file — pulls fall back to name search; possibly a deleted account" style={{ color: '#E8C878', fontWeight: 400, fontSize: '10px' }}> · no @</span>}</td>
                     {showAllWatchlist && <td style={{ whiteSpace: 'nowrap' }}>{w.creator}</td>}
                     <td style={{ color: 'var(--foreground-muted)', whiteSpace: 'nowrap', padding: '6px 10px 6px 0' }}>{cad?.medianGap
                       ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>

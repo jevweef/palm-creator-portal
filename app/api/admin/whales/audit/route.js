@@ -157,11 +157,11 @@ export async function POST(request) {
       })
     }
     results.sort((a, b) => b.lifetime - a.lifetime)
-    const triggered = results.filter((r) => r.tier && r.tier !== 'dead')
+    let triggered = results.filter((r) => r.tier && r.tier !== 'dead')
     // Dormant whales — big lifetime, gone quiet 120d+. Not urgent, but real
     // revival targets; they get tracked with Status 'Dormant' instead of
     // being thrown away (Evan: "old whales that may have completely stopped").
-    const dormantWhales = results.filter((r) => r.tier === 'dead' && r.lifetime >= 500)
+    let dormantWhales = results.filter((r) => r.tier === 'dead' && r.lifetime >= 500)
 
     // Usernames come straight from the sheet (col G) — no API lookups needed.
 
@@ -180,6 +180,7 @@ export async function POST(request) {
     // (protected from mass blasts) or exposed?
     const accountId = cf['OF API Account ID']
     const liveByKey = {}
+    const deletedKeys = new Set() // usernames whose OF account 404s = deleted
     if (accountId) {
       const toCheck = [...triggered, ...dormantWhales].filter((t) => t.ofUsername).slice(0, 40)
       for (const t of toCheck) {
@@ -201,8 +202,30 @@ export async function POST(request) {
             checkedAt: new Date().toISOString(),
           }
           await new Promise((r) => setTimeout(r, 120))
-        } catch { /* fan gone/renamed — cadence still stands */ }
+        } catch (e) {
+          // A hard 404 on the user = the fan DELETED his OF account. Mark his
+          // tracker row so he stops occupying a save-list slot (Evan,
+          // 2026-07-07 — Chris case); other errors leave the cadence standing.
+          if (/OF API 404/.test(e.message || '')) deletedKeys.add(t.ofUsername.toLowerCase())
+        }
       }
+    }
+
+    // Drop deleted accounts from this audit's output + flag them in the tracker.
+    if (deletedKeys.size) {
+      const isDeleted = (t) => t.ofUsername && deletedKeys.has(t.ofUsername.toLowerCase())
+      for (const t of [...triggered, ...dormantWhales].filter(isDeleted)) {
+        const row = mine.find((r) => (r.fields?.['OF Username'] || '').toLowerCase() === t.ofUsername.toLowerCase())
+        if (row) {
+          await patchAirtableRecord(FAN_TRACKER, row.id, {
+            Status: 'Deleted',
+            Notes: `OF account deleted (auto-detected by audit ${new Date().toISOString().slice(0, 10)})`,
+          }).catch(() => {})
+        }
+      }
+      const keep = (t) => !isDeleted(t)
+      triggered = triggered.filter(keep)
+      dormantWhales = dormantWhales.filter(keep)
     }
 
     let created = 0, updated = 0
