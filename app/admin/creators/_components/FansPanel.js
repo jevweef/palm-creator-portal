@@ -310,11 +310,19 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
     try {
       let spent = 0, cap = null, newMsgs = 0, capped = false
       let cur = null, chunkFanId = f.fanId || '', total = 0, lastComplete = false
+      // DORMANT fans: aim the pull at his SPENDING era (skip months of
+      // unanswered mass blasts) via a targeted, mass-free export window.
+      const isDormantFan = f.heatStatus === 'Dead' && (f.firstDate || f.heatDetail?.lastPurchase)
+      const exportWindow = isDormantFan ? {
+        start: new Date(new Date(f.firstDate || f.heatDetail?.lastPurchase).getTime() - 30 * 86400000).toISOString().slice(0, 10),
+        end: new Date(new Date(f.heatDetail?.lastPurchase || f.lastDate || Date.now()).getTime() + 60 * 86400000).toISOString().slice(0, 10),
+      } : null
       const baseBody = {
         creatorRecordId: creatorRecordId || '',
         fanUsername: f.ofUsername || '',
         fanName: f.fanName || '',
         lifetime: f.lifetimeSpend || 0,
+        ...(exportWindow ? { exportWindow } : {}),
       }
       let retries = 0
       for (let i = 0; i < 60; i++) {
@@ -342,8 +350,9 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         cur = data.cursor || cur
         chunkFanId = data.fan?.id || chunkFanId
         lastComplete = !!data.historyComplete
-        setPullProgress({ spent, total, oldest: data.oldestAt })
+        setPullProgress({ spent, total, oldest: data.oldestAt, waiting: data.waiting ? (data.progress ?? 0) : null })
         if (!data.morePages) break
+        if (data.waiting) { await new Promise((r) => setTimeout(r, 6000)); continue }
         if (cap && spent >= cap && !opts.confirmBig) { capped = true; break }
       }
       // Final: load the parsed archive (0 credits) and auto-run the analysis.
@@ -1072,7 +1081,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
                   cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                 }}>
-                {pullingOf ? (pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+                {pullingOf ? (pullProgress?.waiting != null ? `Building his spending-era export… ${pullProgress.waiting}%` : pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
               {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
                 <span style={{ fontSize: '11px', color: '#E8C878' }}>

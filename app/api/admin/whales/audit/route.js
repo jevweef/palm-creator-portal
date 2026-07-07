@@ -141,6 +141,7 @@ export async function POST(request) {
 
       results.push({
         fanId: f.fanId || null,
+        firstPurchaseDate: dates[0] || null,
         ofUsername: f.username || '',
         fanName: f.name || f.username || 'unknown fan',
         lifetime: +f.lifetime.toFixed(2),
@@ -235,7 +236,7 @@ export async function POST(request) {
       // watchlist can show the SAME columns as the audit table (rhythm, silent
       // days, 30d spend) instead of just a lifetime number.
       const cadence = JSON.stringify({
-        medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
+        medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio, firstPurchaseDate: t.firstPurchaseDate,
         rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
         peakMonth: t.peakMonth, peakMonthSpend: t.peakMonthSpend,
         best6moAvg: t.best6moAvg, monthsOver500: t.monthsOver500,
@@ -276,7 +277,7 @@ export async function POST(request) {
     // flagged in the manual era, or ones that slid past 'dead') sit in the
     // watchlist with blank rhythm columns forever.
     const cadenceKey = (t) => JSON.stringify({
-      medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio,
+      medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio, firstPurchaseDate: t.firstPurchaseDate,
       rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
       lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
     })
