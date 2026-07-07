@@ -3,7 +3,7 @@ export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
-import { getWhaleTopicForCreator } from '@/lib/whaleAlertConfig'
+import { getWhaleTopicForCreator, resolveWhaleTopic } from '@/lib/whaleAlertConfig'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const FAN_TRACKER_TABLE = 'Fan Tracker'
@@ -27,10 +27,11 @@ export async function POST(request) {
 
     // Telegram topic routing is keyed on AKA (Sunny, Taby, MG, Laurel), not full legal name.
     // Try AKA first, fall back to full name for backwards compat / Laurel where AKA == first name.
-    const topic = getWhaleTopicForCreator(creatorAka) || getWhaleTopicForCreator(creatorName)
+    const topic = (getWhaleTopicForCreator(creatorAka) || getWhaleTopicForCreator(creatorName))
+      || await resolveWhaleTopic({ creatorAka, creatorName, creatorRecordId })
     if (!topic) {
       return NextResponse.json({
-        error: `No Telegram topic configured for "${creatorAka || creatorName}" — check lib/whaleAlertConfig.js`,
+        error: `Couldn't resolve a Telegram topic for "${creatorAka || creatorName}" — is her Chat Team set in HQ Creators?`,
       }, { status: 400 })
     }
 

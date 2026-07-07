@@ -5,6 +5,7 @@ import { fetchHqRecord, patchHqRecord, HQ_BASE, hqHeaders } from '@/lib/hqAirtab
 import { getDropboxAccessToken, getDropboxRootNamespaceId, moveDropboxItem, createDropboxFolder } from '@/lib/dropbox'
 import { closeDropboxFileRequest } from '@/lib/dropboxFileRequests'
 import { deleteSmmTopic } from '@/lib/telegramTopics'
+import { deleteWhaleTopic } from '@/lib/whaleAlertConfig'
 import { assertRecordId, quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
@@ -77,6 +78,21 @@ export async function GET(request) {
       console.warn('[Offboard preview] Ops/CPD lookup failed:', e.message)
     }
 
+    // Count the creator's watched chats (Telegram + iMessage) that will be ignored.
+    let chatsToIgnore = 0
+    try {
+      const akaVal = f.AKA || ''
+      const idClause = `{Creator HQ ID} = ${quoteAirtableString(hqId)}`
+      const akaClause = akaVal ? `, {Creator AKA} = ${quoteAirtableString(akaVal)}` : ''
+      const chatRows = await fetchAirtableRecords('Telegram Chats', {
+        filterByFormula: `AND(OR(${idClause}${akaClause}), {Status} != 'Ignored Forever')`,
+        fields: ['Source'],
+      })
+      chatsToIgnore = chatRows.length
+    } catch (e) {
+      console.warn('[Offboard preview] Telegram Chats lookup failed:', e.message)
+    }
+
     return NextResponse.json({
       creator: {
         id: hq.id,
@@ -88,6 +104,7 @@ export async function GET(request) {
       revenueAccounts: accounts,
       opsRecordId: opsRecord?.id || null,
       cpdTopicCount,
+      chatsToIgnore,
       hasCreatorTelegramThread: !!opsRecord?.fields?.['Telegram Thread ID'],
     })
   } catch (err) {
@@ -118,6 +135,7 @@ export async function POST(request) {
     clerkUserError: null,
     fileRequestsClosed: [],
     fileRequestErrors: [],
+    chatsIgnored: [],
     dropboxMoved: null,
     dropboxError: null,
     errors: [],
@@ -242,6 +260,41 @@ export async function POST(request) {
           summary.smmTopicsFailed.push({ account: accName, error: e.message })
         }
       }
+    }
+
+    // Whale-hunting Telegram topic (A/B team group) — delete on offboard so
+    // the team's group doesn't accumulate dead creators (Evan, 2026-07-07).
+    try {
+      const deleted = await deleteWhaleTopic({ creatorAka: aka, creatorName: name, hqId })
+      summary.whaleTopicDeleted = deleted
+    } catch (e) {
+      summary.whaleTopicDeleted = false
+      console.warn('[offboard] whale topic delete failed:', e.message)
+    }
+
+    // 3c. Ignore Forever the creator's group chats (Telegram + iMessage) so the
+    //     inbox stops ingesting/surfacing them once the creator is offboarded.
+    //     Chats live in one table (Telegram Chats); Source distinguishes the two.
+    //     Match by Creator HQ ID (precise) with Creator AKA as a fallback.
+    try {
+      const idClause = `{Creator HQ ID} = ${quoteAirtableString(hqId)}`
+      const akaClause = aka ? `, {Creator AKA} = ${quoteAirtableString(aka)}` : ''
+      const chatRows = await fetchAirtableRecords('Telegram Chats', {
+        filterByFormula: `AND(OR(${idClause}${akaClause}), {Status} != 'Ignored Forever')`,
+        fields: ['Title', 'Status', 'Source'],
+      })
+      for (const row of chatRows) {
+        const label = row.fields?.Title || row.id
+        const src = row.fields?.Source || 'chat'
+        try {
+          await patchAirtableRecord('Telegram Chats', row.id, { Status: 'Ignored Forever' })
+          summary.chatsIgnored.push(`${label} (${src})`)
+        } catch (e) {
+          summary.errors.push(`Chat ignore failed (${label}): ${e.message}`)
+        }
+      }
+    } catch (e) {
+      summary.errors.push(`Telegram Chats lookup failed: ${e.message}`)
     }
 
     // 4. Clerk: ban the user (lookup by email — reversible via unban)
