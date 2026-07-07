@@ -31,7 +31,7 @@ function fmtD(v) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
 }
 
-function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal }) {
+export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal, readOnly = false }) {
   const [chatFile, setChatFile] = useState(null)
   // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
   // client-side HTML parse; feeds the identical analyze flow.
@@ -823,8 +823,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                         </div>
                       ) : (
                         <div
-                          onClick={() => { setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
-                          title="Click to set a manual lifetime override (used on the Telegram PDF)"
+                          onClick={() => { if (readOnly) return; setLifetimeDraft(f.lifetimeOverride > 0 ? String(f.lifetimeOverride) : ''); setEditingLifetime(true) }}
+                          title={readOnly ? undefined : 'Click to set a manual lifetime override (used on the Telegram PDF)'}
                           style={{ cursor: 'pointer', borderBottom: '1px dashed transparent', display: 'inline-flex', gap: '6px', alignItems: 'baseline' }}
                           onMouseEnter={e => e.currentTarget.style.borderBottomColor = '#94A3B8'}
                           onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
@@ -924,6 +924,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           </div>
 
           {/* ═══ SECTION 4: Upload New Chat ═══ */}
+          {!readOnly && (
           <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
               {inModal ? <>Analyze Chat — {f.fanName}</> : <>Upload Chat for {f.fanName}</>}
@@ -1132,6 +1133,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
               </div>
             )}
           </div>
+          )}
 
           {/* Notes */}
           {f.notes && (
@@ -1142,6 +1144,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
           )}
 
           {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          {!readOnly && (
           <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={async () => {
@@ -1180,7 +1183,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             >
               {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
             </button>
-          </div>          {/* ═══ SECTION 3: Analysis History ═══ */}
+          </div>
+          )}          {/* ═══ SECTION 3: Analysis History ═══ */}
           <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
               Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
@@ -1234,7 +1238,7 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
                             style={{ fontSize: '10px', color: '#A78BFA', background: 'rgba(167, 139, 250, 0.1)', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontWeight: 600 }}>
                             View Full
                           </button>
-                          {!isSent && (
+                          {!isSent && !readOnly && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelectedAnalysisIdx(idx); handlePreviewPdf() }}
                               disabled={previewLoading}
@@ -1991,7 +1995,7 @@ const HEAT_CONFIG = {
 const HEAT_SORT_ORDER = { 'Going Cold': 0, 'Cooling': 1, 'Dead': 2, 'Stable': 3, 'Warming Up': 4, 'Hot': 5 }
 
 // Surfaced at module scope so both FanRow and FansPanel can reference.
-const ALERT_STATUS_COLORS = {
+export const ALERT_STATUS_COLORS = {
   'None': { bg: 'rgba(255,255,255,0.04)', text: '#9CA3AF' },
   'Alert Triggered': { bg: 'rgba(232, 120, 120, 0.12)', text: '#E87878' },
   'Fan Analyzed': { bg: 'rgba(167, 139, 250, 0.1)', text: '#A78BFA' },
