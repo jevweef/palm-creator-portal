@@ -36,6 +36,28 @@ export async function GET() {
     const creators = (await cres.json()).records || []
     const nameById = Object.fromEntries(creators.map((r) => [r.id, r.fields?.AKA || r.fields?.Creator || '']))
 
+    // Only fans whose alert was actually SENT to the team are visible here —
+    // unsent analyses stay admin-only until Evan sends them.
+    const tparams = new URLSearchParams()
+    tparams.set('pageSize', '100')
+    for (const f of ['Fan Name', 'OF Username', 'Last Alert Sent', 'First Flagged']) tparams.append('fields[]', f)
+    tparams.set('filterByFormula', '{Last Alert Sent} != BLANK()')
+    let sent = []
+    for (let page = 0; page < 5; page++) {
+      const tres = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Fan Tracker')}?${tparams}`, { headers: HEADERS, cache: 'no-store' })
+      const tdata = await tres.json()
+      sent = sent.concat(tdata.records || [])
+      if (!tdata.offset) break
+      tparams.set('offset', tdata.offset)
+    }
+    const sentByKey = new Map()
+    for (const r of sent) {
+      const f = r.fields || {}
+      const meta = { firstFlagged: f['First Flagged'] || null, lastAlert: f['Last Alert Sent'] || null }
+      if (f['OF Username']) sentByKey.set(String(f['OF Username']).toLowerCase(), meta)
+      if (f['Fan Name']) sentByKey.set(String(f['Fan Name']).toLowerCase(), meta)
+    }
+
     const params = new URLSearchParams()
     params.set('pageSize', '60')
     params.set('sort[0][field]', 'Analyzed Date')
@@ -52,6 +74,7 @@ export async function GET() {
       const f = r.fields || {}
       // Creator is a text field on some rows, a linked record on others
       const creator = Array.isArray(f.Creator) ? (nameById[f.Creator[0]] || '') : (f.Creator || '')
+      const sentMeta = sentByKey.get(String(f['OF Username'] || '').toLowerCase()) || sentByKey.get(String(f['Fan Name'] || '').toLowerCase()) || null
       return {
         id: r.id,
         fanName: f['Fan Name'] || '',
@@ -62,8 +85,10 @@ export async function GET() {
         managerBrief: f['Manager Brief'] || '',
         fullAnalysis: f['Full Analysis'] || '',
         messageCount: f['Message Count'] || 0,
+        firstFlagged: sentMeta?.firstFlagged || null,
+        sent: !!sentMeta,
       }
-    }).filter((a) => a.managerBrief || a.fullAnalysis)
+    }).filter((a) => (a.managerBrief || a.fullAnalysis) && a.sent)
     return NextResponse.json({ analyses })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })

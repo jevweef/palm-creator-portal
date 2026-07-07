@@ -127,46 +127,106 @@ export default function ChatTeamAnalyses() {
                 const st = fanStats[a.id]
                 if (st === 'loading') return <div style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--foreground-muted, #8B8680)' }}>Loading his numbers…</div>
                 if (!st) return null
-                const money = [
-                  ['Lifetime', '$' + (st.lifetime || 0).toLocaleString()],
-                  ['Last 30d', '$' + (st.rolling30 || 0).toLocaleString()],
-                  ['90d avg/mo', '$' + (st.monthlyAvg90 || 0).toLocaleString()],
-                  ['Best 6-mo avg', '$' + (st.best6moAvg || 0).toLocaleString() + '/mo'],
-                  ['Peak month', st.peakMonth ? `$${st.peakMonthSpend.toLocaleString()} (${st.peakMonth})` : '—'],
-                ]
-                const timeline = [
-                  ['First buy', st.firstBuy || '—'],
-                  ['Last buy', st.lastBuy || '—'],
-                  ['Silent', st.silentDays != null ? st.silentDays + 'd' : '—'],
-                  ['Purchases', String(st.purchases || 0)],
-                ]
+                const fmtMoney = (v) => '$' + Math.round(v || 0).toLocaleString()
+                const fmtD = (iso) => iso ? new Date(iso.length <= 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'
+                const heatStatus = st.tier === 'dead' ? 'Dead' : st.tier ? 'Going Cold' : null
+                // Verbatim styling from the admin fan modal (FansPanel stats grid)
+                const cellLabel = { fontSize: '9px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '1px', whiteSpace: 'nowrap' }
+                const cellVal = { fontSize: '13px', color: 'var(--foreground)', whiteSpace: 'nowrap' }
+                const groupTag = { fontSize: '9px', fontWeight: 700, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.08em', width: '62px', flexShrink: 0, paddingBottom: '3px' }
+                const groupRow = { display: 'flex', gap: '8px 26px', flexWrap: 'wrap', alignItems: 'flex-end', padding: '7px 0' }
                 const maxNet = Math.max(1, ...(st.series || []).map((x) => x.net))
                 return (
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                      {money.map(([label, val]) => (
-                        <div key={label}>
-                          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted, #8B8680)' }}>{label}</div>
-                          <div style={{ fontSize: '16px', fontWeight: 800 }}>{val}</div>
+                    {heatStatus && (
+                      <div style={{
+                        marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '11px',
+                        display: 'flex', gap: '8px', alignItems: 'center',
+                        background: heatStatus === 'Dead' ? 'rgba(255,255,255,0.04)' : 'rgba(232, 120, 120, 0.08)',
+                        border: `1px solid ${heatStatus === 'Dead' ? 'rgba(255,255,255,0.1)' : 'rgba(232, 120, 120, 0.2)'}`,
+                        color: heatStatus === 'Dead' ? 'var(--foreground-muted)' : '#E87878',
+                      }}>
+                        <strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{heatStatus}</strong>
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                          {st.medianGap ? `buys every ~${st.medianGap}d — silent ${st.currentGap}d (${st.gapRatio}×)` : `silent ${st.currentGap ?? '—'}d`}
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px 14px' }}>
+                      {/* ── MONEY ── */}
+                      <div style={groupRow}>
+                        <div style={groupTag}>Money</div>
+                        <div>
+                          <div style={cellLabel}>Lifetime</div>
+                          <strong style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--foreground)' }}>{fmtMoney(st.lifetime)}</strong>
                         </div>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '22px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                      {timeline.map(([label, val]) => (
-                        <div key={label}>
-                          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted, #8B8680)' }}>{label}</div>
-                          <div style={{ fontSize: '13px', fontWeight: 600 }}>{val}</div>
+                        <div>
+                          <div style={cellLabel}>Last 30d</div>
+                          <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: (st.rolling30 || 0) < (st.monthlyAvg90 || 0) * 0.5 ? '#E87878' : '#7DD3A4' }}>
+                            {fmtMoney(st.rolling30)}<span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}> vs {fmtMoney(st.monthlyAvg90)}/mo avg</span>
+                          </div>
                         </div>
-                      ))}
+                        <div>
+                          <div style={cellLabel}>90d avg/mo</div>
+                          <div style={cellVal}>{fmtMoney(st.monthlyAvg90)}</div>
+                        </div>
+                        <div>
+                          <div style={cellLabel} title="avg $/mo across his hottest 6-month stretch">Best 6-mo avg</div>
+                          <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(st.best6moAvg)}/mo</div>
+                        </div>
+                        {st.peakMonth && (
+                          <div>
+                            <div style={cellLabel}>Peak month</div>
+                            <div style={{ ...cellVal, fontWeight: 600 }}>{fmtMoney(st.peakMonthSpend)} <span style={{ fontWeight: 400, color: 'var(--foreground-muted)' }}>{fmtD(st.peakMonth + '-15')}</span></div>
+                          </div>
+                        )}
+                        <div>
+                          <div style={cellLabel} title="months where he spent $500+">$500+ months</div>
+                          <div style={{ ...cellVal, fontWeight: 600, color: st.monthsOver500 >= 3 ? '#7DD3A4' : 'var(--foreground)' }}>{st.monthsOver500 || 0}</div>
+                        </div>
+                      </div>
+                      {/* ── TIMELINE ── */}
+                      <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={groupTag}>Timeline</div>
+                        <div>
+                          <div style={cellLabel}>First buy</div>
+                          <div style={cellVal}>{fmtD(st.firstBuy)}</div>
+                        </div>
+                        <div>
+                          <div style={cellLabel}>Last buy</div>
+                          <div style={cellVal}>{fmtD(st.lastBuy)}</div>
+                        </div>
+                        <div>
+                          <div style={cellLabel}>Silent</div>
+                          <div style={{ ...cellVal, fontSize: '16px', fontWeight: 700, color: '#E87878' }}>{st.silentDays != null ? st.silentDays + 'd' : '—'} {st.medianGap ? <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--foreground-muted)' }}>vs ~{st.medianGap}d rhythm</span> : null}</div>
+                        </div>
+                        <div>
+                          <div style={cellLabel}>Sessions</div>
+                          <div style={cellVal}>{st.purchases || 0}</div>
+                        </div>
+                      </div>
+                      {/* ── ALERTS ── */}
+                      {a.firstFlagged && (
+                        <div style={{ ...groupRow, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={groupTag}>Alerts</div>
+                          <div>
+                            <div style={cellLabel}>First flagged</div>
+                            <div style={cellVal}>{fmtD(a.firstFlagged)}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {st.series?.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '90px' }}>
-                        {st.series.map((pt) => (
-                          <div key={pt.month} title={`${pt.month}: $${pt.net.toLocaleString()}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '3px', minWidth: 0 }}>
-                            <div style={{ width: '100%', maxWidth: '26px', height: `${Math.max(2, Math.round((pt.net / maxNet) * 70))}px`, background: 'rgba(232,160,160,0.55)', borderRadius: '3px 3px 0 0' }} />
-                            <div style={{ fontSize: '8px', color: 'var(--foreground-muted, #8B8680)', whiteSpace: 'nowrap' }}>{pt.month.slice(2).replace('-', "'")}</div>
-                          </div>
-                        ))}
+                      <div style={{ marginTop: '12px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Spending History</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '90px' }}>
+                          {st.series.map((pt) => (
+                            <div key={pt.month} title={`${pt.month}: $${pt.net.toLocaleString()}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: '3px', minWidth: 0 }}>
+                              <div style={{ width: '100%', maxWidth: '26px', height: `${Math.max(2, Math.round((pt.net / maxNet) * 70))}px`, background: 'rgba(232,160,160,0.55)', borderRadius: '3px 3px 0 0' }} />
+                              <div style={{ fontSize: '8px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>{pt.month.slice(2).replace('-', "'")}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

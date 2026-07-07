@@ -87,7 +87,27 @@ export async function GET(request) {
       }
     }
     const lastBuy = dates[dates.length - 1] || null
+    // Rhythm + tier — identical formulas to the whale audit.
+    const gaps = []
+    for (let i = 1; i < dates.length; i++) {
+      const d = Math.round((new Date(dates[i]) - new Date(dates[i - 1])) / 86400000)
+      if (d > 0) gaps.push(d)
+    }
+    gaps.sort((a, b) => a - b)
+    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null
+    const currentGap = lastBuy ? Math.round((now - new Date(lastBuy).getTime()) / 86400000) : null
+    let tier = null, gapRatio = null
+    if (medianGap && dates.length >= 3 && currentGap != null) {
+      gapRatio = +(currentGap / Math.max(medianGap, 1)).toFixed(1)
+      if (currentGap < 7) tier = null
+      else if (gapRatio >= 8 || currentGap >= 120) tier = 'dead'
+      else if (gapRatio >= 5) tier = 'critical'
+      else if (gapRatio >= 3) tier = 'high'
+      else if (gapRatio >= 2) tier = 'warning'
+    }
+    const monthsOver500 = moKeys.filter((k) => monthly[k] >= 500).length
     const data = {
+      medianGap, currentGap, gapRatio, tier, monthsOver500,
       lifetime: Math.round(lifetime),
       rolling30: Math.round(rolling30),
       monthlyAvg90: Math.round(monthlyAvg90),
