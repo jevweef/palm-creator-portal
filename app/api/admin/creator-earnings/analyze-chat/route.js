@@ -16,7 +16,7 @@ function loadWhalePlaybook(maxChars = 2200) {
 }
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Lazy: created on first call, NOT at module load, so `next build` page-data

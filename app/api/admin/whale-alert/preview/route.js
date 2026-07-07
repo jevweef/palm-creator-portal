@@ -5,7 +5,7 @@ import { buildWhaleAlertHtml } from '@/lib/generateWhaleAlertPdf'
 
 const CHROMIUM_URL = 'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function POST(req) {
   try {

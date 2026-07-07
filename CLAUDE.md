@@ -34,6 +34,21 @@ section twice. Always: hooks first, early returns after.
   returns links as arrays of ID strings). See `lib/onboarding/checklist.js` and
   the `reference-airtable-linked-record-filter` memory.
 
+## 🚨 CRITICAL — Design API routes timeout-first (Vercel guillotine)
+Four features 504'd in one day (2026-07-07) because routes assumed they could
+run to completion. Every route that fans out over the network (OF API
+pagination, PDF + Dropbox + Telegram chains, LLM calls, full Airtable scans)
+MUST be built assuming Vercel kills it:
+1. **Unbounded work → chunk protocol**: cursor in/out, client loops, each
+   request bounded (see pull-chat's shard protocol — chunks write small shard
+   files, one finalize merges; NEVER read-modify-write a growing blob per chunk).
+2. **Time-box internal loops** with a `deadline` param (~45-60s) and return
+   partial progress — a deadline stop is `morePages`, not an error.
+3. **`export const maxDuration = 300`** on anything doing >2 network calls.
+4. **Clients never blind `res.json()`** — parse text; treat 5xx as a retryable
+   blip (progress persisted server-side means retry resumes, never restarts).
+See `feedback_timeout_first_design` memory for the incident list.
+
 ## OnlyFans time conventions (earnings & invoicing)
 - Transaction-sheet times (Google Sheets) are **ET**, not UTC.
 - OF's daily graph buckets by **UTC** day; the boundary = midnight UTC = **8 PM ET** (EDT).
