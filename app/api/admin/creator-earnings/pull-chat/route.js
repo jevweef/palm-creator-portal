@@ -69,11 +69,7 @@ export async function GET(request) {
       fields: ['Creator', 'AKA'],
     })
     const creatorName = creators[0]?.fields?.Creator || creators[0]?.fields?.AKA || ''
-    // Cursor chunks and finalize NEVER read the merged archive here — that
-    // multi-MB read per request is exactly what made big pulls time out.
-    // (finalizeChunks does its own single read; cursor chunks get fanId from
-    // the client.)
-    const archive = ((chunked && cursor) || finalize) ? null : await loadChatArchive(creatorName, fanName, fanUsername)
+    const archive = await loadChatArchive(creatorName, fanName, fanUsername)
     if (!archive) return NextResponse.json({ archive: null })
     return NextResponse.json({
       archive: {
