@@ -93,13 +93,13 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime } = await request.json()
     // Auto-spend scales with the fan's value: ~2% of lifetime in credits
     // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
     // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
     const AUTO_SPEND_LIMIT = Math.max(15, Math.min(250, Math.round((Number(lifetime) || 0) / 50) || 15))
-    if (!creatorRecordId || (!fanUsername && !fanName)) {
-      return NextResponse.json({ error: 'creatorRecordId and fanUsername or fanName required' }, { status: 400 })
+    if (!creatorRecordId || (!fanUsername && !fanName && !fanId)) {
+      return NextResponse.json({ error: 'creatorRecordId and fanUsername, fanName, or fanId required' }, { status: 400 })
     }
 
     // Creator → connected OF API account
@@ -139,6 +139,10 @@ export async function POST(request) {
     let fan
     if (archive?.fanId) {
       fan = { id: archive.fanId, username: archive.fanUsername || fanUsername, name: archive.fanName || fanName }
+    } else if (fanId) {
+      // Known OF fan id (from the sheet / audit) — no lookup needed. Covers
+      // dormant fans with no username (deleted accounts, pre-lookup rows).
+      fan = { id: String(fanId), username: fanUsername || '', name: fanName || '' }
     } else {
       fan = await resolveFanId(accountId, { username: fanUsername, name: fanName })
       if (!fan) {
