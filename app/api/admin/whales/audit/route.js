@@ -291,7 +291,15 @@ export async function POST(request) {
         (fname && t.fanName.toLowerCase() === fname)
       )
       if (!res) continue
-      try { await patchAirtableRecord(FAN_TRACKER, r.id, { 'Cadence': cadenceKey(res) }); cadenceRefreshed++ } catch {}
+      // Back on his rhythm (no tier) → he saved himself. Flip watch statuses
+      // to Reactivated so he drops off the Save List instead of sitting there
+      // as a stale FLAGGED row (Evan, 2026-07-07). Banned/Lost/Deleted stay.
+      const status = typeof r.fields?.Status === 'string' ? r.fields.Status : r.fields?.Status?.name
+      const patch = { 'Cadence': cadenceKey(res) }
+      if (!res.tier && ['Going Cold', 'Dormant', 'Analyzed', 'Alert Sent', 'Monitoring', 'Recovering'].includes(status)) {
+        patch['Status'] = 'Reactivated'
+      }
+      try { await patchAirtableRecord(FAN_TRACKER, r.id, patch, { typecast: true }); cadenceRefreshed++ } catch {}
     }
 
     await stampWhaleRun(creatorRecordId, 'audit')
