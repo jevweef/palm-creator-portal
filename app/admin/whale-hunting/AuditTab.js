@@ -527,46 +527,10 @@ export default function AuditTab() {
       })()}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
 
-      {/* Audit results */}
+      {/* Audit confirmation — the audit's real output IS the Save List below */}
       {audit && (
-        <div style={card}>
-          <h2 style={h2}>Audit — {audit.creator} ({audit.window})</h2>
-          <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '12px' }}>
-            {audit.transactions} transactions · {audit.fansWithSpend} paying fans · {audit.fansOverMinimum} over minimum ·
-            flagged {audit.triggered.length} · tracker: +{audit.tracker.created} new, {audit.tracker.updated} updated ·
-            {audit.source ? ` source: ${audit.source}` : ''}
-          </div>
-          {audit.triggered.length > 0 && (
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginBottom: '14px' }}>
-              <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-                <th style={{ padding: '4px 8px' }}>Fan</th><th>Tier</th><th>Lifetime</th><th>Rhythm</th><th>Silent</th><th>30d</th><th>Last buy</th>
-              </tr></thead>
-              <tbody>
-                {audit.triggered.map((t, i) => (
-                  <tr key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
-                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>{t.fanName}{t.ofUsername ? <span style={{ color: 'var(--foreground-muted)' }}> @{t.ofUsername}</span> : null}</td>
-                    <td><span style={{ ...TIER_COLORS[t.tier] ? { background: TIER_COLORS[t.tier].bg, color: TIER_COLORS[t.tier].color } : {}, padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>{t.tier}</span></td>
-                    <td>${Math.round(t.lifetime)}</td>
-                    <td>every ~{t.medianGap}d</td>
-                    <td>{t.currentGap}d ({t.gapRatio}×)</td>
-                    <td>${Math.round(t.rolling30)}</td>
-                    <td>{t.lastPurchaseDate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          <details>
-            <summary style={{ fontSize: '12px', color: 'var(--foreground-muted)', cursor: 'pointer' }}>Top spenders ({audit.topSpenders.length})</summary>
-            <div style={{ fontSize: '12px', color: 'var(--foreground)', marginTop: '8px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '6px' }}>
-              {audit.topSpenders.map((t, i) => (
-                <div key={i} style={{ padding: '6px 10px', background: 'var(--background)', borderRadius: '6px' }}>
-                  <b>${Math.round(t.lifetime)}</b> — {t.fanName}
-                  <span style={{ color: 'var(--foreground-muted)' }}> · {t.purchases} buys{t.tier ? ` · ${t.tier}` : ''}</span>
-                </div>
-              ))}
-            </div>
-          </details>
+        <div style={{ ...card, padding: '12px 18px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
+          ✓ Audit done — {audit.creator} ({audit.window}): {audit.transactions} transactions scanned · {audit.triggered?.length || 0} fans flagged · +{audit.tracker?.created || 0} new on the Save List, {audit.tracker?.updated || 0} updated{audit.tracker?.cadenceRefreshed ? ` · ${audit.tracker.cadenceRefreshed} refreshed/cleaned` : ''}
         </div>
       )}
 
