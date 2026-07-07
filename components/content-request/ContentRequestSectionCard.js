@@ -19,7 +19,7 @@ export default function ContentRequestSectionCard({
   onFilesUploaded,
 }) {
   const [dragOver, setDragOver] = useState(false)
-  const [showDescription, setShowDescription] = useState(false)
+  const [showDescription, setShowDescription] = useState(true) // instructions expanded by default
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const fileInputRef = useRef(null)
