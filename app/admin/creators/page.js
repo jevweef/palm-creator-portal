@@ -1448,6 +1448,13 @@ function EarningsPanel({ data, loading, error, onRefresh, creator }) {
       const tp = t.type || 'Unknown'
       d.byType[tp] = (d.byType[tp] || 0) + t.net
     }
+    // Keep the x-axis IDENTICAL across account toggles: pad the filtered
+    // series with zero-days for every date the all-accounts series has, so
+    // Free vs VIP line up and the "Joined Palm" marker stays put (VIP just
+    // shows a flat stretch before it launched).
+    for (const d of allDaily) {
+      if (!dailyMap[d.date]) dailyMap[d.date] = { date: d.date, net: 0, gross: 0, txnCount: 0, byType: {} }
+    }
     const dailyData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
     // Rebuild summary
     let totalNet = 0, totalGross = 0, chargebackTotal = 0
