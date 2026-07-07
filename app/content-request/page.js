@@ -153,7 +153,7 @@ export default function ContentRequestPage() {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 20px 80px' }}>
+    <div style={{ maxWidth: 940, margin: '0 auto', padding: '24px 20px 80px' }}>
       {/* Header */}
       <div style={{
         background: 'var(--card-bg-solid)',
