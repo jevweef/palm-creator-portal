@@ -648,7 +648,13 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch {
+        // Plain-text platform error (e.g. gateway timeout) — the Telegram
+        // message may still have gone out; check the group before resending.
+        throw new Error(`Send hit a server timeout (${res.status}). Check the Telegram group — the card may have posted anyway — before resending.`)
+      }
       if (!res.ok) throw new Error(data.error || 'Send failed')
       // Telegram went through. trackerError is non-null when the Fan Tracker Airtable write
       // failed — surface that explicitly so the user knows the alert column won't update.
