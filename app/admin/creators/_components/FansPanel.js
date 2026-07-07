@@ -2005,6 +2005,17 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   const searchParams = useSearchParams()
   const handledFanTarget = useRef('')
   const [modalFanId, setModalFanId] = useState(null)
+  // Keep the open fan in the URL so a refresh restores exactly where you were
+  // (?fan=<username or name>; the mount effect below reopens it).
+  const openFanModal = (mf) => {
+    setModalFanId(mf ? mf.id : null)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (mf) params.set('fan', mf.ofUsername || mf.fanName || '')
+      else params.delete('fan')
+      window.history.replaceState(null, '', `${window.location.pathname}?${params}`)
+    } catch { /* SSR/no window */ }
+  }
   const [sortField, setSortField] = useState(null) // 'lifetime' | 'last30' | 'txns' | 'lastDate'
   const [sortDir, setSortDir] = useState('desc')
   const [showDeleted, setShowDeleted] = useState(false)
@@ -2467,7 +2478,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
           </div>
           {displayFans.map((f, i) => (
             <FanRow key={f.id} f={f} i={i} isExpanded={false}
-              onToggle={() => setModalFanId(f.id)}
+              onToggle={() => openFanModal(f)}
               alertStatusColors={alertStatusColors} effectColors={effectColors}
               fmtDate={fmtDate} fmtMoney={fmtMoney} setFans={setCrmData}
               creatorName={creatorName} creatorAka={creatorAka} creatorRecordId={creatorRecordId}
@@ -2493,13 +2504,13 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
         const prev = idx > 0 ? filtered[idx - 1] : null
         const next = idx >= 0 && idx < filtered.length - 1 ? filtered[idx + 1] : null
         const navBtn = (fan, label) => (
-          <button disabled={!fan} onClick={() => fan && setModalFanId(fan.id)}
+          <button disabled={!fan} onClick={() => fan && openFanModal(fan)}
             {...(label.includes('prev') ? { 'data-kb-prev': '' } : { 'data-kb-next': '' })}
             title={fan ? `${fan.fanName}` : ''}
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: 700, color: fan ? 'var(--foreground)' : 'rgba(255,255,255,0.15)', cursor: fan ? 'pointer' : 'default' }}>{label}</button>
         )
         return (
-          <div data-fan-modal onClick={() => setModalFanId(null)}
+          <div data-fan-modal onClick={() => openFanModal(null)}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3vh 20px' }}>
             <div onClick={(e) => e.stopPropagation()}
               style={{ background: 'var(--card-bg-solid)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', width: 'min(1000px, 100%)', maxHeight: '94vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
@@ -2510,7 +2521,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
                 </span>
                 {navBtn(prev, '‹ prev')}
                 {navBtn(next, 'next ›')}
-                <button data-kb-close onClick={() => setModalFanId(null)}
+                <button data-kb-close onClick={() => openFanModal(null)}
                   style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '2px 6px' }}>&times;</button>
               </div>
               <FanRow f={mf} i={0} isExpanded inModal onToggle={() => {}}
