@@ -36,9 +36,13 @@ const ADMIN_NAV = [
     { key: 'communication', label: 'Communication' },
   ]},
   { href: '/admin/whale-hunting', label: 'Whale Hunting', icon: '🐋', children: [
+    { key: 'audit', label: 'Live Audit' },
     { key: 'internal', label: 'Palm Internal' },
     { key: 'team', label: 'Chat Team Report' },
   ]},
+  // Same page the chat managers see (role-gated web view of all analyses)
+  { href: '/chat-team', label: 'Team Analyses', icon: '📖' },
+  { href: '/admin/live-chat', label: 'Live Chat', icon: '💬' },
   // Research — OFM competitive-intelligence briefs (how other agencies operate,
   // synthesized from their YouTube content, compared to how Palm works). Fed by
   // the research pipeline (scripts/yt_discover.py → yt_transcript.py → synthesis)
@@ -51,6 +55,7 @@ const ADMIN_NAV = [
     { key: 'invoices', label: 'Invoices' },
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
+  { href: '/admin/software', label: 'Software', icon: '💳', ownerOnly: true },
   { href: '/admin/inbox', label: 'Inbox', icon: '📥', ownerOnly: true, children: [
     { key: 'tasks', label: 'Tasks' },
     { key: 'chats', label: 'Messages' },
