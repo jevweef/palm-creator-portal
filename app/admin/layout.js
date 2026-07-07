@@ -141,7 +141,7 @@ export default function AdminLayout({ children }) {
     // The layout's role check below also catches this, but redirecting in
     // the effect avoids a flash of the loading state.
     if (isChatManager) {
-      router.replace('/photo-library')
+      router.replace('/chat-manager/photo-library')
     }
   }, [isLoaded, user, router, pathname, isAdmin, isEditor, isChatManager, isAiEditor, aiEditorAllowedPath])
 
