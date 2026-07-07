@@ -350,7 +350,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         cur = data.cursor || cur
         chunkFanId = data.fan?.id || chunkFanId
         lastComplete = !!data.historyComplete
-        setPullProgress({ spent, total, oldest: data.oldestAt, waiting: data.waiting ? (data.progress ?? 0) : null })
+        setPullProgress({ spent, total, oldest: data.oldestAt, waiting: data.waiting ? (data.progress ?? 0) : null, rowsFound: data.rowsFound ?? null })
         if (!data.morePages) break
         if (data.waiting) { await new Promise((r) => setTimeout(r, 6000)); continue }
         if (cap && spent >= cap && !opts.confirmBig) { capped = true; break }
@@ -1081,7 +1081,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
                   cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                 }}>
-                {pullingOf ? (pullProgress?.waiting != null ? `Building his spending-era export… ${pullProgress.waiting}%` : pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+                {pullingOf ? (pullProgress?.waiting != null ? `Building his spending-era export… ${pullProgress.rowsFound != null ? pullProgress.rowsFound.toLocaleString() + ' real messages found' : pullProgress.waiting + '%'}` : pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
               {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
                 <span style={{ fontSize: '11px', color: '#E8C878' }}>
