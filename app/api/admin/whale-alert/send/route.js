@@ -37,7 +37,7 @@ export async function POST(request) {
     // Portal link instead of a PDF: full analyses live on /chat-team (role-
     // gated web view) — legible, searchable, and no PDF/Dropbox render chain
     // (which was both low-res and the #1 send-timeout cause).
-    const portalLink = `https://app.palm-mgmt.com/chat-team?fan=${encodeURIComponent(alert.username || alert.fan || '')}&creator=${encodeURIComponent(creatorAka || creatorName)}`
+    const portalLink = `https://app.palm-mgmt.com/photo-library?tab=analyses&fan=${encodeURIComponent(alert.username || alert.fan || '')}&creator=${encodeURIComponent(creatorAka || creatorName)}`
 
     // Build Telegram text message
     const urgencyEmoji = { critical: '\u{1F6A8}', high: '\u26A0\uFE0F', warning: '\u{1F7E1}' }
