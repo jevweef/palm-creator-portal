@@ -74,6 +74,7 @@ export default function AuditTab() {
   const [backfillResult, setBackfillResult] = useState(null)
   const [earnings, setEarnings] = useState(null)       // transactions etc. for the Fan CRM below
   const [earningsLoading, setEarningsLoading] = useState(false)
+  const [saveSort, setSaveSort] = useState(null) // {key, dir} | null = tier order
   const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
   const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
@@ -135,8 +136,24 @@ export default function AuditTab() {
   // 120d+ — revival targets, parked below.
   const TIER_RANK = { critical: 0, high: 1, warning: 2 }
   const isDormant = (w) => w.cadence?.tier === 'dead' || w.status === 'Dormant'
+  // Column sorting: click a money header to sort by it (desc → asc → back to
+  // the default tier ordering).
+  const SORT_METRICS = {
+    worth: (w) => Math.max(w.cadence?.best6moAvg || 0, w.cadence?.monthlyAvg90 || 0),
+    last30: (w) => w.cadence?.rolling30 || 0,
+    peak: (w) => w.cadence?.peakMonthSpend || 0,
+    best6: (w) => w.cadence?.best6moAvg || 0,
+  }
   const urgentList = visibleWatchlist.filter((w) => !isDormant(w))
-    .sort((a, b) => ((TIER_RANK[a.cadence?.tier] ?? 3) - (TIER_RANK[b.cadence?.tier] ?? 3)) || ((b.cadence?.monthlyAvg90 || 0) - (a.cadence?.monthlyAvg90 || 0)))
+    .sort((a, b) => {
+      if (saveSort && SORT_METRICS[saveSort.key]) {
+        const d = SORT_METRICS[saveSort.key](b) - SORT_METRICS[saveSort.key](a)
+        return saveSort.dir === 'asc' ? -d : d
+      }
+      return ((TIER_RANK[a.cadence?.tier] ?? 3) - (TIER_RANK[b.cadence?.tier] ?? 3)) || ((b.cadence?.monthlyAvg90 || 0) - (a.cadence?.monthlyAvg90 || 0))
+    })
+  const clickSort = (key) => setSaveSort((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null))
+  const sortArrow = (key) => (saveSort?.key === key ? (saveSort.dir === 'desc' ? ' ▾' : ' ▴') : '')
   const dormantList = visibleWatchlist.filter(isDormant).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
   // "Worth/mo" = his PROVEN level (best 6-month stretch), not the recent 90d
   // average — a going-cold fan's recent average is already depressed, which
@@ -566,7 +583,7 @@ export default function AuditTab() {
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Worth / mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Last 30d</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Peak mo</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Best 6mo avg</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th onClick={() => clickSort('worth')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'worth' ? '#C4A5F7' : undefined }}>Worth / mo{sortArrow('worth')}</th><th onClick={() => clickSort('last30')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'last30' ? '#C4A5F7' : undefined }}>Last 30d{sortArrow('last30')}</th><th onClick={() => clickSort('peak')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'peak' ? '#C4A5F7' : undefined }}>Peak mo{sortArrow('peak')}</th><th onClick={() => clickSort('best6')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'best6' ? '#C4A5F7' : undefined }}>Best 6mo avg{sortArrow('best6')}</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -633,7 +650,7 @@ export default function AuditTab() {
           </summary>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '10px' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right' }}>Lifetime</th><th>Last buy</th><th>Silent</th><th>Last alert</th><th></th>
+              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Last buy</th><th style={{ padding: '4px 12px' }}>Silent</th><th style={{ padding: '4px 12px' }}>Last alert</th><th></th>
             </tr></thead>
             <tbody>
               {dormantList.map((w) => (
@@ -645,10 +662,10 @@ export default function AuditTab() {
                     style={{ padding: '7px 8px 7px 0', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
                   {showAllWatchlist && <td>{w.creator}</td>}
-                  <td style={{ textAlign: 'right', fontWeight: 700 }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{fmtD(w.cadence?.lastPurchaseDate)}</td>
-                  <td style={{ color: 'var(--foreground-muted)' }}>{w.cadence?.currentGap ? `${w.cadence.currentGap}d` : '—'}</td>
-                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>{w.lastAlert ? fmtD(w.lastAlert) : 'never'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{fmtD(w.cadence?.lastPurchaseDate)}</td>
+                  <td style={{ color: 'var(--foreground-muted)', padding: '7px 12px' }}>{w.cadence?.currentGap ? `${w.cadence.currentGap}d` : '—'}</td>
+                  <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{w.lastAlert ? fmtD(w.lastAlert) : 'never'}</td>
                   <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
                 </tr>
               ))}
