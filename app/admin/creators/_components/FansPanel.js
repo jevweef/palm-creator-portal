@@ -304,7 +304,8 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
     try {
       let spent = 0, cap = null, newMsgs = 0, capped = false
       const fmtOld = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'
-      for (let i = 0; i < 30; i++) {
+      let retries = 0
+      for (let i = 0; i < 40; i++) {
         const res = await fetch('/api/admin/creator-earnings/pull-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -318,6 +319,9 @@ function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, f
             ...(opts.acceptPartial ? { acceptPartial: true } : {}),
           }),
         })
+        // Gateway hiccups (504) mustn't kill the run — progress is already
+        // saved in the archive; retry the chunk and keep going.
+        if (!res.ok && res.status >= 500 && retries < 3) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Pull failed')
         spent += data.credits || 0
