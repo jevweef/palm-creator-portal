@@ -131,7 +131,10 @@ export async function POST(request) {
       if (medianGap && dates.length >= 3) {
         gapRatio = +(currentGap / Math.max(medianGap, 1)).toFixed(1)
         if (currentGap < 7) tier = null
-        else if (gapRatio >= 8 || currentGap >= 120) tier = 'dead'
+        // 'dead' needs real ABSOLUTE time, not just ratio — a daily buyer 19d
+        // silent is 9.5× his rhythm but he's CRITICAL (most saveable), not
+        // dead (Evan, 2026-07-07, Pete).
+        else if (currentGap >= 120 || (gapRatio >= 8 && currentGap >= 60)) tier = 'dead'
         else if (gapRatio >= 5) tier = 'critical'
         else if (gapRatio >= 3) tier = 'high'
         else if (gapRatio >= 2) tier = 'warning'
