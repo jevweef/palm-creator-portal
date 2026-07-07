@@ -6,7 +6,7 @@ import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitFor
 import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120
+export const maxDuration = 300
 
 // POST — pull a fan's chat straight from OnlyFans (via onlyfansapi.com) and
 // return it in the EXACT shape the whale-analysis pipeline consumes (the same
@@ -196,10 +196,14 @@ export async function POST(request) {
     }
 
     const CHUNK_PAGES = Math.min(Number(maxPages) || 25, 40)
+    // Hard time-box on pagination: flaky upstream pages + retries can push a
+    // chunk past the gateway window (batch saw 504s) — stop at ~60s and hand
+    // back a partial chunk; the client loop simply continues.
+    const deadline = Date.now() + 60000
 
     // 1) newer messages since the last pull
     if (archive?.lastMessageAt) {
-      const fwd = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: 10 })
+      const fwd = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: 10, deadline })
       fresh = fresh.concat(fwd.messages); pages += fwd.pages; credits += fwd.credits
     }
 
@@ -208,6 +212,7 @@ export async function POST(request) {
       const back = await fetchChatHistory(accountId, fan.id, {
         maxPages: CHUNK_PAGES - pages,
         startCursor: archive?.messages?.[0]?.id ?? null,
+        deadline,
       })
       fresh = fresh.concat(back.messages); pages += back.pages; credits += back.credits
       if (back.complete) historyComplete = true

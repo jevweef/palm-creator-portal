@@ -206,12 +206,16 @@ export default function AuditTab() {
     if (!selected || !pool.length) return
     batchAbort.current = false
     const log = []
-    const push = (line) => { log.push(line) }
+    const push = (line, w = null) => { log.push({ text: line, fanKey: w ? (w.ofUsername || w.fanName || '') : null, creatorId: w?.creatorId || null }) }
+    const startedAt = Date.now()
+    const durations = []
     for (let i = 0; i < pool.length; i++) {
       if (batchAbort.current) { push('⏹ stopped by user'); break }
       const w = pool[i]
       const label = w.fanName || w.ofUsername || 'fan'
-      setBatch({ i: i + 1, total: pool.length, current: `${label} — pulling chat…`, log: [...log] })
+      const fanStart = Date.now()
+      const eta = durations.length ? Math.ceil((durations.reduce((a, b) => a + b, 0) / durations.length) * (pool.length - i) / 60000) : null
+      setBatch({ i: i + 1, total: pool.length, current: `${label} — pulling chat…`, log: [...log], eta, startedAt })
       try {
         // Chunked pull: ~25 pages per request, looping until the chat start or
         // his value-scaled credit cap. No timeouts, no stuck exports.
@@ -222,18 +226,21 @@ export default function AuditTab() {
           lifetime: w.lifetime || 0, light: true, maxPages: 25,
         }
         let spent = 0, cap = null, newMsgs = 0
-        let chunkErr = null
-        for (let c = 0; c < 30; c++) {
+        let chunkErr = null, retries = 0
+        for (let c = 0; c < 40; c++) {
           if (batchAbort.current) break
           const cres = await fetch('/api/admin/creator-earnings/pull-chat', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           })
+          // 504/5xx = gateway blip; the archive kept our progress — retry.
+          if (!cres.ok && cres.status >= 500 && retries < 3) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
           const cdata = await cres.json().catch(() => ({}))
           if (!cres.ok) { chunkErr = cdata.error || cres.status; break }
+          retries = 0
           spent += cdata.credits || 0
           newMsgs += cdata.newMessages || 0
           cap = cdata.capCredits ?? cap
-          setBatch({ i: i + 1, total: pool.length, current: `${label} — pulling… ${(cdata.totalStored || 0).toLocaleString()} msgs · ${spent}cr`, log: [...log] })
+          setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — pulling… ${(cdata.totalStored || 0).toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
           if (!cdata.morePages) break
           if (cap && spent >= cap) { push(`${label}: stopped at his ${cap}cr cap — older history remains`); break }
         }
@@ -248,7 +255,7 @@ export default function AuditTab() {
         pdata.newMessages = newMsgs
         if (!(pdata.parsed?.messageCount > 0)) { push(`${label}: no messages found in this chat — skipped`); continue }
 
-        setBatch({ i: i + 1, total: pool.length, current: `${label} — analyzing…`, log: [...log] })
+        setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — analyzing… (Opus takes 1-3 min on big fans)`, log: [...log] }))
         const fd = new FormData()
         fd.append('useTranscript', 'true')
         fd.append('parsedConversation', pdata.parsed.conversation)
@@ -285,7 +292,8 @@ export default function AuditTab() {
         const ares = await fetch('/api/admin/creator-earnings/analyze-chat', { method: 'POST', body: fd })
         const adata = await ares.json().catch(() => ({}))
         if (!ares.ok) { push(`${label}: analysis failed — ${adata.error || ares.status}`); continue }
-        push(`${label}: ✓ pulled (${pdata.credits || 0} cr, ${pdata.newMessages ?? 0} new) + analyzed`)
+        push(`${label}: ✓ pulled (${pdata.credits || 0} cr, ${pdata.newMessages ?? 0} new) + analyzed`, w)
+        durations.push(Date.now() - fanStart)
       } catch (e) {
         push(`${label}: error — ${e.message}`)
       }
@@ -476,17 +484,38 @@ export default function AuditTab() {
       {pullResult && <div style={{ fontSize: '12px', color: '#78B4E8' }}>✓ Sheet updated — {pullResult}. Now run the audit.</div>}
       {backfillResult && <div style={{ fontSize: '12px', color: '#6B94B8' }}>✓ Backfill — {backfillResult}</div>}
 
-      {batch && (
+      {batch && (() => {
+        const logText = (l) => typeof l === 'string' ? l : l.text
+        const doneCount = batch.log.filter((l) => logText(l).includes('✓')).length
+        const frac = batch.total ? Math.min(1, (batch.done ? batch.total : Math.max(0, batch.i - 1)) / batch.total) : 0
+        return (
         <div style={{ ...card, padding: '14px 18px' }}>
           <div style={{ fontSize: '12px', fontWeight: 700, color: '#E8A878', marginBottom: '6px' }}>
-            {batch.done ? `Batch complete — ${batch.log.filter(l => l.includes('✓')).length}/${batch.total} analyzed` : `Batch ${batch.i}/${batch.total}: ${batch.current}`}
+            {batch.done ? `Batch complete — ${doneCount}/${batch.total} analyzed` : `Batch ${batch.i}/${batch.total}: ${batch.current}`}
+            {!batch.done && batch.eta != null && <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> · ~{batch.eta} min left</span>}
           </div>
-          {batch.log.map((l, i) => (
-            <div key={i} style={{ fontSize: '11px', color: l.includes('✓') ? '#7DD3A4' : l.includes('failed') || l.includes('error') ? '#E87878' : 'var(--foreground-muted)', padding: '1px 0' }}>{l}</div>
-          ))}
-          {!batch.done && <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '6px' }}>Keep this tab open — each fan is pulled and analyzed in sequence.</div>}
+          <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden', marginBottom: '8px' }}>
+            <div style={{ height: '100%', width: `${Math.round(frac * 100)}%`, background: batch.done ? '#7DD3A4' : '#E8A878', borderRadius: '3px', transition: 'width 0.6s ease' }} />
+          </div>
+          {batch.log.map((l, i) => {
+            const t = logText(l)
+            const ok = t.includes('✓')
+            return (
+              <div key={i} style={{ fontSize: '11px', color: ok ? '#7DD3A4' : t.includes('failed') || t.includes('error') ? '#E87878' : 'var(--foreground-muted)', padding: '1px 0' }}>
+                {t}
+                {ok && l.fanKey && (
+                  <button onClick={() => { if (l.creatorId && l.creatorId !== creatorId) { setCreatorId(l.creatorId); writeCreatorToUrl(l.creatorId) } setFocusFan(l.fanKey); setFocusNonce((n) => n + 1) }}
+                    style={{ marginLeft: '8px', background: 'none', border: 'none', color: '#A06FE8', fontSize: '11px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                    view analysis →
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {!batch.done && <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '6px' }}>Each fan finishes independently — click "view analysis →" on any ✓ line while the rest keep running. Keep this tab open.</div>}
         </div>
-      )}
+        )
+      })()}
       {error && <div style={{ ...card, borderColor: 'rgba(232,120,120,0.35)', color: '#E87878', fontSize: '13px' }}>{error}</div>}
 
       {/* Audit results */}
