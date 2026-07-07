@@ -265,7 +265,8 @@ export default function AuditTab() {
 
         setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: `${label} — analyzing… (Opus takes 1-3 min on big fans)`, log: [...log] }))
         const fd = new FormData()
-        fd.append('useTranscript', 'true')
+        // NOT useTranscript — that flag makes the analyzer hunt for an old
+        // uploaded HTML transcript in Dropbox and ignore the fresh pull.
         fd.append('parsedConversation', pdata.parsed.conversation)
         fd.append('parsedMessages', JSON.stringify(pdata.parsed.messages))
         fd.append('parsedFirstDate', pdata.parsed.firstMessageDate)
