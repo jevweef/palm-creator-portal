@@ -765,6 +765,11 @@ NEXT MOVE
 
 > "[Ready-to-send message. References specific timeless facts from the dossier. No sell. No content. No pricing.]"
 
+SUGGESTED-MESSAGE RULES (apply to EVERY sample message, opener, and quoted line anywhere in this brief):
+- The chatter SENDS AS the creator. Write in FIRST PERSON as her — "I was thinking about you", never "[creator] was thinking about you". Third-person mentions of the creator inside a suggested message are an instant tell that it's not really her.
+- Sound like a real girl texting, not an assistant: casual, warm, contractions, lowercase vibes fine. NO em dashes or double hyphens (— or --), no semicolons, no "hope this finds you well" energy.
+- Short. One thought, maybe two. Real people don't write paragraphs to say hi.
+
 [1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]
 
 CHATTER CARD
@@ -780,7 +785,8 @@ OPENER: "[the ready-to-send message from NEXT MOVE]"]`
 
 ${spendingContext}
 
-Read the conversation and produce a short brief in this exact format:
+Read the conversation and produce a short brief in this exact format.
+CRITICAL for any suggested/sample message you write: the chatter sends AS the creator — first person ("I miss you"), NEVER third person about her ("[creator] misses you"). Casual real-texting tone, no em dashes or double hyphens, short.
 
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
 
