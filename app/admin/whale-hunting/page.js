@@ -104,7 +104,93 @@ export default function WhaleHuntingPage() {
   )
 }
 
+// Shared: fetch the latest overnight report once per tab mount
+function useDailyReport() {
+  const [data, setData] = useState(null)
+  const [date, setDate] = useState('')
+  useEffect(() => {
+    fetch(`/api/admin/whales/daily-report${date ? `?date=${date}` : ''}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData({ report: null, available: [] }))
+  }, [date])
+  return { report: data?.report || null, available: data?.available || [], date, setDate, loading: data === null }
+}
+
+function ReportHeader({ report, available, date, setDate, loading }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '14px 0' }}>
+      <span style={{ fontSize: '12px', fontWeight: 700, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overnight report</span>
+      {available.length > 0 ? (
+        <select value={date || available[0]} onChange={(e) => setDate(e.target.value)}
+          style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '5px 10px', fontSize: '12px' }}>
+          {available.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      ) : (
+        <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+          {loading ? 'Loading…' : 'No reports yet — the analyst runs every night at ~3am ET and the first report lands tomorrow morning.'}
+        </span>
+      )}
+      {report?.partial && <span style={{ fontSize: '11px', color: '#E8C878' }}>partial — completing on the next pass</span>}
+    </div>
+  )
+}
+
 function PalmInternalTab() {
+  const { report, available, date, setDate, loading } = useDailyReport()
+  const demand = (report?.perCreator || []).flatMap((c) => (c.contentDemand || []).map((d) => ({ ...d, creator: c.aka })))
+  const stats = (report?.perCreator || [])
+  if (report) return (
+    <div>
+      <SectionCard
+        title="Strategic visibility into whale performance across all creators"
+        description="Built nightly from yesterday's live chat data (webhooks — no credits burned)."
+      />
+      <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>Yesterday at a glance</div>
+        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+          <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}><th style={{ padding: '4px 8px' }}>Creator</th><th style={{ textAlign: 'right' }}>Chatter msgs</th><th style={{ textAlign: 'right' }}>Fan msgs</th><th style={{ textAlign: 'right' }}>Fans touched</th><th style={{ textAlign: 'right' }}>Sales</th><th style={{ textAlign: 'right', padding: '4px 8px' }}>$ Sales</th></tr></thead>
+          <tbody>
+            {stats.map((c) => (
+              <tr key={c.aka} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <td style={{ padding: '6px 8px', fontWeight: 600 }}>{c.aka}</td>
+                <td style={{ textAlign: 'right' }}>{c.stats?.outbound ?? 0}</td>
+                <td style={{ textAlign: 'right' }}>{c.stats?.inbound ?? 0}</td>
+                <td style={{ textAlign: 'right' }}>{c.stats?.fansMessaged ?? 0}</td>
+                <td style={{ textAlign: 'right' }}>{c.stats?.sales ?? 0}</td>
+                <td style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 700 }}>${(c.stats?.salesTotal ?? 0).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>Content demand — what fans asked for yesterday</div>
+        {demand.length === 0 && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>No explicit content requests surfaced.</div>}
+        {demand.map((d, i) => (
+          <div key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', padding: '8px 0' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700 }}>{d.theme} <span style={{ color: '#C4A5F7', fontWeight: 400 }}>· {d.creator}</span> <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}>×{d.count || 1}</span></div>
+            {(d.quotes || []).slice(0, 2).map((q, j) => <div key={j} style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic', marginTop: '2px' }}>&ldquo;{q}&rdquo;</div>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+  return (
+    <div>
+      <SectionCard
+        title="Strategic visibility into whale performance across all creators"
+        description="Built nightly from yesterday's live chat data (webhooks — no credits burned)."
+      />
+      <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+    </div>
+  )
+}
+
+function PalmInternalTabLegacy() {
   return (
     <div>
       <SectionCard
@@ -153,6 +239,73 @@ function PalmInternalTab() {
 }
 
 function ChatTeamTab() {
+  const { report, available, date, setDate, loading } = useDailyReport()
+  if (report) {
+    const rows = report.perCreator || []
+    const flags = rows.flatMap((c) => (c.authenticity || []).map((a) => ({ ...a, creator: c.aka })))
+    const templates = rows.flatMap((c) => (c.massTemplates || []).map((t) => ({ ...t, creator: c.aka })))
+    const wins = rows.flatMap((c) => (c.wins || []).map((w) => ({ ...w, creator: c.aka })))
+    const SEV = { high: '#E87878', medium: '#E8C878' }
+    return (
+      <div>
+        <SectionCard
+          title="What gets sent to the chat manager"
+          description="Pattern-level observations from yesterday's chats. Focuses on behaviors, not individuals."
+        />
+        <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+
+        <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#E87878', marginBottom: '10px' }}>Authenticity flags — doesn&apos;t sound like her</div>
+          {flags.length === 0 && <div style={{ fontSize: '12px', color: '#7DD3A4' }}>No authenticity problems flagged yesterday.</div>}
+          {flags.map((f, i) => (
+            <div key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', padding: '9px 0' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <b style={{ color: SEV[f.severity] || 'var(--foreground)', fontSize: '11px', textTransform: 'uppercase' }}>{f.severity}</b>
+                {(f.issues || []).map((iss) => <span key={iss} style={{ background: 'rgba(232,120,120,0.1)', color: '#E87878', padding: '1px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{iss}</span>)}
+                <span style={{ fontSize: '11px', color: '#C4A5F7' }}>{f.creator}</span>
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>to {f.fan}</span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)', marginTop: '3px', fontStyle: 'italic' }}>&ldquo;{f.message}&rdquo;</div>
+              {f.note && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{f.note}</div>}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#E8C878', marginBottom: '10px' }}>Mass-template detection — same script, many fans</div>
+          {templates.length === 0 && <div style={{ fontSize: '12px', color: '#7DD3A4' }}>No repeated scripts in 1:1 chats yesterday.</div>}
+          {templates.map((t, i) => (
+            <div key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', padding: '9px 0' }}>
+              <div style={{ fontSize: '12px' }}><b>{t.fanCount} fans</b> <span style={{ color: '#C4A5F7' }}>· {t.creator}</span>{t.whalesHit?.length ? <span style={{ color: '#E87878', fontWeight: 700 }}> · hit {t.whalesHit.length} whale{t.whalesHit.length > 1 ? 's' : ''}: {t.whalesHit.join(', ')}</span> : null}</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', fontStyle: 'italic', marginTop: '2px' }}>&ldquo;{t.text}&rdquo;</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#7DD3A4', marginBottom: '10px' }}>Wins to replicate</div>
+          {wins.length === 0 && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>None surfaced yesterday.</div>}
+          {wins.map((w, i) => (
+            <div key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', padding: '8px 0', fontSize: '12px' }}>
+              <b style={{ color: '#C4A5F7' }}>{w.creator}</b> · {w.fan}: <span style={{ color: 'var(--foreground)' }}>{w.note}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <SectionCard
+        title="What gets sent to the chat manager"
+        description="Pattern-level observations from yesterday's chats. Focuses on behaviors, not individuals."
+      />
+      <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+    </div>
+  )
+}
+
+function ChatTeamTabLegacy() {
   return (
     <div>
       <SectionCard
