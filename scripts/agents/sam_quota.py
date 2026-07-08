@@ -269,7 +269,7 @@ def build_report(token: str, week_start: str) -> str:
     findings: list[dict] = []
     for b in behind_struct:
         findings.append({"urgency": "amber",
-                         "text": f"{b['name']}: {b['got']} of {b['target']} reels in the last 7 days — behind"})
+                         "text": f"{b['name']}'s accounts posted {b['got']} of the {b['target']} reels they were supposed to over the last 7 days."})
     if active_no_quota:
         findings.append({"urgency": "amber",
                          "text": f"{len(active_no_quota)} active creators have NO weekly quota set, so they are invisible to tracking: "

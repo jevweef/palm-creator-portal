@@ -220,9 +220,12 @@ Rules: authenticity flags only for REAL problems a manager should coach (max 8, 
     report.partial = report.partial && report.perCreator.length < creators.length ? true : undefined
     await uploadToDropbox(token, ns, reportPath, Buffer.from(JSON.stringify(report), 'utf8'), { overwrite: true })
 
-    // Telegram morning summary (once, when the report is complete)
-    const tgToken = process.env.TELEGRAM_BOT_TOKEN
-    const tgChat = process.env.TELEGRAM_OPS_CHAT_ID || process.env.TELEGRAM_SMM_GROUP_CHAT_ID
+    // Telegram morning summary (once, when the report is complete) — goes to
+    // the "Whale Intel" topic in the Palm Team group (id 85, created
+    // 2026-07-07). It landed in the SMM group before via env fallback.
+    const tgToken = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
+    const tgChat = process.env.WHALE_INTEL_CHAT_ID || '-1004293138854'
+    const tgThread = process.env.WHALE_INTEL_TOPIC_ID || '85'
     if (tgToken && tgChat && !report.partial && !report.summarySent) {
       const flags = report.perCreator.reduce((s, cr) => s + (cr.authenticity?.length || 0), 0)
       const highFlags = report.perCreator.flatMap((cr) => (cr.authenticity || []).filter((a) => a.severity === 'high').map((a) => `${cr.aka}: ${a.issues?.join('/')} → ${a.fan}`))
@@ -236,7 +239,7 @@ Rules: authenticity flags only for REAL problems a manager should coach (max 8, 
       ]
       await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: tgChat, text: lines.join('\n'), disable_web_page_preview: true }),
+        body: JSON.stringify({ chat_id: tgChat, message_thread_id: Number(tgThread), text: lines.join('\n'), disable_web_page_preview: true }),
       }).catch(() => {})
       report.summarySent = true
       await uploadToDropbox(token, ns, reportPath, Buffer.from(JSON.stringify(report), 'utf8'), { overwrite: true })

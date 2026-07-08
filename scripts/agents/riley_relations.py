@@ -128,9 +128,9 @@ def main():
 
     findings = []
     if awaiting_list:
-        findings.append(finding(f"{len(awaiting_list)} creator(s) waiting on a reply from us ≥{LEFT_ON_READ_H}h: {', '.join(awaiting_list[:8])}.", "amber"))
+        findings.append(finding(f"{len(awaiting_list)} creator(s) messaged us and are still waiting on a reply: {', '.join(awaiting_list[:8])}.", "amber"))
     if quiet_list:
-        findings.append(finding(f"{len(quiet_list)} creator(s) gone quiet ≥{QUIET_DAYS}d: {', '.join(quiet_list[:8])}.", "amber"))
+        findings.append(finding(f"{len(quiet_list)} creator(s) haven't exchanged a message with us in {QUIET_DAYS}+ days: {', '.join(quiet_list[:8])}.", "amber"))
     if not findings:
         findings.append(finding(f"All {len(watching)} active/onboarding creator chats two-way and current.", "green"))
 

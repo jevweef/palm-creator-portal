@@ -68,16 +68,16 @@ def main():
 
     findings = []
     if now_evan:
-        findings.append(finding(f"{len(now_evan)} urgent inbox task(s) for you still open: " + "; ".join(now_evan[:5]) + ".", "red"))
+        findings.append(finding(f"{len(now_evan)} urgent task(s) from your messages are still open. Oldest three: " + "; ".join(now_evan[:3]) + (f" — plus {len(now_evan) - 3} more on the dashboard." if len(now_evan) > 3 else "."), "red"))
     if stale:
-        findings.append(finding(f"{len(stale)} open task(s) stale ≥{STALE_DAYS}d (oldest: \"{stale[0]}\").", "amber"))
+        findings.append(finding(f"{len(stale)} task(s) have sat open for {STALE_DAYS}+ days without being closed (oldest: \"{stale[0]}\").", "amber"))
     # pipeline liveness: in the active extraction window, expect a detection within ~3h
     hour_utc = now.hour
     in_window = (11 <= hour_utc <= 23) or (0 <= hour_utc <= 2)
     if in_window:
         if last_detect is None or (now - last_detect).total_seconds() / 3600.0 > DARK_HOURS:
             ago = f"{(now-last_detect).total_seconds()/3600.0:.0f}h ago" if last_detect else "never"
-            findings.append(finding(f"extract-tasks pipeline may be dark — last task detected {ago} (no detection in >{DARK_HOURS}h).", "amber"))
+            findings.append(finding(f"The system that turns your messages into tasks may have stopped — it last caught a task {ago}.", "amber"))
     if not findings:
         findings.append(finding("Inbox under control — nothing urgent open, nothing stale, extraction live.", "green"))
 

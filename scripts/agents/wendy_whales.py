@@ -65,11 +65,11 @@ def main():
     cold.sort(reverse=True)
 
     findings = []
-    for spend, fan, creator in cold[:12]:
+    for spend, fan, creator in cold[:8]:
         urg = "red" if spend >= RED_LIFETIME else "amber"
-        findings.append(finding(f"{creator}: \"{fan}\" going cold (lifetime ${spend:,.0f}) — recovery not yet sent.", urg))
-    if len(cold) > 12:
-        findings.append(finding(f"…and {len(cold) - 12} more cold whales (lower lifetime spend).", "amber"))
+        findings.append(finding(f"{creator}'s fan \"{fan}\" (${spend:,.0f} spent all-time) has gone quiet and nobody has sent him a win-back message yet.", urg))
+    if len(cold) > 8:
+        findings.append(finding(f"…plus {len(cold) - 8} more quiet big spenders — full list on the Whale Hunting page. https://app.palm-mgmt.com/admin/whale-hunting", "amber"))
     if not cold:
         findings.append(finding("No fans currently flagged Going Cold and unactioned.", "green"))
 

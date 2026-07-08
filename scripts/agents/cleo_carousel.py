@@ -49,7 +49,7 @@ def main():
     findings = []
     if batches:
         total = sum(batches.values())
-        findings.append(finding(f"{len(batches)} AI carousel batch(es) ({total} slides) pending review. Slide-by-slide QA is manual until vision grading is wired.", "amber"))
+        findings.append(finding(f"{total} AI carousel slide(s) across {len(batches)} batch(es) are waiting for your review on the Carousels tab. https://app.palm-mgmt.com/admin/social?tab=content&sub=carousels", "amber"))
     else:
         findings.append(finding("No AI carousel batches pending review.", "green"))
 
