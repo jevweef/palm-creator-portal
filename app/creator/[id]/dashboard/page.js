@@ -323,7 +323,7 @@ export default function CreatorDashboard() {
   // Base paths (no query). Use withQuery() to attach params so hqId travels
   // alongside any other query string (e.g. ?sort=, ?tab=).
   const inspoPath = `/creator/${creatorOpsId}/inspo`
-  const vaultPath = `/creator/${creatorOpsId}/vault${hqSuffix}`
+  const contentRequestPath = `/creator/${creatorOpsId}/content-request${hqSuffix}`
   const longFormPath = `/creator/${creatorOpsId}/long-form${hqSuffix}`
   const myContentPath = `/creator/${creatorOpsId}/my-content`
   const withQuery = (path, params = {}) => {
@@ -510,7 +510,7 @@ export default function CreatorDashboard() {
                 <ActionCard href={uploads.socialUploadUrl} icon="📱" title="Upload Social" subtitle="Dropbox" />
               )}
               <ActionCard href={longFormPath} icon="🎬" title="Long-Form Projects" subtitle="OFTV / YouTube" />
-              <ActionCard href={vaultPath} icon="🔐" title="OF Vault Upload" subtitle="OnlyFans" />
+              <ActionCard href={contentRequestPath} icon="🔐" title="OF Content Upload" subtitle="Monthly request" />
             </div>
 
             {/* Invoices fills remaining space */}
