@@ -639,6 +639,24 @@ export async function GET(request) {
       dailyByType[utcDate]['Chargeback'] -= t.net
     }
 
+    // No negative days: a chargeback claws back PAST earnings, so an
+    // unmatched batch must not drive its processing day below zero (a mid-June
+    // batch made the agency chart dip to -$3k on the biggest sales day of the
+    // month). Carry any negative remainder backward into prior days until
+    // absorbed — period totals stay intact; dailyByType still shows the
+    // chargeback amount on its processing day for transparency.
+    {
+      const datesAsc = Object.keys(dailyMap).sort()
+      for (let i = datesAsc.length - 1; i >= 0; i--) {
+        const d = datesAsc[i]
+        if (dailyMap[d] < 0) {
+          if (i > 0) dailyMap[datesAsc[i - 1]] += dailyMap[d]
+          dailyMap[d] = 0
+        }
+        if (dailyGross[d] < 0) dailyGross[d] = 0
+      }
+    }
+
     // Build daily array sorted chronologically
     const dailyData = Object.entries(dailyMap)
       .map(([date, net]) => ({
