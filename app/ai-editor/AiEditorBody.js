@@ -10,6 +10,7 @@ import CarouselUploadSection from '@/app/ai-editor/CarouselUploadSection'
 import CarouselReferenceLibrary from '@/app/ai-editor/CarouselReferenceLibrary'
 import NewProjectModal from '@/app/ai-editor/NewProjectModal'
 import FreelanceSubmitModal from '@/app/ai-editor/FreelanceSubmitModal'
+import BulkSubmitModal from '@/app/ai-editor/BulkSubmitModal'
 import { LibrarySection as OutfitLibrarySection } from '@/components/recreate/PhotosPanel'
 
 // Steps for the AI Recreate Pool tour. Targets are CSS selectors —
@@ -966,6 +967,9 @@ export default function AiEditorBody({ embedded = false } = {}) {
   // allow opening the modal with no preselect (global "+ New Project"
   // button + library picker inside).
   const [newProjectReel, setNewProjectReel] = useState(null)
+  // Bulk Submit modal — front-and-center "drop a batch of finished AI reels
+  // for a creator" flow (standalone, not tied to a source pool reel).
+  const [bulkSubmitOpen, setBulkSubmitOpen] = useState(false)
   // "Upload inspo" modal state — editor drops a local video file
   // (mp4/mov/webm), we direct-upload to Dropbox + create a Recreate
   // Reel record so the file appears in the Fresh Inspo grid. NOT an
@@ -1215,6 +1219,14 @@ export default function AiEditorBody({ embedded = false } = {}) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)' }}>AI Recreate</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Front-and-center: drop a batch of finished AI reels for a
+              creator, straight to admin review. Standalone flow — no source
+              reel or project needed. */}
+          <button
+            onClick={() => setBulkSubmitOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', fontSize: 13, fontWeight: 700, background: 'var(--palm-pink)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', boxShadow: '0 2px 10px rgba(232,143,172,0.35)' }}>
+            ↑ Submit finished reels
+          </button>
           <TourTriggerButton storageKey="ai-editor-pool-v7" label="ⓘ Help" />
           <select
             id="tour-creator-picker"
@@ -1347,6 +1359,16 @@ export default function AiEditorBody({ embedded = false } = {}) {
         />
       </div>
       </>
+      )}
+
+      {/* Bulk Submit — standalone finished-reels drop for a creator. */}
+      {bulkSubmitOpen && (
+        <BulkSubmitModal
+          creators={creators}
+          initialCreatorId={creatorId}
+          onClose={() => setBulkSubmitOpen(false)}
+          onDone={() => { setBulkSubmitOpen(false); if (creatorId) loadProjects(creatorId) }}
+        />
       )}
 
       {/* Batch upload + New Project modals + Upload Inspo modal are
