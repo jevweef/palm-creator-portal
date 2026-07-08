@@ -51,6 +51,7 @@ const ADMIN_NAV = [
   { href: '/photo-library', label: 'Photo Library', icon: '🖼️' },
   { href: '/admin/publer', label: 'Publer', icon: '📅' },
   { href: '/admin/onboarding', label: 'Onboarding', icon: '📋' },
+  { href: '/admin/content-requests', label: 'Content Requests', icon: '📥' },
   { href: '/admin/invoicing', label: 'Invoicing', icon: '💸', children: [
     { key: 'invoices', label: 'Invoices' },
     { key: 'upload', label: 'Raw Data Upload' },
