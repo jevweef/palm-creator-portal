@@ -55,6 +55,14 @@
     {
       "path": "/api/cron/trueup-transactions",
       "schedule": "20 8 * * *"
+    },
+    {
+      "path": "/api/cron/whale-intel-daily",
+      "schedule": "10 7 * * *"
+    },
+    {
+      "path": "/api/cron/whale-intel-daily",
+      "schedule": "35 7 * * *"
     }
   ]
 }
