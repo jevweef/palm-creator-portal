@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300 // full Assets scan + creator fetch — timeout-first
 
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords, batchUpdateRecords } from '@/lib/adminAuth'
@@ -20,12 +21,16 @@ export async function GET() {
     // 'Discarded' is additive so the library can offer a "Deleted" filter +
     // restore. The client defaults to Unused, so discarded assets stay hidden
     // unless the admin explicitly switches to the Deleted view.
+    // 'In Review' is additive (a raw clip whose edit is submitted but not yet
+    // approved) so used clips surface in the library too — the client shows
+    // them at the BOTTOM of the Unused view with a "times used" count, so the
+    // editor can reuse a clip instead of it vanishing forever once picked.
     const assets = await fetchAirtableRecords('Assets', {
-      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing', {Pipeline Status}='Discarded'), {Source Type}!='Inspo Upload')",
+      filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing', {Pipeline Status}='In Review', {Pipeline Status}='Discarded'), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
         'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators',
-        'Upload Week', 'Created Time',
+        'Upload Week', 'Created Time', 'Tasks',
       ],
     })
 
@@ -54,13 +59,24 @@ export async function GET() {
       const creator = creatorId ? (creatorMap[creatorId] || {}) : {}
       const dropboxLinks = (f['Dropbox Shared Link'] || '').split('\n').filter(Boolean)
 
+      const ps = f['Pipeline Status']
+      // "Used" = the raw clip has been picked into an edit at least once
+      // (In Editing / In Review). Times used = number of linked Tasks (each
+      // pick creates one; a cancel removes its link), computed live so there's
+      // no field to backfill or keep in sync.
+      const used = ps === 'In Editing' || ps === 'In Review'
+      const timesUsed = (f['Tasks'] || []).length
+
       return {
         id: a.id,
         name: f['Asset Name'] || '',
         pipelineStatus: f['Pipeline Status'] || '',
-        // Derived lifecycle status for the library filter (Used/Posted deferred).
-        status: f['Pipeline Status'] === 'In Editing' ? 'In editing'
-          : f['Pipeline Status'] === 'Discarded' ? 'Discarded'
+        used,
+        timesUsed,
+        // Derived lifecycle status for the library filter. In Editing + In
+        // Review both bucket as "In editing" (used); Discarded = deleted.
+        status: (ps === 'In Editing' || ps === 'In Review') ? 'In editing'
+          : ps === 'Discarded' ? 'Discarded'
           : 'Unused',
         sourceType: f['Source Type'] || '',
         assetType: f['Asset Type'] || '',
