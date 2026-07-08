@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 // a last-good per-account cache so a failed/rate-limited Dropbox read shows
 // the previous events instead of blinking that account out of the stream.
 const STREAM_CACHE = { at: 0, data: null }
+const SALES48_CACHE = { at: 0, data: null } // 60s TTL — full-depth read is heavy
 const LAST_GOOD = new Map() // account -> events
 const MUTED_CACHE = new Map() // account -> { at, list }
 
@@ -45,6 +46,24 @@ export async function GET(request) {
         }))
       })
       .sort((a, b) => a.aka.localeCompare(b.aka))
+
+    // ?sales48=1 — every sale in the last 48h across all creators (deep read
+    // past the stream's tail cap; feeds the Sales tab graph). Cached 60s.
+    if (url.searchParams.get('sales48') === '1') {
+      if (SALES48_CACHE.data && Date.now() - SALES48_CACHE.at < 60000) {
+        return NextResponse.json({ sales: SALES48_CACHE.data })
+      }
+      const { readLiveMany } = await import('@/lib/ofLiveBuffer')
+      let byAccount = {}
+      try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
+      const cutoff = Date.now() - 48 * 3600 * 1000
+      const sales = accounts.flatMap((a) => (byAccount[a.account] || [])
+        .filter((e) => e.dir === 'sale' && e.at && new Date(e.at).getTime() >= cutoff)
+        .map((e) => ({ at: e.at, price: +e.price || 0, aka: a.aka })))
+      SALES48_CACHE.at = Date.now()
+      SALES48_CACHE.data = sales
+      return NextResponse.json({ sales })
+    }
 
     // ?stream=1 — all creators merged: the raw event firehose for the Stream tab
     if (url.searchParams.get('stream') === '1') {

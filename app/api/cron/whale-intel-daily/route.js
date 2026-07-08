@@ -123,7 +123,8 @@ export async function GET(request) {
       const sales = events.filter((e) => e.dir === 'sale')
       const stats = {
         outbound: outbound.length, inbound: inbound.length, sales: sales.length,
-        salesTotal: Math.round(sales.reduce((s, e) => s + (e.price || 0), 0)),
+        // NET (after OF's 20%) — Evan only ever looks at net
+        salesTotal: Math.round(sales.reduce((s, e) => s + (e.price || 0) * 0.8, 0)),
         fansMessaged: new Set(outbound.map((e) => (e.fan?.username || e.fan?.name || '').toLowerCase()).filter(Boolean)).size,
       }
 
