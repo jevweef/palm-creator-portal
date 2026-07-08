@@ -61,13 +61,16 @@ def main(argv) -> int:
         print("Pax: DATA CHANGED — " + "; ".join(problems), file=sys.stderr)
         return 1
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
-    posts = fetch_all(token, OPS, T_POSTS, ["Status", "Publer Status", "Pipeline Target", "Scheduled Date", "Telegram Sent At", "Creator"])
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=args.days)
+    posts = fetch_all(token, OPS, T_POSTS, ["Status", "Publer Status", "Pipeline Target", "Scheduled Date", "Telegram Sent At", "Creator", "Caption", "Post Name"])
     names = name_map(token, OPS, "Palm Creators")
     gone = offboarded_creators(token)
 
-    tg_failed = publer_failed = publer_stuck = 0
-    tg_failed_names = []
+    # Evan's urgency ladder: a failure sitting under a week = amber note, a
+    # week+ = urgent. Layman's terms: creator, what the post was, how long
+    # it's been broken, where it lives (the Post Prep page).
+    tg_failed, publer_failed, publer_stuck = [], 0, 0
     for r in posts:
         f = r.get("fields", {})
         who = ", ".join(names.get(c, "") for c in (f.get("Creator") or [])).strip(", ")
@@ -78,9 +81,10 @@ def main(argv) -> int:
         if not recent:
             continue
         if "fail" in (f.get("Status") or "").lower():
-            tg_failed += 1
-            if who:
-                tg_failed_names.append(who)
+            title = (f.get("Caption") or f.get("Post Name") or "?").strip()
+            age = int((now - (sd or parse_dt(r["createdTime"]))).total_seconds() // 86400)
+            when = (sd or parse_dt(r["createdTime"])).strftime("%b %-d")
+            tg_failed.append({"who": who or "?", "title": title[:45], "when": when, "age": age})
         ps = f.get("Publer Status")
         if ps == "Failed":
             publer_failed += 1
@@ -88,12 +92,15 @@ def main(argv) -> int:
             publer_stuck += 1
 
     findings: list[dict] = []
-    if tg_failed:
-        findings.append(finding(f"{tg_failed} Telegram post(s) in a failed state (last {args.days}d) — real-creator content didn't send{(' (' + ', '.join(sorted(set(tg_failed_names))[:4]) + ')') if tg_failed_names else ''}.", "red"))
+    for x in sorted(tg_failed, key=lambda v: -v["age"]):
+        line = (f"{x['who']}'s post from {x['when']} (\"{x['title']}\") never made it to her posting"
+                f" channel on Telegram — it's been sitting failed on the Post Prep page for {x['age']} days."
+                " Re-send it from there or delete it.")
+        findings.append(finding(line, "red" if x["age"] >= 7 else "amber"))
     if publer_failed:
-        findings.append(finding(f"{publer_failed} Publer post(s) Failed (last {args.days}d) — AI-account content didn't publish.", "red"))
+        findings.append(finding(f"{publer_failed} AI-account post(s) failed to publish through Publer in the last {args.days} days.", "red"))
     if publer_stuck:
-        findings.append(finding(f"{publer_stuck} Publer post(s) stuck in Submitting — may be hung mid-publish.", "amber"))
+        findings.append(finding(f"{publer_stuck} AI-account post(s) have been hung mid-publish in Publer — may need a re-submit.", "amber"))
 
     # Publer fleet health
     accts = fetch_all(token, OPS, T_PUBLER, ["Status", "Account Type", "Channel"])
@@ -110,7 +117,7 @@ def main(argv) -> int:
         findings.append(finding(f"Delivery healthy — no failed/stuck posts in {args.days}d.{dormant_note}", "green"))
 
     bad = any(x["urgency"] != "green" for x in findings)
-    headline = (f"{tg_failed+publer_failed} failed, {publer_stuck} stuck deliveries" if bad else "Delivery healthy")
+    headline = (f"{len(tg_failed)+publer_failed} failed, {publer_stuck} stuck deliveries" if bad else "Delivery healthy")
     report = write_report(id="pax", teammate="Pax", dept="Distribution", tier="worker", reports_to="dana",
                           headline=headline, findings=findings,
                           notes=f"Telegram (real) + Publer (AI) delivery. Active Publer accounts: {active}.{dormant_note} Owns failure detail; Sam defers here.")

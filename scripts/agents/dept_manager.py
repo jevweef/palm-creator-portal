@@ -44,8 +44,11 @@ def conversational_digest(teammate, dept, findings):
               f"writing your short daily note to the owner (Evan). Below are today's raw findings.\n\n"
               f"Write 2-5 conversational sentences: what matters most, what he (or the team) should do, "
               f"and what's fine. Plain English, warm and direct, like a sharp colleague — no bullet lists, "
-              f"no emoji, no headings. NEVER mention anything not in the findings; never invent drafts or "
-              f"work products. If everything is green, one relaxed sentence.\n\nFINDINGS:\n{facts}")
+              f"no emoji, no headings. LAYMAN'S TERMS: say the creator's name, what the item actually is, "
+              f"how long it's been sitting, and which page of the portal it lives on — never internal jargon "
+              f"like 'cards', 'staged', or 'in a failed state'. Only flag urgency the findings justify: a "
+              f"week sitting = worth a look, two weeks = urgent. NEVER mention anything not in the findings; "
+              f"never invent drafts or work products. If everything is green, one relaxed sentence.\n\nFINDINGS:\n{facts}")
     try:
         req = urllib.request.Request(
             "https://api.anthropic.com/v1/messages",

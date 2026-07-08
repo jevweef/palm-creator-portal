@@ -64,15 +64,16 @@ def excluded(teammate: str) -> set:
 
 _OFFBOARDED_CACHE = None
 def offboarded_creators(token: str) -> set:
-    """Names + AKAs of creators with Status=Offboarded (OPS Palm Creators).
-    Monitors must skip these — an offboarded creator's stale rows are noise,
-    not action items (Gracie kept haunting Penny, 2026-07-07). Cached per run."""
+    """Names + AKAs of creators with Status=Offboarded (HQ Creators — the ONLY
+    table where offboarding is reliably recorded; older offboards like Gracie
+    and Sunny have no OPS row at all). Monitors must skip these — an offboarded
+    creator's stale rows are noise, not action items. Cached per run."""
     global _OFFBOARDED_CACHE
     if _OFFBOARDED_CACHE is not None:
         return _OFFBOARDED_CACHE
     names = set()
     try:
-        rows = fetch_all(token, "applLIT2t83plMqNx", "Palm Creators", fields=["Creator", "AKA", "Status"])
+        rows = fetch_all(token, "appL7c4Wtotpz07KS", "tblYhkNvrNuOAHfgw", fields=["Creator", "AKA", "Status"])
         for r in rows:
             f = r.get("fields", {})
             st = f.get("Status")

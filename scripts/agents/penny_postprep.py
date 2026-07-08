@@ -53,52 +53,54 @@ def main():
     gone = offboarded_creators(token)  # offboarded creators' stale cards = noise
     posts = fetch_all(token, OPS, T_POSTS, ["Status", "Caption", "Hashtags", "Thumbnail", "Scheduled Date", "Creator", "Post Name"])
 
-    naked, imminent, overdue = [], [], []
-    stale = []
+    # Evan's urgency ladder: under a week sitting = don't mention; ~1 week =
+    # mention; 2+ weeks = urgent. Layman's terms: creator + what it is + how
+    # long + which page — never "cards".
+    imminent, week_old, two_weeks = [], [], []
+    fresh = 0
     for p in posts:
         f = p.get("fields", {})
         if f.get("Status") not in PENDING:
             continue
         missing = []
         if not (f.get("Caption") or "").strip():
-            missing.append("caption")
+            missing.append("a caption")
         if not (f.get("Hashtags") or "").strip():
             missing.append("hashtags")
         if not f.get("Thumbnail"):
-            missing.append("cover")
-        if not missing:
-            continue
-        nm = ", ".join(names.get(c, "") for c in (f.get("Creator") or [])) or (f.get("Post Name") or "?")
+            missing.append("a cover photo")
+        nm = ", ".join(names.get(c, "") for c in (f.get("Creator") or []))
+        title = (f.get("Post Name") or f.get("Caption") or "?").strip()
+        if not nm and " – " in title:        # old rows have no Creator link; name leads the Post Name
+            nm = title.split(" – ")[0].strip()
         if nm and all(part.strip().lower() in gone for part in nm.split(",") if part.strip()):
             continue  # offboarded creator — skip entirely
-        naked.append(nm)
+        age_days = int((now - parse_dt(p["createdTime"])).total_seconds() // 86400)
         sched = parse_dt(f.get("Scheduled Date"))
-        if "caption" in missing and sched:
-            secs = (sched - now).total_seconds()
-            label = f"{nm} (sched {str(f.get('Scheduled Date'))[:10]})"
-            if 0 <= secs <= 86400:           # genuinely imminent (future, <24h)
-                imminent.append(label)
-            elif secs < -21 * 86400:         # ancient — abandoned card, cleanup not action
-                stale.append(label)
-                continue
-            elif secs < 0:                   # scheduled in the past, still unshipped + no caption
-                overdue.append(label)
+        if missing and sched and 0 <= (sched - now).total_seconds() <= 86400:
+            imminent.append(f"{nm or title}'s post \"{title[:45]}\" is supposed to go out within 24 hours but still needs {' and '.join(missing)}")
+            continue
+        if age_days < 7:
+            fresh += 1                       # sitting a few days is normal — don't nag
+            continue
+        line = f"{nm or '?'}'s post \"{title[:45]}\" has been sitting on the Post Prep page for {age_days} days without going out"
+        if missing:
+            line += f" (still needs {' and '.join(missing)})"
+        (two_weeks if age_days >= 14 else week_old).append(line)
 
     findings = []
-    if imminent:
-        findings.append(finding(f"{len(imminent)} post(s) scheduled within 24h still have NO caption: {', '.join(imminent[:6])}.", "red"))
-    if overdue:
-        findings.append(finding(f"{len(overdue)} past-due card(s) still staged with no caption (never shipped): {', '.join(overdue[:6])}.", "amber"))
-    if stale:
-        findings.append(finding(f"{len(stale)} card(s) have sat unshipped for 21+ days — these look abandoned; archive or delete them once and they'll stop appearing here.", "amber"))
-    if naked:
-        n_other = len(naked) - len(imminent) - len(overdue)
-        findings.append(finding(f"{len(naked)} Post-Prep card(s) need a human pass (caption/hashtags/cover); {len(imminent)} ship in <24h, {len(overdue)} already past-due.", "amber"))
+    for line in imminent:
+        findings.append(finding(line + " — someone needs to fill that in today.", "red"))
+    for line in two_weeks:
+        findings.append(finding(line + " — that's long enough that it's probably forgotten; send it or delete it.", "red"))
+    for line in week_old:
+        findings.append(finding(line + " — worth a look this week.", "amber"))
     if not findings:
-        findings.append(finding("All Post-Prep cards have caption + hashtags + cover.", "green"))
+        note = f" ({fresh} newer post(s) in the pipeline are moving normally)" if fresh else ""
+        findings.append(finding(f"Nothing stuck on the Post Prep page{note}.", "green"))
 
     bad = any(x["urgency"] != "green" for x in findings)
-    headline = (f"{len(imminent)} ship-blank in 24h, {len(naked)} cards need copy" if bad else "Post-Prep cards complete")
+    headline = (f"{len(imminent) + len(two_weeks)} post(s) stuck/urgent on Post Prep, {len(week_old)} sitting a week+" if bad else "Post Prep moving normally")
     rep = write_report(id="penny", teammate="Penny", dept="Distribution", tier="worker", reports_to="dana",
                        headline=headline, findings=findings,
                        notes="Read-only scanner. Auto-drafting captions/hashtags deferred (suggest-text auth + hashtag policy). Scope = unshipped cards only.")
