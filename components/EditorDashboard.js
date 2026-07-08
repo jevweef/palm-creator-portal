@@ -173,6 +173,11 @@ export function LibraryCard({
             {selected ? '✓' : ''}
           </button>
         )}
+        {asset.used && (
+          <div style={{ position: 'absolute', top: '6px', right: '6px', zIndex: 2, background: 'var(--palm-pink)', color: '#1a0a1f', fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', letterSpacing: '0.02em' }}>
+            Used {asset.timesUsed || 1}×
+          </div>
+        )}
         {imgSrc ? (
           <img src={imgSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : videoFile ? (
@@ -734,6 +739,10 @@ function LibraryPickerModal({ creator, onClose, onRefresh, onTaskCreated }) {
   }
 
   const sortedLibrary = library ? [...library].sort((a, b) => {
+    // Unused first; USED clips sink to the bottom, least-used first (reuse).
+    const au = a.used ? 1 : 0, bu = b.used ? 1 : 0
+    if (au !== bu) return au - bu
+    if (au === 1 && (a.timesUsed || 0) !== (b.timesUsed || 0)) return (a.timesUsed || 0) - (b.timesUsed || 0)
     const da = new Date(a.createdTime || a.createdAt || 0), db = new Date(b.createdTime || b.createdAt || 0)
     return sortOrder === 'newest' ? db - da : da - db
   }) : []

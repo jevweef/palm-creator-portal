@@ -466,9 +466,23 @@ export async function PATCH(request) {
     if (action === 'discardPost') {
       await patchAirtableRecord('Tasks', taskId, { 'Status': 'Cancelled', 'Editor Handoff': false })
       if (assetId) {
+        // Only discard the raw CLIP if THIS was its only task. A reused clip
+        // (linked to multiple tasks/reels) must stay available — discarding one
+        // reel shouldn't yank the clip out from under its siblings. If other
+        // tasks remain, leave it 'In Editing' (still in use).
+        let assetTaskCount = 1
+        try {
+          const [aRec] = await fetchAirtableRecords('Assets', {
+            filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
+            fields: ['Tasks'],
+          })
+          assetTaskCount = (aRec?.fields?.['Tasks'] || []).length
+        } catch { /* best effort — fall back to discarding */ }
         // typecast lets Airtable auto-create the 'Discarded' option on the
         // Pipeline Status singleSelect the first time we write it.
-        await patchAirtableRecord('Assets', assetId, { 'Pipeline Status': 'Discarded' }, { typecast: true })
+        await patchAirtableRecord('Assets', assetId,
+          { 'Pipeline Status': assetTaskCount > 1 ? 'In Editing' : 'Discarded' },
+          { typecast: true })
       }
 
       // Archive sibling Posts (same rule as recall — anything pre-flight).
