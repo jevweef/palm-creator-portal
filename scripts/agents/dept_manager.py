@@ -21,6 +21,7 @@ import sys
 
 import json
 import os
+import re
 import urllib.request
 
 from palm_agent import read_reports, rollup_findings, finding, write_report, read_env
@@ -39,7 +40,7 @@ def conversational_digest(teammate, dept, findings):
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return None
-    facts = "\n".join(f"[{f.get('urgency')}] {f.get('text', '')}" for f in findings)
+    facts = "\n".join(re.sub(r"https?://\S+", "", f"[{f.get('urgency')}] {f.get('text', '')}").strip() for f in findings)
     prompt = (f"You are {teammate}, the {dept} department manager at an OnlyFans agency, "
               f"writing your short daily note to the owner (Evan). Below are today's raw findings.\n\n"
               f"Write 2-5 conversational sentences: what matters most, what he (or the team) should do, "
@@ -81,10 +82,18 @@ def post_dept_summary(dept_id, teammate, dept, findings, missing):
         lines.append(f"{mark} {f.get('text', '')}")
     if missing:
         lines.append(f"⚠ no report from: {', '.join(missing)}")
-    text = "\n".join(lines)[:4000]
+    def esc(t):
+        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    html_lines = []
+    for ln in lines:
+        ln = esc(ln)
+        ln = re.sub(r"https?://\S+", lambda m: f'<a href="{m.group(0)}">open it</a>', ln)
+        html_lines.append(ln)
+    text = "\n".join(html_lines)[:4000]
     try:
         body = json.dumps({"chat_id": PALM_TEAM_CHAT, "message_thread_id": thread,
-                           "text": text, "disable_web_page_preview": True}).encode()
+                           "text": text, "parse_mode": "HTML",
+                           "disable_web_page_preview": True}).encode()
         req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage",
                                      data=body, headers={"content-type": "application/json"})
         urllib.request.urlopen(req, timeout=30)

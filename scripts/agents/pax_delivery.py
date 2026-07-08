@@ -84,7 +84,7 @@ def main(argv) -> int:
             title = (f.get("Caption") or f.get("Post Name") or "?").strip()
             age = int((now - (sd or parse_dt(r["createdTime"]))).total_seconds() // 86400)
             when = (sd or parse_dt(r["createdTime"])).strftime("%b %-d")
-            tg_failed.append({"who": who or "?", "title": title[:45], "when": when, "age": age})
+            tg_failed.append({"who": who or "?", "title": title[:45], "when": when, "age": age, "id": r["id"]})
         ps = f.get("Publer Status")
         if ps == "Failed":
             publer_failed += 1
@@ -95,7 +95,7 @@ def main(argv) -> int:
     for x in sorted(tg_failed, key=lambda v: -v["age"]):
         line = (f"{x['who']}'s post from {x['when']} (\"{x['title']}\") never made it to her posting"
                 f" channel on Telegram — it's been sitting failed on the Post Prep page for {x['age']} days."
-                " Re-send it from there or delete it.")
+                f" Re-send it from there or delete it. https://app.palm-mgmt.com/admin/posts?focusPost={x['id']}")
         findings.append(finding(line, "red" if x["age"] >= 7 else "amber"))
     if publer_failed:
         findings.append(finding(f"{publer_failed} AI-account post(s) failed to publish through Publer in the last {args.days} days.", "red"))
