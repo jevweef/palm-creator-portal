@@ -156,13 +156,22 @@ def build_report(token: str, week_start: str) -> str:
                  "Someone edited the Airtable schema. What's missing/renamed:"]
         lines += [f"  - {p}" for p in problems]
         lines.append("Bottom line: fix the data contract (see scripts/agents/sam_quota.py) — no quota count this run.")
-        return "\n".join(lines)
+        report = {
+            "id": "sam-quota", "teammate": "Sam", "dept": "Talent & Relations",
+            "tier": "worker", "reports_to": "vivian",
+            "date": today.isoformat(), "ran_at": _now_iso(), "status": "error", "urgency": "red",
+            "headline": "Data contract changed — quota count skipped this run",
+            "findings": [{"urgency": "red", "text": p} for p in problems],
+            "notes": "Sam self-verifies its Airtable contract every run and stops rather than report wrong numbers. Fix the contract in scripts/agents/sam_quota.py.",
+        }
+        return "\n".join(lines), report
 
-    ws, we, days_elapsed = week_bounds(week_start)
+    # Rolling 7-day window (last 7 days up to and including today).
+    win_start = today - timedelta(days=6)
     active_val = resolved["active_value"]
 
-    # Active creators with a quota.
-    creators = fetch_all(token, resolved["pc_id"], ["Creator", "Status", "Weekly Reel Quota"])
+    # Creators we actually run socials for (Status=Active AND Social Media Editing on).
+    creators = fetch_all(token, resolved["pc_id"], ["Creator", "Status", "Weekly Reel Quota", "Social Media Editing"])
     id_to_name: dict[str, str] = {}
     active_with_quota: list[tuple[str, float]] = []   # (name, quota)
     active_no_quota: list[str] = []
@@ -171,7 +180,8 @@ def build_report(token: str, week_start: str) -> str:
         f = r.get("fields", {})
         name = (f.get("Creator") or "").strip() or f"(unnamed {r['id'][:6]})"
         id_to_name[r["id"]] = name
-        if f.get("Status") == active_val:
+        # only creators whose socials we manage — ignore everyone else entirely
+        if f.get("Status") == active_val and f.get("Social Media Editing"):
             name_counts[name] = name_counts.get(name, 0) + 1
             quota = f.get("Weekly Reel Quota")
             if quota and quota > 0:
@@ -179,9 +189,9 @@ def build_report(token: str, week_start: str) -> str:
             else:
                 active_no_quota.append(name)
 
-    # Posts scheduled this calendar week.
-    formula = (f"AND(IS_AFTER({{Scheduled Date}}, '{(ws - timedelta(days=1)).isoformat()}'),"
-               f"IS_BEFORE({{Scheduled Date}}, '{we.isoformat()}'))")
+    # Posts scheduled in the rolling 7-day window.
+    formula = (f"AND(IS_AFTER({{Scheduled Date}}, '{(win_start - timedelta(days=1)).isoformat()}'),"
+               f"IS_BEFORE({{Scheduled Date}}, '{(today + timedelta(days=1)).isoformat()}'))")
     posts = fetch_all(token, resolved["posts_id"], ["Creator", "Type", "Scheduled Date", "Status"], formula)
 
     reels_by_name: dict[str, int] = {}
@@ -194,7 +204,7 @@ def build_report(token: str, week_start: str) -> str:
         if sd:
             try:
                 d = datetime.fromisoformat(sd.replace("Z", "+00:00")).date()
-                if not (ws <= d < we):
+                if not (win_start <= d <= today):
                     continue
             except ValueError:
                 pass
@@ -208,19 +218,21 @@ def build_report(token: str, week_start: str) -> str:
                 nm = id_to_name.get(cid, cid)
                 reels_by_name[nm] = reels_by_name.get(nm, 0) + 1
 
-    # Behind-pace vs pro-rated target.
+    # Behind = fewer reels than the weekly quota over the last rolling 7 days.
     behind, on_track = [], []
+    behind_struct: list[dict] = []
     for name, quota in sorted(active_with_quota, key=lambda x: x[0].lower()):
         got = reels_by_name.get(name, 0)
-        target = round(quota * (days_elapsed / 7.0))
+        target = int(quota)
         if got < target:
-            behind.append(f"  - {name}: {got} of {target} reels so far (quota {int(quota)}/wk)")
+            behind.append(f"  - {name}: {got} of {target} reels in last 7 days")
+            behind_struct.append({"name": name, "got": got, "target": target, "quota": int(quota)})
         else:
             on_track.append(name)
 
     dupes = [n for n, c in name_counts.items() if c > 1]
 
-    out = [f"SAM — content supply · {today.isoformat()} (week so far: day {days_elapsed}/7)",
+    out = [f"SAM — content supply · {today.isoformat()} (rolling last 7 days)",
            "data check: ✅ all fields + Active/Reel values present", ""]
     if behind:
         out.append(f"Behind pace ({len(behind)}):")
@@ -252,7 +264,63 @@ def build_report(token: str, week_start: str) -> str:
                    + ", ".join(b.split(':')[0].strip('  - ') for b in behind) + ".")
     else:
         out.append("Bottom line: all active creators on pace this week. ✅")
-    return "\n".join(out)
+
+    # ---- structured report for the bus (Maya reads this) ----
+    findings: list[dict] = []
+    for b in behind_struct:
+        findings.append({"urgency": "amber",
+                         "text": f"{b['name']}: {b['got']} of {b['target']} reels in the last 7 days — behind"})
+    if active_no_quota:
+        findings.append({"urgency": "amber",
+                         "text": f"{len(active_no_quota)} active creators have NO weekly quota set, so they are invisible to tracking: "
+                                 + ", ".join(sorted(active_no_quota))})
+    if posts_no_type:
+        findings.append({"urgency": "amber", "text": f"{posts_no_type} posts this week have no Type — reel counts may run low"})
+    # NOTE: failed/error send detail is OWNED BY PAX (distribution) — Sam does not
+    # report it, to avoid a double-count in Maya's brief. (failed_sends still computed
+    # for the stdout text only.)
+    if dupes:
+        findings.append({"urgency": "amber", "text": f"duplicate active creator name(s): {', '.join(dupes)}"})
+    if not findings:
+        findings.append({"urgency": "green", "text": "All active creators hit their reel quota over the last 7 days."})
+
+    urgency = "red" if any(f["urgency"] == "red" for f in findings) else \
+              ("amber" if any(f["urgency"] == "amber" for f in findings) else "green")
+    headline = (f"{len(behind_struct)} creators behind on reels (last 7 days)"
+                if behind_struct else "All active creators on reel quota (last 7 days)")
+    report = {
+        "id": "sam-quota", "teammate": "Sam", "dept": "Talent & Relations",
+        "tier": "worker", "reports_to": "vivian",
+        "date": today.isoformat(), "ran_at": _now_iso(), "status": "ok", "urgency": urgency,
+        "headline": headline, "findings": findings,
+        "notes": ("On track: " + (", ".join(on_track) if on_track else "—")
+                  + ". Read-only — any creator nudge is drafted for approval, never sent."),
+    }
+    return "\n".join(out), report
+
+
+def _now_iso() -> str:
+    """Local time with offset, e.g. 2026-06-04T08:30:04-04:00."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def emit_report(report: dict) -> None:
+    """Write Sam's structured report to the team bus so Maya (Chief of Staff) can
+    read it: ~/.claude/palm-team/reports/<YYYY-MM-DD>/sam-quota.json. Best-effort —
+    never let a bus-write failure crash the run."""
+    try:
+        base = Path.home() / ".claude" / "palm-team"
+        bus = base / "reports" / report["date"]
+        bus.mkdir(parents=True, exist_ok=True)
+        (bus / f"{report['id']}.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        # accountability log (mirror palm_agent._audit so Sam shows up like everyone else)
+        rec = {"ts": report["ran_at"], "id": report["id"], "tier": report.get("tier"),
+               "dept": report["dept"], "status": report["status"], "urgency": report["urgency"],
+               "n_findings": len(report["findings"]), "headline": report["headline"]}
+        with open(base / "runs.log", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+    except Exception as e:  # noqa: BLE001
+        print(f"(sam: could not write report to bus: {e})", file=sys.stderr)
 
 
 def maybe_imessage(report: str) -> None:
@@ -301,15 +369,16 @@ def main(argv: list[str]) -> int:
         print("ERROR: no AIRTABLE_PAT in env or .env.local", file=sys.stderr)
         return 2
     try:
-        report = build_report(token, args.week_start)
+        text, report = build_report(token, args.week_start)
     except urllib.error.HTTPError as e:
         print(f"SAM — Airtable API error HTTP {e.code}: {e.read()[:200]!r}", file=sys.stderr)
         return 1
-    print(report)
+    print(text)
+    emit_report(report)
     if not args.no_imessage:
-        maybe_imessage(report)
+        maybe_imessage(text)
     if not args.no_telegram:
-        maybe_telegram(report)
+        maybe_telegram(text)
     return 0
 
 
