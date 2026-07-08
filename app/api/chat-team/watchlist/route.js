@@ -54,7 +54,7 @@ export async function GET(request) {
   try {
     const [creators, tracker] = await Promise.all([
       fetchAll('Palm Creators', {}),
-      fetchAll('Fan Tracker', { filterByFormula: '{Last Alert Sent} != BLANK()' }),
+      fetchAll('Fan Tracker', { filterByFormula: '{Last Alert Sent}' }),
     ])
     let creatorList = creators
       .filter((c) => {
@@ -104,7 +104,8 @@ export async function GET(request) {
           cadence: (() => { try { return JSON.parse(f.Cadence || 'null') } catch { return null } })(),
         }
       })
-      .filter((w) => w.status && !['Banned', 'Deleted'].includes(w.status))
+      .filter((w) => w.status && !['Banned', 'Deleted', 'Reactivated', 'Lost'].includes(w.status))
+      .filter((w) => !!w.lastAlert) // belt & braces: only fans the team was actually sent
       .filter((w) => creatorList.some((c) => c.id === w.creatorId))
       .sort((a, b) => b.lifetime - a.lifetime)
 

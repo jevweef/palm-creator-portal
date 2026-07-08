@@ -25,6 +25,7 @@ export default function ChatManagerWhaleHunting() {
   const [error, setError] = useState(null)
   const [creatorId, setCreatorId] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('creator') || ''))
   const [openFan, setOpenFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
+  const [deepLinked] = useState(() => (typeof window === 'undefined' ? false : !!new URLSearchParams(window.location.search).get('fan')))
   const [fanFull, setFanFull] = useState({}) // fanKey -> {fan, txns} | 'loading' | null
 
   useEffect(() => {
@@ -60,7 +61,10 @@ export default function ChatManagerWhaleHunting() {
 
   const rows = useMemo(() => {
     if (!data) return []
-    return data.watchlist.filter((w) => w.creatorId === creatorId)
+    const TIER_RANK = { critical: 0, high: 1, warning: 2, dead: 3 }
+    return data.watchlist
+      .filter((w) => w.creatorId === creatorId)
+      .sort((a, b) => ((TIER_RANK[a.cadence?.tier] ?? 4) - (TIER_RANK[b.cadence?.tier] ?? 4)) || (b.lifetime - a.lifetime))
   }, [data, creatorId])
 
   function openModal(w) {
@@ -177,6 +181,7 @@ export default function ChatManagerWhaleHunting() {
             {modalData && modalData !== 'loading' && (
               <FanRow
                 f={modalData.fan} i={0} isExpanded inModal readOnly
+                autoViewAnalysis={deepLinked}
                 onToggle={() => {}}
                 alertStatusColors={ALERT_STATUS_COLORS}
                 effectColors={{}}
