@@ -181,7 +181,7 @@ export default function LiveChatPage() {
     const today = new Date().toDateString() === d.toDateString()
     return today
       ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
-      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'America/New_York' })
+      : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })
   }
 
   const fmtT = (iso) => {
