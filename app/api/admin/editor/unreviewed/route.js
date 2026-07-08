@@ -29,7 +29,7 @@ export async function GET() {
       filterByFormula: "AND(OR({Pipeline Status}='Uploaded', {Pipeline Status}=BLANK(), {Pipeline Status}='In Editing', {Pipeline Status}='In Review', {Pipeline Status}='Discarded'), {Source Type}!='Inspo Upload')",
       fields: [
         'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
-        'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Palm Creators',
+        'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Stream Raw ID', 'Palm Creators',
         'Upload Week', 'Created Time', 'Tasks',
       ],
     })
@@ -84,8 +84,12 @@ export async function GET() {
         dropboxLinks,
         dropboxPath: f['Dropbox Path (Current)'] || '',
         creatorNotes: f['Creator Notes'] || '',
-        thumbnail: f.Thumbnail?.[0]?.thumbnails?.large?.url || f.Thumbnail?.[0]?.url || '',
-        cdnUrl: f['CDN URL'] || null,
+        // For USED clips, the CDN poster / Airtable thumbnail get regenerated
+        // from the EDITED reel (captions burned in). Null them so the card
+        // falls back to the RAW Stream poster — the clip the creator uploaded.
+        thumbnail: used ? '' : (f.Thumbnail?.[0]?.thumbnails?.large?.url || f.Thumbnail?.[0]?.url || ''),
+        cdnUrl: used ? null : (f['CDN URL'] || null),
+        streamRawId: f['Stream Raw ID'] || null,
         uploadWeek: f['Upload Week'] || '',
         createdTime: a.createdTime || '',
         creator: {
