@@ -62,6 +62,31 @@ def excluded(teammate: str) -> set:
     return set(_config().get("exclusions", {}).get(teammate, []))
 
 
+_OFFBOARDED_CACHE = None
+def offboarded_creators(token: str) -> set:
+    """Names + AKAs of creators with Status=Offboarded (OPS Palm Creators).
+    Monitors must skip these — an offboarded creator's stale rows are noise,
+    not action items (Gracie kept haunting Penny, 2026-07-07). Cached per run."""
+    global _OFFBOARDED_CACHE
+    if _OFFBOARDED_CACHE is not None:
+        return _OFFBOARDED_CACHE
+    names = set()
+    try:
+        rows = fetch_all(token, "applLIT2t83plMqNx", "Palm Creators", fields=["Creator", "AKA", "Status"])
+        for r in rows:
+            f = r.get("fields", {})
+            st = f.get("Status")
+            st = st if isinstance(st, str) else (st or {}).get("name", "")
+            if st == "Offboarded":
+                for k in (f.get("Creator"), f.get("AKA")):
+                    if k:
+                        names.add(str(k).strip().lower())
+    except Exception:
+        pass
+    _OFFBOARDED_CACHE = names
+    return names
+
+
 # ---- env / secrets ----------------------------------------------------------
 def read_env(key: str) -> str | None:
     """env var first, then the local repo's .env.local, then the portal's."""

@@ -33,6 +33,32 @@ DEPT_TOPICS = {"theo": 65, "vivian": 66, "marcus": 67, "nova": 68, "iris": 69, "
 URGENCY_MARK = {"red": "🔴", "amber": "🟡", "green": "🟢"}
 
 
+def conversational_digest(teammate, dept, findings):
+    """Rewrite the findings into a short human note (Evan: 'more conversational,
+    not a stats dump'). Uses the API when a key exists; otherwise skipped."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    facts = "\n".join(f"[{f.get('urgency')}] {f.get('text', '')}" for f in findings)
+    prompt = (f"You are {teammate}, the {dept} department manager at an OnlyFans agency, "
+              f"writing your short daily note to the owner (Evan). Below are today's raw findings.\n\n"
+              f"Write 2-5 conversational sentences: what matters most, what he (or the team) should do, "
+              f"and what's fine. Plain English, warm and direct, like a sharp colleague — no bullet lists, "
+              f"no emoji, no headings. NEVER mention anything not in the findings; never invent drafts or "
+              f"work products. If everything is green, one relaxed sentence.\n\nFINDINGS:\n{facts}")
+    try:
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 400,
+                             "messages": [{"role": "user", "content": prompt}]}).encode(),
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            data = json.loads(resp.read())
+        return "".join(b.get("text", "") for b in data.get("content", [])).strip() or None
+    except Exception:
+        return None
+
+
 def post_dept_summary(dept_id, teammate, dept, findings, missing):
     thread = DEPT_TOPICS.get(dept_id)
     token = read_env("TELEGRAM_HEARTBEAT_BOT_TOKEN")
@@ -41,7 +67,12 @@ def post_dept_summary(dept_id, teammate, dept, findings, missing):
     reds = [f for f in findings if f.get("urgency") == "red"]
     ambers = [f for f in findings if f.get("urgency") == "amber"]
     head = f"{teammate} — {dept} daily ({'RED' if reds else 'AMBER' if ambers else 'GREEN'}): {len(reds)} red, {len(ambers)} amber"
-    lines = [head, ""]
+    lines = [head]
+    digest = conversational_digest(teammate, dept, findings)
+    if digest:
+        lines += ["", digest, "", "— details —"]
+    else:
+        lines.append("")
     for f in findings:
         mark = URGENCY_MARK.get(f.get("urgency"), "•")
         lines.append(f"{mark} {f.get('text', '')}")
