@@ -31,7 +31,7 @@ function fmtD(v) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
 }
 
-export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal, readOnly = false }) {
+export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectColors, fmtDate, fmtMoney, setFans, creatorName, creatorAka, creatorRecordId, allTxns, availableAccounts, inModal, readOnly = false, autoViewAnalysis = false }) {
   const [chatFile, setChatFile] = useState(null)
   // Chat pulled live from OF via onlyfansapi.com — same parsed shape as the
   // client-side HTML parse; feeds the identical analyze flow.
@@ -67,6 +67,11 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
   const [savingTranscript, setSavingTranscript] = useState(false)
   const [transcriptSaved, setTranscriptSaved] = useState(false)
   const [viewingAnalysisIdx, setViewingAnalysisIdx] = useState(null) // index into analysisRecords for full modal
+  // Telegram deep links land wanting the analysis OPEN, not two clicks away.
+  useEffect(() => {
+    if (autoViewAnalysis && f.analysisRecords?.length) setViewingAnalysisIdx(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoViewAnalysis, f.analysisRecords?.length])
   const chatFileRef = useRef(null)
   const saveFileRef = useRef(null)
 

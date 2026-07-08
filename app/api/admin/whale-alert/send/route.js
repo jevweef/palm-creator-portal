@@ -67,18 +67,19 @@ export async function POST(request) {
       message += `\n${briefText}\n`
     }
 
-    // Portal link to the full analysis (chat-team page)
-    message += `\n\u{1F4CE} Full analysis: ${portalLink}`
+    // Portal link to the full analysis (chat-manager view) — clean hyperlink
 
     // Send text message to Telegram
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: topic.chatId,
         message_thread_id: topic.threadId,
-        text: message,
-        disable_web_page_preview: false,
+        text: esc(message) + `\n\u{1F4CE} <a href="${portalLink}">Open his full analysis</a>`,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
       }),
     })
     const data = await res.json()
