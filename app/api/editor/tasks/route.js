@@ -148,10 +148,22 @@ export async function DELETE(req) {
     )
     if (!delRes.ok) throw new Error(`Failed to delete task: ${await delRes.text()}`)
 
-    // Reset the asset's Pipeline Status so it reappears in the library
+    // Return the asset to the library ONLY if this was its last task. A raw clip
+    // can be reused across multiple reels now, so cancelling one task must not
+    // relabel the clip to 'Uploaded' while a sibling edit is still live. The
+    // deleted task's reverse link is already gone, so any remaining Tasks means
+    // the clip is still in use → keep it 'In Editing'.
     if (assetId) {
+      let remainingTasks = []
+      try {
+        const [aRec] = await fetchAirtableRecords('Assets', {
+          filterByFormula: `RECORD_ID() = ${quoteAirtableString(assetId)}`,
+          fields: ['Tasks'],
+        })
+        remainingTasks = aRec?.fields?.['Tasks'] || []
+      } catch { /* best effort — fall back to freeing the clip */ }
       await patchAirtableRecord('Assets', assetId, {
-        'Pipeline Status': 'Uploaded',
+        'Pipeline Status': remainingTasks.length ? 'In Editing' : 'Uploaded',
       })
     }
 

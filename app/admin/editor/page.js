@@ -1075,7 +1075,12 @@ export function UnreviewedLibrary({ showToast }) {
   }, [])
 
   // Status-filter first (Unused vs In editing); creator list + grid derive from it
-  const byStatus = assets.filter(a => (a.status || 'Unused') === statusFilter)
+  // Unused view now ALSO shows USED clips (reusable) sunk to the bottom, so a
+  // clip picked once doesn't vanish forever. The "In editing" / "Deleted" tabs
+  // stay as focused filters.
+  const byStatus = statusFilter === 'Unused'
+    ? assets.filter(a => a.status === 'Unused' || a.used)
+    : assets.filter(a => (a.status || 'Unused') === statusFilter)
 
   // Build creator list from the status-filtered set
   const creators = [...new Map(
@@ -1086,8 +1091,12 @@ export function UnreviewedLibrary({ showToast }) {
     ? byStatus
     : byStatus.filter(a => a.creator?.id === selectedCreator)
 
-  // Sort
+  // Sort: unused clips first (by chosen order); USED clips sink to the bottom,
+  // least-used first, so a reused clip goes to the back of the line.
   const sorted = [...filtered].sort((a, b) => {
+    const au = a.used ? 1 : 0, bu = b.used ? 1 : 0
+    if (au !== bu) return au - bu
+    if (au === 1 && (a.timesUsed || 0) !== (b.timesUsed || 0)) return (a.timesUsed || 0) - (b.timesUsed || 0)
     const da = new Date(a.createdTime || 0)
     const db = new Date(b.createdTime || 0)
     return sortOrder === 'newest' ? db - da : da - db
@@ -1125,9 +1134,12 @@ export function UnreviewedLibrary({ showToast }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to start edit')
-      showToast('Edit started — moved to editor queue')
-      // Re-tag locally: it leaves the Unused view and appears under In editing
-      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, status: 'In editing', pipelineStatus: 'In Editing' } : a))
+      showToast(asset.used ? 'Reused — sent to editor queue again' : 'Edit started — moved to editor queue')
+      // Re-tag locally: stays visible but sinks to the bottom of the Unused
+      // view as a "used" clip, with its use count bumped.
+      setAssets(prev => prev.map(a => a.id === asset.id
+        ? { ...a, status: 'In editing', pipelineStatus: 'In Editing', used: true, timesUsed: (a.timesUsed || 0) + 1 }
+        : a))
     } catch (err) {
       showToast(err.message, true)
     } finally {
@@ -1286,9 +1298,12 @@ export function UnreviewedLibrary({ showToast }) {
                   onSoftDelete={statusFilter === 'Discarded' ? undefined : (a => mutateVisibility([a.id], 'discard'))}
                   onRestore={statusFilter === 'Discarded' ? (a => mutateVisibility([a.id], 'restore')) : undefined}
                 />
-                {asset.createdTime && (
-                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px' }}>
-                    {new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {(asset.used || asset.createdTime) && (
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {asset.used && (
+                      <span style={{ fontWeight: 700, color: 'var(--palm-pink)' }}>Used {asset.timesUsed || 1}×</span>
+                    )}
+                    {asset.createdTime && new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 )}
                 {selectedCreator === 'all' && asset.creator?.name && (
