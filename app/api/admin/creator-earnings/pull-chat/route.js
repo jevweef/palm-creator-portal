@@ -218,7 +218,10 @@ export async function POST(request) {
             if (projected != null && projected > AUTO_SPEND_LIMIT && !confirmBig) {
               await cancelDataExport(pendingId).catch(() => {})
               await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
-              return NextResponse.json({ error: `His targeted export reached ~${st.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits (cap ${AUTO_SPEND_LIMIT}) — cancelled free. Pull again to approve going over.` }, { status: 402 })
+              return NextResponse.json({
+                needsConfirm: true, estimatedCredits: projected, estimatedMessages: st.total_rows ?? null,
+                error: `His spending-era export is ~${st.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits (cap ${AUTO_SPEND_LIMIT}) — cancelled free. Approve below to pull it anyway.`,
+              }, { status: 402 })
             }
             return NextResponse.json({ fan, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0, rowsFound: st.total_rows ?? null })
           }

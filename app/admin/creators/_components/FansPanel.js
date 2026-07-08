@@ -334,12 +334,19 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
             fanId: chunkFanId,
             ...(cur ? { cursor: cur } : {}),
             ...(opts.acceptPartial ? { acceptPartial: true } : {}),
+            ...(opts.confirmBig ? { confirmBig: true } : {}),
           }),
         })
         // Timeouts/5xx are EXPECTED for big histories — every finished chunk is
         // already safe in its shard, so just retry and keep rolling.
         if (!res.ok && res.status >= 500 && retries < 4) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
         const data = await res.json()
+        if (res.status === 402 && data.needsConfirm) {
+          setBigPull({ credits: data.estimatedCredits, messages: data.estimatedMessages })
+          setPullProgress(null)
+          setPullingOf(false)
+          return
+        }
         if (!res.ok) throw new Error(data.error || 'Pull failed')
         retries = 0
         spent += data.credits || 0
