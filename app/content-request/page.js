@@ -54,11 +54,26 @@ export default function ContentRequestPage() {
       if (!prev) return prev
       return {
         ...prev,
-        sections: prev.sections.map(s =>
-          s.name === sectionName
-            ? { ...s, files: [...s.files, ...newFiles], uploadedCount: s.uploadedCount + newFiles.length }
-            : s
-        ),
+        sections: prev.sections.map(s => {
+          if (s.name !== sectionName) return s
+          const files = [...s.files, ...newFiles]
+          // Recount from the array (same model as delete) so the two can't drift.
+          return { ...s, files, uploadedCount: files.length }
+        }),
+      }
+    })
+  }
+
+  const handleFileDeleted = (sectionName, fileId) => {
+    setData(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        sections: prev.sections.map(s => {
+          if (s.name !== sectionName) return s
+          const files = s.files.filter(f => f.id !== fileId)
+          return { ...s, files, uploadedCount: Math.max(0, files.length) }
+        }),
       }
     })
   }
@@ -214,6 +229,7 @@ export default function ContentRequestPage() {
           creatorOpsId={opsId}
           month={month}
           onFilesUploaded={handleFilesUploaded}
+          onFileDeleted={handleFileDeleted}
         />
       ))}
     </div>

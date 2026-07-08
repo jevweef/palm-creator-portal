@@ -19,7 +19,11 @@ export async function POST(request) {
 
     const { requestId, creatorOpsId, section, dropboxPath, dropboxLink, fileName, fileSize } = await request.json()
 
-    if (!dropboxPath || !dropboxLink || !section) {
+    // dropboxLink is OPTIONAL — it's created best-effort client-side and can fail
+    // (e.g. Dropbox 429 under bursts). The file is already safely in Dropbox by
+    // this point, so requiring the link here would strand it (recorded nowhere,
+    // never counted). Only the path + section are truly required.
+    if (!dropboxPath || !section) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -29,7 +33,7 @@ export async function POST(request) {
       Section: section,
       Status: 'Draft',
       'Dropbox Path': dropboxPath,
-      'Dropbox Link': dropboxLink,
+      'Dropbox Link': dropboxLink || '',
       'File Name': fileName || '',
       'File Size': fileSize || 0,
       'Uploaded At': new Date().toISOString(),

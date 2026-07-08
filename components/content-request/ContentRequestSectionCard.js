@@ -10,6 +10,25 @@ const FILE_TYPE_LABELS = {
   'image/*,video/*': 'Photos or videos',
 }
 
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|avi|mkv|3gp)$/i
+const PHOTO_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/i
+const AUDIO_EXT = /\.(mp3|m4a|wav|aac|ogg|opus)$/i
+
+// A Dropbox shared link → an inline-content URL usable as an <img>/<video> src.
+// Shared links end in ?...&dl=0; raw=1 serves the bytes inline.
+function toRawUrl(link) {
+  if (!link) return ''
+  if (/[?&]dl=[01]/.test(link)) return link.replace(/([?&])dl=[01]/, '$1raw=1')
+  return link + (link.includes('?') ? '&raw=1' : '?raw=1')
+}
+function kindOf(fileName) {
+  const n = fileName || ''
+  if (VIDEO_EXT.test(n)) return 'video'
+  if (PHOTO_EXT.test(n)) return 'photo'
+  if (AUDIO_EXT.test(n)) return 'audio'
+  return 'file'
+}
+
 export default function ContentRequestSectionCard({
   section,
   hqId,
@@ -17,11 +36,15 @@ export default function ContentRequestSectionCard({
   creatorOpsId,
   month,
   onFilesUploaded,
+  onFileDeleted,
 }) {
   const [dragOver, setDragOver] = useState(false)
   const [showDescription, setShowDescription] = useState(true) // instructions expanded by default
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
+  const [viewing, setViewing] = useState(null) // uploaded file being previewed in the lightbox
+  const [deletingId, setDeletingId] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
   const fileInputRef = useRef(null)
 
   const { name, description, minCount, acceptedFileTypes, scripts, files, uploadedCount, itemType } = section
@@ -39,6 +62,32 @@ export default function ContentRequestSectionCard({
     if (!bytes) return ''
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  // Delete one uploaded file (Airtable record + Dropbox file). "Replace" = delete
+  // then upload a new one. Removes it from the section + drops the count.
+  const handleDelete = async (file) => {
+    if (!file?.id || deletingId) return
+    setDeletingId(file.id)
+    setDeleteError('')
+    try {
+      const res = await fetch('/api/content-request/item', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: file.id, dropboxPath: file.dropboxPath || '' }),
+      })
+      if (!res.ok) {
+        let msg = 'Delete failed'
+        try { msg = (await res.json()).error || msg } catch { /* non-JSON */ }
+        throw new Error(msg)
+      }
+      if (viewing?.id === file.id) setViewing(null)
+      onFileDeleted?.(name, file.id)
+    } catch (err) {
+      setDeleteError(err.message || 'Delete failed')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -208,27 +257,72 @@ export default function ContentRequestSectionCard({
         onUploaded={onFilesUploaded}
       />
 
-      {/* Uploaded files list */}
+      {/* Uploaded files — thumbnail grid. Photos show inline (HEIC-safe via the
+          server thumbnail route); videos/audio are play tiles. Tap any tile to
+          view it big + delete. Delete lives in the viewer (not a tiny grid ×)
+          so a stray tap can't nuke a file. */}
+      {deleteError && (
+        <div style={{ fontSize: 12, color: '#E87878', marginBottom: 8 }}>{deleteError}</div>
+      )}
       {files.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {files.map((file, idx) => (
-            <div key={file.id || idx} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              background: 'var(--background)',
-              borderRadius: 8,
-              fontSize: 12,
-              color: 'rgba(240, 236, 232, 0.75)',
-              maxWidth: 220,
-            }}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {file.fileName}
-              </span>
-              <span style={{ color: 'var(--foreground-subtle)', flexShrink: 0 }}>{formatFileSize(file.fileSize)}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 8 }}>
+          {files.map((file, idx) => {
+            const kind = kindOf(file.fileName)
+            const isDeleting = deletingId === file.id
+            return (
+              <div key={file.id || idx}
+                title={file.fileName}
+                onClick={() => setViewing({ ...file, kind })}
+                style={{ position: 'relative', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', opacity: isDeleting ? 0.4 : 1, background: 'linear-gradient(135deg, rgba(232,160,160,0.08), rgba(120,180,232,0.05))' }}>
+                {kind === 'photo' && file.id ? (
+                  <img src={`/api/content-request/thumbnail?itemId=${file.id}&size=sm`} alt={file.fileName} loading="lazy" decoding="async"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.55)', fontSize: 22 }}>
+                    {kind === 'audio' ? '♪' : kind === 'video' ? '▶' : ''}
+                  </div>
+                )}
+                {kind === 'video' && (
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ color: '#fff', fontSize: 12, marginLeft: 2 }}>▶</span>
+                  </div>
+                )}
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 9, padding: '2px 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {file.fileName}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Lightbox — view/play the selected upload + delete it */}
+      {viewing && (
+        <div onClick={() => setViewing(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '94vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            {viewing.kind === 'video' ? (
+              <video src={toRawUrl(viewing.dropboxLink)} controls playsInline preload="metadata"
+                style={{ maxWidth: '94vw', maxHeight: '80vh', borderRadius: 10, background: '#000' }} />
+            ) : viewing.kind === 'audio' ? (
+              <audio src={toRawUrl(viewing.dropboxLink)} controls style={{ width: 'min(420px, 90vw)' }} />
+            ) : viewing.kind === 'photo' && viewing.id ? (
+              <img src={`/api/content-request/thumbnail?itemId=${viewing.id}&size=lg`} alt={viewing.fileName}
+                style={{ maxWidth: '94vw', maxHeight: '80vh', borderRadius: 10, objectFit: 'contain' }} />
+            ) : (
+              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, padding: 40 }}>{viewing.fileName}</div>
+            )}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', maxWidth: '60vw', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{viewing.fileName}</span>
+              <button onClick={() => handleDelete(viewing)} disabled={deletingId === viewing.id}
+                style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(232,120,120,0.4)', background: 'rgba(232,120,120,0.12)', color: '#E87878', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                {deletingId === viewing.id ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
-          ))}
+            <button onClick={() => setViewing(null)} aria-label="Close"
+              style={{ position: 'absolute', top: -6, right: -6, width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>×</button>
+          </div>
         </div>
       )}
 
