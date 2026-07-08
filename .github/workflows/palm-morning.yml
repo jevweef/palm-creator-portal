@@ -1,0 +1,57 @@
+name: Palm morning run
+# The agent-team morning chain, moved off Evan's Mac (2026-07-07) so it runs
+# whether the laptop is open or not: workers → department managers → Maya's
+# brief → watchdog LAST (ordered in one job, so the watchdog can never race
+# the chain and false-alarm again). 12:45 UTC = 8:45 AM ET during DST.
+on:
+  schedule:
+    - cron: '45 12 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: palm-morning
+  cancel-in-progress: false
+
+jobs:
+  morning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+      OF_TRANSACTIONS_SPREADSHEET_ID: ${{ secrets.OF_TRANSACTIONS_SPREADSHEET_ID }}
+      TELEGRAM_HEARTBEAT_BOT_TOKEN: ${{ secrets.TELEGRAM_HEARTBEAT_BOT_TOKEN }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      SIMPLEFIN_ACCESS_URL: ${{ secrets.SIMPLEFIN_ACCESS_URL }}
+      SAM_TELEGRAM_CHAT_ID: ${{ secrets.SAM_TELEGRAM_CHAT_ID }}
+      RESEARCH_TELEGRAM_CHAT_ID: ${{ secrets.RESEARCH_TELEGRAM_CHAT_ID }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Morning chain
+        run: |
+          A=scripts/agents
+          echo "---- 0. data ingestion ----"
+          python3 "$A/bank_ledger_import.py" || echo "WARN: bank_ledger_import exited $?"
+          echo "---- 1. workers ----"
+          for w in charts_monitor cleo_carousel wes_warmup cody_coverage penny_postprep \
+                   wendy_whales bea_inbox quinn_retention riley_relations olive_onboarding \
+                   ivy_invoicing ed_earnings scrooge_software devin_content_requests editing_desk \
+                   nico_inspo pax_delivery gil_reliability ana_analytics \
+                   ofm_report; do
+            python3 "$A/$w.py" || echo "WARN: $w exited $?"
+          done
+          python3 "$A/sam_quota.py" --no-imessage || echo "WARN: sam exited $?"
+          echo "---- 2. department managers ----"
+          python3 "$A/dept_manager.py" --id theo   --teammate Theo   --dept "Content Production" --workers jerry,devin
+          python3 "$A/dept_manager.py" --id vivian --teammate Vivian --dept "Talent & Relations"  --workers sam-quota,riley,olive,quinn
+          python3 "$A/dept_manager.py" --id marcus --teammate Marcus --dept "Revenue"             --workers wendy,ed,ivy,scrooge
+          python3 "$A/dept_manager.py" --id nova   --teammate Nova   --dept "Intelligence"        --workers nico,bea,ana,ofm-research,charts
+          python3 "$A/dept_manager.py" --id iris   --teammate Iris   --dept "AI Studio"           --workers cleo,wes
+          python3 "$A/dept_manager.py" --id dana   --teammate Dana   --dept "Distribution"        --workers pax,cody,penny
+          echo "---- 3. Maya (posts the brief) ----"
+          python3 "$A/maya_brief.py"
+          echo "---- 4. watchdog (LAST — cannot race the chain) ----"
+          python3 "$A/heartbeat.py" || echo "WARN: heartbeat exited $?"
