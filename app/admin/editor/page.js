@@ -1298,12 +1298,9 @@ export function UnreviewedLibrary({ showToast }) {
                   onSoftDelete={statusFilter === 'Discarded' ? undefined : (a => mutateVisibility([a.id], 'discard'))}
                   onRestore={statusFilter === 'Discarded' ? (a => mutateVisibility([a.id], 'restore')) : undefined}
                 />
-                {(asset.used || asset.createdTime) && (
-                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {asset.used && (
-                      <span style={{ fontWeight: 700, color: 'var(--palm-pink)' }}>Used {asset.timesUsed || 1}×</span>
-                    )}
-                    {asset.createdTime && new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {asset.createdTime && (
+                  <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', paddingLeft: '2px' }}>
+                    {new Date(asset.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 )}
                 {selectedCreator === 'all' && asset.creator?.name && (
