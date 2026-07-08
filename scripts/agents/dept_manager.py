@@ -19,7 +19,43 @@ from __future__ import annotations
 import argparse
 import sys
 
-from palm_agent import read_reports, rollup_findings, finding, write_report
+import json
+import os
+import urllib.request
+
+from palm_agent import read_reports, rollup_findings, finding, write_report, read_env
+
+# Each department's Telegram topic in the Palm Team group (created 2026-07-07).
+# The manager posts its FULL daily roll-up there — Evan wanted per-department
+# depth, not just Maya's synthesis.
+PALM_TEAM_CHAT = "-1004293138854"
+DEPT_TOPICS = {"theo": 65, "vivian": 66, "marcus": 67, "nova": 68, "iris": 69, "dana": 70}
+URGENCY_MARK = {"red": "🔴", "amber": "🟡", "green": "🟢"}
+
+
+def post_dept_summary(dept_id, teammate, dept, findings, missing):
+    thread = DEPT_TOPICS.get(dept_id)
+    token = read_env("TELEGRAM_HEARTBEAT_BOT_TOKEN")
+    if not thread or not token:
+        return
+    reds = [f for f in findings if f.get("urgency") == "red"]
+    ambers = [f for f in findings if f.get("urgency") == "amber"]
+    head = f"{teammate} — {dept} daily ({'RED' if reds else 'AMBER' if ambers else 'GREEN'}): {len(reds)} red, {len(ambers)} amber"
+    lines = [head, ""]
+    for f in findings:
+        mark = URGENCY_MARK.get(f.get("urgency"), "•")
+        lines.append(f"{mark} {f.get('text', '')}")
+    if missing:
+        lines.append(f"⚠ no report from: {', '.join(missing)}")
+    text = "\n".join(lines)[:4000]
+    try:
+        body = json.dumps({"chat_id": PALM_TEAM_CHAT, "message_thread_id": thread,
+                           "text": text, "disable_web_page_preview": True}).encode()
+        req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage",
+                                     data=body, headers={"content-type": "application/json"})
+        urllib.request.urlopen(req, timeout=30)
+    except Exception as e:  # noqa: BLE001
+        print(f"{teammate}: topic post failed: {e}", file=sys.stderr)
 
 WORKER_NAMES = {  # id -> display, for the "didn't report" note
     "sam-quota": "Sam", "jerry": "Jerry", "devin": "Devin",
@@ -69,6 +105,7 @@ def main(argv) -> int:
     print(f"{args.teammate}: {rep['urgency'].upper()} — {headline}")
     for x in findings:
         print(f"  [{x['urgency']}] {x['text']}")
+    post_dept_summary(args.id, args.teammate, args.dept, findings, missing)
     return 0
 
 
