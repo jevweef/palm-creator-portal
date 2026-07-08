@@ -61,12 +61,13 @@ export async function GET(request) {
     const token = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(token)
     const reportPath = `/Palm Ops/Whale Intel/daily/${date}.json`
-    let report = { date, generatedAt: new Date().toISOString(), perCreator: [] }
+    let report = { date, window: `${date} 12:00 AM \u2013 11:59 PM ET`, generatedAt: new Date().toISOString(), perCreator: [] }
     try {
       const buf = await downloadFromDropbox(token, ns, reportPath)
       if (buf) report = JSON.parse(buf.toString('utf8'))
     } catch { /* first pass */ }
-    const doneAkas = new Set(report.perCreator.map((c) => c.aka))
+    // aiFailed creators are NOT done — the second nightly pass redoes them
+    const doneAkas = new Set(report.perCreator.filter((c) => !c.aiFailed).map((c) => c.aka))
 
     // Creators + accounts
     const creators = (await fetchAll('Palm Creators')).filter((c) => c.fields?.['OF API Account ID'])
@@ -84,7 +85,9 @@ export async function GET(request) {
 
     // Yesterday's events per account (webhook log — free)
     const allAccountIds = creators.flatMap((c) => String(c.fields['OF API Account ID']).split(',').map((x) => x.trim()).filter(Boolean))
-    const eventsByAccount = await readLiveMany(allAccountIds)
+    // FULL day, not the live-chat tail — the 500-row default silently cut
+    // busy accounts' mornings (Caitie Rosie's 7 sales looked like $0 on 7/7).
+    const eventsByAccount = await readLiveMany(allAccountIds, { limit: 20000 })
 
     for (const c of creators) {
       if (Date.now() > deadline) { report.partial = true; break }
@@ -125,8 +128,10 @@ export async function GET(request) {
 
       // ── AI pass: authenticity + content demand + wins (one Sonnet call) ──
       let ai = { authenticity: [], contentDemand: [], wins: [] }
+      let aiOk = true
       const hasMaterial = outbound.length >= 5 || inbound.length >= 5
       if (hasMaterial && Date.now() < deadline) {
+        aiOk = false
         const cf = c.fields
         const voice = [
           cf['Profile Summary'] ? `PERSONALITY: ${cf['Profile Summary']}` : '',
@@ -155,18 +160,36 @@ Return STRICT JSON only, no prose, shaped exactly:
  "wins": [{"fan":"name","note":"one sentence on what the chatter did well and why it worked"}]
 }
 Rules: authenticity flags only for REAL problems a manager should coach (max 8, prioritize WHALE conversations); persona-break = talking about the creator in third person or admitting to being staff. contentDemand only for explicit fan asks/requests (max 6 themes). wins max 3. Empty arrays are fine.`
-        try {
-          const resp = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6', max_tokens: 2000,
-            messages: [{ role: 'user', content: prompt }],
-          })
-          const text = resp.content?.[0]?.text || '{}'
-          const m = text.match(/\{[\s\S]*\}/)
-          ai = { authenticity: [], contentDemand: [], wins: [], ...(m ? JSON.parse(m[0]) : {}) }
-        } catch (e) { console.warn(`[whale-intel] AI pass failed for ${aka}:`, e.message) }
+        // Six back-to-back ~50k-token calls trip the rate limit — Raya and
+        // Caitie came back silently empty on 7/7. Retry through 429/5xx.
+        for (let attempt = 0; attempt < 3 && !aiOk; attempt++) {
+          try {
+            const resp = await anthropic.messages.create({
+              model: 'claude-sonnet-4-6', max_tokens: 2000,
+              messages: [{ role: 'user', content: prompt }],
+            })
+            const text = resp.content?.map((b) => b.text || '').join('') || '{}'
+            const m = text.match(/\{[\s\S]*\}/)
+            ai = { authenticity: [], contentDemand: [], wins: [], ...(m ? JSON.parse(m[0]) : {}) }
+            aiOk = true
+            // self-diagnosis: an all-empty result with material present is
+            // suspicious — keep the raw reply so we can see WHY from the report
+            if (!ai.authenticity.length && !ai.contentDemand.length && !ai.wins.length) {
+              ai.aiRaw = `${resp.stop_reason || '?'}: ${text.slice(0, 300)}`
+            }
+          } catch (e) {
+            const status = e?.status || e?.response?.status
+            console.warn(`[whale-intel] AI pass failed for ${aka} (attempt ${attempt + 1}, ${status}):`, e.message)
+            const retryable = status === 429 || status === 529 || (status >= 500 && status < 600)
+            if (!retryable || attempt === 2 || Date.now() + 30000 > deadline) break
+            await new Promise((r) => setTimeout(r, 25000 * (attempt + 1)))
+          }
+        }
       }
 
-      report.perCreator.push({ aka, stats, massTemplates, ...ai, analyzedAt: new Date().toISOString() })
+      // replace any earlier aiFailed entry for this creator
+      report.perCreator = report.perCreator.filter((x) => x.aka !== aka)
+      report.perCreator.push({ aka, stats, massTemplates, ...ai, aiFailed: aiOk ? undefined : true, analyzedAt: new Date().toISOString() })
       report.generatedAt = new Date().toISOString()
       // save incrementally — a timeout can't lose finished creators
       await createDropboxFolder(token, ns, '/Palm Ops/Whale Intel')

@@ -117,7 +117,15 @@ function useDailyReport() {
   return { report: data?.report || null, available: data?.available || [], date, setDate, loading: data === null }
 }
 
+function fmtReportDay(d) {
+  if (!d) return ''
+  return new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function ReportHeader({ report, available, date, setDate, loading }) {
+  const gen = report?.generatedAt
+    ? new Date(report.generatedAt).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '14px 0' }}>
       <span style={{ fontSize: '12px', fontWeight: 700, color: '#A06FE8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overnight report</span>
@@ -129,6 +137,11 @@ function ReportHeader({ report, available, date, setDate, loading }) {
       ) : (
         <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
           {loading ? 'Loading…' : 'No reports yet — the analyst runs every night at ~3am ET and the first report lands tomorrow morning.'}
+        </span>
+      )}
+      {report?.date && (
+        <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+          covers {fmtReportDay(report.date)}, 12:00 AM – 11:59 PM ET{gen ? ` · generated ${gen} ET` : ''}
         </span>
       )}
       {report?.partial && <span style={{ fontSize: '11px', color: '#E8C878' }}>partial — completing on the next pass</span>}
@@ -149,7 +162,7 @@ function PalmInternalTab() {
       <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
 
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>Yesterday at a glance</div>
+        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>{`${fmtReportDay(report?.date)} at a glance`}</div>
         <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
           <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}><th style={{ padding: '4px 8px' }}>Creator</th><th style={{ textAlign: 'right' }}>Chatter msgs</th><th style={{ textAlign: 'right' }}>Fan msgs</th><th style={{ textAlign: 'right' }}>Fans touched</th><th style={{ textAlign: 'right' }}>Sales</th><th style={{ textAlign: 'right', padding: '4px 8px' }}>$ Sales</th></tr></thead>
           <tbody>
@@ -168,7 +181,7 @@ function PalmInternalTab() {
       </div>
 
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>Content demand — what fans asked for yesterday</div>
+        <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>{`Content demand — what fans asked for on ${fmtReportDay(report?.date)}`}</div>
         {demand.length === 0 && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>No explicit content requests surfaced.</div>}
         {demand.map((d, i) => (
           <div key={i} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none', padding: '8px 0' }}>
