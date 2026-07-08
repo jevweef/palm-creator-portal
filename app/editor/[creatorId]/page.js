@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cdnUrlAtSize } from '@/lib/cdnImage'
+import { buildStreamPosterUrl, buildStreamIframeUrl } from '@/lib/cfStreamUrl'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -220,11 +221,22 @@ function InspoClipRow({ clip }) {
 function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+  const [playing, setPlaying] = useState(false)
   const link = asset.dropboxLinks?.[0] || asset.dropboxLink || ''
   const rawUrl = rawDropboxUrl(link)
   const videoFile = !forcePhoto && isVideo(link)
   const photoFile = forcePhoto || isPhoto(link)
-  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || asset.thumbnail || (photoFile && rawUrl) || ''
+  // RAW poster. For used clips the route nulls cdnUrl/thumbnail (they'd show the
+  // EDITED reel), so we fall back to the raw Stream poster — the clip the
+  // creator uploaded. Unused clips keep their (already-raw) CDN poster.
+  const streamPoster = videoFile && asset.streamRawId ? buildStreamPosterUrl(asset.streamRawId, { time: '1s', width: 480, fit: 'crop' }) : ''
+  const imgSrc = cdnUrlAtSize(asset.cdnUrl, 480) || streamPoster || asset.thumbnail || (photoFile && rawUrl) || ''
+  // Plays the RAW clip in-place: CF Stream (fast, transcoded) when we have a
+  // Stream Raw ID, else the raw Dropbox file.
+  const streamIframe = asset.streamRawId ? buildStreamIframeUrl(asset.streamRawId, { autoplay: true, muted: false, controls: true }) : ''
+  const lastUsedLabel = asset.lastUsedAt
+    ? new Date(asset.lastUsedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : ''
 
   const handleStart = async () => {
     setStarting(true)
@@ -245,7 +257,9 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
 
   return (
     <div style={{ background: 'var(--background)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: 'var(--background)', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden' }}>
+      <div
+        onClick={() => videoFile && setPlaying(true)}
+        style={{ background: 'var(--background)', position: 'relative', aspectRatio: videoFile ? '9/16' : '4/3', maxHeight: '260px', overflow: 'hidden', cursor: videoFile ? 'pointer' : 'default' }}>
         {imgSrc ? (
           <img src={imgSrc} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : videoFile ? (
@@ -265,10 +279,25 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
         )}
         {asset.used && (
           <div style={{ position: 'absolute', top: '6px', left: '6px', background: 'var(--palm-pink)', color: '#1a0a1f', fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', letterSpacing: '0.02em' }}>
-            Used {asset.timesUsed || 1}×
+            Used {asset.timesUsed || 1}×{lastUsedLabel ? ` · ${lastUsedLabel}` : ''}
           </div>
         )}
       </div>
+      {playing && (
+        <div onClick={() => setPlaying(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', width: 'min(420px, 92vw)', aspectRatio: '9/16', maxHeight: '92vh', background: '#000', borderRadius: '12px', overflow: 'hidden' }}>
+            {streamIframe ? (
+              <iframe src={streamIframe} allow="autoplay; fullscreen" allowFullScreen
+                style={{ border: 'none', width: '100%', height: '100%' }} />
+            ) : (
+              <video src={rawUrl} controls autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+            )}
+            <button onClick={() => setPlaying(false)}
+              style={{ position: 'absolute', top: '8px', right: '8px', width: '30px', height: '30px', borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: '16px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          </div>
+        </div>
+      )}
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {asset.name && (
           <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
@@ -314,17 +343,30 @@ function Paginator({ page, totalPages, onChange }) {
 const PAGE_SIZE = 24
 
 function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
-  if (!assets.length) return null
+  // Hooks BEFORE any early return (React #310).
   const [activeTab, setActiveTab] = useState('videos')
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('newest')
+  const [shuffleMap, setShuffleMap] = useState(null) // id->random; view-only shuffle
+  if (!assets.length) return null
 
-  // Unused clips first (by chosen order); USED clips sink to the bottom,
-  // least-used first, so a reused clip drops to the back of the line.
+  // View-only shuffle of the UNUSED (pickable) clips so the top doesn't go
+  // stale — changes nothing in the database, just the display order.
+  const doShuffle = () => {
+    const m = {}
+    assets.forEach(a => { m[a.id] = Math.random() })
+    setShuffleMap(m); setPage(1)
+  }
+
   const sorted = [...assets].sort((a, b) => {
+    // Used clips always sink below unused.
     const au = a.used ? 1 : 0, bu = b.used ? 1 : 0
     if (au !== bu) return au - bu
-    if (au === 1 && (a.timesUsed || 0) !== (b.timesUsed || 0)) return (a.timesUsed || 0) - (b.timesUsed || 0)
+    // Both used: least-RECENTLY-used first, so the clip used most recently is
+    // last in line. Reusing a clip pushes it to the very end.
+    if (au === 1) return new Date(a.lastUsedAt || 0) - new Date(b.lastUsedAt || 0)
+    // Both unused: shuffled (view-only) or by upload date.
+    if (shuffleMap) return (shuffleMap[a.id] || 0) - (shuffleMap[b.id] || 0)
     const da = new Date(a.createdAt || 0), db = new Date(b.createdAt || 0)
     return sortOrder === 'newest' ? db - da : da - db
   })
@@ -362,13 +404,19 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
         )}
         <div style={{ display: 'flex', gap: '4px', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '8px', padding: '3px' }}>
           {[{ key: 'newest', label: 'Newest' }, { key: 'oldest', label: 'Oldest' }].map(s => (
-            <button key={s.key} onClick={() => { setSortOrder(s.key); setPage(1) }}
+            <button key={s.key} onClick={() => { setSortOrder(s.key); setShuffleMap(null); setPage(1) }}
               style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                background: sortOrder === s.key ? 'transparent' : 'transparent',
-                color: sortOrder === s.key ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
+                background: (!shuffleMap && sortOrder === s.key) ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+                color: (!shuffleMap && sortOrder === s.key) ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
               {s.label}
             </button>
           ))}
+          <button onClick={doShuffle} title="Shuffle the view (doesn't change anything saved)"
+            style={{ padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              background: shuffleMap ? 'rgba(232, 160, 160, 0.05)' : 'transparent',
+              color: shuffleMap ? 'rgba(240, 236, 232, 0.85)' : '#999' }}>
+            Shuffle
+          </button>
         </div>
         <Paginator page={page} totalPages={totalPages} onChange={setPage} />
       </div>

@@ -207,9 +207,16 @@ export async function GET(request, { params }) {
     // timesUsed = how many of THIS creator's tasks link the clip. These come
     // from taskAssets (assets linked to the creator's tasks), already fetched.
     const usesByAsset = {}
+    const lastUsedByAsset = {} // most recent time the clip was picked into an edit
     for (const t of tasks) {
       const aid = (t.fields?.Asset || [])[0]
-      if (aid) usesByAsset[aid] = (usesByAsset[aid] || 0) + 1
+      if (!aid) continue
+      usesByAsset[aid] = (usesByAsset[aid] || 0) + 1
+      // "used at" = when the task (edit) was created = when the clip was picked.
+      const when = t.createdTime || t.fields?.['Completed At'] || ''
+      if (when && (!lastUsedByAsset[aid] || new Date(when) > new Date(lastUsedByAsset[aid]))) {
+        lastUsedByAsset[aid] = when
+      }
     }
     const unusedIds = new Set(library.map(l => l.id))
     const usedLibrary = taskAssets
@@ -244,6 +251,7 @@ export async function GET(request, { params }) {
         createdAt: a.createdTime || '',
         used: true,
         timesUsed: usesByAsset[a.id] || 1,
+        lastUsedAt: lastUsedByAsset[a.id] || a.createdTime || '',
       }))
 
     const fullLibrary = [...library, ...usedLibrary]

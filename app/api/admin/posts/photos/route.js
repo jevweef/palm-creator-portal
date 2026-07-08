@@ -92,25 +92,32 @@ export async function GET(request) {
       .filter(a => {
         if (!getLinkedIds(a.fields?.['Palm Creators']).includes(creatorId)) return false
         if (!isImageAsset(a)) return false
-        if (!forReel) return true
-        // Exclude if Airtable flag says it was sent as a thumbnail before
-        if (a.fields?.['Used As Reel Thumbnail']) return false
-        // Exclude if it's currently attached to any active Post's Thumbnail
-        const fname = filenameFromUrl(a.fields?.['Dropbox Shared Link'])
-        if (fname && usedFilenames.has(fname)) return false
         return true
       })
-      .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0))
-      .map(a => ({
-        id: a.id,
-        name: a.fields['Asset Name'] || '',
-        dropboxLink: a.fields['Dropbox Shared Link'] || '',
-        cdnUrl: a.fields['CDN URL'] || null,
-        approvedThumbnail: !!a.fields['Approved Thumbnail'],
-        aiApprovedThumbnail: !!a.fields['AI Approved Thumbnail'],
-        pipelineStatus: a.fields['Pipeline Status'] || '',
-        createdTime: a.createdTime,
-      }))
+      .map(a => {
+        // A thumbnail photo is "used" if it was ever sent as a reel thumbnail
+        // (Airtable flag) OR is currently attached to an active Post's thumbnail.
+        // Previously these were HIDDEN from the picker; now we surface them,
+        // marked used and sunk to the bottom, so they can be reused.
+        const fname = filenameFromUrl(a.fields?.['Dropbox Shared Link'])
+        const used = forReel && (!!a.fields?.['Used As Reel Thumbnail'] || (fname && usedFilenames.has(fname)))
+        return {
+          id: a.id,
+          name: a.fields['Asset Name'] || '',
+          dropboxLink: a.fields['Dropbox Shared Link'] || '',
+          cdnUrl: a.fields['CDN URL'] || null,
+          approvedThumbnail: !!a.fields['Approved Thumbnail'],
+          aiApprovedThumbnail: !!a.fields['AI Approved Thumbnail'],
+          pipelineStatus: a.fields['Pipeline Status'] || '',
+          createdTime: a.createdTime,
+          used: !!used,
+        }
+      })
+      // Unused first (newest upload first); used photos sink to the bottom.
+      .sort((a, b) => {
+        if (!!a.used !== !!b.used) return a.used ? 1 : -1
+        return new Date(b.createdTime || 0) - new Date(a.createdTime || 0)
+      })
 
     return NextResponse.json({ photos })
   } catch (err) {

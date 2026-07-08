@@ -945,7 +945,9 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
     }
   }
 
-  const sorted = sortNewest ? photos : [...photos].reverse()
+  // Used-as-thumbnail photos sink to the bottom regardless of newest/oldest
+  // (stable sort preserves the date order within each group).
+  const sorted = [...(sortNewest ? photos : [...photos].reverse())].sort((a, b) => (a.used ? 1 : 0) - (b.used ? 1 : 0))
 
   return (
     <div onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -1018,6 +1020,9 @@ function ThumbnailPoolModal({ creatorId, creatorName, onClose, onSaved, showToas
                         fontSize: '13px', fontWeight: 700,
                         boxShadow: '0 0 0 2px rgba(0,0,0,0.4)',
                       }}>✓</div>
+                    )}
+                    {photo.used && (
+                      <div style={{ position: 'absolute', top: 6, left: 6, background: 'var(--palm-pink)', color: '#060606', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.02em' }}>Used</div>
                     )}
                   </div>
                 )
