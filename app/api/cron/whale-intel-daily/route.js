@@ -160,6 +160,10 @@ Return STRICT JSON only, no prose, shaped exactly:
  "wins": [{"fan":"name","note":"one sentence on what the chatter did well and why it worked"}]
 }
 Rules: authenticity flags only for REAL problems a manager should coach (max 8, prioritize WHALE conversations); persona-break = talking about the creator in third person or admitting to being staff. contentDemand only for explicit fan asks/requests (max 6 themes). wins max 3. Empty arrays are fine.`
+          // .slice(0,300) can cut an emoji in half, leaving a lone surrogate
+          // that makes the JSON body invalid ("no low surrogate" 400s for
+          // Raya + Caitie on 7/7). Strip unpaired surrogates from the prompt.
+          .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '').replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '$1')
         // Six back-to-back ~50k-token calls trip the rate limit — Raya and
         // Caitie came back silently empty on 7/7. Retry through 429/5xx.
         for (let attempt = 0; attempt < 3 && !aiOk; attempt++) {
