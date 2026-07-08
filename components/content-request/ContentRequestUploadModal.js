@@ -128,8 +128,12 @@ export default function ContentRequestUploadModal({
       const monthFolder = `${monthNum} ${MONTH_NAMES[parseInt(monthNum, 10) - 1] || ''}`.trim()
       const ext = file.name.split('.').pop()
       const safeName = `${creatorName}_${Date.now()}_${id}.${ext}`
-      // /Vault Content/{AKA}/{YYYY}/{MM Month}/{Section}/{file}
-      const uploadPath = `/Vault Content/${creatorName}/${year}/${monthFolder}/${sectionName}/${safeName}`
+      // Nest INSIDE the creator's existing writable folder. Dropbox blocks
+      // creating a new top-level folder at the team root (the /Vault Content
+      // path 409'd with no_write_permission), but /Palm Ops/Creators/{AKA}
+      // already exists and is writable — same place the editor writes.
+      // Structure: .../Vault Content/{YYYY}/{MM Month}/{Section}/{file}
+      const uploadPath = `/Palm Ops/Creators/${creatorName}/Vault Content/${year}/${monthFolder}/${sectionName}/${safeName}`
 
       const meta = await uploadFileToDropbox({
         file,
