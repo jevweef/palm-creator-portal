@@ -86,6 +86,18 @@ export async function GET(request) {
     // Reshape to the chart's expected earningsData shape
     const earningsData = {}
     for (const [creator, dateMap] of Object.entries(creatorMap)) {
+      // No negative days — a chargeback claws back PAST earnings, so a batch
+      // processed on one date must not sink that day below zero (mid-June
+      // showed -$3k on the month's best sales day). Carry negative remainders
+      // backward into prior days; totals unchanged. Same rule as
+      // /api/admin/creator-earnings.
+      const datesAsc = Object.keys(dateMap).sort()
+      for (let i = datesAsc.length - 1; i >= 0; i--) {
+        if (dateMap[datesAsc[i]] < 0) {
+          if (i > 0) dateMap[datesAsc[i - 1]] += dateMap[datesAsc[i]]
+          dateMap[datesAsc[i]] = 0
+        }
+      }
       const dailyData = Object.entries(dateMap)
         .filter(([, net]) => net !== 0) // drop zero-net days (pre-management gate or no activity)
         .map(([date, net]) => ({ date, net }))
