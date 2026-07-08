@@ -83,6 +83,23 @@ export async function GET(request) {
     let playbook = ''
     try { playbook = fs.readFileSync(path.join(process.cwd(), 'research', 'knowledge', 'whale-playbook.md'), 'utf8').slice(0, 2500) } catch { /* optional */ }
 
+    // Manager calibration — verdicts Evan gave on past flags (Chat Team tab
+    // buttons). "fine" examples teach the judge what NOT to flag; "real" ones
+    // reinforce. This is the training loop: taste converges without code.
+    let calibration = ''
+    try {
+      const fbBuf = await downloadFromDropbox(token, ns, '/Palm Ops/Whale Intel/feedback.json')
+      if (fbBuf) {
+        const fb = JSON.parse(fbBuf.toString('utf8'))
+        const line = (x) => `- [${(x.issues || []).join('/')}] "${String(x.message).slice(0, 160)}"${x.note ? ` (was flagged as: ${String(x.note).slice(0, 100)})` : ''}`
+        const fine = fb.items.filter((x) => x.verdict === 'fine').slice(-15).map(line)
+        const real = fb.items.filter((x) => x.verdict === 'real').slice(-10).map(line)
+        if (fine.length || real.length) {
+          calibration = `\nMANAGER CALIBRATION — the agency owner reviewed previous flags:\n${fine.length ? `He marked these FINE — do NOT flag messages like these:\n${fine.join('\n')}\n` : ''}${real.length ? `He confirmed these REAL — definitely flag patterns like these:\n${real.join('\n')}\n` : ''}`
+        }
+      }
+    } catch { /* no feedback yet */ }
+
     // Yesterday's events per account (webhook log — free)
     const allAccountIds = creators.flatMap((c) => String(c.fields['OF API Account ID']).split(',').map((x) => x.trim()).filter(Boolean))
     // FULL day, not the live-chat tail — the 500-row default silently cut
@@ -146,7 +163,7 @@ export async function GET(request) {
         const inLines = inbound.slice(0, 250).map((e) => `[from ${e.fan?.name || e.fan?.username || '?'}] ${strip(e.text).slice(0, 300)}`).join('\n')
         const prompt = `You are the overnight chat-quality analyst for an OnlyFans agency. Below are YESTERDAY's 1:1 messages for creator "${aka}" (mass blasts excluded). Chatters type AS the creator.
 
-${voice ? `HER VOICE PROFILE:\n${voice}\n` : ''}${playbook ? `AGENCY PLAYBOOK EXCERPT (standards we coach toward):\n${playbook}\n` : ''}
+${voice ? `HER VOICE PROFILE:\n${voice}\n` : ''}${playbook ? `AGENCY PLAYBOOK EXCERPT (standards we coach toward):\n${playbook}\n` : ''}${calibration}
 CHATTER-SENT MESSAGES (what "she" said):
 ${outLines}
 

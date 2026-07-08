@@ -253,6 +253,43 @@ function PalmInternalTabLegacy() {
 
 function ChatTeamTab() {
   const { report, available, date, setDate, loading } = useDailyReport()
+  // verdicts + expanded conversations (hooks BEFORE any conditional return)
+  const [fb, setFb] = useState({})            // flagKey -> 'real' | 'fine'
+  const [ctx, setCtx] = useState({})          // flagKey -> { loading, thread, error }
+  const repDate = report?.date
+  useEffect(() => {
+    if (!repDate) return
+    fetch(`/api/admin/whales/report-feedback?date=${repDate}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const m = {}
+        for (const x of (j.items || [])) m[x.id] = x.verdict
+        setFb(m)
+      }).catch(() => {})
+  }, [repDate])
+  const flagKey = (f) => `${repDate}|${f.creator}|${f.fan}|${String(f.message || '').slice(0, 60)}`
+  const sendVerdict = async (f, verdict) => {
+    const k = flagKey(f)
+    setFb((m) => ({ ...m, [k]: verdict }))
+    try {
+      await fetch('/api/admin/whales/report-feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: repDate, creator: f.creator, fan: f.fan, message: f.message, issues: f.issues, severity: f.severity, note: f.note, verdict }),
+      })
+    } catch { /* optimistic */ }
+  }
+  const toggleContext = async (f) => {
+    const k = flagKey(f)
+    if (ctx[k]) { setCtx((m) => { const n = { ...m }; delete n[k]; return n }) ; return }
+    setCtx((m) => ({ ...m, [k]: { loading: true } }))
+    try {
+      const r = await fetch(`/api/admin/whales/chat-context?date=${repDate}&creator=${encodeURIComponent(f.creator)}&fan=${encodeURIComponent(f.fan)}`)
+      const j = await r.json()
+      setCtx((m) => ({ ...m, [k]: r.ok ? { thread: j.thread || [] } : { error: j.error || 'failed' } }))
+    } catch (e) {
+      setCtx((m) => ({ ...m, [k]: { error: e.message } }))
+    }
+  }
   if (report) {
     const rows = report.perCreator || []
     const flags = rows.flatMap((c) => (c.authenticity || []).map((a) => ({ ...a, creator: c.aka })))
@@ -280,6 +317,42 @@ function ChatTeamTab() {
               </div>
               <div style={{ fontSize: '12px', color: 'var(--foreground)', marginTop: '3px', fontStyle: 'italic' }}>&ldquo;{f.message}&rdquo;</div>
               {f.note && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px' }}>{f.note}</div>}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
+                <button onClick={() => toggleContext(f)}
+                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--foreground-muted)', borderRadius: '6px', padding: '2px 9px', fontSize: '11px', cursor: 'pointer' }}>
+                  {ctx[flagKey(f)] ? 'hide conversation' : 'show conversation'}
+                </button>
+                <button onClick={() => sendVerdict(f, 'real')}
+                  style={{ background: fb[flagKey(f)] === 'real' ? 'rgba(232,120,120,0.25)' : 'transparent', border: '1px solid rgba(232,120,120,0.4)', color: '#E87878', borderRadius: '6px', padding: '2px 9px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                  real issue
+                </button>
+                <button onClick={() => sendVerdict(f, 'fine')}
+                  style={{ background: fb[flagKey(f)] === 'fine' ? 'rgba(125,211,164,0.25)' : 'transparent', border: '1px solid rgba(125,211,164,0.4)', color: '#7DD3A4', borderRadius: '6px', padding: '2px 9px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                  this is fine
+                </button>
+                {fb[flagKey(f)] && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>saved — trains tonight&apos;s run</span>}
+              </div>
+              {ctx[flagKey(f)] && (
+                <div style={{ marginTop: '8px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 12px', maxHeight: '320px', overflowY: 'auto' }}>
+                  {ctx[flagKey(f)].loading && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Loading conversation…</div>}
+                  {ctx[flagKey(f)].error && <div style={{ fontSize: '11px', color: '#E87878' }}>{ctx[flagKey(f)].error}</div>}
+                  {(ctx[flagKey(f)].thread || []).length === 0 && !ctx[flagKey(f)].loading && !ctx[flagKey(f)].error &&
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>No messages found for this fan on {repDate}.</div>}
+                  {(ctx[flagKey(f)].thread || []).map((m, j) => {
+                    const flagged = f.message && m.text && m.text.slice(0, 80) === String(f.message).replace(/\s+/g, ' ').slice(0, 80)
+                    return m.dir === 'sale' ? (
+                      <div key={j} style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 700, padding: '3px 0' }}>💰 {m.time} — purchased ${m.price}</div>
+                    ) : (
+                      <div key={j} style={{ display: 'flex', justifyContent: m.dir === 'out' ? 'flex-end' : 'flex-start', padding: '2px 0' }}>
+                        <div style={{ maxWidth: '75%', background: flagged ? 'rgba(232,120,120,0.22)' : m.dir === 'out' ? 'rgba(196,165,247,0.12)' : 'rgba(255,255,255,0.06)', border: flagged ? '1px solid rgba(232,120,120,0.5)' : '1px solid transparent', borderRadius: '8px', padding: '4px 9px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{m.dir === 'out' ? f.creator : f.fan} · {m.time}</div>
+                          <div style={{ fontSize: '12px' }}>{m.text}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
