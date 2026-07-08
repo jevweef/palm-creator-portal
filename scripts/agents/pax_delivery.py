@@ -20,7 +20,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from palm_agent import (airtable_token, get_meta, fetch_all,
-                        finding, write_report, emit_error)
+                        finding, write_report, emit_error, offboarded_creators, name_map)
 
 OPS = "applLIT2t83plMqNx"
 T_POSTS = "tblTEaiscTQQkEvj2"
@@ -62,17 +62,25 @@ def main(argv) -> int:
         return 1
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
-    posts = fetch_all(token, OPS, T_POSTS, ["Status", "Publer Status", "Pipeline Target", "Scheduled Date", "Telegram Sent At"])
+    posts = fetch_all(token, OPS, T_POSTS, ["Status", "Publer Status", "Pipeline Target", "Scheduled Date", "Telegram Sent At", "Creator"])
+    names = name_map(token, OPS, "Palm Creators")
+    gone = offboarded_creators(token)
 
     tg_failed = publer_failed = publer_stuck = 0
+    tg_failed_names = []
     for r in posts:
         f = r.get("fields", {})
+        who = ", ".join(names.get(c, "") for c in (f.get("Creator") or [])).strip(", ")
+        if who and all(part.strip().lower() in gone for part in who.split(",") if part.strip()):
+            continue  # offboarded creator — their old failures are noise
         sd = parse_dt(f.get("Scheduled Date"))
         recent = (sd is None) or (sd >= cutoff)
         if not recent:
             continue
         if "fail" in (f.get("Status") or "").lower():
             tg_failed += 1
+            if who:
+                tg_failed_names.append(who)
         ps = f.get("Publer Status")
         if ps == "Failed":
             publer_failed += 1
@@ -81,7 +89,7 @@ def main(argv) -> int:
 
     findings: list[dict] = []
     if tg_failed:
-        findings.append(finding(f"{tg_failed} Telegram post(s) in a failed state (last {args.days}d) — real-creator content didn't send.", "red"))
+        findings.append(finding(f"{tg_failed} Telegram post(s) in a failed state (last {args.days}d) — real-creator content didn't send{(' (' + ', '.join(sorted(set(tg_failed_names))[:4]) + ')') if tg_failed_names else ''}.", "red"))
     if publer_failed:
         findings.append(finding(f"{publer_failed} Publer post(s) Failed (last {args.days}d) — AI-account content didn't publish.", "red"))
     if publer_stuck:

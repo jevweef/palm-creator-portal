@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 
 from palm_agent import (airtable_token, get_meta, fetch_all, name_map, finding,
-                        write_report, emit_error)
+                        write_report, emit_error, offboarded_creators)
 
 OPS = "applLIT2t83plMqNx"
 T_POSTS = "tblTEaiscTQQkEvj2"
@@ -50,9 +50,11 @@ def main():
 
     now = datetime.now(timezone.utc)
     names = name_map(token, OPS, T_PALM)
+    gone = offboarded_creators(token)  # offboarded creators' stale cards = noise
     posts = fetch_all(token, OPS, T_POSTS, ["Status", "Caption", "Hashtags", "Thumbnail", "Scheduled Date", "Creator", "Post Name"])
 
     naked, imminent, overdue = [], [], []
+    stale = []
     for p in posts:
         f = p.get("fields", {})
         if f.get("Status") not in PENDING:
@@ -67,6 +69,8 @@ def main():
         if not missing:
             continue
         nm = ", ".join(names.get(c, "") for c in (f.get("Creator") or [])) or (f.get("Post Name") or "?")
+        if nm and all(part.strip().lower() in gone for part in nm.split(",") if part.strip()):
+            continue  # offboarded creator — skip entirely
         naked.append(nm)
         sched = parse_dt(f.get("Scheduled Date"))
         if "caption" in missing and sched:
@@ -74,6 +78,9 @@ def main():
             label = f"{nm} (sched {str(f.get('Scheduled Date'))[:10]})"
             if 0 <= secs <= 86400:           # genuinely imminent (future, <24h)
                 imminent.append(label)
+            elif secs < -21 * 86400:         # ancient — abandoned card, cleanup not action
+                stale.append(label)
+                continue
             elif secs < 0:                   # scheduled in the past, still unshipped + no caption
                 overdue.append(label)
 
@@ -82,6 +89,8 @@ def main():
         findings.append(finding(f"{len(imminent)} post(s) scheduled within 24h still have NO caption: {', '.join(imminent[:6])}.", "red"))
     if overdue:
         findings.append(finding(f"{len(overdue)} past-due card(s) still staged with no caption (never shipped): {', '.join(overdue[:6])}.", "amber"))
+    if stale:
+        findings.append(finding(f"{len(stale)} card(s) have sat unshipped for 21+ days — these look abandoned; archive or delete them once and they'll stop appearing here.", "amber"))
     if naked:
         n_other = len(naked) - len(imminent) - len(overdue)
         findings.append(finding(f"{len(naked)} Post-Prep card(s) need a human pass (caption/hashtags/cover); {len(imminent)} ship in <24h, {len(overdue)} already past-due.", "amber"))
