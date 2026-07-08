@@ -30,11 +30,11 @@ RUN_LOG = Path.home() / ".claude" / "scheduled-tasks" / "ofm-research" / "run.lo
 def main() -> int:
     if not RUN_LOG.exists():
         write_report(id="ofm-research", teammate="OFM Intel", dept="Intelligence", status="error",
-                     headline="OFM research run.log not found",
-                     findings=[finding("No run.log at ~/.claude/scheduled-tasks/ofm-research/ — can't confirm it ran.", "red")],
+                     headline="OFM research runs on Evan's Mac — not verifiable from this runner",
+                     findings=[finding("OFM research pipeline runs via launchd on the Mac; its run.log isn't visible from the server. Status unknown (not necessarily broken).", "amber")],
                      notes="Liveness unknown.")
-        print("OFM: run.log missing", file=sys.stderr)
-        return 1
+        print("OFM: run.log not visible from this runner (Mac-local job)", file=sys.stderr)
+        return 0  # amber reported above — absence of the Mac log isn't a failure here
 
     ran_today = date.fromtimestamp(RUN_LOG.stat().st_mtime) == date.today()
     tail = "\n".join(RUN_LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-60:])

@@ -24,7 +24,9 @@ from pathlib import Path
 
 from palm_agent import finding, write_report
 
-PORTAL = Path("/Users/jevanleith/palm-creator-portal")
+# Repo root — works on the Mac (portal checkout) and on GitHub Actions
+_local = Path("/Users/jevanleith/palm-creator-portal")
+PORTAL = _local if _local.exists() else Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
