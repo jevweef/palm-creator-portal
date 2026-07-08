@@ -216,9 +216,10 @@ export async function GET(request, { params }) {
       .filter(a => {
         const st = a.fields?.['Source Type'] || ''
         const ps = a.fields?.['Pipeline Status'] || ''
-        // Creator-Upload raws only (never AI/inspo), currently In Editing / In
+        // RAW uploads only — Creator Upload OR Inspo Upload (raw clips the
+        // creator provided), never AI Generated. Currently In Editing / In
         // Review, and not already in the unused list.
-        return !unusedIds.has(a.id) && st !== 'Inspo Upload' && st !== 'AI Generated'
+        return !unusedIds.has(a.id) && st !== 'AI Generated'
           && (ps === 'In Editing' || ps === 'In Review')
       })
       .map(a => ({
@@ -226,10 +227,17 @@ export async function GET(request, { params }) {
         name: a.fields?.['Asset Name'] || '',
         sourceType: a.fields?.['Source Type'] || '',
         assetType: a.fields?.['Asset Type'] || '',
+        // The RAW upload — Dropbox Shared Link + Stream Raw ID are the clip the
+        // creator uploaded (Edited File Link / Stream Edit ID are the finished
+        // reel and are deliberately NOT surfaced here).
         dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
         dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
-        thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
-        cdnUrl: a.fields?.['CDN URL'] || null,
+        // Force the RAW stream poster. A used clip's CDN URL / Airtable
+        // thumbnail get regenerated from the EDITED video (captions burned in),
+        // so we null them out and let the card fall back to Stream Raw ID —
+        // the actual raw footage the creator uploaded.
+        thumbnail: '',
+        cdnUrl: null,
         streamRawId: a.fields?.['Stream Raw ID'] || null,
         creatorNotes: a.fields?.['Creator Notes'] || '',
         uploadWeek: a.fields?.['Upload Week'] || '',
