@@ -365,13 +365,16 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
                     const cellStyle = { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
                     return (
                       <div key={photo.id} onClick={() => setPreview(photo)}
-                        style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s' }}
+                        style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: '6px', border: '2px solid transparent', cursor: 'pointer', transition: 'border-color 0.1s', position: 'relative' }}
                         onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--palm-pink)'}
                         onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
                         {heic ? (
                           <HeicImage src={photo.dropboxLink} alt={photo.name} style={cellStyle} />
                         ) : (
                           <img src={cdnUrlAtSize(photo.cdnUrl, 300) || rawUrl} alt={photo.name} loading="lazy" decoding="async" style={cellStyle} />
+                        )}
+                        {photo.used && (
+                          <div style={{ position: 'absolute', top: 6, left: 6, background: 'var(--palm-pink)', color: '#060606', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.02em' }}>Used</div>
                         )}
                       </div>
                     )
@@ -397,6 +400,40 @@ function PhotoPickerModal({ creatorId, platforms, onSelect, onClose }) {
       </div>
     </div>
   )
+}
+
+// Grab frames the same way the manual picker does: load the clip in a hidden
+// <video> (proxied for canvas CORS) and draw each timestamp to a canvas, so the
+// BROWSER tonemaps HDR→normal. The server frame paths (ffmpeg / CF poster) wash
+// HDR out ("cooked"); this matches what you see scrubbing in Pick-from-video.
+function captureFramesViaCanvas(rawVideoUrl, timestamps) {
+  return new Promise((resolve) => {
+    const out = []
+    let i = 0
+    const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
+    video.muted = true
+    video.preload = 'auto'
+    const done = () => { try { video.removeAttribute('src'); video.load() } catch {} ; resolve(out) }
+    const seekNext = () => {
+      if (i >= timestamps.length) return done()
+      const dur = video.duration || 0
+      video.currentTime = dur ? Math.min(timestamps[i], Math.max(0, dur - 0.05)) : timestamps[i]
+    }
+    video.addEventListener('loadedmetadata', seekNext)
+    video.addEventListener('seeked', () => {
+      try {
+        const c = document.createElement('canvas')
+        c.width = video.videoWidth; c.height = video.videoHeight
+        c.getContext('2d').drawImage(video, 0, 0, c.width, c.height)
+        out.push({ ts: timestamps[i], dataUrl: c.toDataURL('image/jpeg', 0.92) })
+      } catch { out.push(null) }
+      i++; seekNext()
+    })
+    video.addEventListener('error', done)
+    setTimeout(done, 20000)
+    video.src = `/api/admin/video-proxy?url=${encodeURIComponent(rawVideoUrl)}`
+  })
 }
 
 function VideoFramePicker({ videoUrl, streamUid, postId, onCapture, onClose }) {
@@ -677,6 +714,8 @@ function PostCard({ post, onRefresh, onSend }) {
   const [showFramePicker, setShowFramePicker] = useState(false)
   const [thumbUploading, setThumbUploading] = useState(false)
   const thumbFileRef = useRef(null)
+  const prewarmRef = useRef(null) // holds the in-flight pre-warm analysis promise
+  const prewarmTimer = useRef(null) // dwell timer so a scroll-by doesn't fire pre-warm
   // Collapsed-by-default fields. Caption + thumbnail are the only things
   // routinely touched; platforms + hashtags only need to expand when actually
   // edited so they don't eat vertical space.
@@ -698,11 +737,31 @@ function PostCard({ post, onRefresh, onSend }) {
   const [discarding, setDiscarding] = useState(false)
   const [discardError, setDiscardError] = useState('')
 
+  // AI caption suggestions — Gemini watches the full reel and returns 3 IG-safe options.
+  const [capLoading, setCapLoading] = useState(false)
+  const [capOptions, setCapOptions] = useState(null)
+  const [capMeta, setCapMeta] = useState(null)
+  const [capErr, setCapErr] = useState('')
+  // Penny auto-thumbnail (picks the best IG-safe frame, or leaves blank if too spicy).
+  const [thumbNote, setThumbNote] = useState('')
+  const [thumbCandidates, setThumbCandidates] = useState(null)
+  const [selectedCapIdx, setSelectedCapIdx] = useState(null)
+  const [selectedThumb, setSelectedThumb] = useState(null)
+
   const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
+  // Carousel posts are multiple Photo slides (no Edited File Link / video).
+  // They preview off the first slide's CDN image, so the file/preview/action
+  // logic below must not gate on the video-only editedFileLink.
+  const isCarousel = post.type === 'Carousel'
+  const carouselSlides = post.assets || []
+  const carouselPreview = isCarousel
+    ? (carouselSlides.find(s => s?.cdnUrl || s?.dropboxLink) || post.asset)
+    : null
   const hasFile = !!post.asset?.editedFileLink
+    || (isCarousel && !!(carouselPreview?.cdnUrl || carouselPreview?.dropboxLink))
   // For frame picker: prefer original dropboxLink, fall back to editedFileLink
   const sourceVideoUrl = post.asset?.dropboxLink || post.asset?.editedFileLink || ''
-  const canPickFrame = hasFile && isVideo(post.asset?.editedFileLink || '')
+  const canPickFrame = hasFile && !isCarousel && isVideo(post.asset?.editedFileLink || '')
 
   const togglePlatform = (p) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
@@ -740,6 +799,117 @@ function PostCard({ post, onRefresh, onSend }) {
       console.error(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // The analysis: caption (EDITED reel — Gemini reads the on-screen text) + thumbnail
+  // options (ORIGINAL source — frames have no text). Returns the data WITHOUT touching
+  // UI state, so it can be pre-warmed in the background while the card is open.
+  const runSuggest = async () => {
+    const editedUrl = rawUrl || sourceVideoUrl
+    const originalUrl = rawDropboxUrl(sourceVideoUrl || '') || editedUrl
+    if (!editedUrl) return { ok: false, error: 'no video' }
+    try {
+      const [capRes, thumbRes] = await Promise.all([
+        fetch('/api/admin/posts/suggest-caption', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: editedUrl, creatorNotes: post.creator?.name ? `Creator: ${post.creator.name}` : '' }),
+        }).then(async r => ({ ok: r.ok, ...(await r.json()) })),
+        fetch('/api/admin/posts/suggest-thumbnail', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: originalUrl }),
+        }).then(async r => ({ ok: r.ok, ...(await r.json()) })).catch(e => ({ ok: false, error: e.message })),
+      ])
+      if (!capRes.ok) return { ok: false, error: capRes.error || 'Caption failed' }
+      const out = { ok: true, captions: capRes.captions || [], observed: capRes.observed || '', usage: capRes.usage || null, model: capRes.model || '', thumbNote: '', thumbCandidates: null }
+      if (!thumbRes.ok) out.thumbNote = `Thumbnail: ${thumbRes.error || 'failed'}`
+      else if (thumbRes.tooRisque || thumbRes.best == null) out.thumbNote = `Too risqué for IG — leaving the thumbnail blank for the grid${thumbRes.reason ? ` (${thumbRes.reason})` : ''}.`
+      else {
+        let stamps = [thumbRes.best, ...(thumbRes.backups || [])].filter(n => typeof n === 'number').slice(0, 3)
+        const dur = Number(thumbRes.duration) || 0
+        if (stamps.length && dur > 3) {
+          const spread = Math.max(...stamps) - Math.min(...stamps)
+          if (spread < 1.0) stamps = [0.2, 0.5, 0.8].map(f => Math.round(dur * f * 10) / 10)
+        }
+        // Browser <video>+canvas (HDR tonemapped like the manual picker); ffmpeg fallback.
+        let good = (await captureFramesViaCanvas(originalUrl, stamps)).filter(Boolean)
+        if (!good.length) {
+          const frames = await Promise.all(stamps.map(async (ts) => {
+            try {
+              const fr = await fetch('/api/admin/posts/thumbnail/frame', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoUrl: originalUrl, timestamp: ts }),
+              })
+              const fd = await fr.json()
+              if (!fr.ok || !fd.jpeg) return null
+              return { ts, dataUrl: `data:image/jpeg;base64,${fd.jpeg}` }
+            } catch { return null }
+          }))
+          good = frames.filter(Boolean)
+        }
+        if (good.length) out.thumbCandidates = good
+        else out.thumbNote = "Couldn't grab frames from the original video."
+      }
+      return out
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  }
+
+  // Pre-warm: start the analysis in the background (once) when the card is opened/edited,
+  // so clicking Suggest is instant. Stored as a promise.
+  const prewarm = () => {
+    if (prewarmRef.current || capLoading || !(rawUrl || sourceVideoUrl)) return
+    prewarmRef.current = runSuggest()
+  }
+
+  // The Suggest button: use the pre-warmed result if ready, else run fresh. Opens the modal.
+  const handleSuggestCaption = async () => {
+    if (capLoading || !(rawUrl || sourceVideoUrl)) return
+    setCapLoading(true); setCapErr(''); setCapOptions(null); setCapMeta(null); setThumbCandidates(null); setThumbNote(''); setSelectedCapIdx(null); setSelectedThumb(null)
+    try {
+      const pending = prewarmRef.current
+      prewarmRef.current = null   // consume; Regenerate re-runs fresh
+      const data = await (pending || runSuggest())
+      if (!data.ok) throw new Error(data.error || 'Suggestion failed')
+      setCapOptions(data.captions || [])
+      setCapMeta({ observed: data.observed, usage: data.usage, model: data.model })
+      setThumbCandidates(data.thumbCandidates)
+      if (data.thumbNote) setThumbNote(data.thumbNote)
+    } catch (e) {
+      setCapErr(e.message)
+    } finally {
+      setCapLoading(false)
+    }
+  }
+
+  // Apply the picked caption AND picked thumbnail together, then close the modal.
+  const [submittingPicks, setSubmittingPicks] = useState(false)
+  const handleSubmitPicks = async () => {
+    if (submittingPicks) return
+    const cap = selectedCapIdx != null ? capOptions?.[selectedCapIdx] : null
+    setSubmittingPicks(true)
+    try {
+      if (cap) setCaption(cap.text)
+      if (selectedThumb) {
+        const b64 = selectedThumb.dataUrl.split(',')[1]
+        const blob = new Blob([Uint8Array.from(atob(b64), c => c.charCodeAt(0))], { type: 'image/jpeg' })
+        const form = new FormData()
+        form.append('file', blob, `frame_${Date.now()}.jpg`)
+        form.append('postId', post.id)
+        const up = await fetch('/api/admin/posts/thumbnail', { method: 'POST', body: form })
+        const ud = await up.json()
+        if (!up.ok) throw new Error(ud.error || 'thumbnail upload failed')
+        setThumbnailUrl(ud.url)
+      }
+      if (cap || selectedThumb) setEditing(true)
+      // TODO(training): log {chosen caption + thumbnail vs the options} so Penny learns to auto-pick.
+      setCapOptions(null); setCapMeta(null); setThumbCandidates(null)
+      setSelectedCapIdx(null); setSelectedThumb(null)
+    } catch (e) {
+      setThumbNote(`Couldn't apply: ${e.message}`)
+    } finally {
+      setSubmittingPicks(false)
     }
   }
 
@@ -852,7 +1022,10 @@ function PostCard({ post, onRefresh, onSend }) {
     // Locked to 9:16 video height (300×533) so the card doesn't grow/shrink
     // when fields collapse-expand or the Save button shows up. The user said
     // "everything to be more sturdy" — a fixed height is the cheapest way.
-    <div id={`post-card-${post.id}`} style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row', height: '533px' }}>
+    <div id={`post-card-${post.id}`}
+      onMouseEnter={() => { prewarmTimer.current = setTimeout(prewarm, 600) }}
+      onMouseLeave={() => clearTimeout(prewarmTimer.current)}
+      style={{ background: 'var(--card-bg-solid)', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderRadius: '18px', overflow: 'hidden', display: 'flex', flexDirection: 'row', height: '533px' }}>
 
       {/* Left — video cell at 9:16. Prefers Cloudflare Stream iframe (cheap
           to mount, autoplays muted/looped from the edge) so the admin sees
@@ -888,10 +1061,15 @@ function PostCard({ post, onRefresh, onSend }) {
               )}
             </button>
           ) : (
-            <img src={cdnUrlAtSize(post.asset?.cdnUrl, 600) || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={cdnUrlAtSize((carouselPreview || post.asset)?.cdnUrl, 600) || rawDropboxUrl((carouselPreview || post.asset)?.dropboxLink || '') || rawUrl} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           )
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'transparent', fontSize: '11px' }}>No file</div>
+        )}
+        {isCarousel && carouselSlides.length > 0 && (
+          <div style={{ position: 'absolute', top: '6px', right: '6px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', background: 'rgba(0,0,0,0.55)', padding: '2px 8px', borderRadius: '20px' }}>
+            Carousel · {carouselSlides.length}
+          </div>
         )}
         <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
           <div style={{ fontSize: '10px', fontWeight: 700, color: STATUS_COLORS[post.status] || '#999',
@@ -917,10 +1095,21 @@ function PostCard({ post, onRefresh, onSend }) {
             Post Prep. Proper AI caption suggestions are a separate future
             feature to add here.) */}
         <div>
-          <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Caption</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Caption</div>
+            {(rawUrl || sourceVideoUrl) && !isCarousel && (
+              <button onClick={handleSuggestCaption} onMouseEnter={prewarm} disabled={capLoading}
+                title="Gemini watches the reel and suggests Instagram-safe captions"
+                style={{ flexShrink: 0, whiteSpace: 'nowrap', fontSize: '10px', fontWeight: 600, letterSpacing: '0.02em', color: capLoading ? 'var(--foreground-muted)' : '#C99BD9', background: 'rgba(201, 155, 217, 0.10)', border: '1px solid rgba(201, 155, 217, 0.22)', borderRadius: '999px', padding: '3px 11px', cursor: capLoading ? 'default' : 'pointer', lineHeight: 1.6 }}>
+                {capLoading ? 'Watching…' : 'Suggest'}
+              </button>
+            )}
+          </div>
           <textarea value={caption} onChange={e => { setCaption(e.target.value); setEditing(true) }}
+            onFocus={prewarm}
             placeholder="Add caption..." rows={2}
             style={{ width: '100%', background: 'var(--card-bg-solid)', border: '1px solid transparent', borderRadius: '6px', color: 'rgba(240, 236, 232, 0.85)', fontSize: '12px', padding: '7px 10px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', minHeight: '48px' }} />
+          {capErr && <div style={{ fontSize: '11px', color: '#e87878', marginTop: '5px' }}>{capErr}</div>}
         </div>
 
         {/* Thumbnail — swatch + Pick from video. Library + device upload
@@ -928,6 +1117,7 @@ function PostCard({ post, onRefresh, onSend }) {
             existing swatch (if any) to re-open the frame picker too. */}
         <div>
           <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Thumbnail</div>
+          {thumbNote && <div style={{ fontSize: '10.5px', color: 'var(--foreground-muted)', marginBottom: '6px', lineHeight: 1.4 }}>{thumbNote}</div>}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {thumbnailUrl ? (
               isHeic(thumbnailUrl) ? (
@@ -1004,6 +1194,68 @@ function PostCard({ post, onRefresh, onSend }) {
             url={videoModal.url}
             onClose={() => setVideoModal(null)}
           />
+        )}
+
+        {capOptions && (
+          <div onClick={() => setCapOptions(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', width: 'min(520px, 100%)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(240,236,232,0.95)' }}>Caption suggestions</div>
+                  <button onClick={() => setCapOptions(null)} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                </div>
+                {capMeta?.observed && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px', lineHeight: 1.4 }}>Saw: {capMeta.observed}</div>}
+                {capMeta?.usage && (
+                  <div style={{ fontSize: '10.5px', color: 'var(--foreground-muted)', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>
+                    ~${(capMeta.usage.estCost || 0).toFixed(4)} · {(capMeta.usage.totalTokens || 0).toLocaleString()} tokens{capMeta.model ? ` · ${capMeta.model}` : ''}
+                  </div>
+                )}
+              </div>
+              <div style={{ overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {capOptions.map((opt, i) => (
+                  <div key={i} onClick={() => setSelectedCapIdx(i)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '10px', background: selectedCapIdx === i ? 'rgba(125,211,164,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${selectedCapIdx === i ? 'rgba(125,211,164,0.5)' : 'rgba(201,155,217,0.18)'}`, borderRadius: '8px', padding: '10px 12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', color: 'rgba(240,236,232,0.95)', whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{opt.text}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{[opt.type, opt.length].filter(Boolean).join(' · ')}</div>
+                      {opt.why && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '3px', lineHeight: 1.4, fontStyle: 'italic' }}>{opt.why}</div>}
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setSelectedCapIdx(i) }}
+                      style={{ flexShrink: 0, fontSize: '11px', fontWeight: 700, color: selectedCapIdx === i ? '#060606' : '#7DD3A4', background: selectedCapIdx === i ? '#7DD3A4' : 'rgba(125,211,164,0.08)', border: '1px solid rgba(125,211,164,0.2)', borderRadius: '7px', padding: '6px 14px', cursor: 'pointer' }}>
+                      {selectedCapIdx === i ? 'Picked' : 'Use'}
+                    </button>
+                  </div>
+                ))}
+                {thumbCandidates && thumbCandidates.length > 0 && (
+                  <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Thumbnail — pick one (from the original, no text)</div>
+                    <div style={{ display: 'flex', gap: '14px' }}>
+                      {thumbCandidates.map((c, i) => (
+                        <div key={i} onClick={() => setSelectedThumb(c)} title={`frame at ${Number(c.ts).toFixed(1)}s`}
+                          style={{ cursor: 'pointer', flex: 1, minWidth: 0, border: `2px solid ${selectedThumb === c ? '#7DD3A4' : 'rgba(201,155,217,0.25)'}`, borderRadius: '8px', overflow: 'hidden', background: '#000' }}>
+                          <img src={c.dataUrl} alt={`frame ${i + 1}`} style={{ width: '100%', aspectRatio: '9 / 16', objectFit: 'cover', display: 'block' }} />
+                          <div style={{ fontSize: '9.5px', color: 'var(--foreground-muted)', textAlign: 'center', padding: '3px 0' }}>{Number(c.ts).toFixed(1)}s</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {thumbNote && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px', lineHeight: 1.4 }}>{thumbNote}</div>}
+              </div>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button onClick={handleSuggestCaption} disabled={capLoading}
+                  style={{ fontSize: '11px', fontWeight: 700, color: capLoading ? 'var(--foreground-muted)' : '#C99BD9', background: 'rgba(201,155,217,0.08)', border: '1px solid rgba(201,155,217,0.25)', borderRadius: '7px', padding: '6px 14px', cursor: capLoading ? 'default' : 'pointer' }}>
+                  {capLoading ? 'Watching reel…' : 'Regenerate'}
+                </button>
+                <button onClick={handleSubmitPicks} disabled={submittingPicks || (selectedCapIdx == null && !selectedThumb)}
+                  title="Apply the picked caption + thumbnail"
+                  style={{ fontSize: '11px', fontWeight: 700, color: (selectedCapIdx == null && !selectedThumb) ? 'var(--foreground-muted)' : '#060606', background: (selectedCapIdx == null && !selectedThumb) ? 'rgba(125,211,164,0.12)' : '#7DD3A4', border: '1px solid rgba(125,211,164,0.3)', borderRadius: '7px', padding: '6px 16px', cursor: (selectedCapIdx == null && !selectedThumb) ? 'default' : 'pointer' }}>
+                  {submittingPicks ? 'Applying…' : 'Submit'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {showFramePicker && (
@@ -1260,6 +1512,26 @@ function matchesFilter(p, filter) {
   return p.status === filter
 }
 
+// Small pill segmented control used for the Source (Real/AI) and Type
+// (Reels/Carousels) filters in the Post Prep header.
+function Segmented({ label, value, onChange, options }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+      {label && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', fontWeight: 600 }}>{label}</span>}
+      <div style={{ display: 'inline-flex', background: 'var(--card-bg-solid)', borderRadius: '8px', padding: '2px' }}>
+        {options.map(o => (
+          <button key={o.value} onClick={() => onChange(o.value)}
+            style={{ padding: '5px 11px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', border: 'none', cursor: 'pointer',
+              background: value === o.value ? 'var(--palm-pink)' : 'transparent',
+              color: value === o.value ? '#1a1a1a' : 'var(--foreground-muted)', transition: 'background 0.15s' }}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function PostsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1269,6 +1541,8 @@ export default function PostsPage() {
   // the Grid Planner for scheduling + sending.
   const filter = 'Prepping'
   const [creatorFilter, setCreatorFilter] = useState('all')
+  const [sourceFilter, setSourceFilter] = useState('all')  // all | real | ai
+  const [typeFilter, setTypeFilter] = useState('all')       // all | reel | carousel
   const [telegramModal, setTelegramModal] = useState(null)
   const [toast, setToast] = useState(null)
   const [logModal, setLogModal] = useState(false)
@@ -1326,9 +1600,12 @@ export default function PostsPage() {
 
   const posts = data?.posts || []
   const allPrepping = posts.filter(p => matchesFilter(p, filter))
-  const filtered = creatorFilter === 'all'
-    ? allPrepping
-    : allPrepping.filter(p => p.creator?.id === creatorFilter)
+  // Source: real vs AI (AI = any asset/slide Source Type='AI Generated').
+  // Type: carousel (Type='Carousel') vs reel (everything else).
+  const matchSource = p => sourceFilter === 'all' || (sourceFilter === 'ai' ? !!p.isAI : !p.isAI)
+  const matchType = p => typeFilter === 'all' || (typeFilter === 'carousel' ? p.type === 'Carousel' : p.type !== 'Carousel')
+  const filtered = allPrepping.filter(p =>
+    (creatorFilter === 'all' || p.creator?.id === creatorFilter) && matchSource(p) && matchType(p))
 
   // Build creator dropdown options from whoever has prepping posts
   const creatorOptions = (() => {
@@ -1344,7 +1621,13 @@ export default function PostsPage() {
   return (
     <div style={{ color: 'var(--foreground)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Segmented label="Source" value={sourceFilter} onChange={setSourceFilter}
+            options={[{ value: 'all', label: 'All' }, { value: 'real', label: 'Real' }, { value: 'ai', label: 'AI' }]} />
+          <Segmented label="Type" value={typeFilter} onChange={setTypeFilter}
+            options={[{ value: 'all', label: 'All' }, { value: 'reel', label: 'Reels' }, { value: 'carousel', label: 'Carousels' }]} />
+        </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}
             style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 500, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: '7px', cursor: 'pointer', outline: 'none' }}>
