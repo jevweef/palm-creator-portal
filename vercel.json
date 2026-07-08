@@ -63,6 +63,14 @@
     {
       "path": "/api/cron/whale-intel-daily",
       "schedule": "35 7 * * *"
+    },
+    {
+      "path": "/api/cron/archive-live-append",
+      "schedule": "50 7 * * *"
+    },
+    {
+      "path": "/api/cron/archive-live-append",
+      "schedule": "15 8 * * *"
     }
   ]
 }
