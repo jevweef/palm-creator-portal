@@ -12,11 +12,66 @@ function fromUrl(key) {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get(key) || ''
 }
-function writeUrl(account, fan) {
+function writeUrl(account, fan, view) {
   const params = new URLSearchParams(window.location.search)
   if (account) params.set('account', account); else params.delete('account')
   if (fan) params.set('fan', fan); else params.delete('fan')
+  if (view !== undefined) { if (view && view !== 'inbox') params.set('tab', view); else params.delete('tab') }
   window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? '?' + params : ''}`)
+}
+
+// Everything money-facing shows NET (after OnlyFans' 20% cut) — Evan: "I
+// don't really ever care about gross."
+const net = (v) => (+v || 0) * 0.8
+
+// Sales-per-15-min bar graph for the last 48h; right edge = now. Height ≈ 8
+// table rows. Re-buckets on every poll so bars drift left as time passes.
+function SalesGraph({ sales }) {
+  const BUCKET = 15 * 60 * 1000
+  const N = 192 // 48h of 15-min buckets
+  const now = Date.now()
+  const start = now - N * BUCKET
+  const buckets = Array(N).fill(0)
+  for (const e of sales) {
+    const t = new Date(e.at).getTime()
+    if (isNaN(t) || t < start || t > now) continue
+    buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += net(e.price)
+  }
+  const max = Math.max(...buckets, 1)
+  const total = buckets.reduce((a, b) => a + b, 0)
+  const H = 220
+  const ticks = []
+  for (let i = 0; i <= N; i += 24) { // a tick every 6h
+    const t = new Date(start + i * BUCKET)
+    ticks.push({ x: (i / N) * 100, label: t.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric' }) })
+  }
+  const fmtBucket = (i) => {
+    const t = new Date(start + i * BUCKET)
+    return t.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '14px 16px 6px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net sales · last 48h · 15-min buckets</span>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#7DD3A4' }}>${total.toLocaleString(undefined, { maximumFractionDigits: 0 })} net</span>
+      </div>
+      <div style={{ position: 'relative' }}>
+        <svg viewBox={`0 0 ${N} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px`, display: 'block' }}>
+          {buckets.map((v, i) => v > 0 && (
+            <rect key={i} x={i + 0.12} y={H - (v / max) * (H - 14)} width={0.76} height={(v / max) * (H - 14)} fill="#A06FE8" opacity="0.9">
+              <title>{`${fmtBucket(i)} ET — $${v.toFixed(2)} net`}</title>
+            </rect>
+          ))}
+          {ticks.map((t, i) => <line key={i} x1={(t.x / 100) * N} x2={(t.x / 100) * N} y1={0} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />)}
+        </svg>
+        <span style={{ position: 'absolute', top: 0, left: 4, fontSize: '10px', color: 'var(--foreground-muted)' }}>${max.toFixed(0)}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--foreground-muted)', paddingTop: '3px' }}>
+        {ticks.filter((_, i) => i % 2 === 0).map((t, i) => <span key={i}>{t.label}</span>)}
+        <span style={{ color: '#7DD3A4', fontWeight: 700 }}>now</span>
+      </div>
+    </div>
+  )
 }
 
 export default function LiveChatPage() {
@@ -29,7 +84,8 @@ export default function LiveChatPage() {
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
   const [showMuted, setShowMuted] = useState(false)
-  const [view, setView] = useState('inbox') // 'inbox' | 'in' | 'out'
+  const [view, setView] = useState(() => fromUrl('tab') || 'inbox') // 'inbox' | 'in' | 'out' | 'sales'
+  const [sales48, setSales48] = useState([])
   const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
@@ -68,6 +124,16 @@ export default function LiveChatPage() {
       .catch(() => {})
     load()
     const t = setInterval(load, 8000)
+    return () => clearInterval(t)
+  }, [view])
+
+  // 48h sales for the graph — deep read, 60s cadence (server caches too)
+  useEffect(() => {
+    if (view !== 'sales') return
+    const load = () => fetch('/api/admin/live-chat?sales48=1', { cache: 'no-store' })
+      .then((r) => r.json()).then((d) => setSales48(d.sales || [])).catch(() => {})
+    load()
+    const t = setInterval(load, 60000)
     return () => clearInterval(t)
   }, [view])
 
@@ -195,7 +261,7 @@ export default function LiveChatPage() {
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
           {[['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing'], ['sales', 'Sales']].map(([k, label]) => (
-            <button key={k} onClick={() => setView(k)}
+            <button key={k} onClick={() => { setView(k); writeUrl(account, fan, k) }}
               style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer', background: view === k ? 'rgba(160,111,232,0.25)' : 'transparent', color: view === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
               {label}
             </button>
@@ -232,9 +298,11 @@ export default function LiveChatPage() {
           : view === 'out' ? 'Waiting — every 1:1 message your chatters send (mass blasts excluded) lands here as it happens.'
           : 'Waiting — every sale (PPVs, tips, subs) across ALL creators lands here as it happens.'
         return (
+        <>
+        {view === 'sales' && <SalesGraph sales={sales48} />}
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span>Time</span><span>Creator</span><span>Fan</span><span>{view === 'out' ? 'Locked' : view === 'sales' ? 'Amount' : ''}</span><span>{view === 'sales' ? 'What' : 'Message'}</span><span></span>
+            <span>Time</span><span>Creator</span><span>Fan</span><span>{view === 'out' ? 'Locked' : view === 'sales' ? 'Net' : ''}</span><span>{view === 'sales' ? 'What' : 'Message'}</span><span></span>
           </div>
           <div style={{ maxHeight: 'calc(100vh - 230px)', overflowY: 'auto' }}>
             {rows.length === 0 && (
@@ -255,11 +323,11 @@ export default function LiveChatPage() {
                   </span>
                 ) : (
                   <span style={{ fontSize: '10px', fontWeight: 700, color: e.dir === 'in' ? '#7DD3A4' : '#E8C878' }}>
-                    {e.dir === 'in' ? 'FAN' : `$${e.price}`}
+                    {e.dir === 'in' ? 'FAN' : `$${net(e.price).toFixed(2)}`}
                   </span>
                 )}
                 <span style={{ color: e.dir === 'in' || e.dir === 'sale' ? 'var(--foreground)' : 'var(--foreground-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {e.dir === 'unlock' ? `💸 unlocked PPV — $${e.price}`
+                  {e.dir === 'unlock' ? `💸 unlocked PPV — $${net(e.price).toFixed(2)} net`
                     : e.dir === 'sale' ? `${e.kind ? e.kind.toUpperCase() + ' — ' : ''}${e.text || ''}`
                     : (e.text || '(media)')}
                 </span>
@@ -270,6 +338,7 @@ export default function LiveChatPage() {
             ))}
           </div>
         </div>
+        </>
         )
       })() : !account ? (
         <div style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '13px', background: 'var(--card-bg-solid)', borderRadius: '12px' }}>

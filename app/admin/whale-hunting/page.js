@@ -164,7 +164,7 @@ function PalmInternalTab() {
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
         <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>{`${fmtReportDay(report?.date)} at a glance`}</div>
         <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-          <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}><th style={{ padding: '4px 8px' }}>Creator</th><th style={{ textAlign: 'right' }}>Chatter msgs</th><th style={{ textAlign: 'right' }}>Fan msgs</th><th style={{ textAlign: 'right' }}>Fans touched</th><th style={{ textAlign: 'right' }}>Sales</th><th style={{ textAlign: 'right', padding: '4px 8px' }}>$ Sales</th></tr></thead>
+          <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}><th style={{ padding: '4px 8px' }}>Creator</th><th style={{ textAlign: 'right' }}>Chatter msgs</th><th style={{ textAlign: 'right' }}>Fan msgs</th><th style={{ textAlign: 'right' }}>Fans touched</th><th style={{ textAlign: 'right' }}>Sales</th><th style={{ textAlign: 'right', padding: '4px 8px' }}>$ Sales (net)</th></tr></thead>
           <tbody>
             {stats.map((c) => (
               <tr key={c.aka} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
