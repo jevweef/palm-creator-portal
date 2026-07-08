@@ -78,7 +78,8 @@ def main():
         age_days = int((now - parse_dt(p["createdTime"])).total_seconds() // 86400)
         sched = parse_dt(f.get("Scheduled Date"))
         if missing and sched and 0 <= (sched - now).total_seconds() <= 86400:
-            imminent.append(f"{nm or title}'s post \"{title[:45]}\" is supposed to go out within 24 hours but still needs {' and '.join(missing)}")
+            imminent.append(f"{nm or title}'s post \"{title[:45]}\" is supposed to go out within 24 hours but still needs {' and '.join(missing)}"
+                            f" https://app.palm-mgmt.com/admin/posts?focusPost={p['id']}")
             continue
         if age_days < 7:
             fresh += 1                       # sitting a few days is normal — don't nag
@@ -86,15 +87,16 @@ def main():
         line = f"{nm or '?'}'s post \"{title[:45]}\" has been sitting on the Post Prep page for {age_days} days without going out"
         if missing:
             line += f" (still needs {' and '.join(missing)})"
-        (two_weeks if age_days >= 14 else week_old).append(line)
+        link = f" https://app.palm-mgmt.com/admin/posts?focusPost={p['id']}"
+        (two_weeks if age_days >= 14 else week_old).append((line, link))
 
     findings = []
     for line in imminent:
-        findings.append(finding(line + " — someone needs to fill that in today.", "red"))
-    for line in two_weeks:
-        findings.append(finding(line + " — that's long enough that it's probably forgotten; send it or delete it.", "red"))
-    for line in week_old:
-        findings.append(finding(line + " — worth a look this week.", "amber"))
+        findings.append(finding(line.replace(" https://", " — someone needs to fill that in today. https://", 1), "red"))
+    for line, link in two_weeks:
+        findings.append(finding(line + " — that's long enough that it's probably forgotten; send it or delete it." + link, "red"))
+    for line, link in week_old:
+        findings.append(finding(line + " — worth a look this week." + link, "amber"))
     if not findings:
         note = f" ({fresh} newer post(s) in the pipeline are moving normally)" if fresh else ""
         findings.append(finding(f"Nothing stuck on the Post Prep page{note}.", "green"))
