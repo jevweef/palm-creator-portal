@@ -212,12 +212,20 @@ function TaskCard({ task, onUpdate, toast }) {
   async function dismissWithFeedback(includeFeedback) {
     setDismissOpen(false)
     const updates = { status: 'Dismissed' }
-    if (includeFeedback) {
+    if (includeFeedback && (feedbackType || feedbackReason)) {
       if (feedbackType) updates.feedbackType = feedbackType
       if (feedbackReason) updates.feedbackReason = feedbackReason
+    } else {
+      // A plain dismiss still means "I didn't want this notification" — record a
+      // light signal so EVERY dismiss feeds the training rating (just lower-info
+      // than picking a specific reason).
+      updates.feedbackType = 'Other'
+      updates.feedbackReason = '(quick dismiss)'
     }
     const ok = await patchTask(updates, {
-      successMsg: includeFeedback ? 'Dismissed + feedback saved (will train AI)' : 'Dismissed',
+      successMsg: (includeFeedback && (feedbackType || feedbackReason))
+        ? 'Dismissed + feedback saved (will train AI)'
+        : 'Dismissed (logged for training)',
     })
     if (ok) onUpdate()
   }
@@ -672,6 +680,12 @@ function TasksTab({ toast }) {
   const [tasks, setTasks] = useState([])
   const [creators, setCreators] = useState([])
   const [loading, setLoading] = useState(true)
+  // Team/content chatter (bot reports, content notifications) lives in the
+  // Palm * Telegram groups — Evan doesn't manage those day-to-day, so they
+  // hide behind a dedicated "Team & content" bucket instead of flooding the
+  // default inbox.
+  const isTeamTask = (t) => t.chatSource === 'telegram' && /^palm\s/i.test(t.chatTitle || '')
+  const [bucketFilter, setBucketFilter] = useState('mine') // 'mine' | 'team'
   const [ownerFilter, setOwnerFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('Open')
   const [creatorFilter, setCreatorFilter] = useState('all')
@@ -684,7 +698,7 @@ function TasksTab({ toast }) {
   const URGENCY_RANK = { Now: 0, Soon: 1, Later: 2 }
   const taskTime = (t) => new Date(t.sourceSentAt || t.detectedAt || 0).getTime()
   const sortedTasks = useMemo(() => {
-    const arr = [...tasks]
+    const arr = tasks.filter((t) => (bucketFilter === 'team') === isTeamTask(t))
     if (sortBy === 'urgency') {
       arr.sort((a, b) => {
         const u = (URGENCY_RANK[a.urgency] ?? 9) - (URGENCY_RANK[b.urgency] ?? 9)
@@ -700,7 +714,8 @@ function TasksTab({ toast }) {
         new Date(b.detectedAt || 0).getTime() - new Date(a.detectedAt || 0).getTime())
     }
     return arr
-  }, [tasks, sortBy])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, sortBy, bucketFilter])
 
   // Load creators once for the filter dropdown
   useEffect(() => {
@@ -796,7 +811,9 @@ function TasksTab({ toast }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginRight: '4px' }}>Owner:</span>
+          {filterBtn('My inbox', 'mine', bucketFilter, setBucketFilter)}
+          {filterBtn(`Team & content (${tasks.filter(isTeamTask).length})`, 'team', bucketFilter, setBucketFilter)}
+          <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginLeft: '12px', marginRight: '4px' }}>Owner:</span>
           {filterBtn('All', 'all', ownerFilter, setOwnerFilter)}
           {filterBtn('Evan', 'Evan', ownerFilter, setOwnerFilter)}
           {filterBtn('Josh', 'Josh', ownerFilter, setOwnerFilter)}

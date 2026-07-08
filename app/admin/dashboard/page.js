@@ -716,7 +716,9 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [], m
 
             {/* Grid lines */}
             {eSteps.map(v => <line key={v} x1={pad.l} x2={pad.l + cw} y1={py(v)} y2={py(v)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />)}
-            <line x1={pad.l} x2={pad.l + cw} y1={py(0)} y2={py(0)} stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
+            {/* $0 baseline — dim but visible (the old black-alpha line was invisible on the dark theme) */}
+            <line x1={pad.l} x2={pad.l + cw} y1={py(0)} y2={py(0)} stroke="rgba(255,255,255,0.16)" strokeWidth={1} />
+            <text x={pad.l + cw + 6} y={py(0) + 4} fill="#777" fontSize={10} fontFamily="system-ui">$0</text>
 
             {/* Area fill */}
             {areaPath && <path d={areaPath} fill="url(#agencyGrad)" />}
@@ -1090,6 +1092,9 @@ export default function AdminDashboard() {
         <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{formatPeriodLabel(revenue.currentPeriodLabel)}</span>
       </div>
 
+      {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
+      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} managementStartByCreator={revenue.managementStartByCreator || {}} />
+
       {/* ─── OFTV REVIEW BANNER ─────────────────────────────────────────
           Hard-to-miss banner when ≥1 OFTV project is sitting in Final
           Submitted waiting for admin review. Rendered above the regular
@@ -1172,9 +1177,6 @@ export default function AdminDashboard() {
 
       {/* Urgent Inbox tasks — only renders for the inbox owner */}
       <UrgentInboxTasks />
-
-      {/* ─── AGENCY REVENUE CHART — full width hero ─── */}
-      <AgencyRevenueChart earningsData={earningsData} earningsLoading={earningsLoading} creatorList={creatorList} managementStartByCreator={revenue.managementStartByCreator || {}} />
 
       {/* ─── KPI STRIP ─── */}
       <style>{`

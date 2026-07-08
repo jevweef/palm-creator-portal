@@ -443,7 +443,10 @@ export default function UrgentInboxTasks() {
 
   if (!isLoaded || !isOwner) return null
   if (tasks === null) return null
+  // Palm-group (team/content) tasks stay off the dashboard — they have their
+  // own bucket on /admin/inbox.
   const visible = (tasks || []).filter(t => !removed.has(t.id))
+    .filter(t => !(t.chatSource === 'telegram' && /^palm\s/i.test(t.chatTitle || '')))
   if (visible.length === 0) return null
 
   return (
