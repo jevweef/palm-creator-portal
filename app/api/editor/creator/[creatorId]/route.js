@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300 // fans out over tasks/assets/inspo — timeout-first
 
 import { NextResponse } from 'next/server'
 import { requireAdminOrEditor, fetchAirtableRecords } from '@/lib/adminAuth'
@@ -81,9 +82,9 @@ export async function GET(request, { params }) {
     const [taskAssets, inspoRecords] = await Promise.all([
       fetchByIds('Assets', assetIds, {
         fields: [
-          'Asset Name', 'Pipeline Status', 'Dropbox Shared Link',
+          'Asset Name', 'Pipeline Status', 'Source Type', 'Asset Type', 'Dropbox Shared Link',
           'Dropbox Path (Current)', 'Creator Notes', 'Thumbnail', 'CDN URL', 'Edited File Link',
-          'Stream Edit ID', 'Stream Raw ID',
+          'Stream Edit ID', 'Stream Raw ID', 'Upload Week',
         ],
       }),
       fetchByIds('Inspiration', inspoIds, {
@@ -196,7 +197,48 @@ export async function GET(request, { params }) {
         creatorNotes: a.fields?.['Creator Notes'] || '',
         uploadWeek: a.fields?.['Upload Week'] || '',
         createdAt: a.createdTime || '',
+        used: false,
+        timesUsed: 0,
       }))
+
+    // 7b. USED clips — raw clips already picked into an edit (In Editing /
+    // In Review). Before, a clip vanished from the library the moment it was
+    // used; now it stays, sunk to the bottom, so the editor can REUSE it.
+    // timesUsed = how many of THIS creator's tasks link the clip. These come
+    // from taskAssets (assets linked to the creator's tasks), already fetched.
+    const usesByAsset = {}
+    for (const t of tasks) {
+      const aid = (t.fields?.Asset || [])[0]
+      if (aid) usesByAsset[aid] = (usesByAsset[aid] || 0) + 1
+    }
+    const unusedIds = new Set(library.map(l => l.id))
+    const usedLibrary = taskAssets
+      .filter(a => {
+        const st = a.fields?.['Source Type'] || ''
+        const ps = a.fields?.['Pipeline Status'] || ''
+        // Creator-Upload raws only (never AI/inspo), currently In Editing / In
+        // Review, and not already in the unused list.
+        return !unusedIds.has(a.id) && st !== 'Inspo Upload' && st !== 'AI Generated'
+          && (ps === 'In Editing' || ps === 'In Review')
+      })
+      .map(a => ({
+        id: a.id,
+        name: a.fields?.['Asset Name'] || '',
+        sourceType: a.fields?.['Source Type'] || '',
+        assetType: a.fields?.['Asset Type'] || '',
+        dropboxLink: a.fields?.['Dropbox Shared Link'] || '',
+        dropboxLinks: (a.fields?.['Dropbox Shared Link'] || '').split('\n').filter(Boolean),
+        thumbnail: a.fields?.Thumbnail?.[0]?.thumbnails?.large?.url || a.fields?.Thumbnail?.[0]?.url || '',
+        cdnUrl: a.fields?.['CDN URL'] || null,
+        streamRawId: a.fields?.['Stream Raw ID'] || null,
+        creatorNotes: a.fields?.['Creator Notes'] || '',
+        uploadWeek: a.fields?.['Upload Week'] || '',
+        createdAt: a.createdTime || '',
+        used: true,
+        timesUsed: usesByAsset[a.id] || 1,
+      }))
+
+    const fullLibrary = [...library, ...usedLibrary]
 
     // 8. Buffer — runway divides by POSTING cadence (2/day, fixed), not by
     // editor production rate (Weekly Reel Quota / 7, which may be higher).
@@ -216,7 +258,7 @@ export async function GET(request, { params }) {
       },
       tasks: { needsRevision, inProgress, queue, inReview, approved, history },
       inspoClips,
-      library,
+      library: fullLibrary,
     })
   } catch (err) {
     console.error('[Editor Creator] GET error:', err)
