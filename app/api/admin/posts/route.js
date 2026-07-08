@@ -80,6 +80,7 @@ export async function GET() {
 
       return {
         id: p.id,
+        createdTime: p.createdTime || null,
         name: f['Post Name'] || '',
         status: f.Status || 'Prepping',
         type,
