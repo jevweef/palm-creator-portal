@@ -1607,10 +1607,20 @@ export default function PostsPage() {
   const filtered = allPrepping.filter(p =>
     (creatorFilter === 'all' || p.creator?.id === creatorFilter) && matchSource(p) && matchType(p))
 
+  // Failed sends + Staged posts stuck for 7+ days ALWAYS show at the front
+  // of the list — a failed send used to vanish from every view, leaving
+  // nowhere to retry or delete it (Tabetha's Jun 26 post sat invisible for
+  // 11 days). Respects the creator/source/type filters.
+  const needsAttention = posts.filter(p =>
+    (p.status === 'Send Failed' ||
+      (p.status === 'Staged' && p.createdTime && (Date.now() - new Date(p.createdTime).getTime()) > 7 * 86400e3)) &&
+    (creatorFilter === 'all' || p.creator?.id === creatorFilter) && matchSource(p) && matchType(p))
+  for (const p of [...needsAttention].reverse()) {
+    if (!filtered.some(x => x.id === p.id)) filtered.unshift(p)
+  }
+
   // A deep-linked card (?focusPost= from a teammate report or Grid Planner)
-  // must always render, even when its status is outside the prep list —
-  // Send Failed / Staged cards are otherwise invisible here and the link
-  // would land on an empty page.
+  // must always render, even when its status is outside the prep list.
   const focusId = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('focusPost') : null
   if (focusId && !filtered.some(p => p.id === focusId)) {
