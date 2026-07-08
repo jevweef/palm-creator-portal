@@ -263,6 +263,11 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
             {asset.uploadWeek}
           </div>
         )}
+        {asset.used && (
+          <div style={{ position: 'absolute', top: '6px', left: '6px', background: 'var(--palm-pink)', color: '#1a0a1f', fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', letterSpacing: '0.02em' }}>
+            Used {asset.timesUsed || 1}×
+          </div>
+        )}
       </div>
       <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
         {asset.name && (
@@ -281,7 +286,7 @@ function LibraryVideoCard({ asset, creatorId, onRefresh, forcePhoto = false }) {
         </div>
         <button onClick={handleStart} disabled={starting}
           style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, background: starting ? 'rgba(167, 139, 250, 0.08)' : 'rgba(167, 139, 250, 0.08)', color: starting ? 'rgba(212, 160, 176, 0.3)' : 'var(--palm-pink)', border: '1px solid transparent', borderRadius: '6px', cursor: starting ? 'default' : 'pointer' }}>
-          {starting ? 'Starting...' : 'Start Edit'}
+          {starting ? 'Starting...' : (asset.used ? 'Reuse' : 'Start Edit')}
         </button>
         {error && <div style={{ fontSize: '10px', color: '#E87878' }}>{error}</div>}
       </div>
@@ -314,7 +319,12 @@ function LibrarySection({ title, dot, assets, creatorId, onRefresh }) {
   const [page, setPage] = useState(1)
   const [sortOrder, setSortOrder] = useState('newest')
 
+  // Unused clips first (by chosen order); USED clips sink to the bottom,
+  // least-used first, so a reused clip drops to the back of the line.
   const sorted = [...assets].sort((a, b) => {
+    const au = a.used ? 1 : 0, bu = b.used ? 1 : 0
+    if (au !== bu) return au - bu
+    if (au === 1 && (a.timesUsed || 0) !== (b.timesUsed || 0)) return (a.timesUsed || 0) - (b.timesUsed || 0)
     const da = new Date(a.createdAt || 0), db = new Date(b.createdAt || 0)
     return sortOrder === 'newest' ? db - da : da - db
   })
