@@ -133,7 +133,7 @@ def fetch_all(token: str, base: str, table_id: str, fields: list[str],
             params.append(("filterByFormula", formula))
         if offset:
             params.append(("offset", offset))
-        url = f"{API}/{base}/{table_id}?" + urllib.parse.urlencode(params)
+        url = f"{API}/{base}/{urllib.parse.quote(table_id)}?" + urllib.parse.urlencode(params)
         data = _get(url, token)
         rows.extend(data.get("records", []))
         offset = data.get("offset")
