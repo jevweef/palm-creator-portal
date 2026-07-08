@@ -15,11 +15,11 @@ export async function GET() {
 
   try {
     const posts = await fetchAirtableRecords('Posts', {
-      filterByFormula: "OR({Status}='Prepping',{Status}='Ready to Go',{Status}='Sent to Telegram',{Status}='Ready to Post')",
+      filterByFormula: "OR({Status}='Prepping',{Status}='Ready to Go',{Status}='Sent to Telegram',{Status}='Ready to Post',{Status}='Send Failed',{Status}='Staged')",
       fields: [
         'Post Name', 'Status', 'Platform', 'Caption', 'Hashtags',
         'Thumbnail', 'Scheduled Date', 'Telegram Sent At', 'Admin Notes',
-        'Creator', 'Asset', 'Task',
+        'Creator', 'Asset', 'Task', 'Type',
       ],
       sort: [{ field: 'Scheduled Date', direction: 'asc' }],
     })
@@ -37,7 +37,7 @@ export async function GET() {
         fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Status'],
       }),
       fetchAirtableRecordsByIds('Assets', assetIds, {
-        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Stream Edit ID', 'Stream Raw ID'],
+        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Source Type', 'Stream Edit ID', 'Stream Raw ID'],
       }),
     ])
 
@@ -53,17 +53,36 @@ export async function GET() {
       return !cid || !offboardedCreatorIds.has(cid)
     })
 
+    const shapeAsset = (aid) => {
+      const a = aid ? (assetMap[aid] || {}) : {}
+      return {
+        id: aid,
+        name: a['Asset Name'] || '',
+        editedFileLink: a['Edited File Link'] || '',
+        dropboxLink: a['Dropbox Shared Link'] || '',
+        thumbnail: a.Thumbnail?.[0]?.thumbnails?.large?.url || a.Thumbnail?.[0]?.url || '',
+        cdnUrl: a['CDN URL'] || null,
+        streamEditId: a['Stream Edit ID'] || null,
+        streamRawId: a['Stream Raw ID'] || null,
+        assetType: a['Asset Type'] || '',
+        sourceType: (typeof a['Source Type'] === 'string' ? a['Source Type'] : a['Source Type']?.name) || '',
+      }
+    }
+
     const result = visiblePosts.map(p => {
       const f = p.fields || {}
       const creatorId = (f.Creator || [])[0] || null
-      const assetId = (f.Asset || [])[0] || null
+      const allAssetIds = f.Asset || []
+      const assetId = allAssetIds[0] || null
       const creator = creatorId ? (creatorMap[creatorId] || {}) : {}
-      const asset = assetId ? (assetMap[assetId] || {}) : {}
+      const type = (typeof f.Type === 'string' ? f.Type : f.Type?.name) || ''
+      const shapedAssets = allAssetIds.map(shapeAsset)
 
       return {
         id: p.id,
         name: f['Post Name'] || '',
         status: f.Status || 'Prepping',
+        type,
         platform: f.Platform || [],
         caption: f.Caption || '',
         hashtags: f.Hashtags || '',
@@ -79,17 +98,18 @@ export async function GET() {
           name: creator.AKA || creator.Creator || '',
           telegramThreadId: creator['Telegram Thread ID'] || null,
         },
-        asset: {
-          id: assetId,
-          name: asset['Asset Name'] || '',
-          editedFileLink: asset['Edited File Link'] || '',
-          dropboxLink: asset['Dropbox Shared Link'] || '',
-          thumbnail: asset.Thumbnail?.[0]?.thumbnails?.large?.url || asset.Thumbnail?.[0]?.url || '',
-          cdnUrl: asset['CDN URL'] || null,
-          streamEditId: asset['Stream Edit ID'] || null,
-          streamRawId: asset['Stream Raw ID'] || null,
-          assetType: asset['Asset Type'] || '',
-        },
+        // asset = first slide (back-compat: reels have exactly one). For
+        // carousels the slides are Photo assets with a CDN URL but no
+        // Edited File Link, so the card must preview off cdnUrl, not the
+        // video-only editedFileLink.
+        asset: shapeAsset(assetId),
+        // Full ordered slide list — populated for every post; the card uses
+        // it to render a carousel preview + count when type === 'Carousel'.
+        assets: shapedAssets,
+        // Real vs AI: a reel asset (or any carousel slide) marked
+        // Source Type='AI Generated' makes the whole post AI (AI routes to
+        // Publer, real routes to Telegram). Drives the Post Prep source filter.
+        isAI: shapedAssets.some(a => a.sourceType === 'AI Generated'),
       }
     })
 

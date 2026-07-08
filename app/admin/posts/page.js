@@ -1607,6 +1607,17 @@ export default function PostsPage() {
   const filtered = allPrepping.filter(p =>
     (creatorFilter === 'all' || p.creator?.id === creatorFilter) && matchSource(p) && matchType(p))
 
+  // A deep-linked card (?focusPost= from a teammate report or Grid Planner)
+  // must always render, even when its status is outside the prep list —
+  // Send Failed / Staged cards are otherwise invisible here and the link
+  // would land on an empty page.
+  const focusId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('focusPost') : null
+  if (focusId && !filtered.some(p => p.id === focusId)) {
+    const hit = posts.find(p => p.id === focusId)
+    if (hit) filtered.unshift(hit)
+  }
+
   // Build creator dropdown options from whoever has prepping posts
   const creatorOptions = (() => {
     const m = new Map()

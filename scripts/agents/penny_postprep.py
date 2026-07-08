@@ -78,16 +78,16 @@ def main():
         age_days = int((now - parse_dt(p["createdTime"])).total_seconds() // 86400)
         sched = parse_dt(f.get("Scheduled Date"))
         if missing and sched and 0 <= (sched - now).total_seconds() <= 86400:
-            imminent.append(f"{nm or title}'s post \"{title[:45]}\" is supposed to go out within 24 hours but still needs {' and '.join(missing)}"
-                            f" https://app.palm-mgmt.com/admin/posts?focusPost={p['id']}")
+            imminent.append(f"{nm or title}'s post \"{title[:70]}\" is supposed to go out within 24 hours but still needs {' and '.join(missing)}"
+                            f" https://app.palm-mgmt.com/admin/social?tab=outbound&sub=postprep&focusPost={p['id']}")
             continue
         if age_days < 7:
             fresh += 1                       # sitting a few days is normal — don't nag
             continue
-        line = f"{nm or '?'}'s post \"{title[:45]}\" has been sitting on the Post Prep page for {age_days} days without going out"
+        line = f"{nm or '?'}'s post \"{title[:70]}\" has been sitting on the Post Prep page for {age_days} days without going out"
         if missing:
             line += f" (still needs {' and '.join(missing)})"
-        link = f" https://app.palm-mgmt.com/admin/posts?focusPost={p['id']}"
+        link = f" https://app.palm-mgmt.com/admin/social?tab=outbound&sub=postprep&focusPost={p['id']}"
         (two_weeks if age_days >= 14 else week_old).append((line, link))
 
     findings = []
