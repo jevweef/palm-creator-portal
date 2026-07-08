@@ -77,20 +77,20 @@ def main() -> int:
             new_inspo += 1
     errored = by_status.get("Error", 0)
     if errored:
-        findings.append(finding(f"{errored} inspiration rows stuck in Error status — analysis failed on them.", "amber"))
+        findings.append(finding(f"{errored} clip(s) on the Inspo Board failed their analysis and are stuck — hit Retry on the board to re-run them. https://app.palm-mgmt.com/admin/inspo", "amber"))
     if new_inspo == 0:
-        findings.append(finding(f"No new inspiration saved in {DRY_DAYS}d — scouting/grading pipeline looks dry.", "amber"))
+        findings.append(finding(f"Nothing new has been added to the Inspo Board in {DRY_DAYS} days — the scraping/scoring pipeline may have stopped feeding it.", "amber"))
 
     reels = fetch_all(token, OPS, T_SOURCE_REELS, ["Review Status", "Date Saved"])
     pending = sum(1 for r in reels if r.get("fields", {}).get("Review Status") == "Pending Review")
     if pending > BACKLOG:
-        findings.append(finding(f"{pending} Source Reels awaiting scoring (Pending Review) — grading backlog building.", "amber"))
+        findings.append(finding(f"{pending:,} scraped reels are waiting to be scored before they can reach the Inspo Board — the backlog is growing.", "amber"))
 
     sources = fetch_all(token, OPS, T_SOURCES, ["Pipeline Status", "Account Status"])
     src_err = sum(1 for s in sources if s.get("fields", {}).get("Pipeline Status") == "Error")
     active_src = sum(1 for s in sources if s.get("fields", {}).get("Account Status") == "Active")
     if src_err:
-        findings.append(finding(f"{src_err} inspo source(s) in Error — scraper failing on them (of {active_src} active).", "amber"))
+        findings.append(finding(f"{src_err} of the {active_src} accounts we scrape for inspiration are failing to scrape.", "amber"))
 
     if not findings:
         findings.append(finding(

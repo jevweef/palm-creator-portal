@@ -122,17 +122,17 @@ def main() -> int:
             if wks_over >= ABANDONED_WEEKS:
                 # weeks-dead with zero items = abandoned request to CLOSE OUT, not a today-fire
                 findings.append(finding(
-                    f"{who} — \"{title}\": ZERO items, {wks_over}w past due ({due.isoformat()}) — looks abandoned; close it out or re-issue.", "amber"))
+                    f"{who}'s content request \"{title}\" is {wks_over} weeks past due with nothing uploaded — it looks abandoned; close it or send her a fresh one.", "amber"))
             else:
                 overdue_note = f" (due {due.isoformat()}, overdue)" if due and due < today else ""
                 findings.append(finding(
-                    f"{who} — \"{title}\": ZERO items uploaded{overdue_note}. Request still Active; creator likely never opened it.", "red"))
+                    f"{who} hasn't uploaded anything to her content request \"{title}\"{overdue_note} — she probably never opened the link; worth a nudge.", "red"))
             continue
 
         if due and due < today:
             overdue_n += 1
             findings.append(finding(
-                f"{who} — \"{title}\": past due {due.isoformat()} and still Active (never moved to Overdue).", "red"))
+                f"{who}'s content request \"{title}\" was due {due.isoformat()} and is still open.", "red"))
 
         # per-section shortfall
         got: dict[str, int] = {}
@@ -145,7 +145,7 @@ def main() -> int:
             soon = due and 0 <= (due - today).days <= SOON_DAYS
             urg = "red" if (due and due < today) else ("amber" if soon else "amber")
             findings.append(finding(
-                f"{who} — \"{title}\": short sections — {'; '.join(short)}.", urg))
+                f"{who}'s content request \"{title}\" is missing items — {'; '.join(short)}.", urg))
 
     if not findings:
         findings.append(finding("All active content requests are on track — every section at/above its minimum.", "green"))

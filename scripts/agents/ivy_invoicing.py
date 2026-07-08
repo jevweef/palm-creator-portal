@@ -98,7 +98,7 @@ def main():
 
     findings = []
     for nm, days, owed in sorted(overdue, key=lambda x: -x[1]):
-        findings.append(finding(f"{nm}: invoice {days}d overdue, unpaid (${owed:,.0f} owed).", "red" if days >= OVERDUE_RED_DAYS else "amber"))
+        findings.append(finding(f"{nm}'s invoice is {days} day(s) overdue — ${owed:,.0f} still unpaid.", "red" if days >= OVERDUE_RED_DAYS else "amber"))
     if no_pdf:
         findings.append(finding(f"{len(no_pdf)} sent invoice(s) have NO PDF on file — likely never delivered: {', '.join(sorted(set(no_pdf))[:6])}.", "red"))
     if no_email:

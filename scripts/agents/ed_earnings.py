@@ -107,13 +107,13 @@ def main():
     findings = []
     sev = "red" if pre_invoice else "amber"
     if missing:
-        findings.append(finding(f"{len(missing)} active OF account(s) have NO Sales tab in the transactions sheet: {', '.join(missing)}.", sev))
+        findings.append(finding(f"{len(missing)} OnlyFans account(s) have no sales records at all in our money sheet — their earnings aren't being tracked: {', '.join(missing)}.", sev))
     if stale:
-        findings.append(finding(f"{len(stale)} Sales tab(s) stale (>{STALE_DAYS}d behind): {', '.join(stale)}.", sev))
+        findings.append(finding(f"{len(stale)} account(s)' sales records have stopped updating — earnings numbers on the site are behind until they catch up: {', '.join(stale)}.", sev))
     if holes:
-        findings.append(finding(f"{len(holes)} account(s) have a coverage gap despite a fresh tab (Earnings Data End is behind — needs a coverage refresh): {', '.join(holes)}.", "amber"))
+        findings.append(finding(f"{len(holes)} account(s) have a hole in their earnings history that needs a refresh: {', '.join(holes)}.", "amber"))
     if pre_invoice and (missing or stale):
-        findings.append(finding("Invoices generate tomorrow — the above will be billed wrong unless fixed today.", "red"))
+        findings.append(finding("Invoices generate TOMORROW — if the above isn't fixed today, creators get billed on wrong numbers.", "red"))
     if not findings:
         findings.append(finding(f"All {len(active)} active OF accounts have fresh Sales tabs within {STALE_DAYS}d; coverage current.", "green"))
 

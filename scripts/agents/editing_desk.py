@@ -127,16 +127,16 @@ def main():
     short = [f"{managed[c]} {real_by_creator.get(c,0)}/{quota_day[c]}" for c in quota_day if real_by_creator.get(c, 0) < quota_day[c]]
     if expected_day > 0:
         sev = "green" if real_yest >= expected_day else ("red" if real_yest < expected_day * 0.5 else "amber")
-        tail = (" Short: " + "; ".join(short) + ".") if short else " Every creator hit quota."
-        findings.append(finding(f"Produced: {real_yest} of {expected_day} real edits yesterday.{tail} (AI: {ai_yest})", sev))
+        tail = (" Behind: " + "; ".join(short) + ".") if short else " Every creator got their full count."
+        findings.append(finding(f"The editors finished {real_yest} of the {expected_day} videos due yesterday.{tail} (AI videos finished: {ai_yest})", sev))
 
     # review findings
     def rev_line(label, b):
         if not b["n"]:
             return None
         sev = "red" if b["oldest"] >= RED_H else ("amber" if b["stale"] else "green")
-        agetxt = f", oldest {b['oldest']/24:.1f}d" if b["stale"] else ""
-        return finding(f"{label} awaiting your review: {b['stale']} of {b['n']} waiting >{STALE_H}h{agetxt}.", sev)
+        agetxt = f" — the oldest has waited {b['oldest']/24:.0f} days" if b["stale"] else ""
+        return finding(f"{b['n']} finished {label.lower()} are waiting for YOUR approval on the review page; {b['stale']} have sat more than a day{agetxt}. https://app.palm-mgmt.com/admin/social?tab=content&sub=review", sev)
     for ln in (rev_line("Real edits", real_rev), rev_line("AI edits", ai_rev)):
         if ln:
             findings.append(ln)
