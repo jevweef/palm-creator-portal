@@ -15,7 +15,7 @@ export async function GET() {
 
   try {
     const posts = await fetchAirtableRecords('Posts', {
-      filterByFormula: "OR({Status}='Prepping',{Status}='Ready to Go',{Status}='Sent to Telegram',{Status}='Ready to Post')",
+      filterByFormula: "OR({Status}='Prepping',{Status}='Ready to Go',{Status}='Sent to Telegram',{Status}='Ready to Post',{Status}='Send Failed',{Status}='Staged')",
       fields: [
         'Post Name', 'Status', 'Platform', 'Caption', 'Hashtags',
         'Thumbnail', 'Scheduled Date', 'Telegram Sent At', 'Admin Notes',
