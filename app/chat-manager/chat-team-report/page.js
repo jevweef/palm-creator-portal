@@ -71,19 +71,42 @@ function ReportHeader({ report, available, date, setDate, loading }) {
   )
 }
 
+// Read a query param on first render (SSR-safe).
+function initParam(key) {
+  if (typeof window === 'undefined') return ''
+  return new URLSearchParams(window.location.search).get(key) || ''
+}
+
 export default function ChatManagerChatTeamReport() {
   const [data, setData] = useState(null)
-  const [date, setDate] = useState('')
-  const [creatorFilter, setCreatorFilter] = useState('')
+  // date + creator + team filters persist in the URL so a refresh keeps the view.
+  const [date, setDate] = useState(() => initParam('date'))
+  const [creatorFilter, setCreatorFilter] = useState(() => initParam('creator'))
+  const [team, setTeam] = useState(() => initParam('team') || 'All')
   const [ctx, setCtx] = useState({}) // flagKey -> { loading, thread, error }
 
+  // Keep ?date, ?creator & ?team in the URL without adding history entries.
+  const writeUrl = (nextDate, nextCreator, nextTeam) => {
+    try {
+      const p = new URLSearchParams(window.location.search)
+      if (nextDate) p.set('date', nextDate); else p.delete('date')
+      if (nextCreator) p.set('creator', nextCreator); else p.delete('creator')
+      if (nextTeam && nextTeam !== 'All') p.set('team', nextTeam); else p.delete('team')
+      window.history.replaceState(null, '', `${window.location.pathname}${p.toString() ? '?' + p : ''}`)
+    } catch { /* SSR */ }
+  }
+  const changeDate = (v) => { setDate(v); writeUrl(v, creatorFilter, team) }
+  const changeCreator = (v) => { setCreatorFilter(v); writeUrl(date, v, team) }
+  // Switching teams changes the creator list, so clear the creator filter.
+  const changeTeam = (v) => { setTeam(v); setCreatorFilter(''); writeUrl(date, '', v) }
+
   useEffect(() => {
-    const q = [date ? `date=${date}` : '', viewAsQuery()].filter(Boolean).join('&')
+    const q = [date ? `date=${date}` : '', team && team !== 'All' ? `team=${team}` : '', viewAsQuery()].filter(Boolean).join('&')
     fetch(`/api/chat-team/daily-report${q ? `?${q}` : ''}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => setData(d))
       .catch(() => setData({ report: null, available: [] }))
-  }, [date])
+  }, [date, team])
 
   const report = data?.report || null
   const available = data?.available || []
@@ -113,15 +136,28 @@ export default function ChatManagerChatTeamReport() {
   const wins = rows.flatMap((c) => (c.wins || []).map((w) => ({ ...w, creator: c.aka })))
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ width: '100%' }}>
       <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '10px' }}>Chat Team Report</h1>
       <SectionCard
         title="What gets sent to you"
         description="Pattern-level observations from yesterday's chats for your creators. Focuses on behaviors, not individuals — use it as coaching material."
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
-        {report && <CreatorSelect value={creatorFilter} onChange={setCreatorFilter} options={(report.perCreator || []).map((c) => c.aka)} />}
+        <ReportHeader report={report} available={available} date={date} setDate={changeDate} loading={loading} />
+        {/* Team A / B split — only for admins (real chat managers are already
+            scoped to their own team, so the toggle would be pointless). */}
+        {data?.scoped === false && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--foreground-muted)' }}>Team</span>
+            {['All', 'A', 'B'].map((t) => (
+              <button key={t} onClick={() => changeTeam(t)}
+                style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', border: '1px solid ' + (team === t ? 'var(--palm-pink)' : 'rgba(255,255,255,0.12)'), background: team === t ? 'var(--palm-pink)' : 'transparent', color: team === t ? '#060606' : 'var(--foreground-muted)' }}>
+                {t === 'All' ? 'All' : `Team ${t}`}
+              </button>
+            ))}
+          </div>
+        )}
+        {report && <CreatorSelect value={creatorFilter} onChange={changeCreator} options={(report.perCreator || []).map((c) => c.aka)} />}
       </div>
 
       {!report ? null : (

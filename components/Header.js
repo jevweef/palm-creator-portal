@@ -50,6 +50,11 @@ export default function Header() {
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
   if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding')) return null
+  // The chat-manager section has its own left sidebar (Palm + greeting + tab
+  // menu), so the global top header is redundant here — hiding it removes the
+  // double "Palm" and the stale "Photo Library" label (the section is more
+  // than that now). The standalone /photo-library route keeps its header.
+  if (pathname?.startsWith('/chat-manager')) return null
 
   const linkStyle = (active) => ({
     fontSize: '12px',

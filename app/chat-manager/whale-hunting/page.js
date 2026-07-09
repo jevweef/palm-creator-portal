@@ -100,7 +100,7 @@ export default function ChatManagerWhaleHunting() {
   const modalData = openFan ? fanFull[openFan] : undefined
 
   return (
-    <div style={{ maxWidth: '1500px', margin: '0 auto' }}>
+    <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Whale Hunting</h1>
         <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setOpenFan(''); writeUrl(e.target.value, '') }}
