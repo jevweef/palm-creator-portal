@@ -104,6 +104,32 @@ export default function WhaleHuntingPage() {
   )
 }
 
+// Creator filter shared by Palm Internal + Chat Team Report — persists in
+// the URL (?creator=AKA) so a refresh keeps the filter, same as ?tab.
+function useCreatorParam() {
+  const [creator, setCreatorState] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('creator') || ''
+  })
+  const setCreator = (v) => {
+    setCreatorState(v)
+    const params = new URLSearchParams(window.location.search)
+    if (v) params.set('creator', v); else params.delete('creator')
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`)
+  }
+  return [creator, setCreator]
+}
+
+function CreatorSelect({ value, onChange, options }) {
+  return (
+    <select value={options.includes(value) ? value : ''} onChange={(e) => onChange(e.target.value)}
+      style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '5px 10px', fontSize: '12px' }}>
+      <option value="">All creators</option>
+      {options.map((a) => <option key={a} value={a}>{a}</option>)}
+    </select>
+  )
+}
+
 // Shared: fetch the latest overnight report once per tab mount
 function useDailyReport() {
   const [data, setData] = useState(null)
@@ -151,15 +177,21 @@ function ReportHeader({ report, available, date, setDate, loading }) {
 
 function PalmInternalTab() {
   const { report, available, date, setDate, loading } = useDailyReport()
-  const demand = (report?.perCreator || []).flatMap((c) => (c.contentDemand || []).map((d) => ({ ...d, creator: c.aka })))
-  const stats = (report?.perCreator || [])
+  const [creatorFilter, setCreatorFilter] = useCreatorParam()
+  const akas = (report?.perCreator || []).map((c) => c.aka)
+  const rowsAll = (report?.perCreator || []).filter((c) => !creatorFilter || c.aka === creatorFilter)
+  const demand = rowsAll.flatMap((c) => (c.contentDemand || []).map((d) => ({ ...d, creator: c.aka })))
+  const stats = rowsAll
   if (report) return (
     <div>
       <SectionCard
         title="Strategic visibility into whale performance across all creators"
         description="Built nightly from yesterday's live chat data (webhooks — no credits burned)."
       />
-      <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+        <CreatorSelect value={creatorFilter} onChange={setCreatorFilter} options={akas} />
+      </div>
 
       <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
         <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>{`${fmtReportDay(report?.date)} at a glance`}</div>
@@ -254,6 +286,7 @@ function PalmInternalTabLegacy() {
 function ChatTeamTab() {
   const { report, available, date, setDate, loading } = useDailyReport()
   // verdicts + expanded conversations (hooks BEFORE any conditional return)
+  const [creatorFilter, setCreatorFilter] = useCreatorParam()
   const [fb, setFb] = useState({})            // flagKey -> 'real' | 'fine'
   const [ctx, setCtx] = useState({})          // flagKey -> { loading, thread, error }
   const repDate = report?.date
@@ -291,7 +324,7 @@ function ChatTeamTab() {
     }
   }
   if (report) {
-    const rows = report.perCreator || []
+    const rows = (report.perCreator || []).filter((c) => !creatorFilter || c.aka === creatorFilter)
     const flags = rows.flatMap((c) => (c.authenticity || []).map((a) => ({ ...a, creator: c.aka })))
     const templates = rows.flatMap((c) => (c.massTemplates || []).map((t) => ({ ...t, creator: c.aka })))
     const wins = rows.flatMap((c) => (c.wins || []).map((w) => ({ ...w, creator: c.aka })))
@@ -302,7 +335,10 @@ function ChatTeamTab() {
           title="What gets sent to the chat manager"
           description="Pattern-level observations from yesterday's chats. Focuses on behaviors, not individuals."
         />
-        <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <ReportHeader report={report} available={available} date={date} setDate={setDate} loading={loading} />
+          <CreatorSelect value={creatorFilter} onChange={setCreatorFilter} options={(report.perCreator || []).map((c) => c.aka)} />
+        </div>
 
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px 18px', marginBottom: '14px' }}>
           <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#E87878', marginBottom: '10px' }}>Authenticity flags — doesn&apos;t sound like her</div>
