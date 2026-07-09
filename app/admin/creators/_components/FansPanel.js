@@ -2173,12 +2173,46 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       // username + that nickname as display name. Fold label-only rows into
       // the username fan so his card/chart show ALL his spending — John
       // ($1,336 lifetime) was charting a $46 sliver (Evan, 2026-07-09).
+      // Two guards against merging the WRONG fan (common names — 'Jeff'
+      // pinned another Jeff's purchases onto @u484371828's chart):
+      // (1) ambiguity: a label maps only when exactly ONE username fan
+      //     displays that name; two Jeffs with usernames = no label merge.
+      // (2) tracker veto: the audit's OF-grounded lifetime caps what the fan
+      //     can have spent — a merge that would blow past it is someone else.
       const labelToUser = new Map()
+      const labelOwners = new Map() // label -> Set of usernames displaying it
       for (const t of allTxns) {
         if (t.ofUsername && t.displayName) {
           const lbl = String(t.displayName).trim().toLowerCase()
-          if (!labelToUser.has(lbl)) labelToUser.set(lbl, t.ofUsername)
+          if (!labelOwners.has(lbl)) labelOwners.set(lbl, new Set())
+          labelOwners.get(lbl).add(t.ofUsername.toLowerCase())
         }
+      }
+      for (const [lbl, owners] of labelOwners) {
+        if (owners.size === 1) labelToUser.set(lbl, [...owners][0])
+      }
+      const trackerLifetime = new Map() // username -> audit's OF-grounded lifetime
+      for (const c of (crmData || [])) {
+        if (c.ofUsername && (c.lifetimeSpend || 0) > 0) trackerLifetime.set(c.ofUsername.toLowerCase(), c.lifetimeSpend)
+      }
+      // label-row spend per label (to test the veto before merging)
+      const labelSpend = new Map()
+      for (const t of allTxns) {
+        if (!t.ofUsername && t.displayName && isRealPurchase(t)) {
+          const lbl = String(t.displayName).trim().toLowerCase()
+          labelSpend.set(lbl, (labelSpend.get(lbl) || 0) + (t.net || 0))
+        }
+      }
+      const userSpend = new Map()
+      for (const t of allTxns) {
+        if (t.ofUsername && isRealPurchase(t)) {
+          const u = t.ofUsername.toLowerCase()
+          userSpend.set(u, (userSpend.get(u) || 0) + (t.net || 0))
+        }
+      }
+      for (const [lbl, u] of [...labelToUser]) {
+        const cap = trackerLifetime.get(u)
+        if (cap && ((userSpend.get(u) || 0) + (labelSpend.get(lbl) || 0)) > cap * 1.15 + 50) labelToUser.delete(lbl)
       }
       for (const t of allTxns) {
         // Accept ALL transaction types for account membership tracking,
