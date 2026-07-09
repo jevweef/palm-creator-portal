@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation'
 import { useUser, UserButton } from '@clerk/nextjs'
 
 // Chat-manager section — the team's own login area:
-//   /chat-manager/photo-library   the photo library they already use
-//   /chat-manager/whale-hunting   sent whale analyses, admin-identical grid+modal
+//   /chat-manager/photo-library     the photo library they already use
+//   /chat-manager/whale-hunting      sent whale analyses, admin-identical grid+modal
+//   /chat-manager/chat-team-report   overnight coaching report, read-only + team-scoped
 export default function ChatManagerLayout({ children }) {
   const pathname = usePathname()
   const { user, isLoaded } = useUser()
@@ -20,6 +21,7 @@ export default function ChatManagerLayout({ children }) {
   const tabs = [
     ['/chat-manager/photo-library', 'Photo Library'],
     ['/chat-manager/whale-hunting', 'Whale Hunting'],
+    ['/chat-manager/chat-team-report', 'Chat Team Report'],
   ]
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background, #141414)', color: 'var(--foreground, #F0ECE8)' }}>
