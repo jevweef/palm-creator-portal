@@ -137,7 +137,10 @@ export default function AuditTab() {
   }, [])
 
   const selected = creators.find((c) => c.id === creatorId)
-  const visibleWatchlist = showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)
+  // Evan: nobody on the Save List under \$400 lifetime — smaller fans stay in
+  // the CRM but don't take a whale slot.
+  const overFloor = (w) => (w.lifetime || 0) >= 400
+  const visibleWatchlist = (showAllWatchlist ? watchlist : watchlist.filter((w) => w.creatorId === creatorId)).filter(overFloor)
 
   // ── The Save List, one brain (the audit) ─────────────────────────────────
   // URGENT: active fans off their own rhythm — sorted by tier, then by what
