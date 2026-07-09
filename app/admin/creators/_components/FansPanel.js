@@ -700,7 +700,11 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         setTimeout(() => {
           setShowSendModal(false)
           setSendResult(null)
-        }, 1500)
+          // Back to the list (Evan: after send, x out and return to the view).
+          // The audit tab listens for this and refreshes its Save List so the
+          // fan moves out of the urgent section immediately.
+          window.dispatchEvent(new CustomEvent('whale-alert-sent'))
+        }, 1200)
       }
     } catch (e) {
       setSendResult({ error: e.message })
@@ -2063,6 +2067,11 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
   const [modalFanId, setModalFanId] = useState(null)
   // Keep the open fan in the URL so a refresh restores exactly where you were
   // (?fan=<username or name>; the mount effect below reopens it).
+  useEffect(() => {
+    const close = () => setModalFanId(null)
+    window.addEventListener('whale-alert-sent', close)
+    return () => window.removeEventListener('whale-alert-sent', close)
+  }, [])
   const openFanModal = (mf) => {
     setModalFanId(mf ? mf.id : null)
     try {
