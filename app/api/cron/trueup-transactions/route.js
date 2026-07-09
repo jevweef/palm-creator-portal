@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 import { ofApi } from '@/lib/onlyfansApi'
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, insertRowsAtTop,
@@ -86,6 +87,9 @@ export async function GET(request) {
         r.chargebacks = await fillMissing(sheets, cbTab, cbFresh)
 
         await stampCoverage(acct.accountName)
+        // keep the whale tab's 'Sales & chargebacks' stamp honest — the
+        // nightly true-up IS a sales refresh
+        if (acct.creatorRecordId) await stampWhaleRun(acct.creatorRecordId, 'sales')
       } catch (e) {
         r.error = e.message
         console.error(`[trueup] ${acct.accountName}:`, e.message)
@@ -124,7 +128,7 @@ async function connectedAccounts() {
       const accountName = (isVip
         ? names.find((n) => /vip/i.test(n))
         : names.find((n) => !/vip/i.test(n))) || names[0] || `${aka} - ${isVip ? 'VIP' : 'Free'} OF`
-      out.push({ id, accountName })
+      out.push({ id, accountName, creatorRecordId: rec.id })
     })
   }
   return out

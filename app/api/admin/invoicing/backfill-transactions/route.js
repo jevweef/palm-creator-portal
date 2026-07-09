@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { stampWhaleRun } from '@/lib/whaleRuns'
 import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { ofApi, createDataExport, waitForDataExport, downloadExportCsv, findDataExport, getDataExport } from '@/lib/onlyfansApi'
@@ -161,6 +162,8 @@ export async function POST(request) {
     }
 
     await updateCoverageStart(accountName, results)
+    await stampWhaleRun(creatorRecordId, 'backfill')
+    await stampWhaleRun(creatorRecordId, 'sales') // a 2y backfill IS a full sales refresh
     return NextResponse.json({ ok: true, creator: cf.AKA || cf.Creator, accountName, years, ...results })
   } catch (err) {
     console.error('[backfill-transactions] Error:', err.message)
