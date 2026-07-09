@@ -1,6 +1,6 @@
 'use client'
 
-const STEPS = [
+const ALL_STEPS = [
   { key: 'basic-info', label: 'Basic Info' },
   { key: 'accounts', label: 'Accounts' },
   { key: 'survey', label: 'Survey' },
@@ -9,7 +9,10 @@ const STEPS = [
   { key: 'review', label: 'Review' },
 ]
 
-export default function OnboardingProgress({ currentStep, completedSteps = [], onStepClick }) {
+export default function OnboardingProgress({ currentStep, completedSteps = [], onStepClick, skipContract = false }) {
+  // Drop the contract step from the tracker when the admin flagged the
+  // contract as handled separately.
+  const STEPS = skipContract ? ALL_STEPS.filter(s => s.key !== 'contract') : ALL_STEPS
   const currentIndex = STEPS.findIndex(s => s.key === currentStep)
 
   return (
@@ -68,4 +71,4 @@ export default function OnboardingProgress({ currentStep, completedSteps = [], o
   )
 }
 
-export { STEPS }
+export { ALL_STEPS as STEPS }

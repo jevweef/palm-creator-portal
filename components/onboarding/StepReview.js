@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-const STEPS = [
+const ALL_STEPS = [
   { key: 'basic-info', label: 'Basic Info', num: 1 },
   { key: 'accounts', label: 'Accounts', num: 2 },
   { key: 'survey', label: 'Survey', num: 3 },
@@ -10,7 +10,10 @@ const STEPS = [
   { key: 'voice-memo', label: 'Voice Memo', num: 5 },
 ]
 
-export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitted }) {
+export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitted, skipContract = false }) {
+  // When the admin flagged the contract as handled separately, drop it from
+  // the review checklist so it isn't shown or required to submit.
+  const STEPS = skipContract ? ALL_STEPS.filter(s => s.key !== 'contract') : ALL_STEPS
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [submitted, setSubmitted] = useState(false)

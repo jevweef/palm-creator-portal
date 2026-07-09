@@ -24,6 +24,10 @@ export default function AdminOnboarding() {
   const [formState, setFormState] = useState('')
   const [contractFile, setContractFile] = useState(null) // optional already-signed PDF
   const [contractError, setContractError] = useState(null)
+  // "Contract handled separately" — hides the contract step in the creator's
+  // wizard (for creators signing offline). Go-Live still requires a signed
+  // contract, so this only affects what the creator sees now.
+  const [skipContractChecked, setSkipContractChecked] = useState(false)
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
@@ -124,8 +128,9 @@ export default function AdminOnboarding() {
   const handleStartOnboarding = async (e) => {
     e.preventDefault()
     if (!formName || !formEmail) return
-    // Agency signature is only required when we're NOT uploading an already-signed contract
-    if (!hasSigDrawn && !contractFile) return
+    // Agency signature is only required when we're NOT uploading an
+    // already-signed contract AND not handling the contract separately.
+    if (!skipContractChecked && !hasSigDrawn && !contractFile) return
     setSubmitting(true)
     setContractError(null)
     try {
@@ -133,7 +138,7 @@ export default function AdminOnboarding() {
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName }),
+        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName, skipContract: skipContractChecked }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -164,6 +169,7 @@ export default function AdminOnboarding() {
         setFormState('')
         setContractFile(null)
         setHasSigDrawn(false)
+        setSkipContractChecked(false)
         fetchCreators()
       }
     } catch (err) {
@@ -698,8 +704,27 @@ export default function AdminOnboarding() {
                 </button>
               </div>
 
+              {/* Contract handled separately — hides the contract step in the
+                  creator's wizard (for creators signing offline). */}
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '14px', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.10)', background: skipContractChecked ? 'rgba(224, 122, 195, 0.06)' : 'rgba(255,255,255,0.02)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={skipContractChecked}
+                  onChange={(e) => setSkipContractChecked(e.target.checked)}
+                  style={{ marginTop: '2px', cursor: 'pointer' }}
+                />
+                <span>
+                  <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333' }}>
+                    Contract handled separately
+                  </span>
+                  <span style={{ display: 'block', fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.5 }}>
+                    Send the portal without the contract — the creator won&apos;t see a contract step and no agency signature is needed now. Upload the signed contract later (from their onboarding board) before they go live.
+                  </span>
+                </span>
+              </label>
+
               {/* Already-signed contract upload (optional) */}
-              <div style={{ marginBottom: '14px' }}>
+              <div style={{ marginBottom: '14px', opacity: skipContractChecked ? 0.4 : 1, pointerEvents: skipContractChecked ? 'none' : 'auto' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
                   Already-signed contract (optional)
                 </label>
@@ -784,7 +809,7 @@ export default function AdminOnboarding() {
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setShowModal(false); setHasSigDrawn(false); setContractFile(null); setContractError(null) }}
+                  onClick={() => { setShowModal(false); setHasSigDrawn(false); setContractFile(null); setContractError(null); setSkipContractChecked(false) }}
                   style={{
                     padding: '9px 18px',
                     background: 'rgba(255,255,255,0.03)',
@@ -799,16 +824,16 @@ export default function AdminOnboarding() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || (!hasSigDrawn && !contractFile)}
+                  disabled={submitting || (!skipContractChecked && !hasSigDrawn && !contractFile)}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || (!hasSigDrawn && !contractFile)) ? 'transparent' : 'var(--palm-pink)',
+                    background: (submitting || (!skipContractChecked && !hasSigDrawn && !contractFile)) ? 'transparent' : 'var(--palm-pink)',
                     color: 'var(--foreground)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: (submitting || (!hasSigDrawn && !contractFile)) ? 'not-allowed' : 'pointer',
+                    cursor: (submitting || (!skipContractChecked && !hasSigDrawn && !contractFile)) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {submitting ? 'Creating...' : 'Create & Copy Link'}

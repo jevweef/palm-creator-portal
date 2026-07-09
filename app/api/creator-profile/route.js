@@ -78,6 +78,9 @@ export async function GET(request) {
       communicationEmail: c['Communication Email'] || '',
       ofEmail: c['OF Email'] || '',
       onboardingStatus: c['Onboarding Status'] || null,
+      // Admin "contract handled separately" flag — the wizard drops the
+      // contract step when this is set.
+      skipContract: !!c['Skip Portal Contract'],
       timeZone: c['Time Zone'] || '',
       address: c['Address'] || '',
       communication: c['Communication'] || [],
