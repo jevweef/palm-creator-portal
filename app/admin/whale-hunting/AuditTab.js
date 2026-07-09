@@ -639,7 +639,7 @@ export default function AuditTab() {
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left', whiteSpace: 'nowrap' }}>
-              <th style={{ padding: '4px 4px' }} title="pick fans for a selective Pull + Analyze run"><input type="checkbox" checked={urgentList.length > 0 && urgentList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); urgentList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th>Signals</th><th onClick={() => clickSort('worth')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'worth' ? '#C4A5F7' : undefined }}>Worth / mo{sortArrow('worth')}</th><th onClick={() => clickSort('last30')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'last30' ? '#C4A5F7' : undefined }}>Last 30d{sortArrow('last30')}</th><th onClick={() => clickSort('peak')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'peak' ? '#C4A5F7' : undefined }}>Peak mo{sortArrow('peak')}</th><th onClick={() => clickSort('best6')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'best6' ? '#C4A5F7' : undefined }}>Best 6mo avg{sortArrow('best6')}</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Last alert</th><th></th>
+              <th style={{ padding: '4px 4px' }} title="pick fans for a selective Pull + Analyze run"><input type="checkbox" checked={urgentList.length > 0 && urgentList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); urgentList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Status</th><th>Fan</th>{showAllWatchlist && <th>Creator</th>}<th>Why</th><th onClick={() => clickSort('worth')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'worth' ? '#C4A5F7' : undefined }}>Worth / mo{sortArrow('worth')}</th><th onClick={() => clickSort('last30')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'last30' ? '#C4A5F7' : undefined }}>Last 30d{sortArrow('last30')}</th><th onClick={() => clickSort('peak')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'peak' ? '#C4A5F7' : undefined }}>Peak mo{sortArrow('peak')}</th><th onClick={() => clickSort('best6')} title="click to sort" style={{ textAlign: 'right', padding: '4px 10px', cursor: 'pointer', color: saveSort?.key === 'best6' ? '#C4A5F7' : undefined }}>Best 6mo avg{sortArrow('best6')}</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>$500+ mos</th><th style={{ textAlign: 'right', padding: '4px 10px' }}>Lifetime</th><th style={{ padding: '4px 10px' }}>Last buy</th><th style={{ padding: '4px 10px' }}>Analysis / alert</th><th>Signals</th><th></th>
             </tr></thead>
             <tbody>
               {urgentList.map((w) => {
@@ -653,7 +653,7 @@ export default function AuditTab() {
                     <td style={{ padding: '7px 4px' }} onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={batchSel.has(w.id)} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); e.target.checked ? n.add(w.id) : n.delete(w.id); return n })} />
                     </td>
-                    <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span>{w.status === 'Analyzed' && <span title="an analysis is saved on his card but no alert has been sent to the team yet" style={{ marginLeft: '5px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>ANALYSIS READY</span>}</td>
+                    <td style={{ padding: '7px 8px' }}><span style={{ background: tc.bg, color: tc.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>{cad?.tier || 'flagged'}</span></td>
                     <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                       style={{ fontWeight: 600, maxWidth: '210px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
                       {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : <span title="no OF username on file — pulls fall back to name search; possibly a deleted account" style={{ color: '#E8C878', fontWeight: 400, fontSize: '10px' }}> · no @</span>}</td>
@@ -661,6 +661,25 @@ export default function AuditTab() {
                     <td style={{ color: 'var(--foreground-muted)', whiteSpace: 'nowrap', padding: '6px 10px 6px 0' }}>{cad?.medianGap
                       ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>
                       : 'flagged manually — run the audit for rhythm data'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }} title="his proven level — avg $/mo across his best 6-month stretch">{worthMo(w) ? `$${Math.round(worthMo(w))}` : '—'}</td>
+                    <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title={cad?.peakMonth ? `his biggest month: ${cad.peakMonth}` : ''}>{cad?.peakMonthSpend ? `$${Math.round(cad.peakMonthSpend)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title="avg $/mo across his hottest 6-month stretch — the consistency stat">{cad?.best6moAvg ? `$${Math.round(cad.best6moAvg)}` : '—'}</td>
+                    <td style={{ textAlign: 'right', padding: '7px 10px', color: (cad?.monthsOver500 || 0) >= 3 ? '#7DD3A4' : 'var(--foreground-muted)' }} title="months where he spent $500+">{cad?.monthsOver500 ?? '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--foreground-muted)', padding: '7px 10px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
+                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{fmtD(cad?.lastPurchaseDate)}</td>
+                    <td style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{(() => {
+                      if (!w.lastAlert) {
+                        return w.status === 'Analyzed'
+                          ? <span title="analysis + PDF saved on his card — not sent to the team yet" style={{ background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>
+                          : <span style={{ color: 'var(--foreground-muted)' }}>not analyzed</span>
+                      }
+                      const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
+                      const label = fmtD(w.lastAlert)
+                      return days > 30
+                        ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
+                        : <span style={{ color: '#7DD3A4' }}>{label}</span>
+                    })()}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{(() => {
                       const lv = cad?.live
                       if (!lv) return <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>—</span>
@@ -675,21 +694,6 @@ export default function AuditTab() {
                         if (rd <= 7 && (cad.currentGap || 0) > 7) out.push(chip('TALKING, NOT BUYING', '#A06FE8', 'rgba(160,111,232,0.12)', `Last reply ${rd}d ago while ${cad.currentGap}d without a purchase — chatter should close`))
                       }
                       return out.length ? out : <span style={{ color: 'var(--foreground-muted)', fontSize: '10px' }}>ok</span>
-                    })()}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }} title="his proven level — avg $/mo across his best 6-month stretch">{worthMo(w) ? `$${Math.round(worthMo(w))}` : '—'}</td>
-                    <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>
-                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title={cad?.peakMonth ? `his biggest month: ${cad.peakMonth}` : ''}>{cad?.peakMonthSpend ? `$${Math.round(cad.peakMonthSpend)}` : '—'}</td>
-                    <td style={{ textAlign: 'right', padding: '7px 10px', whiteSpace: 'nowrap' }} title="avg $/mo across his hottest 6-month stretch — the consistency stat">{cad?.best6moAvg ? `$${Math.round(cad.best6moAvg)}` : '—'}</td>
-                    <td style={{ textAlign: 'right', padding: '7px 10px', color: (cad?.monthsOver500 || 0) >= 3 ? '#7DD3A4' : 'var(--foreground-muted)' }} title="months where he spent $500+">{cad?.monthsOver500 ?? '—'}</td>
-                    <td style={{ textAlign: 'right', color: 'var(--foreground-muted)', padding: '7px 10px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                    <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{fmtD(cad?.lastPurchaseDate)}</td>
-                    <td style={{ fontSize: '11px' }}>{(() => {
-                      if (!w.lastAlert) return <span style={{ color: '#E88C5C' }}>never</span>
-                      const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
-                      const label = fmtD(w.lastAlert)
-                      return days > 30
-                        ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
-                        : <span style={{ color: '#7DD3A4' }}>{label}</span>
                     })()}</td>
                     <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
                   </tr>
