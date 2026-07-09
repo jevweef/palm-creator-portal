@@ -60,6 +60,7 @@ const ADMIN_NAV = [
     { key: 'chats', label: 'Messages' },
     { key: 'setup', label: 'Setup' },
   ]},
+  { href: '/admin/team', label: 'Team Access', icon: '🔑' },
   { href: '/admin/help', label: 'Help', icon: '❓' },
 ]
 
