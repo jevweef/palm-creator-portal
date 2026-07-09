@@ -24,6 +24,7 @@ export async function GET() {
       email: i.email_address,
       role: i.public_metadata?.role || '',
       chatTeam: i.public_metadata?.chatTeam || '',
+      url: i.url || null,
       createdAt: i.created_at,
     }))
     return NextResponse.json({ invites })

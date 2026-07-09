@@ -92,7 +92,13 @@ export default function TeamAccessPage() {
         {invites.map((i) => (
           <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }}>
             <span>{i.email} <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>· {i.role || 'no role'}{i.chatTeam ? ` · Team ${i.chatTeam}` : ''}</span></span>
-            <button onClick={() => revoke(i.id)} style={{ background: 'none', border: '1px solid rgba(232,120,120,0.4)', color: '#E87878', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Revoke</button>
+            <span style={{ display: 'flex', gap: '6px' }}>
+              {i.url && (
+                <button onClick={async () => { try { await navigator.clipboard.writeText(i.url); setMsg({ ok: true, text: `Invite link for ${i.email} copied — send it however you like.` }) } catch { setMsg({ ok: false, text: 'Copy failed — long-press the Revoke row URL instead.' }) } }}
+                  style={{ background: 'none', border: '1px solid var(--palm-pink)', color: 'var(--palm-pink)', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Copy link</button>
+              )}
+              <button onClick={() => revoke(i.id)} style={{ background: 'none', border: '1px solid rgba(232,120,120,0.4)', color: '#E87878', borderRadius: '6px', padding: '3px 10px', fontSize: '11px', cursor: 'pointer' }}>Revoke</button>
+            </span>
           </div>
         ))}
       </div>
