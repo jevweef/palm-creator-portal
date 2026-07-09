@@ -1712,9 +1712,22 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {hasFullText && fullText && briefText && (
                     <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Full Analysis</button>
-                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 600, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? 'rgba(255,255,255,0.08)' : 'rgba(240, 236, 232, 0.75)' }}>Manager Brief</button>
+                      <button onClick={() => setShowBrief(false)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: !showBrief ? '#E88C5C' : 'transparent', color: !showBrief ? '#1a1a1a' : 'var(--foreground-muted)' }}>Full Analysis</button>
+                      <button onClick={() => setShowBrief(true)} style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 700, border: 'none', cursor: 'pointer', background: showBrief ? '#E88C5C' : 'transparent', color: showBrief ? '#1a1a1a' : 'var(--foreground-muted)' }}>Manager Brief</button>
                     </div>
+                  )}
+                  {!sentAlert && (
+                    <button
+                      onClick={() => { setViewingAnalysisIdx(null); handlePreviewPdf() }}
+                      disabled={previewLoading}
+                      style={{
+                        background: 'var(--palm-pink)', border: 'none', borderRadius: '6px',
+                        padding: '6px 14px', fontSize: '12px', color: '#060606', fontWeight: 600,
+                        cursor: previewLoading ? 'not-allowed' : 'pointer', opacity: previewLoading ? 0.6 : 1,
+                        display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap',
+                      }}>
+                      <span style={{ fontSize: '14px' }}>&#9993;</span> Send to Chat Manager
+                    </button>
                   )}
                   <button onClick={() => { setViewingAnalysisIdx(null); setShowBrief(false) }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--foreground-muted)', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>&times;</button>
                 </div>
