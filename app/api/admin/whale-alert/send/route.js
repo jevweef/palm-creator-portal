@@ -155,7 +155,8 @@ export async function POST(request) {
       success: true,
       messageId: data.result?.message_id,
       sentTo: { creator: creatorName, chatId: topic.chatId, threadId: topic.threadId },
-      dropboxLink: shareLink,
+      portalLink,
+      pdfSent,
       trackerError, // null on success; string with reason if the Fan Tracker write failed
     })
   } catch (err) {
