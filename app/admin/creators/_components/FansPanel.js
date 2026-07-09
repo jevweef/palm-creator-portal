@@ -1060,19 +1060,6 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
 
               {/* Pull the conversation straight from OF (read-only API) —
                   replaces the scroll → save HTML → upload dance. */}
-              {bigPull && (
-                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
-                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
-                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
-                    Pull it anyway ({bigPull.credits} credits)
-                  </button>
-                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
-                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
-                    Keep recent only (cheap top-ups from now on)
-                  </button>
-                </div>
-              )}
               {archiveMeta && !ofPull && (
                 <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
                   Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
