@@ -545,8 +545,14 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         const [y, m] = cur.split('-').map(Number)
         cur = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
       }
-      // Cap at 12 most recent months so the chart stays readable
-      monthlyHistory = filled.length > 12 ? filled.slice(-12) : filled
+      // Cap at 12 months — but END the window just after his LAST active
+      // month (clamped to now), not at today. A fan silent 9 months was
+      // rendering 9 empty bars with his real spending era cut off the left
+      // edge; now his era shows, plus 2 empty months so the drop-off reads.
+      let lastActive = -1
+      for (let i = filled.length - 1; i >= 0; i--) { if (filled[i].spend > 0) { lastActive = i; break } }
+      const windowed = lastActive === -1 ? filled : filled.slice(0, Math.min(filled.length, lastActive + 3))
+      monthlyHistory = windowed.length > 12 ? windowed.slice(-12) : windowed
     }
 
     // Compute peak 90-day monthly avg (best 3-month rolling window) with date range
