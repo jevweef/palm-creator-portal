@@ -89,6 +89,28 @@ export async function POST(request) {
       return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
+    // PDF attachment (Evan 2026-07-09: send BOTH — the PDF for reading in
+    // Telegram AND the portal hyperlink). Direct multipart upload to Telegram;
+    // NO Dropbox render chain (that was the old 504 cause). Best-effort: the
+    // text alert already landed, so a PDF hiccup never fails the send.
+    let pdfSent = false
+    try {
+      const { generateWhaleAlertPdf } = await import('@/lib/generateWhaleAlertPdf')
+      const pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
+      const fd = new FormData()
+      fd.append('chat_id', String(topic.chatId))
+      fd.append('message_thread_id', String(topic.threadId))
+      fd.append('caption', 'Full analysis (PDF)')
+      const fanSlug = String(alert.username || alert.fan || 'fan').replace(/[^a-zA-Z0-9_-]/g, '_')
+      fd.append('document', new Blob([pdfBuffer], { type: 'application/pdf' }), `whale-alert-${fanSlug}-${new Date().toISOString().slice(0, 10)}.pdf`)
+      const docRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`, { method: 'POST', body: fd })
+      const docData = await docRes.json()
+      pdfSent = !!docData.ok
+      if (!docData.ok) console.warn('[Whale Alert] sendDocument failed:', docData.description)
+    } catch (e) {
+      console.warn('[Whale Alert] PDF attach failed (text already sent):', e.message)
+    }
+
     // Log to Fan Tracker — await so the client refresh picks up the new alert history.
     // If this fails (bad linked record, missing field, etc.) the Telegram message already
     // went out, so we don't want to mask the send as a failure — but we DO surface the
