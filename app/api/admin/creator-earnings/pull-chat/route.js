@@ -229,22 +229,26 @@ export async function POST(request) {
         if (pendingId) {
           const st = await getDataExport(pendingId).catch(() => null)
           if (st?.status === 'completed') {
+            // Cost gate on the FINAL count only. total_rows grows while OF
+            // builds the export — a mid-build quote (Pedro: "1,123 ≈ 57cr")
+            // ballooned to 4,707/236cr after approval. Nothing is charged
+            // until download, so the finished export can safely sit pending
+            // while the admin decides; approval attaches to this exact file.
+            const finalCredits = st.credit_cost ?? (st.total_rows != null ? Math.ceil(st.total_rows / 20) : null)
+            if (finalCredits != null && finalCredits > AUTO_SPEND_LIMIT && !confirmBig) {
+              return NextResponse.json({
+                needsConfirm: true, estimatedCredits: finalCredits, estimatedMessages: st.total_rows ?? null,
+                error: `His spending-era export finished: ${st.total_rows?.toLocaleString?.() || '?'} messages = ${finalCredits} credits (your cap is ${AUTO_SPEND_LIMIT}). Nothing charged yet — approve below to download it at exactly that price.`,
+              }, { status: 402 })
+            }
             const csv = await downloadExportCsv(st)
             const got = csvToMessages(csv)
             if (got.length) await saveChunkShard(creatorName, fanName, fanUsername, got)
             await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
-            return NextResponse.json({ fan, accountId, pages: 0, credits: st.credit_cost ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: finalCredits ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
           }
           if (st && !['failed', 'cancelled'].includes(st.status)) {
-            const projected = st.credit_cost ?? (st.total_rows != null ? Math.ceil(st.total_rows / 20) : null)
-            if (projected != null && projected > AUTO_SPEND_LIMIT && !confirmBig) {
-              await cancelDataExport(pendingId).catch(() => {})
-              await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
-              return NextResponse.json({
-                needsConfirm: true, estimatedCredits: projected, estimatedMessages: st.total_rows ?? null,
-                error: `His spending-era export is ~${st.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits (cap ${AUTO_SPEND_LIMIT}) — cancelled free. Approve below to pull it anyway.`,
-              }, { status: 402 })
-            }
+            // still building — always free, never quote a moving number
             return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0, rowsFound: st.total_rows ?? null })
           }
           // failed/cancelled — clear and start fresh below
