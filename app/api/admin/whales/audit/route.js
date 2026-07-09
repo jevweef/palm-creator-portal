@@ -284,6 +284,48 @@ export async function POST(request) {
       }
     }
 
+    // No-username fans (whole history predates the API era): try to RECOVER
+    // their real @username by searching OF's fan lists — active AND expired —
+    // for their exact chatter nickname. Found → they become checkable/pullable
+    // like everyone else. Found NOWHERE → deleted or renamed; either way
+    // unactionable, so mark them Deleted and stop showing them (Evan: "I
+    // don't want to waste my time on deleted accounts").
+    const resolveDeadline = Date.now() + 60000
+    const noUser = [...triggered, ...dormantWhales].filter((t) => !t.ofUsername && (t.fanName || '').trim())
+    for (const t of noUser) {
+      if (Date.now() > resolveDeadline) break
+      let found = null
+      for (const acc of accountIds) {
+        for (const scope of ['all', 'expired']) {
+          try {
+            const json = await ofApi(`/${acc}/fans/${scope}?limit=20&query=${encodeURIComponent(t.fanName)}`)
+            const list = json?.data?.list || json?.data || []
+            const hit = (Array.isArray(list) ? list : []).find((u) => (u.name || '').trim().toLowerCase() === t.fanName.trim().toLowerCase())
+            if (hit?.id) { found = hit; break }
+          } catch { /* next scope */ }
+        }
+        if (found) break
+      }
+      if (found) {
+        t.ofUsername = found.username || ''
+        t.fanId = String(found.id)
+      } else {
+        t._unreachable = true
+      }
+      await new Promise((r) => setTimeout(r, 120))
+    }
+    const unreachable = noUser.filter((t) => t._unreachable)
+    for (const t of unreachable) {
+      const row = mine.find((r) => !(r.fields?.['OF Username']) && (r.fields?.['Fan Name'] || '').trim().toLowerCase() === (t.fanName || '').trim().toLowerCase())
+      const note = `Not found on any OF fan list (active or expired) under this nickname — account deleted or renamed; unactionable. Auto-marked by audit ${new Date().toISOString().slice(0, 10)}.`
+      if (row) await patchAirtableRecord(FAN_TRACKER, row.id, { Status: 'Deleted', Notes: note }).catch(() => {})
+    }
+    if (unreachable.length) {
+      const gone = new Set(unreachable.map((t) => t.fanName))
+      triggered = triggered.filter((t) => !gone.has(t.fanName) || t.ofUsername)
+      dormantWhales = dormantWhales.filter((t) => !gone.has(t.fanName) || t.ofUsername)
+    }
+
     // Drop deleted accounts from this audit's output + flag them in the tracker.
     if (deletedKeys.size) {
       const isDeleted = (t) => t.ofUsername && deletedKeys.has(t.ofUsername.toLowerCase())
@@ -321,7 +363,7 @@ export async function POST(request) {
         rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
         peakMonth: t.peakMonth, peakMonthSpend: t.peakMonthSpend,
         best6moAvg: t.best6moAvg, monthsOver500: t.monthsOver500,
-        lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, at: new Date().toISOString(),
+        lastPurchaseDate: t.lastPurchaseDate, tier: t.tier, fanId: t.fanId || null, at: new Date().toISOString(),
         live: liveByKey[(t.ofUsername || '').toLowerCase()] || null,
       })
       const existing = mine.find((r) =>
