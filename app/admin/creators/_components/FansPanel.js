@@ -1089,7 +1089,11 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                   {pullingOf ? 'Loading…' : 'Load archived chat (0 credits)'}
                 </button>
               )}
-              {(f.ofUsername || f.fanId || f.fanName) && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+              {f.alertStatus === 'Deleted' ? (
+                <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', padding: '6px 0' }}>
+                  His OF account is deleted — chat can&apos;t be pulled (his history stays if we archived it).
+                </span>
+              ) : (f.ofUsername || f.fanId || f.fanName) && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
                 style={{
                   background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
