@@ -38,7 +38,7 @@ export default function SuperAdminBar() {
   // Determine active tab from pathname
   const isCreatorTab = pathname?.startsWith('/creator')
   const isEditorTab = pathname?.startsWith('/editor')
-  const isChatManagerTab = pathname?.startsWith('/photo-library')
+  const isChatManagerTab = pathname?.startsWith('/photo-library') || pathname?.startsWith('/chat-manager')
   const isAiEditorTab = pathname?.startsWith('/ai-editor')
   const isAdminTab = !isCreatorTab && !isEditorTab && !isChatManagerTab && !isAiEditorTab
 
@@ -135,7 +135,7 @@ export default function SuperAdminBar() {
     }
     setSelectedChatManager(cm)
     setChatMgrDropdownOpen(false)
-    router.push('/photo-library')
+    router.push('/chat-manager/whale-hunting')
   }
   const handleClearChatManager = () => {
     if (typeof window !== 'undefined') {
@@ -143,7 +143,7 @@ export default function SuperAdminBar() {
     }
     setSelectedChatManager(null)
     setChatMgrDropdownOpen(false)
-    router.push('/photo-library')
+    router.push('/chat-manager/photo-library')
   }
   const handleCreatorSelect = (creator) => {
     setSelectedCreator(creator)
