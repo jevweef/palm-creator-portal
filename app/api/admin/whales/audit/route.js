@@ -208,14 +208,31 @@ export async function POST(request) {
     // sheet can't see: rebill off / sub set to expire, last reply (talking-
     // but-not-buying), and OF list memberships — is he on a whale/DNM list
     // (protected from mass blasts) or exposed?
-    const accountId = cf['OF API Account ID']
+    // Multi-account creators (Taby Free+VIP) store comma-separated ids — the
+    // raw field in the URL 404'd EVERY lookup and mass-flagged her fans as
+    // Deleted (58 false tombstones by 2026-07-09). Try each account; a fan is
+    // deleted only when EVERY account 404s him.
+    const accountIds = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
     const liveByKey = {}
     const deletedKeys = new Set() // usernames whose OF account 404s = deleted
-    if (accountId) {
+    if (accountIds.length) {
       const toCheck = [...triggered, ...dormantWhales].filter((t) => t.ofUsername).slice(0, 40)
       for (const t of toCheck) {
+        let json = null, all404 = true
+        for (const accountId of accountIds) {
+          try {
+            json = await ofApi(`/${accountId}/users/${encodeURIComponent(t.ofUsername)}`)
+            all404 = false
+            break
+          } catch (e) {
+            if (!/OF API 404/.test(e.message || '')) all404 = false
+          }
+        }
+        if (json == null) {
+          if (all404) deletedKeys.add(t.ofUsername.toLowerCase())
+          continue
+        }
         try {
-          const json = await ofApi(`/${accountId}/users/${encodeURIComponent(t.ofUsername)}`)
           const d = json?.data ?? json ?? {}
           const so = d.subscribedOnData || {}
           const lists = (d.listsStates || []).filter((l) => l.hasUser)
@@ -232,12 +249,7 @@ export async function POST(request) {
             checkedAt: new Date().toISOString(),
           }
           await new Promise((r) => setTimeout(r, 120))
-        } catch (e) {
-          // A hard 404 on the user = the fan DELETED his OF account. Mark his
-          // tracker row so he stops occupying a save-list slot (Evan,
-          // 2026-07-07 — Chris case); other errors leave the cadence standing.
-          if (/OF API 404/.test(e.message || '')) deletedKeys.add(t.ofUsername.toLowerCase())
-        }
+        } catch { /* shape surprise — leave the cadence standing */ }
       }
     }
 
