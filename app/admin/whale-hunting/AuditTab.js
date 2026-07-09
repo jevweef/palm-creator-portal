@@ -76,6 +76,7 @@ export default function AuditTab() {
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [saveSort, setSaveSort] = useState(null) // {key, dir} | null = tier order
   const [fanSearch, setFanSearch] = useState('') // filters urgent + sent + dormant by name/@username
+  const [dormSort, setDormSort] = useState(null) // {key, dir} for the dormant table
   const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
   const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
@@ -174,7 +175,21 @@ export default function AuditTab() {
     })
   const clickSort = (key) => setSaveSort((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null))
   const sortArrow = (key) => (saveSort?.key === key ? (saveSort.dir === 'desc' ? ' ▾' : ' ▴') : '')
-  const dormantList = visibleWatchlist.filter((w) => isDormant(w) && matchesSearch(w)).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
+  const DORM_METRICS = {
+    lifetime: (w) => w.lifetime || 0,
+    lastbuy: (w) => new Date(w.cadence?.lastPurchaseDate || 0).getTime(),
+    silent: (w) => w.cadence?.currentGap || 0,
+    alert: (w) => new Date(w.lastAlert || 0).getTime(),
+  }
+  const dormantList = visibleWatchlist.filter((w) => isDormant(w) && matchesSearch(w)).sort((a, b) => {
+    if (dormSort && DORM_METRICS[dormSort.key]) {
+      const d = DORM_METRICS[dormSort.key](b) - DORM_METRICS[dormSort.key](a)
+      return dormSort.dir === 'asc' ? -d : d
+    }
+    return (b.lifetime || 0) - (a.lifetime || 0)
+  })
+  const dormSortClick = (key) => setDormSort((s0) => (s0?.key !== key ? { key, dir: 'desc' } : s0.dir === 'desc' ? { key, dir: 'asc' } : null))
+  const dormArrow = (key) => (dormSort?.key === key ? (dormSort.dir === 'desc' ? ' ▾' : ' ▴') : '')
   // "Worth/mo" = his PROVEN level (best 6-month stretch), not the recent 90d
   // average — a going-cold fan's recent average is already depressed, which
   // made the at-risk number absurdly small (Evan: "$401/mo from 5,000 fans?").
@@ -759,7 +774,7 @@ export default function AuditTab() {
           </summary>
           <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '10px' }}>
             <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 4px' }}><input type="checkbox" checked={dormantList.length > 0 && dormantList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); dormantList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Last buy</th><th style={{ padding: '4px 12px' }}>Silent</th><th style={{ padding: '4px 12px' }}>Last alert</th><th></th>
+              <th style={{ padding: '4px 4px' }}><input type="checkbox" checked={dormantList.length > 0 && dormantList.every((w) => batchSel.has(w.id))} onChange={(e) => setBatchSel((s0) => { const n = new Set(s0); dormantList.forEach((w) => e.target.checked ? n.add(w.id) : n.delete(w.id)); return n })} /></th><th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th onClick={() => dormSortClick('lifetime')} title="click to sort" style={{ textAlign: 'right', padding: '4px 12px', cursor: 'pointer', color: dormSort?.key === 'lifetime' ? '#C4A5F7' : undefined }}>Lifetime{dormArrow('lifetime')}</th><th onClick={() => dormSortClick('lastbuy')} title="click to sort" style={{ padding: '4px 12px', cursor: 'pointer', color: dormSort?.key === 'lastbuy' ? '#C4A5F7' : undefined }}>Last buy{dormArrow('lastbuy')}</th><th onClick={() => dormSortClick('silent')} title="click to sort" style={{ padding: '4px 12px', cursor: 'pointer', color: dormSort?.key === 'silent' ? '#C4A5F7' : undefined }}>Silent{dormArrow('silent')}</th><th onClick={() => dormSortClick('alert')} title="click to sort" style={{ padding: '4px 12px', cursor: 'pointer', color: dormSort?.key === 'alert' ? '#C4A5F7' : undefined }}>Last alert{dormArrow('alert')}</th><th></th>
             </tr></thead>
             <tbody>
               {dormantList.map((w) => (
