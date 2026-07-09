@@ -372,7 +372,13 @@ export async function POST(request) {
       )
       if (existing) {
         const patch = { 'Cadence': cadence }
-        if ((existing.fields?.['Lifetime Spend'] || 0) < t.lifetime) patch['Lifetime Spend'] = t.lifetime
+        const exLt = existing.fields?.['Lifetime Spend'] || 0
+        if (exLt < t.lifetime) patch['Lifetime Spend'] = t.lifetime
+        // Correct corrupt legacy figures DOWN too: t.lifetime is already
+        // OF-grounded (max of sheet sum and OF's own all-time total), so a
+        // stored number 3x beyond it is a bad old import, not real spend
+        // (a $3,344 fan sat at $149,444 for months because raises-only).
+        else if (exLt > t.lifetime * 3 + 100) patch['Lifetime Spend'] = t.lifetime
         if (t.ofUsername && !existing.fields?.['OF Username']) patch['OF Username'] = t.ofUsername
         // Status reflects the fan's CURRENT state — sending an alert doesn't
         // change that they're going cold (the alert lives in Last Alert Sent).
