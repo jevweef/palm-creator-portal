@@ -69,46 +69,61 @@ export async function POST(request) {
 
     // Portal link to the full analysis (chat-manager view) — clean hyperlink
 
-    // Send text message to Telegram
+    // ONE Telegram message: the PDF as the document, alert text as its
+    // caption (Evan: "keep it in the same message like it used to be").
+    // Caption cap is 1024 chars — trim the brief to fit, keep the link.
+    // If the PDF can't render, fall back to a plain text message.
     const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: topic.chatId,
-        message_thread_id: topic.threadId,
-        text: esc(message) + `\n\u{1F4CE} <a href="${portalLink}">Open his full analysis</a>`,
-        parse_mode: 'HTML',
-        disable_web_page_preview: true,
-      }),
-    })
-    const data = await res.json()
-
-    if (!data.ok) {
-      console.error('[Whale Alert] Telegram sendMessage failed:', data)
-      return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
+    const linkHtml = `\n\u{1F4CE} <a href="${portalLink}">Open his full analysis</a>`
+    const buildCaption = (msg) => {
+      let cap = esc(msg)
+      // budget: 1024 minus the link markup's VISIBLE length (~25) with margin
+      const budget = 980
+      if (cap.length > budget) cap = cap.slice(0, budget - 1) + '\u2026'
+      return cap + linkHtml
     }
 
-    // PDF attachment (Evan 2026-07-09: send BOTH — the PDF for reading in
-    // Telegram AND the portal hyperlink). Direct multipart upload to Telegram;
-    // NO Dropbox render chain (that was the old 504 cause). Best-effort: the
-    // text alert already landed, so a PDF hiccup never fails the send.
-    let pdfSent = false
+    let pdfBuffer = null
     try {
       const { generateWhaleAlertPdf } = await import('@/lib/generateWhaleAlertPdf')
-      const pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
+      pdfBuffer = await generateWhaleAlertPdf({ creatorName, creatorAka, alert, analysis })
+    } catch (e) {
+      console.warn('[Whale Alert] PDF render failed — sending text-only:', e.message)
+    }
+
+    let data
+    let pdfSent = false
+    if (pdfBuffer) {
+      const fanSlug = String(alert.username || alert.fan || 'fan').replace(/[^a-zA-Z0-9_-]/g, '_')
       const fd = new FormData()
       fd.append('chat_id', String(topic.chatId))
       fd.append('message_thread_id', String(topic.threadId))
-      fd.append('caption', 'Full analysis (PDF)')
-      const fanSlug = String(alert.username || alert.fan || 'fan').replace(/[^a-zA-Z0-9_-]/g, '_')
+      fd.append('caption', buildCaption(message))
+      fd.append('parse_mode', 'HTML')
       fd.append('document', new Blob([pdfBuffer], { type: 'application/pdf' }), `whale-alert-${fanSlug}-${new Date().toISOString().slice(0, 10)}.pdf`)
-      const docRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`, { method: 'POST', body: fd })
-      const docData = await docRes.json()
-      pdfSent = !!docData.ok
-      if (!docData.ok) console.warn('[Whale Alert] sendDocument failed:', docData.description)
-    } catch (e) {
-      console.warn('[Whale Alert] PDF attach failed (text already sent):', e.message)
+      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`, { method: 'POST', body: fd })
+      data = await res.json()
+      pdfSent = !!data.ok
+      if (!data.ok) console.warn('[Whale Alert] sendDocument failed, falling back to text:', data.description)
+    }
+    if (!data?.ok) {
+      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: topic.chatId,
+          message_thread_id: topic.threadId,
+          text: esc(message) + linkHtml,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
+      })
+      data = await res.json()
+    }
+
+    if (!data.ok) {
+      console.error('[Whale Alert] Telegram send failed:', data)
+      return NextResponse.json({ error: `Telegram error: ${data.description}` }, { status: 502 })
     }
 
     // Log to Fan Tracker — await so the client refresh picks up the new alert history.
