@@ -31,7 +31,8 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const accountId = cf['OF API Account ID']
+    const accountIds = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+    const accountId = accountIds[0] || ''
     if (!accountId) {
       return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
     }
@@ -87,6 +88,7 @@ export async function POST(request) {
       if (arr.length < 20) break
       offset += 20
     }
+    }
     const fansCapped = fans.length >= 1000
 
     // Rotate snapshots: current → prev, new → current (nothing deleted).
@@ -94,7 +96,7 @@ export async function POST(request) {
     if (prevRaw) {
       await uploadToDropbox(accessToken, rootNs, `${dir}/fans-prev.json`, Buffer.from(prevRaw), { overwrite: true })
     }
-    const snapshot = { takenAt: new Date().toISOString(), accountId, fans }
+    const snapshot = { takenAt: new Date().toISOString(), accountId: accountIds.join(","), fans }
     await uploadToDropbox(accessToken, rootNs, `${dir}/fans.json`, Buffer.from(JSON.stringify(snapshot, null, 1), 'utf8'), { overwrite: true })
 
     // ── 3) Rebill-off alerts ─────────────────────────────────────────────────
