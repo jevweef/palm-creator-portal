@@ -177,7 +177,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
   }, [isExpanded, f.id])
 
   async function handleLoadArchive() {
-    setPullingOf(true); setAnalysisError(null)
+    setPullingOf(true); setBusyMode('load'); setAnalysisError(null)
     try {
       const res = await fetch('/api/admin/creator-earnings/pull-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -187,7 +187,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
       if (!res.ok) throw new Error(data.error || 'Load failed')
       setOfPull({ ...data.parsed, newMessages: 0, credits: 0 })
       setChatFile(null)
-    } catch (e) { setAnalysisError(e.message) } finally { setPullingOf(false) }
+    } catch (e) { setAnalysisError(e.message) } finally { setPullingOf(false); setBusyMode(null) }
   }
 
   // Milestone dates from alert history and analyses
@@ -1099,7 +1099,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                     padding: '6px 14px', fontSize: '12px', color: '#7DD3A4', fontWeight: 600,
                     cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                   }}>
-                  {pullingOf ? 'Loading…' : 'Load archived chat (0 credits)'}
+                  Load archived chat (0 credits)
                 </button>
               )}
               {f.alertStatus === 'Deleted' ? (
@@ -1112,7 +1112,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                   padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
                   cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
                 }}>
-                {pullingOf ? (pullProgress?.waiting != null ? `Building his spending-era export… ${pullProgress.rowsFound != null ? pullProgress.rowsFound.toLocaleString() + ' real messages found' : pullProgress.waiting + '%'}` : pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+                {ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
               {!readOnly && (f.ofUsername || f.fanId || f.fanName) && f.alertStatus !== 'Deleted' && !pullingOf && (() => {
                 const autoCap = Math.max(15, Math.min(250, Math.round((f.lifetimeSpend || 0) / 50) || 15))
@@ -1128,6 +1128,31 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                   </div>
                 )
               })()}
+              {/* ── STATUS LINE — one fixed slot; exactly one state shows here ── */}
+              {(pullingOf || analyzing || (ofPull && !chatFile && ofPull.messageCount > 0)) && (
+                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+                  background: analyzing ? 'rgba(232,140,92,0.08)' : pullingOf ? 'rgba(196,165,247,0.08)' : 'rgba(125,211,164,0.06)',
+                  border: `1px solid ${analyzing ? 'rgba(232,140,92,0.25)' : pullingOf ? 'rgba(196,165,247,0.25)' : 'rgba(125,211,164,0.2)'}` }}>
+                  {pullingOf && busyMode === 'load' && <span style={{ color: '#7DD3A4' }}>Loading his archived chat (0 credits)…</span>}
+                  {pullingOf && busyMode !== 'load' && pullProgress?.waiting != null && (
+                    <span style={{ color: '#A06FE8' }}>Building his spending-era export at OF… {pullProgress.rowsFound != null ? `${pullProgress.rowsFound.toLocaleString()} real messages found so far` : `${pullProgress.waiting}%`} (checks every few seconds, 0 credits while waiting)</span>
+                  )}
+                  {pullingOf && busyMode !== 'load' && pullProgress && pullProgress.waiting == null && (
+                    <span style={{ color: '#A06FE8' }}>
+                      Pulling from OnlyFans — <b>{(pullProgress.total || 0).toLocaleString()}</b> messages · back to <b>{pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'}</b> · <b>{pullProgress.spent}</b> credits spent
+                    </span>
+                  )}
+                  {pullingOf && busyMode !== 'load' && !pullProgress && <span style={{ color: '#A06FE8' }}>Starting the pull…</span>}
+                  {!pullingOf && analyzing && <span style={{ color: '#E88C5C' }}>Analyzing the conversation — usually 30-60 seconds…</span>}
+                  {!pullingOf && !analyzing && ofPull && !chatFile && ofPull.messageCount > 0 && (
+                    <span style={{ color: '#7DD3A4' }}>
+                      ✓ {ofPull.messageCount.toLocaleString()} messages ready ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
+                      {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'} used</span>}
+                      {ofPull.historyComplete === false && !ofPull.capped && <span style={{ color: '#E8C878' }}> · older history remains</span>}
+                    </span>
+                  )}
+                </div>
+              )}
               {ofPull?.capped && !pullingOf && (
                 <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#E8C878', background: 'rgba(232,200,120,0.08)', border: '1px solid rgba(232,200,120,0.25)', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span>Paused at the credit cap — used <b>{ofPull.credits}</b> of <b>{ofPull.capCr}</b> credits this round; older history remains{ofPull.coverage?.oldestMessageAt ? ` (reached ${new Date(ofPull.coverage.oldestMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })})` : ''}.</span>
@@ -1143,21 +1168,14 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                 </span>
               )}
               {ofPull && !chatFile && ofPull.messageCount > 0 && (
-                <>
-                  <span style={{ fontSize: '11px', color: '#A06FE8' }}>
-                    ✓ {ofPull.messageCount} messages ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
-                    {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new since last pull · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'}</span>}
-                    {ofPull.historyComplete === false && <span style={{ color: '#E8C878' }}> · {ofPull.capped ? 'stopped at his credit cap' : 'older history remains'} — pull again to keep deepening</span>}
-                  </span>
-                  <button onClick={handleAnalyze} disabled={analyzing}
-                    style={{
-                      background: '#E88C5C', border: 'none', borderRadius: '6px',
-                      padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                      cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                    }}>
-                    {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                  </button>
-                </>
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  Analyze Conversation
+                </button>
               )}
 
               {chatFile && (
