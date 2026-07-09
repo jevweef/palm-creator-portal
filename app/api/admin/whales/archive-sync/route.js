@@ -51,10 +51,13 @@ export async function POST(request) {
     const summary = {}
 
     // ── Fan snapshot (rebill status, totals) ──────────────────────────────
+    // Multi-account creators (Taby Free+VIP): snapshot EVERY account — the
+    // raw comma-joined field in the URL used to 404 the whole button.
     const fans = []
+    for (const acct of accountIds) {
     let offset = 0
     for (let page = 0; page < 50; page++) {
-      const json = await ofApi(`/${accountId}/fans/active?limit=20&offset=${offset}`)
+      const json = await ofApi(`/${acct}/fans/active?limit=20&offset=${offset}`)
       const batch = json?.data?.list || json?.data || []
       const arr = Array.isArray(batch) ? batch : []
       for (const u of arr) {
