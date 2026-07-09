@@ -20,9 +20,13 @@ export default function Home() {
     } else if (role === 'ai_editor') {
       router.replace('/ai-editor')
     } else if (role === 'chat_manager') {
-      router.replace('/photo-library')
-    } else {
+      router.replace('/chat-manager/photo-library')
+    } else if (user?.publicMetadata?.airtableHqId) {
+      // creators are identified by their HQ link, not a role
       router.replace('/dashboard')
+    } else {
+      // signed in but no role and no creator link — wrong email or uninvited
+      router.replace('/no-access')
     }
   }, [isLoaded, user, router])
 
