@@ -74,6 +74,32 @@ export async function POST(request) {
       if (!f.fanId && t.fanId) f.fanId = t.fanId
     }
 
+    // Merge rename-split buckets: manual-era rows carry only the chatter's
+    // nickname (no username), while API-era rows for the SAME fan carry the
+    // username + that nickname as display name. A label-keyed bucket whose
+    // key exactly matches a username-bucket's display name is the same
+    // person — fold it in so he shows once, WITH his @username (and Pull
+    // works). Same exact-label rule as the 2026-07-07 ghost cleanup.
+    {
+      const byLabel = {}
+      for (const [key, f] of Object.entries(byFan)) {
+        if (f.username && f.name) {
+          const lbl = f.name.trim().toLowerCase()
+          if (!byLabel[lbl]) byLabel[lbl] = key
+        }
+      }
+      for (const [key, f] of Object.entries(byFan)) {
+        if (f.username) continue
+        const target = byLabel[key.trim().toLowerCase()]
+        if (!target || target === key) continue
+        const t = byFan[target]
+        t.lifetime += f.lifetime
+        t.purchases.push(...f.purchases)
+        if (!t.fanId && f.fanId) t.fanId = f.fanId
+        delete byFan[key]
+      }
+    }
+
     const now = Date.now()
     const results = []
     for (const f of Object.values(byFan)) {
