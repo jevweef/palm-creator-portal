@@ -2145,10 +2145,22 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
       const sixMoAgo = new Date(); sixMoAgo.setDate(sixMoAgo.getDate() - 180)
       const sixMoAgoStr = sixMoAgo.toISOString().split('T')[0]
 
+      // Rename-split merge (same exact-label rule as the whale audit):
+      // manual-era rows carry only the chatter's nickname, API rows carry
+      // username + that nickname as display name. Fold label-only rows into
+      // the username fan so his card/chart show ALL his spending — John
+      // ($1,336 lifetime) was charting a $46 sliver (Evan, 2026-07-09).
+      const labelToUser = new Map()
+      for (const t of allTxns) {
+        if (t.ofUsername && t.displayName) {
+          const lbl = String(t.displayName).trim().toLowerCase()
+          if (!labelToUser.has(lbl)) labelToUser.set(lbl, t.ofUsername)
+        }
+      }
       for (const t of allTxns) {
         // Accept ALL transaction types for account membership tracking,
         // but only count real purchases toward spend/heat metrics.
-        const key = (t.ofUsername || t.displayName || 'Unknown').toLowerCase()
+        const key = (t.ofUsername || labelToUser.get(String(t.displayName || '').trim().toLowerCase()) || t.displayName || 'Unknown').toLowerCase()
         if (key === 'unknown') continue
         const isReal = isRealPurchase(t)
         if (!isReal && !fanMap.has(key)) {
