@@ -216,8 +216,12 @@ export async function POST(request) {
     const liveByKey = {}
     const deletedKeys = new Set() // usernames whose OF account 404s = deleted
     if (accountIds.length) {
-      const toCheck = [...triggered, ...dormantWhales].filter((t) => t.ofUsername).slice(0, 40)
+      // Check EVERY flagged fan (deadline-guarded) — Evan: deleted fans should
+      // be caught HERE, in the sweep, never as a 404 when he presses a button.
+      const liveDeadline = Date.now() + 200000
+      const toCheck = [...triggered, ...dormantWhales].filter((t) => t.ofUsername).slice(0, 400)
       for (const t of toCheck) {
+        if (Date.now() > liveDeadline) break
         let json = null, all404 = true
         for (const accountId of accountIds) {
           try {
