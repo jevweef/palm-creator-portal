@@ -30,11 +30,16 @@ function SalesGraph({ sales }) {
   const BUCKET = 15 * 60 * 1000
   const N = 192 // 48h of 15-min buckets
   const now = Date.now()
-  const start = now - N * BUCKET
+  // Clock-aligned slots (:00/:15/:30/:45) — anchoring to "now" made every
+  // refresh re-slice time, so sales slid between bars and totals wobbled.
+  // A finished slot's total never changes; the rightmost bar is the current
+  // in-progress slot and a fresh one appears when the clock rolls over.
+  const end = Math.ceil(now / BUCKET) * BUCKET
+  const start = end - N * BUCKET
   const buckets = Array(N).fill(0)
   for (const e of sales) {
     const t = new Date(e.at).getTime()
-    if (isNaN(t) || t < start || t > now) continue
+    if (isNaN(t) || t < start || t > end) continue
     buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += net(e.price)
   }
   const max = Math.max(...buckets, 1)
