@@ -742,7 +742,7 @@ export default function AuditTab() {
                   {showAllWatchlist && <td>{w.creator}</td>}
                   <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
                   <td style={{ color: 'var(--foreground-muted)', padding: '7px 12px', fontSize: '11px', textTransform: 'uppercase' }}>{w.cadence?.tier || '—'}</td>
-                  <td style={{ color: '#7DD3A4', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{w.lastAlert ? fmtD(w.lastAlert) : '—'}</td>
+                  <td style={{ color: '#7DD3A4', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{w.lastAlert ? new Date(w.lastAlert).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
                   <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
                 </tr>
               ))}
