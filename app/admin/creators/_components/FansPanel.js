@@ -314,7 +314,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
     setBigPull(null)
     try {
       let spent = 0, cap = null, newMsgs = 0, capped = false
-      let cur = null, chunkFanId = f.fanId || '', total = 0, lastComplete = false
+      let cur = null, chunkFanId = f.fanId || '', chunkAccountId = '', total = 0, lastComplete = false
       // DORMANT fans: aim the pull at his SPENDING era (skip months of
       // unanswered mass blasts) via a targeted, mass-free export window.
       const isDormantFan = f.heatStatus === 'Dead' && (f.firstDate || f.heatDetail?.lastPurchase)
@@ -337,6 +337,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
           body: JSON.stringify({
             ...baseBody, chunked: true, maxPages: 25,
             fanId: chunkFanId,
+            ...(chunkAccountId ? { accountId: chunkAccountId } : {}),
             ...(cur ? { cursor: cur } : {}),
             ...(opts.acceptPartial ? { acceptPartial: true } : {}),
             ...(opts.confirmBig ? { confirmBig: true } : {}),
@@ -361,6 +362,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         cap = data.capCredits ?? cap
         cur = data.cursor || cur
         chunkFanId = data.fan?.id || chunkFanId
+        chunkAccountId = data.accountId || chunkAccountId
         lastComplete = !!data.historyComplete
         setPullProgress({ spent, total, oldest: data.oldestAt, waiting: data.waiting ? (data.progress ?? 0) : null, rowsFound: data.rowsFound ?? null })
         if (!data.morePages) break

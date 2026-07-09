@@ -93,7 +93,7 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete, exportWindow } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete, exportWindow, accountId: bodyAccountId } = await request.json()
     // Auto-spend scales with the fan's value: ~2% of lifetime in credits
     // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
     // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
@@ -107,7 +107,12 @@ export async function POST(request) {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorRecordId)}`,
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
-    const accountId = creators[0]?.fields?.['OF API Account ID']
+    // Multi-account creators (Taby Free+VIP) store comma-separated ids — the
+    // raw field in a URL 404s everything (the audit false-Deleted disaster).
+    // A fan's chat lives on ONE page: probe each account for him, then keep
+    // using that account (chunk clients echo it back via body.accountId).
+    const accountIds = String(creators[0]?.fields?.['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+    let accountId = accountIds.includes(bodyAccountId) ? bodyAccountId : accountIds[0]
     if (!accountId) {
       return NextResponse.json({
         error: `${creators[0]?.fields?.AKA || 'This creator'} isn't connected to the OnlyFans API yet — connect her account at app.onlyfansapi.com, then set 'OF API Account ID' on her Palm Creators record.`,
@@ -154,9 +159,23 @@ export async function POST(request) {
       // dormant fans with no username (deleted accounts, pre-lookup rows).
       fan = { id: String(fanId), username: fanUsername || '', name: fanName || '' }
     } else {
-      fan = await resolveFanId(accountId, { username: fanUsername, name: fanName })
+      for (const acc of accountIds) {
+        fan = await resolveFanId(acc, { username: fanUsername, name: fanName }).catch(() => null)
+        if (fan?.id) { accountId = acc; break }
+      }
       if (!fan) {
-        return NextResponse.json({ error: `Couldn't find "${fanUsername || fanName}" on this OF account${fanUsername ? ' — a 404 on a known @username almost always means he DELETED his OF account (his chat is gone with it)' : ' — he may have been renamed; try pulling from his fan card after a fresh audit'}` }, { status: 404 })
+        const plural = accountIds.length > 1 ? `any of her ${accountIds.length} OF accounts` : 'this OF account'
+        return NextResponse.json({ error: `Couldn't find "${fanUsername || fanName}" on ${plural}${fanUsername ? ' — a 404 on a known @username almost always means he DELETED his OF account (his chat is gone with it)' : ' — he may have been renamed; try pulling from his fan card after a fresh audit'}` }, { status: 404 })
+      }
+    }
+
+    // Fan known but account not yet pinned (archive/audit fanId path) on a
+    // multi-account creator: pin the page he actually lives on once, so chat
+    // fetches don't quietly hit the wrong account.
+    if (accountIds.length > 1 && !accountIds.includes(bodyAccountId) && (fan?.username || fanUsername || fanName)) {
+      for (const acc of accountIds) {
+        const hit = await resolveFanId(acc, { username: fan?.username || fanUsername, name: fan?.name || fanName }).catch(() => null)
+        if (hit?.id) { accountId = acc; if (!fan?.id) fan = hit; break }
       }
     }
 
@@ -211,7 +230,7 @@ export async function POST(request) {
             const got = csvToMessages(csv)
             if (got.length) await saveChunkShard(creatorName, fanName, fanUsername, got)
             await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
-            return NextResponse.json({ fan, pages: 0, credits: st.credit_cost ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: st.credit_cost ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
           }
           if (st && !['failed', 'cancelled'].includes(st.status)) {
             const projected = st.credit_cost ?? (st.total_rows != null ? Math.ceil(st.total_rows / 20) : null)
@@ -223,7 +242,7 @@ export async function POST(request) {
                 error: `His spending-era export is ~${st.total_rows?.toLocaleString?.() || '?'} messages ≈ ${projected} credits (cap ${AUTO_SPEND_LIMIT}) — cancelled free. Approve below to pull it anyway.`,
               }, { status: 402 })
             }
-            return NextResponse.json({ fan, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0, rowsFound: st.total_rows ?? null })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0, rowsFound: st.total_rows ?? null })
           }
           // failed/cancelled — clear and start fresh below
           await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
@@ -237,7 +256,7 @@ export async function POST(request) {
         })
         const stub = arcX || { fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '', messages: [], lastMessageAt: null, lastMessageId: null, historyComplete: false }
         await saveChatArchive(creatorName, fanName, fanUsername, { ...stub, pendingExportId: exp?.id || null, updatedAt: new Date().toISOString() })
-        return NextResponse.json({ fan, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: stub.messages.length, oldestAt: null, morePages: true, waiting: true, progress: 0 })
+        return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: stub.messages.length, oldestAt: null, morePages: true, waiting: true, progress: 0 })
       }
 
       const deadline = Date.now() + 45000
@@ -272,7 +291,7 @@ export async function POST(request) {
       }
       if (fresh.length) await saveChunkShard(creatorName, fanName, fanUsername, fresh)
       return NextResponse.json({
-        fan, cursor: backCursor, pages, credits: credits || pages, capCredits: AUTO_SPEND_LIMIT,
+        fan, accountId, cursor: backCursor, pages, credits: credits || pages, capCredits: AUTO_SPEND_LIMIT,
         fetchedCount: fresh.length, storedCount,
         oldestAt: fresh[0]?.createdAt || null,
         morePages: !reachedStart, historyComplete: reachedStart,
@@ -361,7 +380,7 @@ export async function POST(request) {
     // ~MBs) — the client asks for parsed only on its final call.
     const parsed = light ? undefined : toParsedChat(merged, fan.id)
     console.log(`[pull-chat] ${accountId} fan ${fan.id} (${fan.username || fan.name}): ${merged.length} total (${added} new), ${pages} pages, ~${credits || pages} credits, complete=${historyComplete}`)
-    return NextResponse.json({ parsed, fan, pages, credits: credits || pages, capCredits: AUTO_SPEND_LIMIT, newMessages: added, totalStored: merged.length, incremental: !!archive, historyComplete, morePages: !historyComplete, coverage, pulledAt: new Date().toISOString() })
+    return NextResponse.json({ parsed, fan, accountId, pages, credits: credits || pages, capCredits: AUTO_SPEND_LIMIT, newMessages: added, totalStored: merged.length, incremental: !!archive, historyComplete, morePages: !historyComplete, coverage, pulledAt: new Date().toISOString() })
   } catch (err) {
     console.error('[pull-chat] Error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
