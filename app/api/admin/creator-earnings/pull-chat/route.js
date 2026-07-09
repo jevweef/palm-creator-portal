@@ -3,7 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate } from '@/lib/onlyfansApi'
-import { loadChatArchive, saveChatArchive, mergeMessages, saveChunkShard, finalizeChunks } from '@/lib/chatArchive'
+import { loadChatArchive, saveChatArchive, mergeMessages, saveChunkShard, finalizeChunks, oldestShardTip } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -281,6 +281,12 @@ export async function POST(request) {
           fresh = fresh.concat(fwd.messages); pages += fwd.pages; credits += fwd.credits
         }
         backCursor = arc0?.messages?.[0]?.id ?? null
+        // An interrupted round leaves paid-for pages in unmerged shards —
+        // resume from the deepest shard message instead of re-buying them.
+        const tip = await oldestShardTip(creatorName, fanName, fanUsername)
+        if (tip && (!arc0?.messages?.length || tip.createdAt < arc0.messages[0].createdAt)) {
+          backCursor = tip.id
+        }
       }
       if (!reachedStart && pages < budget) {
         const back = await fetchChatHistory(accountId, fan.id, {
