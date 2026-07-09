@@ -337,18 +337,32 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
       }
       let retries = 0
       for (let i = 0; i < 60; i++) {
-        const res = await fetch('/api/admin/creator-earnings/pull-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...baseBody, chunked: true, maxPages: 25,
-            fanId: chunkFanId,
-            ...(chunkAccountId ? { accountId: chunkAccountId } : {}),
-            ...(cur ? { cursor: cur } : {}),
-            ...(opts.acceptPartial ? { acceptPartial: true } : {}),
-            ...(opts.confirmBig ? { confirmBig: true } : {}),
-          }),
-        })
+        // 120s hard timeout per chunk — a hung connection used to freeze the
+        // pull on "Starting…" forever; finished pages are safe in shards, so
+        // aborting and retrying costs nothing.
+        const ctrl = new AbortController()
+        const killer = setTimeout(() => ctrl.abort(), 120000)
+        let res
+        try {
+          res = await fetch('/api/admin/creator-earnings/pull-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
+            body: JSON.stringify({
+              ...baseBody, chunked: true, maxPages: 25,
+              fanId: chunkFanId,
+              ...(chunkAccountId ? { accountId: chunkAccountId } : {}),
+              ...(cur ? { cursor: cur } : {}),
+              ...(opts.acceptPartial ? { acceptPartial: true } : {}),
+              ...(opts.confirmBig ? { confirmBig: true } : {}),
+            }),
+          })
+        } catch (netErr) {
+          clearTimeout(killer)
+          if (retries < 4) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
+          throw new Error('The pull request keeps timing out — check your connection and pull again (progress is saved, it resumes where it stopped).')
+        }
+        clearTimeout(killer)
         // Timeouts/5xx are EXPECTED for big histories — every finished chunk is
         // already safe in its shard, so just retry and keep rolling.
         if (!res.ok && res.status >= 500 && retries < 4) { retries++; await new Promise((r) => setTimeout(r, 4000)); continue }
