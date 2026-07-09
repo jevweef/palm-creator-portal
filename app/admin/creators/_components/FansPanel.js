@@ -38,6 +38,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
   const [pullProgress, setPullProgress] = useState(null) // { spent, total, oldest } while a chunked pull runs
+  const [busyMode, setBusyMode] = useState(null)     // 'pull' | 'load' | null — drives the status line
   const [pullBackTo, setPullBackTo] = useState('')   // optional 'pull back to' date
   const [pullMaxCr, setPullMaxCr] = useState('')     // optional manual credit cap per round
   const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
@@ -311,6 +312,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
   // automatically — no dead "no messages" ends, no timeouts.
   async function handlePullFromOf(opts = {}) {
     setPullingOf(true)
+    setBusyMode('pull')
     setAnalysisError(null)
     setOfPull(null)
     setBigPull(null)
@@ -393,6 +395,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
       setPullProgress(null)
     } finally {
       setPullingOf(false)
+      setBusyMode(null)
     }
   }
 
