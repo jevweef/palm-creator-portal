@@ -25,6 +25,7 @@ export default function AdminOnboarding() {
   const [formState, setFormState] = useState('')
   const [editCreator, setEditCreator] = useState(null) // for inline "Start Onboarding" modal
   const [contractFile, setContractFile] = useState(null) // optional custom signed contract to attach
+  const [contractMode, setContractMode] = useState('generate') // 'generate' (build + e-sign) | 'upload' (already-signed PDF)
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -135,14 +136,17 @@ export default function AdminOnboarding() {
   const handleStartOnboarding = async (e) => {
     e.preventDefault()
     if (!formName || !formEmail) return
-    if (!hasSigDrawn) return
+    // Contract is either generated (needs the agency signature) or an
+    // already-signed PDF upload (needs the file, no signature).
+    if (contractMode === 'generate' && !hasSigDrawn) return
+    if (contractMode === 'upload' && !contractFile) return
     setSubmitting(true)
     try {
-      const agencySignature = sigCanvasRef.current?.toDataURL('image/png') || null
+      const agencySignature = contractMode === 'generate' ? (sigCanvasRef.current?.toDataURL('image/png') || null) : null
       const res = await fetch('/api/admin/onboarding/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName }),
+        body: JSON.stringify({ name: formName, email: formEmail, commissionTiers, creatorState: formState, agencySignature, agencyName: adminName, skipContract: contractMode === 'later' }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -157,6 +161,7 @@ export default function AdminOnboarding() {
         setFormState('')
         setHasSigDrawn(false)
         setContractFile(null)
+        setContractMode('generate')
         fetchCreators()
       }
     } catch (err) {
@@ -672,75 +677,124 @@ export default function AdminOnboarding() {
                 </button>
               </div>
 
-              {/* Custom signed contract (optional) — overrides the auto template */}
+              {/* Contract — mutually exclusive: EITHER generate one from the
+                  commission terms and e-sign it, OR upload an already-signed PDF.
+                  Commission Structure above still applies to both (it's the rate). */}
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Custom signed contract (optional)
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '8px' }}>
+                  Contract
                 </label>
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={e => setContractFile(e.target.files?.[0] || null)}
-                  style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}
-                />
-                <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '4px' }}>
-                  {contractFile ? `Attached: ${contractFile.name} — replaces the standard contract for this creator.` : 'Upload an already-signed PDF to use instead of the standard contract. Leave empty for the default.'}
-                </div>
-              </div>
-
-              {/* Agency Signature */}
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Agency Signature ({adminName})
-                </label>
-                <canvas
-                  ref={sigCanvasRef}
-                  width={500}
-                  height={140}
-                  onMouseDown={startSigDraw}
-                  onMouseMove={sigDraw}
-                  onMouseUp={endSigDraw}
-                  onMouseLeave={endSigDraw}
-                  onTouchStart={startSigDraw}
-                  onTouchMove={sigDraw}
-                  onTouchEnd={endSigDraw}
-                  style={{
-                    border: `1px solid ${hasSigDrawn ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '8px',
-                    cursor: 'crosshair',
-                    width: '100%',
-                    maxWidth: '500px',
-                    touchAction: 'none',
-                    display: 'block',
-                  }}
-                />
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => clearSigCanvas(false)}
-                    style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
-                  >
-                    Redraw
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => setContractMode('generate')} style={contractTabStyle(contractMode === 'generate')}>
+                    Generate &amp; e-sign
                   </button>
-                  {localStorage.getItem('palm_agency_sig') && (
-                    <button
-                      type="button"
-                      onClick={() => clearSigCanvas(true)}
-                      style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
-                    >
-                      Clear Saved
-                    </button>
-                  )}
-                  {!hasSigDrawn && (
-                    <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>Signature required</span>
-                  )}
+                  <button type="button" onClick={() => setContractMode('upload')} style={contractTabStyle(contractMode === 'upload')}>
+                    Upload signed PDF
+                  </button>
+                  <button type="button" onClick={() => setContractMode('later')} style={contractTabStyle(contractMode === 'later')}>
+                    Handle separately
+                  </button>
                 </div>
+
+                {contractMode === 'later' ? (
+                  <div style={{
+                    padding: '16px', borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)',
+                  }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(240, 236, 232, 0.9)', marginBottom: '4px' }}>
+                      Contract handled separately
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
+                      The creator won&apos;t see a contract step — they can fill out everything else now.
+                      You&apos;ll still need to upload the signed contract later (from their onboarding board)
+                      before they can go live.
+                    </div>
+                  </div>
+                ) : contractMode === 'generate' ? (
+                  <>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginBottom: '8px' }}>
+                      Our system builds the contract from the commission terms above — sign below to finalize it.
+                    </div>
+                    <canvas
+                      ref={sigCanvasRef}
+                      width={500}
+                      height={140}
+                      onMouseDown={startSigDraw}
+                      onMouseMove={sigDraw}
+                      onMouseUp={endSigDraw}
+                      onMouseLeave={endSigDraw}
+                      onTouchStart={startSigDraw}
+                      onTouchMove={sigDraw}
+                      onTouchEnd={endSigDraw}
+                      style={{
+                        border: `1px solid ${hasSigDrawn ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: '8px',
+                        cursor: 'crosshair',
+                        width: '100%',
+                        maxWidth: '500px',
+                        touchAction: 'none',
+                        display: 'block',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Agency signature ({adminName})</span>
+                      <button
+                        type="button"
+                        onClick={() => clearSigCanvas(false)}
+                        style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
+                      >
+                        Redraw
+                      </button>
+                      {localStorage.getItem('palm_agency_sig') && (
+                        <button
+                          type="button"
+                          onClick={() => clearSigCanvas(true)}
+                          style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '6px', fontSize: '11px', color: 'var(--foreground-muted)', cursor: 'pointer' }}
+                        >
+                          Clear Saved
+                        </button>
+                      )}
+                      {!hasSigDrawn && (
+                        <span style={{ fontSize: '11px', color: 'var(--palm-pink)' }}>Signature required</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label
+                      htmlFor="customContractNew"
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                        padding: '22px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
+                        border: `1.5px dashed ${contractFile ? 'var(--palm-pink)' : 'rgba(255,255,255,0.18)'}`,
+                        background: contractFile ? 'rgba(224, 122, 195, 0.06)' : 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: contractFile ? 'var(--palm-pink)' : 'rgba(240, 236, 232, 0.75)' }}>
+                        {contractFile ? contractFile.name : 'Choose a signed PDF'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                        {contractFile ? 'Click to replace' : 'Click to browse — this replaces the generated contract'}
+                      </span>
+                      <input
+                        id="customContractNew"
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={e => setContractFile(e.target.files?.[0] || null)}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '6px' }}>
+                      This PDF is already signed, so no agency signature is needed.
+                    </div>
+                  </>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setShowModal(false); setHasSigDrawn(false) }}
+                  onClick={() => { setShowModal(false); setHasSigDrawn(false); setContractMode('generate') }}
                   style={{
                     padding: '9px 18px',
                     background: 'rgba(255,255,255,0.03)',
@@ -755,16 +809,16 @@ export default function AdminOnboarding() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !hasSigDrawn}
+                  disabled={submitting || (contractMode === 'generate' ? !hasSigDrawn : contractMode === 'upload' ? !contractFile : false)}
                   style={{
                     padding: '9px 18px',
-                    background: (submitting || !hasSigDrawn) ? 'transparent' : 'var(--palm-pink)',
+                    background: (submitting || (contractMode === 'generate' ? !hasSigDrawn : contractMode === 'upload' ? !contractFile : false)) ? 'transparent' : 'var(--palm-pink)',
                     color: 'var(--foreground)',
                     border: 'none',
                     borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: (submitting || !hasSigDrawn) ? 'not-allowed' : 'pointer',
+                    cursor: (submitting || (contractMode === 'generate' ? !hasSigDrawn : contractMode === 'upload' ? !contractFile : false)) ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {submitting ? 'Creating...' : 'Create & Copy Link'}
@@ -1126,6 +1180,19 @@ const thStyle = {
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
+
+// Segmented-control tab style for the "Contract" generate-vs-upload toggle.
+const contractTabStyle = (active) => ({
+  flex: 1,
+  padding: '8px 10px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  borderRadius: '8px',
+  border: `1px solid ${active ? 'var(--palm-pink)' : 'rgba(255,255,255,0.08)'}`,
+  background: active ? 'rgba(224, 122, 195, 0.12)' : 'rgba(255,255,255,0.03)',
+  color: active ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+})
 
 const tdStyle = {
   padding: '12px 16px',

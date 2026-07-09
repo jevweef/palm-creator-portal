@@ -104,6 +104,9 @@ export default function OnboardingForm() {
   }
   const [currentStep, setCurrentStep] = useState(getInitialStep)
   const [completedSteps, setCompletedSteps] = useState([])
+  // Admin "contract handled separately" flag — when set, the contract step is
+  // dropped from the wizard entirely (creator never sees it).
+  const [skipContract, setSkipContract] = useState(false)
   const [saving, setSaving] = useState(false)
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -119,6 +122,7 @@ export default function OnboardingForm() {
       const data = await res.json()
       if (data.profile) {
         setProfileData(data.profile)
+        setSkipContract(!!data.profile.skipContract)
 
         // Block re-entry if onboarding already completed
         if (data.profile.onboardingStatus === 'Completed') {
@@ -179,6 +183,15 @@ export default function OnboardingForm() {
     return () => window.removeEventListener('hashchange', handleHash)
   }, [])
 
+  // If the contract is handled separately, never let the creator sit on the
+  // contract step (e.g. a stale #contract hash or back-nav) — bump forward.
+  useEffect(() => {
+    if (skipContract && currentStep === 'contract') {
+      setCurrentStep('voice-memo')
+      if (typeof window !== 'undefined') window.location.hash = 'voice-memo'
+    }
+  }, [skipContract, currentStep])
+
   const saveStep = async (step, data) => {
     if (!hqId) return false
     setSaving(true)
@@ -219,7 +232,8 @@ export default function OnboardingForm() {
 
   const handleSurveyComplete = () => {
     setCompletedSteps(prev => [...new Set([...prev, 'survey'])])
-    goToStep('contract')
+    // Skip straight to voice-memo when the contract is handled separately.
+    goToStep(skipContract ? 'voice-memo' : 'contract')
   }
 
   const handleContractComplete = () => {
@@ -314,6 +328,7 @@ export default function OnboardingForm() {
           currentStep={currentStep}
           completedSteps={completedSteps}
           onStepClick={(step) => goToStep(step)}
+          skipContract={skipContract}
         />
 
         <div style={{
@@ -343,7 +358,7 @@ export default function OnboardingForm() {
               onComplete={handleSurveyComplete}
             />
           )}
-          {currentStep === 'contract' && (
+          {currentStep === 'contract' && !skipContract && (
             <StepContract hqId={hqId} onComplete={handleContractComplete} />
           )}
           {currentStep === 'voice-memo' && (
@@ -354,6 +369,7 @@ export default function OnboardingForm() {
               hqId={hqId}
               completedSteps={completedSteps}
               onGoToStep={goToStep}
+              skipContract={skipContract}
               onSubmitted={() => {
                 setTimeout(() => router.push('/dashboard'), 2000)
               }}
