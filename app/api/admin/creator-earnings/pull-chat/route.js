@@ -93,11 +93,14 @@ export async function POST(request) {
   }
 
   try {
-    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete, exportWindow, accountId: bodyAccountId } = await request.json()
+    const { creatorRecordId, fanUsername, fanName, fanId, sinceDate, maxPages, fromArchive, confirmBig, acceptPartial, lifetime, light, chunked, cursor, finalize, complete, exportWindow, accountId: bodyAccountId, maxCredits } = await request.json()
     // Auto-spend scales with the fan's value: ~2% of lifetime in credits
     // (lifetime/50), floor 15, cap 250. A \$2,500 fan auto-approves 50cr;
     // a \$14k whale up to 250 (Evan: flat 150 was too much for a \$2,500 fan).
-    const AUTO_SPEND_LIMIT = Math.max(15, Math.min(250, Math.round((Number(lifetime) || 0) / 50) || 15))
+    // Manual override wins (Evan sets exact credits for this fan); otherwise
+    // ~2% of lifetime in credits, floor 15, cap 250.
+    const autoCap = Math.max(15, Math.min(250, Math.round((Number(lifetime) || 0) / 50) || 15))
+    const AUTO_SPEND_LIMIT = Number(maxCredits) > 0 ? Math.round(Number(maxCredits)) : autoCap
     if (!creatorRecordId || (!fanUsername && !fanName && !fanId)) {
       return NextResponse.json({ error: 'creatorRecordId and fanUsername, fanName, or fanId required' }, { status: 400 })
     }
@@ -282,6 +285,9 @@ export async function POST(request) {
       if (!reachedStart && pages < budget) {
         const back = await fetchChatHistory(accountId, fan.id, {
           maxPages: budget - pages, startCursor: backCursor, deadline,
+          // 'back to <date>' pulls stop deepening at the target instead of
+          // burning credits to the very start of the chat
+          ...(sinceDate ? { sinceDate } : {}),
         })
         fresh = fresh.concat(back.messages); pages += back.pages; credits += back.credits
         if (back.messages.length) backCursor = back.messages[0].id

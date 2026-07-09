@@ -38,6 +38,8 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
   const [ofPull, setOfPull] = useState(null)
   const [pullingOf, setPullingOf] = useState(false)
   const [pullProgress, setPullProgress] = useState(null) // { spent, total, oldest } while a chunked pull runs
+  const [pullBackTo, setPullBackTo] = useState('')   // optional 'pull back to' date
+  const [pullMaxCr, setPullMaxCr] = useState('')     // optional manual credit cap per round
   const [archiveMeta, setArchiveMeta] = useState(null) // when we last pulled from OF (durable, from Dropbox)
   const [bigPull, setBigPull] = useState(null) // {credits, messages} — cost gate awaiting a decision
   // uploadAccountName is set when a multi-account fan's user picks which account this upload is for.
@@ -328,6 +330,8 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
         fanName: f.fanName || '',
         lifetime: f.lifetimeSpend || 0,
         ...(exportWindow ? { exportWindow } : {}),
+        ...(pullBackTo ? { sinceDate: new Date(pullBackTo + 'T00:00:00Z').toISOString() } : {}),
+        ...(Number(pullMaxCr) > 0 ? { maxCredits: Number(pullMaxCr) } : {}),
       }
       let retries = 0
       for (let i = 0; i < 60; i++) {
@@ -372,11 +376,11 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
       // Final: load the parsed archive (0 credits) and auto-run the analysis.
       const fin = await fetch('/api/admin/creator-earnings/pull-chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fanId: chunkFanId || f.fanId || '', finalize: true, complete: capped ? false : lastComplete }),
+        body: JSON.stringify({ creatorRecordId: creatorRecordId || '', fanUsername: f.ofUsername || '', fanName: f.fanName || '', fanId: chunkFanId || f.fanId || '', finalize: true, complete: (capped || pullBackTo) ? false : lastComplete }),
       })
       const fdata = await fin.json()
       if (!fin.ok) throw new Error(fdata.error || 'Pull finished but the archive would not load')
-      const pulledParsed = { ...fdata.parsed, newMessages: newMsgs, credits: spent, historyComplete: fdata.historyComplete, coverage: fdata.coverage, capped }
+      const pulledParsed = { ...fdata.parsed, newMessages: newMsgs, credits: spent, historyComplete: fdata.historyComplete, coverage: fdata.coverage, capped, capCr: cap }
       setOfPull(pulledParsed)
       setChatFile(null) // OF pull replaces any picked file
       setArchiveMeta((m) => ({ ...(m || {}), historyComplete: !!fdata.historyComplete, totalStored: fdata.totalStored, firstMessageAt: fdata.coverage?.oldestMessageAt || null, lastMessageAt: fdata.coverage?.newestMessageAt || null, pulledAt: fdata.pulledAt || null }))
@@ -1107,6 +1111,29 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
                 }}>
                 {pullingOf ? (pullProgress?.waiting != null ? `Building his spending-era export… ${pullProgress.rowsFound != null ? pullProgress.rowsFound.toLocaleString() + ' real messages found' : pullProgress.waiting + '%'}` : pullProgress ? `Pulling… ${(pullProgress.total || 0).toLocaleString()} msgs · back to ${pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'} · ${pullProgress.spent}cr` : 'Pulling from OF…') : ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
               </button>}
+              {!readOnly && (f.ofUsername || f.fanId || f.fanName) && f.alertStatus !== 'Deleted' && !pullingOf && (() => {
+                const autoCap = Math.max(15, Math.min(250, Math.round((f.lifetimeSpend || 0) / 50) || 15))
+                return (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '6px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                    <span>Pull back to</span>
+                    <input type="date" value={pullBackTo} onChange={(e) => setPullBackTo(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', colorScheme: 'dark' }} />
+                    <span>· max credits / round</span>
+                    <input type="number" min="1" value={pullMaxCr} onChange={(e) => setPullMaxCr(e.target.value)} placeholder={`auto ${autoCap}`}
+                      style={{ width: '80px', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }} />
+                    {(pullBackTo || pullMaxCr) && <button onClick={() => { setPullBackTo(''); setPullMaxCr('') }} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>clear</button>}
+                  </div>
+                )
+              })()}
+              {ofPull?.capped && !pullingOf && (
+                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#E8C878', background: 'rgba(232,200,120,0.08)', border: '1px solid rgba(232,200,120,0.25)', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Paused at the credit cap — used <b>{ofPull.credits}</b> of <b>{ofPull.capCr}</b> credits this round; older history remains{ofPull.coverage?.oldestMessageAt ? ` (reached ${new Date(ofPull.coverage.oldestMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })})` : ''}.</span>
+                  <button onClick={() => handlePullFromOf({ noAutoAnalyze: false })} disabled={pullingOf || analyzing}
+                    style={{ background: 'rgba(232,200,120,0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Continue — another {Number(pullMaxCr) > 0 ? pullMaxCr : ofPull.capCr}cr round
+                  </button>
+                </div>
+              )}
               {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
                 <span style={{ fontSize: '11px', color: '#E8C878' }}>
                   Nothing to analyze yet — his history export is still building at OF. Pull again in a few minutes (attaches to the same export, no double charge).
