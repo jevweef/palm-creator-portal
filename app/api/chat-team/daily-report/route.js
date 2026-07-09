@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox, listDropboxFolder } from '@/lib/dropbox'
-import { resolveChatTeamScope } from '@/lib/chatTeamScope'
+import { resolveChatTeamScope, getAkasForTeam } from '@/lib/chatTeamScope'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -31,11 +31,21 @@ export async function GET(request) {
     if (!buf) return NextResponse.json({ report: null, available })
 
     const report = JSON.parse(buf.toString('utf8'))
-    // Team scoping: keep only the caller's creators. Admins (scoped:false) see all.
-    if (scope.scoped && report && Array.isArray(report.perCreator)) {
-      report.perCreator = report.perCreator.filter((c) => scope.allowedAkas.has(String(c.aka || '').toLowerCase()))
+    if (report && Array.isArray(report.perCreator)) {
+      if (scope.scoped) {
+        // Real chat manager — keep only their own team's creators.
+        report.perCreator = report.perCreator.filter((c) => scope.allowedAkas.has(String(c.aka || '').toLowerCase()))
+      } else {
+        // Admin — optional explicit Team A / Team B filter (All = no filter).
+        const teamParam = (new URL(request.url).searchParams.get('team') || '').toUpperCase()
+        if (teamParam === 'A' || teamParam === 'B') {
+          const akas = await getAkasForTeam(teamParam)
+          if (akas) report.perCreator = report.perCreator.filter((c) => akas.has(String(c.aka || '').toLowerCase()))
+        }
+      }
     }
-    return NextResponse.json({ report, available })
+    // scoped:false → the caller is an admin, so the page shows the A/B toggle.
+    return NextResponse.json({ report, available, scoped: scope.scoped })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
