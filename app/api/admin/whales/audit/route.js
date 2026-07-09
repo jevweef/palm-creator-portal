@@ -4,6 +4,7 @@ import { quoteAirtableString } from '@/lib/airtableFormula'
 import { sheetsClient, readTabRows, fetchRevenueAccountNames } from '@/lib/transactionsSheet'
 import { ofApi } from '@/lib/onlyfansApi'
 import { stampWhaleRun } from '@/lib/whaleRuns'
+import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox } from '@/lib/dropbox'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -57,6 +58,25 @@ export async function POST(request) {
     // toward lifetime but NOT cadence (renewals are passive). Fans keyed by
     // OF username (stable) falling back to display name; fan_id (col J) rides
     // along when the row came from an API pull.
+    // OF's own all-time totals per fan (from the Update Fan Data snapshot).
+    // Ground truth for two things: vetoing bad nickname merges (a generic
+    // 'Daniel' label inflated the wrong fan to $418 when OF says he's spent
+    // $104 all-time), and floor-lifting lifetimes the 2y sheet window cuts.
+    const trueNetByUsername = {}
+    try {
+      const dbxToken = await getDropboxAccessToken()
+      const dbxNs = await getDropboxRootNamespaceId(dbxToken)
+      const safeName = (cf.AKA || cf.Creator || '').replace(/[\\/:*?"<>|]/g, '_')
+      const snapBuf = await downloadFromDropbox(dbxToken, dbxNs, `/Palm Ops/OF Archive/${safeName}/fans.json`)
+      if (snapBuf) {
+        for (const fn of (JSON.parse(snapBuf.toString('utf8')).fans || [])) {
+          if (fn.username && fn.total > 0) {
+            trueNetByUsername[fn.username.toLowerCase()] = Math.max(trueNetByUsername[fn.username.toLowerCase()] || 0, fn.total * 0.8)
+          }
+        }
+      }
+    } catch { /* no snapshot yet — sheet sums stand alone */ }
+
     const byFan = {}
     for (const t of txns) {
       const key = (t.ofUsername || t.displayName || '').trim()
@@ -93,6 +113,11 @@ export async function POST(request) {
         const target = byLabel[key.trim().toLowerCase()]
         if (!target || target === key) continue
         const t = byFan[target]
+        // Veto: OF's all-time total caps what this fan can have spent. If the
+        // merge would exceed it (15% + $50 slack for gross/net drift), the
+        // label rows belong to a DIFFERENT fan with the same nickname.
+        const trueNet = trueNetByUsername[(t.username || '').toLowerCase()]
+        if (trueNet && (t.lifetime + f.lifetime) > trueNet * 1.15 + 50) continue
         t.lifetime += f.lifetime
         t.purchases.push(...f.purchases)
         if (!t.fanId && f.fanId) t.fanId = f.fanId
@@ -103,6 +128,8 @@ export async function POST(request) {
     const now = Date.now()
     const results = []
     for (const f of Object.values(byFan)) {
+      const trueNet = trueNetByUsername[(f.username || '').toLowerCase()]
+      if (trueNet && trueNet > f.lifetime) f.lifetime = Math.round(trueNet)
       if (f.lifetime < minLifetime) continue
       const dates = [...new Set(f.purchases.map((p) => p.date))].sort()
       if (!dates.length) continue
