@@ -163,7 +163,7 @@ export default function AuditTab() {
   // shouldn't have to squint at alert timestamps to know who's handled.
   const q = fanSearch.trim().toLowerCase()
   const matchesSearch = (w) => !q || (w.fanName || '').toLowerCase().includes(q) || (w.ofUsername || '').toLowerCase().includes(q)
-  const isSent = (w) => !isDormant(w) && (w.status === 'Alert Sent' || !!w.lastAlert)
+  const isSent = (w) => w.status === 'Alert Sent' || !!w.lastAlert
   const sentList = visibleWatchlist.filter((w) => isSent(w) && matchesSearch(w)).sort((a, b) => (b.lastAlert || '').localeCompare(a.lastAlert || ''))
   const urgentList = visibleWatchlist.filter((w) => !isDormant(w) && !isSent(w) && matchesSearch(w))
     .sort((a, b) => {
@@ -181,7 +181,7 @@ export default function AuditTab() {
     silent: (w) => w.cadence?.currentGap || 0,
     alert: (w) => new Date(w.lastAlert || 0).getTime(),
   }
-  const dormantList = visibleWatchlist.filter((w) => isDormant(w) && matchesSearch(w)).sort((a, b) => {
+  const dormantList = visibleWatchlist.filter((w) => isDormant(w) && !isSent(w) && matchesSearch(w)).sort((a, b) => {
     if (dormSort && DORM_METRICS[dormSort.key]) {
       const d = DORM_METRICS[dormSort.key](b) - DORM_METRICS[dormSort.key](a)
       return dormSort.dir === 'asc' ? -d : d
@@ -734,38 +734,6 @@ export default function AuditTab() {
         )}
       </div>
 
-      {/* ── SENT TO CHAT MANAGERS — handled; parked out of the urgent list ── */}
-      {sentList.length > 0 && (
-        <details style={{ ...card, padding: '14px 18px' }}>
-          <summary style={{ fontSize: '13px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
-            Sent to chat managers ({sentList.length}) — alert delivered, ball&apos;s in their court
-          </summary>
-          <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '10px' }}>
-            <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
-              <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Tier</th><th style={{ padding: '4px 12px' }}>Sent</th><th></th>
-            </tr></thead>
-            <tbody>
-              {sentList.map((w) => (
-                <tr key={w.id} data-kbrow onClick={() => openFan(w)}
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = ''}>
-                  <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
-                    style={{ padding: '7px 8px', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}
-                  </td>
-                  {showAllWatchlist && <td>{w.creator}</td>}
-                  <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
-                  <td style={{ color: 'var(--foreground-muted)', padding: '7px 12px', fontSize: '11px', textTransform: 'uppercase' }}>{w.cadence?.tier || '—'}</td>
-                  <td style={{ color: '#7DD3A4', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{w.lastAlert ? new Date(w.lastAlert).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
-                  <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
-      )}
-
       {/* ── DORMANT WHALES — big lifetime, long gone; revival targets ── */}
       {dormantList.length > 0 && (
         <details style={{ ...card, padding: '14px 18px' }}>
@@ -801,6 +769,44 @@ export default function AuditTab() {
           </table>
         </details>
       )}
+
+      {/* ── SENT TO CHAT MANAGERS — save-list + dormant, alert delivered ── */}
+      {sentList.length > 0 && (
+        <details style={{ ...card, padding: '14px 18px' }}>
+          <summary style={{ fontSize: '13px', fontWeight: 700, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+            Sent to chat managers ({sentList.length}) — alert delivered, ball&apos;s in their court
+          </summary>
+          {[['From the Save List', sentList.filter((w) => !isDormant(w))], ['Dormant whales', sentList.filter(isDormant)]].map(([label, group]) => group.length > 0 && (
+            <div key={label}>
+              <div style={{ marginTop: '12px', fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label} ({group.length})</div>
+              <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', marginTop: '6px' }}>
+                <thead><tr style={{ color: 'var(--foreground-muted)', textAlign: 'left' }}>
+                  <th style={{ padding: '4px 8px' }}>Fan</th>{showAllWatchlist && <th>Creator</th>}<th style={{ textAlign: 'right', padding: '4px 12px' }}>Lifetime</th><th style={{ padding: '4px 12px' }}>Tier</th><th style={{ padding: '4px 12px' }}>Sent</th><th></th>
+                </tr></thead>
+                <tbody>
+                  {group.map((w) => (
+                    <tr key={w.id} data-kbrow onClick={() => openFan(w)}
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--foreground)', cursor: 'pointer' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = ''}>
+                      <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
+                        style={{ padding: '7px 8px', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}
+                      </td>
+                      {showAllWatchlist && <td>{w.creator}</td>}
+                      <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
+                      <td style={{ color: 'var(--foreground-muted)', padding: '7px 12px', fontSize: '11px', textTransform: 'uppercase' }}>{w.cadence?.tier || '—'}</td>
+                      <td style={{ color: '#7DD3A4', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{w.lastAlert ? new Date(w.lastAlert).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
+                      <td style={{ color: '#A06FE8', fontSize: '11px' }}>view →</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </details>
+      )}
+
 
       {/* ── Win-Back Playbook — research-corpus tactics for the chatters ── */}
       {playbook && (
