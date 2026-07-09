@@ -22,16 +22,21 @@ export default function TeamAccessPage() {
   }
   useEffect(load, [])
 
-  const sendInvite = async () => {
+  const sendInvite = async (asLink = false) => {
     setBusy(true); setMsg(null)
     try {
       const res = await fetch('/api/admin/invites', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, chatTeam: team }),
+        body: JSON.stringify({ email, chatTeam: team, asLink }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'invite failed')
-      setMsg({ ok: true, text: `Invitation emailed to ${d.email} — Team ${team} chat manager. She clicks the link, sets a password, and lands with access already scoped.` })
+      if (asLink && d.url) {
+        try { await navigator.clipboard.writeText(d.url) } catch {}
+        setMsg({ ok: true, text: `Invite link created for ${d.email} (Team ${team}) and copied to your clipboard — send it to her however you like. It only works for that email.`, url: d.url })
+      } else {
+        setMsg({ ok: true, text: `Invitation emailed to ${d.email} — Team ${team} chat manager. She clicks the link, sets a password, and lands with access already scoped.` })
+      }
       setEmail('')
       load()
     } catch (e) {
@@ -64,14 +69,19 @@ export default function TeamAccessPage() {
               </button>
             ))}
           </div>
-          <button onClick={sendInvite} disabled={busy || !email}
+          <button onClick={() => sendInvite(false)} disabled={busy || !email}
             style={{ background: 'var(--palm-pink)', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 700, color: '#060606', cursor: busy || !email ? 'not-allowed' : 'pointer', opacity: busy || !email ? 0.6 : 1 }}>
-            {busy ? 'Sending…' : 'Send invite'}
+            {busy ? 'Working…' : 'Email invite'}
+          </button>
+          <button onClick={() => sendInvite(true)} disabled={busy || !email}
+            style={{ background: 'transparent', border: '1px solid var(--palm-pink)', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, color: 'var(--palm-pink)', cursor: busy || !email ? 'not-allowed' : 'pointer', opacity: busy || !email ? 0.6 : 1 }}>
+            Copy invite link
           </button>
         </div>
         {msg && (
           <div style={{ marginTop: '12px', fontSize: '12px', color: msg.ok ? '#7DD3A4' : '#E87878', background: msg.ok ? 'rgba(125,211,164,0.08)' : 'rgba(232,120,120,0.08)', border: `1px solid ${msg.ok ? 'rgba(125,211,164,0.25)' : 'rgba(232,120,120,0.25)'}`, borderRadius: '8px', padding: '10px 12px' }}>
             {msg.text}
+            {msg.url && <div style={{ marginTop: '6px', fontFamily: 'monospace', fontSize: '11px', wordBreak: 'break-all', userSelect: 'all' }}>{msg.url}</div>}
           </div>
         )}
       </div>

@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
   try {
-    const { email, chatTeam } = await request.json()
+    const { email, chatTeam, asLink } = await request.json()
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
     }
@@ -47,7 +47,9 @@ export async function POST(request) {
       body: JSON.stringify({
         email_address: email.trim(),
         public_metadata: { role: 'chat_manager', chatTeam },
-        notify: true,
+        // asLink: no system email — return the sign-up URL (on our own
+        // domain) so Evan can text/DM it himself.
+        notify: !asLink,
       }),
     })
     const data = await res.json()
@@ -55,7 +57,7 @@ export async function POST(request) {
       const msg = data?.errors?.[0]?.long_message || data?.errors?.[0]?.message || 'Clerk rejected the invitation'
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    return NextResponse.json({ ok: true, id: data.id, email: data.email_address, status: data.status })
+    return NextResponse.json({ ok: true, id: data.id, email: data.email_address, status: data.status, url: asLink ? (data.url || null) : null })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
