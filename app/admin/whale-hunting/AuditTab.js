@@ -233,12 +233,12 @@ export default function AuditTab() {
         }
         let spent = 0, cap = null, newMsgs = 0, total = 0
         let chunkErr = null, retries = 0
-        let cur = null, chunkFanId = body.fanId || '', lastComplete = false, capped = false
+        let cur = null, chunkFanId = body.fanId || '', chunkAccountId = '', lastComplete = false, capped = false
         for (let c = 0; c < 60; c++) {
           if (batchAbort.current) break
           const cres = await fetch('/api/admin/creator-earnings/pull-chat', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...body, chunked: true, fanId: chunkFanId, ...(cur ? { cursor: cur } : {}) }),
+            body: JSON.stringify({ ...body, chunked: true, fanId: chunkFanId, ...(chunkAccountId ? { accountId: chunkAccountId } : {}), ...(cur ? { cursor: cur } : {}) }),
           })
           // Timeouts/5xx are expected on big histories — finished chunks are
           // safe in shards; retry and continue.
@@ -253,6 +253,7 @@ export default function AuditTab() {
           cap = cdata.capCredits ?? cap
           cur = cdata.cursor || cur
           chunkFanId = cdata.fan?.id || chunkFanId
+          chunkAccountId = cdata.accountId || chunkAccountId
           lastComplete = !!cdata.historyComplete
           setBatch((b) => ({ ...b, i: i + 1, total: pool.length, current: cdata.waiting ? `${label} — building his spending-era export… ${cdata.progress ?? 0}%` : `${label} — pulling… ${total.toLocaleString()} msgs · ${spent}cr`, log: [...log] }))
           if (!cdata.morePages) break
