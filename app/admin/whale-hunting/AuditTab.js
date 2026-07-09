@@ -75,6 +75,7 @@ export default function AuditTab() {
   const [earnings, setEarnings] = useState(null)       // transactions etc. for the Fan CRM below
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [saveSort, setSaveSort] = useState(null) // {key, dir} | null = tier order
+  const [fanSearch, setFanSearch] = useState('') // filters urgent + sent + dormant by name/@username
   const [focusFan, setFocusFan] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('fan') || ''))
   const [focusNonce, setFocusNonce] = useState(0) // bump per click so re-clicking the same fan reopens the modal
   const [error, setError] = useState(null)
@@ -154,9 +155,11 @@ export default function AuditTab() {
   }
   // Fans already SENT to the chat managers leave the urgent section — Evan
   // shouldn't have to squint at alert timestamps to know who's handled.
+  const q = fanSearch.trim().toLowerCase()
+  const matchesSearch = (w) => !q || (w.fanName || '').toLowerCase().includes(q) || (w.ofUsername || '').toLowerCase().includes(q)
   const isSent = (w) => !isDormant(w) && (w.status === 'Alert Sent' || !!w.lastAlert)
-  const sentList = visibleWatchlist.filter(isSent).sort((a, b) => (b.lastAlert || '').localeCompare(a.lastAlert || ''))
-  const urgentList = visibleWatchlist.filter((w) => !isDormant(w) && !isSent(w))
+  const sentList = visibleWatchlist.filter((w) => isSent(w) && matchesSearch(w)).sort((a, b) => (b.lastAlert || '').localeCompare(a.lastAlert || ''))
+  const urgentList = visibleWatchlist.filter((w) => !isDormant(w) && !isSent(w) && matchesSearch(w))
     .sort((a, b) => {
       if (saveSort && SORT_METRICS[saveSort.key]) {
         const d = SORT_METRICS[saveSort.key](b) - SORT_METRICS[saveSort.key](a)
@@ -166,7 +169,7 @@ export default function AuditTab() {
     })
   const clickSort = (key) => setSaveSort((s) => (s?.key !== key ? { key, dir: 'desc' } : s.dir === 'desc' ? { key, dir: 'asc' } : null))
   const sortArrow = (key) => (saveSort?.key === key ? (saveSort.dir === 'desc' ? ' ▾' : ' ▴') : '')
-  const dormantList = visibleWatchlist.filter(isDormant).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
+  const dormantList = visibleWatchlist.filter((w) => isDormant(w) && matchesSearch(w)).sort((a, b) => (b.lifetime || 0) - (a.lifetime || 0))
   // "Worth/mo" = his PROVEN level (best 6-month stretch), not the recent 90d
   // average — a going-cold fan's recent average is already depressed, which
   // made the at-risk number absurdly small (Evan: "$401/mo from 5,000 fans?").
@@ -626,6 +629,12 @@ export default function AuditTab() {
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <h2 style={h2}>Save List — {showAllWatchlist ? 'all creators' : (selected?.aka || '')} ({urgentList.length} urgent)</h2>
+          <input
+            value={fanSearch}
+            onChange={(e) => setFanSearch(e.target.value)}
+            placeholder="Search fan or @username…"
+            style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', width: '220px' }}
+          />
           <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '12px' }}>
             <input type="checkbox" checked={showAllWatchlist} onChange={(e) => setShowAllWatchlist(e.target.checked)} />
             show all creators
