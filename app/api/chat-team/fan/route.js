@@ -94,23 +94,37 @@ export async function GET(request) {
       if (d > 0) gaps.push(d)
     }
     gaps.sort((a, b) => a - b)
-    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null
+    const medianGapLife = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null
+    // Current-era distribution grading — same rule as the whale audit
+    // (2026-07-09): warning past his own p75, high past p90, critical well
+    // past it; dead stays absolute time.
+    let eraDates = dates
+    for (let i = dates.length - 1; i > 0; i--) {
+      if (Math.round((new Date(dates[i]) - new Date(dates[i - 1])) / 86400000) >= 60) { eraDates = dates.slice(i); break }
+    }
+    let eraGaps = []
+    for (let i = 1; i < eraDates.length; i++) {
+      const d = Math.round((new Date(eraDates[i]) - new Date(eraDates[i - 1])) / 86400000)
+      if (d > 0) eraGaps.push(d)
+    }
+    if (eraGaps.length < 3) eraGaps = [...gaps]
+    eraGaps.sort((a, b) => a - b)
+    const medianGap = eraGaps.length ? eraGaps[Math.floor(eraGaps.length / 2)] : medianGapLife
+    const gapP75 = eraGaps.length ? eraGaps[Math.min(eraGaps.length - 1, Math.floor(eraGaps.length * 0.75))] : null
+    const gapP90 = eraGaps.length ? eraGaps[Math.min(eraGaps.length - 1, Math.floor(eraGaps.length * 0.9))] : null
     const currentGap = lastBuy ? Math.round((now - new Date(lastBuy).getTime()) / 86400000) : null
     let tier = null, gapRatio = null
     if (medianGap && dates.length >= 3 && currentGap != null) {
       gapRatio = +(currentGap / Math.max(medianGap, 1)).toFixed(1)
       if (currentGap < 7) tier = null
-      // 'dead' needs real ABSOLUTE time, not just ratio — a daily buyer 19d
-      // silent is 9.5× his rhythm but he's CRITICAL (most saveable), not
-      // dead (Evan, 2026-07-07, Pete).
-      else if (currentGap >= 120 || (gapRatio >= 8 && currentGap >= 60)) tier = 'dead'
-      else if (gapRatio >= 5) tier = 'critical'
-      else if (gapRatio >= 3) tier = 'high'
-      else if (gapRatio >= 2) tier = 'warning'
+      else if (currentGap >= 120) tier = 'dead'
+      else if (currentGap > Math.max((gapP90 || medianGap) * 1.5, 14)) tier = 'critical'
+      else if (currentGap > Math.max(gapP90 || medianGap * 2, 10)) tier = 'high'
+      else if (currentGap > Math.max(gapP75 || medianGap * 1.5, 7)) tier = 'warning'
     }
     const monthsOver500 = moKeys.filter((k) => monthly[k] >= 500).length
     const data = {
-      medianGap, currentGap, gapRatio, tier, monthsOver500,
+      medianGap, gapP75, gapP90, currentGap, gapRatio, tier, monthsOver500,
       lifetime: Math.round(lifetime),
       rolling30: Math.round(rolling30),
       monthlyAvg90: Math.round(monthlyAvg90),
