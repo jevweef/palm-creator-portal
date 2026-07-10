@@ -36,6 +36,9 @@ export async function GET(request) {
   if (expectedAuth && request.headers.get('authorization') !== expectedAuth) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
+  // ?salesDays=N (max 30) — manual deeper sweeps for known outage windows
+  // (Jul 2-3 2026 predated both the hardened webhook store and this cron).
+  const salesDays = Math.min(30, Math.max(3, Number(new URL(request.url).searchParams.get('salesDays')) || 3))
 
   try {
     const accounts = await connectedAccounts()
@@ -49,7 +52,7 @@ export async function GET(request) {
         // ── Sales: last 3 days vs the tab ──────────────────────────────────
         const { tabName } = await ensureTab(sheets, acct.accountName, 'Sales')
         await ensureExtraHeaders(sheets, tabName)
-        const salesCutoff = Date.now() - 3 * 86400000
+        const salesCutoff = Date.now() - salesDays * 86400000
         const txns = await pageList(acct.id, 'transactions', salesCutoff, (n) => { credits += n })
         const fresh = txns
           .filter((t) => !['failed', 'cancelled', 'canceled', 'refunded', 'error'].includes(String(t.status || '').toLowerCase()))
