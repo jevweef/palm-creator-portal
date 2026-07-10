@@ -48,8 +48,14 @@ export async function GET(request) {
       const u = (e.fan?.username || '').toLowerCase().trim()
       return n === fan || u === fan || (fan.length > 3 && (n.includes(fan) || u.includes(fan)))
     }
+    // OF auto-generates an incoming "message" reading "I sent you a $X tip"
+    // whenever a fan tips — it's not typed by the fan, and the tip is already
+    // captured as its own sale event (the 💰 line). Drop it so the thread
+    // isn't polluted with fake fan messages.
+    const isTipSystemMsg = (e) =>
+      e.dir === 'in' && /^\s*i sent you a \$[\d,]+(\.\d{1,2})?\s*tip\b/i.test(String(e.text || '').replace(/<[^>]+>/g, ' '))
     const thread = events
-      .filter((e) => e.at && dayOf(e.at) === date && matchFan(e))
+      .filter((e) => e.at && dayOf(e.at) === date && matchFan(e) && !isTipSystemMsg(e))
       .sort((a, b) => (a.at || '').localeCompare(b.at || ''))
       .map((e) => ({
         at: e.at,

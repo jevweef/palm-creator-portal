@@ -114,6 +114,22 @@ export default function ChatManagerChatTeamReport() {
   const repDate = report?.date
 
   const flagKey = (f) => `${repDate}|${f.creator}|${f.fan}|${String(f.message || '').slice(0, 60)}`
+
+  // Ref callback on the flagged message row — on mount, scroll its
+  // conversation container so the flagged message is centered, so you land on
+  // the message in question and can scroll for context (once per mount).
+  const scrollToFlagged = (el) => {
+    if (!el || el.dataset.scrolled) return
+    el.dataset.scrolled = '1'
+    const c = el.closest('[data-convo-scroll]')
+    if (!c) return
+    requestAnimationFrame(() => {
+      const cRect = c.getBoundingClientRect()
+      const eRect = el.getBoundingClientRect()
+      c.scrollTop += (eRect.top - cRect.top) - (c.clientHeight - el.clientHeight) / 2
+    })
+  }
+
   const toggleContext = async (f) => {
     const k = flagKey(f)
     if (ctx[k]) { setCtx((m) => { const n = { ...m }; delete n[k]; return n }); return }
@@ -182,7 +198,7 @@ export default function ChatManagerChatTeamReport() {
                   </button>
                 </div>
                 {ctx[flagKey(f)] && (
-                  <div style={{ marginTop: '8px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 12px', maxHeight: '320px', overflowY: 'auto' }}>
+                  <div data-convo-scroll style={{ marginTop: '8px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 12px', maxHeight: '320px', overflowY: 'auto' }}>
                     {ctx[flagKey(f)].loading && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Loading conversation…</div>}
                     {ctx[flagKey(f)].error && <div style={{ fontSize: '11px', color: '#E87878' }}>{ctx[flagKey(f)].error}</div>}
                     {(ctx[flagKey(f)].thread || []).length === 0 && !ctx[flagKey(f)].loading && !ctx[flagKey(f)].error &&
@@ -192,7 +208,7 @@ export default function ChatManagerChatTeamReport() {
                       return m.dir === 'sale' ? (
                         <div key={j} style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 700, padding: '3px 0' }}>💰 {m.time} — purchased ${m.price}</div>
                       ) : (
-                        <div key={j} style={{ display: 'flex', justifyContent: m.dir === 'out' ? 'flex-end' : 'flex-start', padding: '2px 0' }}>
+                        <div key={j} ref={flagged ? scrollToFlagged : undefined} style={{ display: 'flex', justifyContent: m.dir === 'out' ? 'flex-end' : 'flex-start', padding: '2px 0' }}>
                           <div style={{ maxWidth: '75%', background: flagged ? 'rgba(232,120,120,0.22)' : m.dir === 'out' ? 'rgba(196,165,247,0.12)' : 'rgba(255,255,255,0.06)', border: flagged ? '1px solid rgba(232,120,120,0.5)' : '1px solid transparent', borderRadius: '8px', padding: '4px 9px' }}>
                             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>{m.dir === 'out' ? f.creator : f.fan} · {m.time}</div>
                             <div style={{ fontSize: '12px' }}>{m.text}</div>
