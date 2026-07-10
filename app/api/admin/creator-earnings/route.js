@@ -538,7 +538,12 @@ export async function GET(request) {
 
     // Separate sales and chargebacks
     const salesTxns = transactions.filter(t => t.type !== 'Chargeback')
+    // Chargeback rows are stored NEGATIVE on the sheet; this pipeline treats
+    // cb.net as a magnitude (matching by |amount|, subtracting on the day).
+    // Without this, 'dailyMap -= (-23.99)' ADDED chargebacks as revenue —
+    // Laurel's 30d ran high by exactly her chargeback total (Evan, 07-10).
     const chargebackTxns = transactions.filter(t => t.type === 'Chargeback')
+      .map(cb => ({ ...cb, net: Math.abs(cb.net || 0), gross: Math.abs(cb.gross || 0) }))
 
     // ── Zero out original purchases for chargebacks ──────────────────────
     // Instead of subtracting chargebacks on the chargeback date, find the original
