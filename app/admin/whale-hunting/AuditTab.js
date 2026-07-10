@@ -698,16 +698,29 @@ export default function AuditTab() {
                     <td style={{ textAlign: 'right', color: 'var(--foreground-muted)', padding: '7px 10px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
                     <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 10px', whiteSpace: 'nowrap' }}>{fmtD(cad?.lastPurchaseDate)}</td>
                     <td style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{(() => {
+                      const upl = w.lastChatUpload ? new Date(w.lastChatUpload) : null
+                      const fresh = upl && (Date.now() - upl) < 48 * 3600000
+                      const pulled = upl ? (
+                        <span title={`chat scraped ${upl.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET`}
+                          style={fresh
+                            ? { background: 'rgba(160,111,232,0.15)', color: '#A06FE8', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, marginRight: '5px' }
+                            : { color: 'var(--foreground-muted)', fontSize: '10px', marginRight: '5px' }}>
+                          PULLED {fmtD(w.lastChatUpload)}
+                        </span>
+                      ) : null
                       if (!w.lastAlert) {
-                        return w.status === 'Analyzed'
-                          ? <span title="analysis + PDF saved on his card — not sent to the team yet" style={{ background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>
-                          : <span style={{ color: 'var(--foreground-muted)' }}>not analyzed</span>
+                        return <>
+                          {pulled}
+                          {w.status === 'Analyzed'
+                            ? <span title="analysis + PDF saved on his card — not sent to the team yet" style={{ background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>
+                            : <span style={{ color: 'var(--foreground-muted)' }}>not analyzed</span>}
+                        </>
                       }
                       const days = Math.round((Date.now() - new Date(w.lastAlert)) / 86400000)
                       const label = fmtD(w.lastAlert)
-                      return days > 30
+                      return <>{pulled}{days > 30
                         ? <span style={{ color: 'var(--foreground-muted)' }}>{label} <span style={{ fontSize: '9px', opacity: 0.7 }}>(stale)</span></span>
-                        : <span style={{ color: '#7DD3A4' }}>{label}</span>
+                        : <span style={{ color: '#7DD3A4' }}>{label}</span>}</>
                     })()}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{(() => {
                       const lv = cad?.live
@@ -756,7 +769,8 @@ export default function AuditTab() {
                   <td title={`${w.fanName}${w.ofUsername ? ' @' + w.ofUsername : ''}`}
                     style={{ padding: '7px 8px 7px 0', fontWeight: 600, maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}
-                    {w.status === 'Analyzed' && <span title="analysis saved, alert not sent yet" style={{ marginLeft: '6px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>}</td>
+                    {w.status === 'Analyzed' && <span title="analysis saved, alert not sent yet" style={{ marginLeft: '6px', background: 'rgba(232,140,92,0.15)', color: '#E88C5C', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>ANALYSIS READY</span>}
+                    {w.lastChatUpload && (Date.now() - new Date(w.lastChatUpload)) < 48 * 3600000 && <span title={`chat scraped ${new Date(w.lastChatUpload).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET`} style={{ marginLeft: '6px', background: 'rgba(160,111,232,0.15)', color: '#A06FE8', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>PULLED {fmtD(w.lastChatUpload)}</span>}</td>
                   {showAllWatchlist && <td>{w.creator}</td>}
                   <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 12px', whiteSpace: 'nowrap' }}>${Math.round(w.lifetime).toLocaleString()}</td>
                   <td style={{ color: 'var(--foreground-muted)', fontSize: '11px', padding: '7px 12px', whiteSpace: 'nowrap' }}>{fmtD(w.cadence?.lastPurchaseDate)}</td>

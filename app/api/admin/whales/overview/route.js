@@ -52,6 +52,7 @@ export async function GET() {
           lifetime: f['Lifetime Spend'] || 0,
           firstFlagged: f['First Flagged'] || null,
           lastAlert: f['Last Alert Sent'] || null,
+          lastChatUpload: f['Last Chat Upload'] || null,
           alertCount: f['Alert Count'] || 0,
           effectiveness: typeof f.Effectiveness === 'string' ? f.Effectiveness : f.Effectiveness?.name || '',
           notes: f.Notes || '',
