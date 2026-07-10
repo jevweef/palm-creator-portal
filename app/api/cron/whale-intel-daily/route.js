@@ -94,8 +94,13 @@ export async function GET(request) {
         const line = (x) => `- [${(x.issues || []).join('/')}] "${String(x.message).slice(0, 160)}"${x.note ? ` (was flagged as: ${String(x.note).slice(0, 100)})` : ''}`
         const fine = fb.items.filter((x) => x.verdict === 'fine').slice(-15).map(line)
         const real = fb.items.filter((x) => x.verdict === 'real').slice(-10).map(line)
-        if (fine.length || real.length) {
-          calibration = `\nMANAGER CALIBRATION — the agency owner reviewed previous flags:\n${fine.length ? `He marked these FINE — do NOT flag messages like these:\n${fine.join('\n')}\n` : ''}${real.length ? `He confirmed these REAL — definitely flag patterns like these:\n${real.join('\n')}\n` : ''}`
+        // Written notes (typed or dictated) from the whole team — richer than
+        // verdicts because they say WHY a flag was right or wrong. The judge
+        // treats them as lens adjustments, not just examples.
+        const written = (fb.notes || []).slice(-20).map((n) =>
+          `- ${n.author} on "${String(n.message).slice(0, 120)}" [${(n.issues || []).join('/')}]: ${String(n.text).slice(0, 250)}`)
+        if (fine.length || real.length || written.length) {
+          calibration = `\nMANAGER CALIBRATION — the agency owner reviewed previous flags:\n${fine.length ? `He marked these FINE — do NOT flag messages like these:\n${fine.join('\n')}\n` : ''}${real.length ? `He confirmed these REAL — definitely flag patterns like these:\n${real.join('\n')}\n` : ''}${written.length ? `WRITTEN FEEDBACK from the team on specific flags — adjust what you flag accordingly (these explain the WHY; generalize the principle, not just the example):\n${written.join('\n')}\n` : ''}`
         }
       }
     } catch { /* no feedback yet */ }

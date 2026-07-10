@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate } from '@/lib/onlyfansApi'
+import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate, chatAccountFor } from '@/lib/onlyfansApi'
 import { loadChatArchive, saveChatArchive, mergeMessages, saveChunkShard, finalizeChunks, oldestShardTip } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
@@ -172,14 +172,15 @@ export async function POST(request) {
       }
     }
 
-    // Fan known but account not yet pinned (archive/audit fanId path) on a
-    // multi-account creator: pin the page he actually lives on once, so chat
-    // fetches don't quietly hit the wrong account.
-    if (accountIds.length > 1 && !accountIds.includes(bodyAccountId) && (fan?.username || fanUsername || fanName)) {
-      for (const acc of accountIds) {
-        const hit = await resolveFanId(acc, { username: fan?.username || fanUsername, name: fan?.name || fanName }).catch(() => null)
-        if (hit?.id) { accountId = acc; if (!fan?.id) fan = hit; break }
-      }
+    // Fan known but account not yet pinned on a multi-account creator: pin the
+    // page his CHAT actually lives on. Pinning by resolveFanId is a trap —
+    // /users/<username> resolves on ANY account, so it pins the first page even
+    // when he only ever bought on the other one (every Taby backfill pull came
+    // back "No messages found" that way). A 1-message chat probe per account
+    // finds the real page for ~1 credit.
+    if (accountIds.length > 1 && !accountIds.includes(bodyAccountId) && fan?.id) {
+      const pinned = await chatAccountFor(accountIds, fan.id).catch(() => null)
+      if (pinned) accountId = pinned
     }
 
     // Overlap the boundary by a minute — dedup by id makes it harmless.
@@ -228,6 +229,21 @@ export async function POST(request) {
         const pendingId = arcX?.pendingExportId || null
         if (pendingId) {
           const st = await getDataExport(pendingId).catch(() => null)
+          if (st?.status === 'completed' && !(st.total_rows > 0) && !arcX?.exportNoMass) {
+            // 0 rows with skipMassMessages on = a blast-only chat (Taby's
+            // dormant fans: the export finds the chat but every message is a
+            // mass send). Re-export WITHOUT the skip so his purchase history
+            // and what he responded to still come back. One retry only.
+            const exp2 = await createDataExport({
+              type: 'chat_messages',
+              accountIds: [accountId],
+              startDate: new Date(exportWindow.start).toISOString().slice(0, 19) + 'Z',
+              endDate: new Date(exportWindow.end || Date.now()).toISOString().slice(0, 19) + 'Z',
+              options: { chatIds: [Number(fan.id)], maxMessages: 1000000, skipMassMessages: false },
+            })
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: exp2?.id || null, exportNoMass: true, updatedAt: new Date().toISOString() })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: 0, retryingWithMass: true })
+          }
           if (st?.status === 'completed') {
             // Cost gate on the FINAL count only. total_rows grows while OF
             // builds the export — a mid-build quote (Pedro: "1,123 ≈ 57cr")
