@@ -81,14 +81,15 @@ function SalesGraph({ sales }) {
 
 // Messages-sent-per-15-min bar graph for the last 48h — same shape as
 // SalesGraph but counts outgoing 1:1 messages instead of summing sale $.
-function MessagesSentGraph({ messages }) {
+function MessagesSentGraph({ messages, creatorOptions = [], creator = '', onCreator }) {
+  const shown = creator ? messages.filter((m) => m.aka === creator) : messages
   const BUCKET = 15 * 60 * 1000
   const N = 192 // 48h of 15-min buckets
   const now = Date.now()
   const end = Math.ceil(now / BUCKET) * BUCKET
   const start = end - N * BUCKET
   const buckets = Array(N).fill(0)
-  for (const e of messages) {
+  for (const e of shown) {
     const t = new Date(e.at).getTime()
     if (isNaN(t) || t < start || t > end) continue
     buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += 1
@@ -107,8 +108,15 @@ function MessagesSentGraph({ messages }) {
   }
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '14px 16px 6px', marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Messages sent · last 48h · 15-min buckets</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Messages sent · last 48h · 15-min buckets</span>
+          <select value={creator} onChange={(e) => onCreator?.(e.target.value)}
+            style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px' }}>
+            <option value="">All creators</option>
+            {creatorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
         <span style={{ fontSize: '12px', fontWeight: 700, color: '#7aa9ff' }}>{total.toLocaleString()} sent</span>
       </div>
       <div style={{ position: 'relative' }}>
@@ -143,6 +151,7 @@ export default function LiveChatPage() {
   const [view, setView] = useState(() => fromUrl('tab') || 'inbox') // 'inbox' | 'in' | 'out' | 'sales'
   const [sales48, setSales48] = useState([])
   const [sent48, setSent48] = useState([])
+  const [sentCreator, setSentCreator] = useState(() => fromUrl('sentCreator') || '') // messages-sent graph creator filter
   const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
@@ -203,6 +212,14 @@ export default function LiveChatPage() {
     const t = setInterval(load, 60000)
     return () => clearInterval(t)
   }, [view])
+
+  // Persist the messages-sent graph creator filter in the URL (refresh-safe);
+  // writeUrl preserves other params so account/fan/tab are untouched.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    if (sentCreator) p.set('sentCreator', sentCreator); else p.delete('sentCreator')
+    window.history.replaceState(null, '', `${window.location.pathname}${p.toString() ? '?' + p : ''}`)
+  }, [sentCreator])
 
   // Load conversations when account changes (URL-restored fan survives the
   // first load; manual switches clear it via the select's onChange)
@@ -367,7 +384,14 @@ export default function LiveChatPage() {
         return (
         <>
         {view === 'sales' && <SalesGraph sales={sales48} />}
-        {view === 'out' && <MessagesSentGraph messages={sent48} />}
+        {view === 'out' && (
+          <MessagesSentGraph
+            messages={sent48}
+            creatorOptions={[...new Set(accounts.map((a) => a.aka))]}
+            creator={sentCreator}
+            onCreator={setSentCreator}
+          />
+        )}
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <span>Time</span><span>Creator</span><span>Fan</span><span>{view === 'out' ? 'Locked' : view === 'sales' ? 'Net' : ''}</span><span>{view === 'sales' ? 'What' : 'Message'}</span><span></span>
