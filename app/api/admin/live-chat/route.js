@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 // the previous events instead of blinking that account out of the stream.
 const STREAM_CACHE = { at: 0, data: null }
 const SALES48_CACHE = { at: 0, data: null } // 60s TTL — full-depth read is heavy
+const SENT48_CACHE = { at: 0, data: null }  // 60s TTL — messages-sent graph
 const LAST_GOOD = new Map() // account -> events
 const MUTED_CACHE = new Map() // account -> { at, list }
 
@@ -63,6 +64,25 @@ export async function GET(request) {
       SALES48_CACHE.at = Date.now()
       SALES48_CACHE.data = sales
       return NextResponse.json({ sales })
+    }
+
+    // ?sent48=1 — every OUTGOING 1:1 message in the last 48h across all
+    // creators (feeds the Outgoing tab's messages-sent graph). Cached 60s.
+    // Only timestamps are needed (we bucket by count), so rows stay thin.
+    if (url.searchParams.get('sent48') === '1') {
+      if (SENT48_CACHE.data && Date.now() - SENT48_CACHE.at < 60000) {
+        return NextResponse.json({ sent: SENT48_CACHE.data })
+      }
+      const { readLiveMany } = await import('@/lib/ofLiveBuffer')
+      let byAccount = {}
+      try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
+      const cutoff = Date.now() - 48 * 3600 * 1000
+      const sent = accounts.flatMap((a) => (byAccount[a.account] || [])
+        .filter((e) => e.dir === 'out' && e.at && new Date(e.at).getTime() >= cutoff)
+        .map((e) => ({ at: e.at, aka: a.aka })))
+      SENT48_CACHE.at = Date.now()
+      SENT48_CACHE.data = sent
+      return NextResponse.json({ sent })
     }
 
     // ?stream=1 — all creators merged: the raw event firehose for the Stream tab

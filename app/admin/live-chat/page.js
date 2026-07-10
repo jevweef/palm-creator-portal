@@ -79,6 +79,57 @@ function SalesGraph({ sales }) {
   )
 }
 
+// Messages-sent-per-15-min bar graph for the last 48h — same shape as
+// SalesGraph but counts outgoing 1:1 messages instead of summing sale $.
+function MessagesSentGraph({ messages }) {
+  const BUCKET = 15 * 60 * 1000
+  const N = 192 // 48h of 15-min buckets
+  const now = Date.now()
+  const end = Math.ceil(now / BUCKET) * BUCKET
+  const start = end - N * BUCKET
+  const buckets = Array(N).fill(0)
+  for (const e of messages) {
+    const t = new Date(e.at).getTime()
+    if (isNaN(t) || t < start || t > end) continue
+    buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += 1
+  }
+  const max = Math.max(...buckets, 1)
+  const total = buckets.reduce((a, b) => a + b, 0)
+  const H = 220
+  const ticks = []
+  for (let i = 0; i <= N; i += 24) { // a tick every 6h
+    const t = new Date(start + i * BUCKET)
+    ticks.push({ x: (i / N) * 100, label: t.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric' }) })
+  }
+  const fmtBucket = (i) => {
+    const t = new Date(start + i * BUCKET)
+    return t.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '14px 16px 6px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Messages sent · last 48h · 15-min buckets</span>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#7aa9ff' }}>{total.toLocaleString()} sent</span>
+      </div>
+      <div style={{ position: 'relative' }}>
+        <svg viewBox={`0 0 ${N} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px`, display: 'block' }}>
+          {buckets.map((v, i) => v > 0 && (
+            <rect key={i} x={i + 0.12} y={H - (v / max) * (H - 14)} width={0.76} height={(v / max) * (H - 14)} fill="#7aa9ff" opacity="0.9">
+              <title>{`${fmtBucket(i)} ET — ${v} sent`}</title>
+            </rect>
+          ))}
+          {ticks.map((t, i) => <line key={i} x1={(t.x / 100) * N} x2={(t.x / 100) * N} y1={0} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />)}
+        </svg>
+        <span style={{ position: 'absolute', top: 0, left: 4, fontSize: '10px', color: 'var(--foreground-muted)' }}>{max}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--foreground-muted)', paddingTop: '3px' }}>
+        {ticks.filter((_, i) => i % 2 === 0).map((t, i) => <span key={i}>{t.label}</span>)}
+        <span style={{ color: '#7aa9ff', fontWeight: 700 }}>now</span>
+      </div>
+    </div>
+  )
+}
+
 export default function LiveChatPage() {
   const [accounts, setAccounts] = useState([])
   const [account, setAccount] = useState(() => fromUrl('account'))
@@ -91,6 +142,7 @@ export default function LiveChatPage() {
   const [showMuted, setShowMuted] = useState(false)
   const [view, setView] = useState(() => fromUrl('tab') || 'inbox') // 'inbox' | 'in' | 'out' | 'sales'
   const [sales48, setSales48] = useState([])
+  const [sent48, setSent48] = useState([])
   const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
@@ -137,6 +189,16 @@ export default function LiveChatPage() {
     if (view !== 'sales') return
     const load = () => fetch('/api/admin/live-chat?sales48=1', { cache: 'no-store' })
       .then((r) => r.json()).then((d) => setSales48(d.sales || [])).catch(() => {})
+    load()
+    const t = setInterval(load, 60000)
+    return () => clearInterval(t)
+  }, [view])
+
+  // 48h outgoing messages for the Outgoing tab graph — same cadence.
+  useEffect(() => {
+    if (view !== 'out') return
+    const load = () => fetch('/api/admin/live-chat?sent48=1', { cache: 'no-store' })
+      .then((r) => r.json()).then((d) => setSent48(d.sent || [])).catch(() => {})
     load()
     const t = setInterval(load, 60000)
     return () => clearInterval(t)
@@ -305,6 +367,7 @@ export default function LiveChatPage() {
         return (
         <>
         {view === 'sales' && <SalesGraph sales={sales48} />}
+        {view === 'out' && <MessagesSentGraph messages={sent48} />}
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: grid, gap: '10px', padding: '9px 16px', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <span>Time</span><span>Creator</span><span>Fan</span><span>{view === 'out' ? 'Locked' : view === 'sales' ? 'Net' : ''}</span><span>{view === 'sales' ? 'What' : 'Message'}</span><span></span>
