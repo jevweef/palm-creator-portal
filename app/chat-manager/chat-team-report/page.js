@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import FlagFeedback from '@/components/FlagFeedback'
 
 // Chat-manager Chat Team Report — the admin Whale Hunting "Chat Team Report"
 // tab, mirrored READ-ONLY for the team. Same overnight report (authenticity
@@ -84,6 +85,7 @@ export default function ChatManagerChatTeamReport() {
   const [creatorFilter, setCreatorFilter] = useState(() => initParam('creator'))
   const [team, setTeam] = useState(() => initParam('team') || 'All')
   const [ctx, setCtx] = useState({}) // flagKey -> { loading, thread, error }
+  const [fbNotes, setFbNotes] = useState({}) // flagKey -> [{author, text, at}]
 
   // Keep ?date, ?creator & ?team in the URL without adding history entries.
   const writeUrl = (nextDate, nextCreator, nextTeam) => {
@@ -112,6 +114,19 @@ export default function ChatManagerChatTeamReport() {
   const available = data?.available || []
   const loading = data === null
   const repDate = report?.date
+
+  // Written feedback on flags — the team's notes train the overnight analyst.
+  useEffect(() => {
+    if (!repDate) return
+    const q = [`date=${repDate}`, viewAsQuery()].filter(Boolean).join('&')
+    fetch(`/api/admin/whales/report-feedback?${q}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const n = {}
+        for (const x of (j.notes || [])) (n[x.flagId] = n[x.flagId] || []).push(x)
+        setFbNotes(n)
+      }).catch(() => {})
+  }, [repDate])
 
   const flagKey = (f) => `${repDate}|${f.creator}|${f.fan}|${String(f.message || '').slice(0, 60)}`
 
@@ -197,6 +212,11 @@ export default function ChatManagerChatTeamReport() {
                     {ctx[flagKey(f)] ? 'hide conversation' : 'show conversation'}
                   </button>
                 </div>
+                <FlagFeedback
+                  flag={{ date: repDate, creator: f.creator, fan: f.fan, message: f.message, issues: f.issues, severity: f.severity }}
+                  notes={fbNotes[flagKey(f)] || []}
+                  onSaved={(note) => setFbNotes((m) => ({ ...m, [flagKey(f)]: [...(m[flagKey(f)] || []), note] }))}
+                />
                 {ctx[flagKey(f)] && (
                   <div data-convo-scroll style={{ marginTop: '8px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 12px', maxHeight: '320px', overflowY: 'auto' }}>
                     {ctx[flagKey(f)].loading && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Loading conversation…</div>}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import AuditTab from './AuditTab'
+import FlagFeedback from '@/components/FlagFeedback'
 
 export default function WhaleHuntingPage() {
   const router = useRouter()
@@ -288,6 +289,7 @@ function ChatTeamTab() {
   // verdicts + expanded conversations (hooks BEFORE any conditional return)
   const [creatorFilter, setCreatorFilter] = useCreatorParam()
   const [fb, setFb] = useState({})            // flagKey -> 'real' | 'fine'
+  const [fbNotes, setFbNotes] = useState({})  // flagKey -> [{author, text, at}]
   const [ctx, setCtx] = useState({})          // flagKey -> { loading, thread, error }
   const repDate = report?.date
   useEffect(() => {
@@ -298,6 +300,9 @@ function ChatTeamTab() {
         const m = {}
         for (const x of (j.items || [])) m[x.id] = x.verdict
         setFb(m)
+        const n = {}
+        for (const x of (j.notes || [])) (n[x.flagId] = n[x.flagId] || []).push(x)
+        setFbNotes(n)
       }).catch(() => {})
   }, [repDate])
   const flagKey = (f) => `${repDate}|${f.creator}|${f.fan}|${String(f.message || '').slice(0, 60)}`
@@ -382,6 +387,11 @@ function ChatTeamTab() {
                 </button>
                 {fb[flagKey(f)] && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>saved — trains tonight&apos;s run</span>}
               </div>
+              <FlagFeedback
+                flag={{ date: repDate, creator: f.creator, fan: f.fan, message: f.message, issues: f.issues, severity: f.severity }}
+                notes={fbNotes[flagKey(f)] || []}
+                onSaved={(note) => setFbNotes((m) => ({ ...m, [flagKey(f)]: [...(m[flagKey(f)] || []), note] }))}
+              />
               {ctx[flagKey(f)] && (
                 <div data-convo-scroll style={{ marginTop: '8px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 12px', maxHeight: '320px', overflowY: 'auto' }}>
                   {ctx[flagKey(f)].loading && <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>Loading conversation…</div>}
