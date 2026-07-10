@@ -688,7 +688,7 @@ export default function AuditTab() {
                       {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : <span title="no OF username on file — pulls fall back to name search; possibly a deleted account" style={{ color: '#E8C878', fontWeight: 400, fontSize: '10px' }}> · no @</span>}</td>
                     {showAllWatchlist && <td style={{ whiteSpace: 'nowrap' }}>{w.creator}</td>}
                     <td style={{ color: 'var(--foreground-muted)', whiteSpace: 'nowrap', padding: '6px 10px 6px 0' }}>{cad?.medianGap
-                      ? <>buys every ~{cad.medianGap}d — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></>
+                      ? <>buys every {cad.gapMin != null && cad.gapMax != null && cad.gapMax > cad.gapMin ? `${cad.gapMin}-${cad.gapMax}d (typical ~${cad.medianGap}d)` : `~${cad.medianGap}d`} — <span style={{ color: tc.color, fontWeight: 600 }}>silent {cad.currentGap}d</span></>
                       : 'flagged manually — run the audit for rhythm data'}</td>
                     <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }} title="his proven level — avg $/mo across his best 6-month stretch">{worthMo(w) ? `$${Math.round(worthMo(w))}` : '—'}</td>
                     <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30)}` : '—'}</td>

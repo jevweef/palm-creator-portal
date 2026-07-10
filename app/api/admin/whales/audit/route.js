@@ -139,7 +139,28 @@ export async function POST(request) {
         if (d > 0) gaps.push(d)
       }
       gaps.sort((a, b) => a - b)
-      const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null
+      const medianGapLife = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null
+
+      // CURRENT ERA: a 60d+ break ends an era — a fan's rhythm is his rhythm
+      // SINCE his latest comeback, not a lifetime blend (Ray: cheap Sept week
+      // + 218d gone + $2k comeback averaged to "every 5d", which was neither
+      // era). Thin eras (<3 gaps) fall back to lifetime gaps.
+      let eraDates = dates
+      for (let i = dates.length - 1; i > 0; i--) {
+        if (Math.round((new Date(dates[i]) - new Date(dates[i - 1])) / 86400000) >= 60) { eraDates = dates.slice(i); break }
+      }
+      let eraGaps = []
+      for (let i = 1; i < eraDates.length; i++) {
+        const d = Math.round((new Date(eraDates[i]) - new Date(eraDates[i - 1])) / 86400000)
+        if (d > 0) eraGaps.push(d)
+      }
+      if (eraGaps.length < 3) eraGaps = gaps
+      eraGaps = [...eraGaps].sort((a, b) => a - b)
+      const medianGap = eraGaps.length ? eraGaps[Math.floor(eraGaps.length / 2)] : medianGapLife
+      const gapP75 = eraGaps.length ? eraGaps[Math.min(eraGaps.length - 1, Math.floor(eraGaps.length * 0.75))] : null
+      const gapP90 = eraGaps.length ? eraGaps[Math.min(eraGaps.length - 1, Math.floor(eraGaps.length * 0.9))] : null
+      const gapMin = eraGaps.length ? eraGaps[0] : null
+      const gapMax = eraGaps.length ? eraGaps[eraGaps.length - 1] : null
       const lastDate = dates[dates.length - 1]
       const currentGap = Math.round((now - new Date(lastDate)) / 86400000)
       const thirtyAgo = new Date(now - 30 * 86400000).toISOString().slice(0, 10)
@@ -179,18 +200,21 @@ export async function POST(request) {
       // Minimum 7 days of absolute silence before ANY flag — a daily buyer
       // who's quiet for 2 days is normal life, not going cold (verified
       // against live OF data 2026-07-04: Vito replied same-day while flagged).
+      // Grade against his own gap DISTRIBUTION (current era), not a single
+      // median×ratio — a fan whose normal gaps swing 1-22d isn't "2.6× overdue"
+      // at 13d, he's inside his own breathing room (Evan + Ray, 2026-07-09).
+      // warning = past his p75, high = past his p90, critical = well past it.
+      // Absolute floors keep fast buyers from tripping on a quiet week, and
+      // 'dead' stays absolute time (120d).
       let tier = null
       let gapRatio = null
       if (medianGap && dates.length >= 3) {
         gapRatio = +(currentGap / Math.max(medianGap, 1)).toFixed(1)
         if (currentGap < 7) tier = null
-        // 'dead' needs real ABSOLUTE time, not just ratio — a daily buyer 19d
-        // silent is 9.5× his rhythm but he's CRITICAL (most saveable), not
-        // dead (Evan, 2026-07-07, Pete).
-        else if (currentGap >= 120 || (gapRatio >= 8 && currentGap >= 60)) tier = 'dead'
-        else if (gapRatio >= 5) tier = 'critical'
-        else if (gapRatio >= 3) tier = 'high'
-        else if (gapRatio >= 2) tier = 'warning'
+        else if (currentGap >= 120) tier = 'dead'
+        else if (currentGap > Math.max((gapP90 || medianGap) * 1.5, 14)) tier = 'critical'
+        else if (currentGap > Math.max(gapP90 || medianGap * 2, 10)) tier = 'high'
+        else if (currentGap > Math.max(gapP75 || medianGap * 1.5, 7)) tier = 'warning'
       } else if (currentGap >= 90) {
         tier = 'dead'
       }
@@ -203,6 +227,7 @@ export async function POST(request) {
         lifetime: +f.lifetime.toFixed(2),
         purchases: dates.length,
         medianGap,
+        gapP75, gapP90, gapMin, gapMax,
         currentGap,
         gapRatio,
         rolling30: +rolling30.toFixed(2),
@@ -359,7 +384,8 @@ export async function POST(request) {
       // watchlist can show the SAME columns as the audit table (rhythm, silent
       // days, 30d spend) instead of just a lifetime number.
       const cadence = JSON.stringify({
-        medianGap: t.medianGap, currentGap: t.currentGap, gapRatio: t.gapRatio, firstPurchaseDate: t.firstPurchaseDate,
+        medianGap: t.medianGap, gapP75: t.gapP75, gapP90: t.gapP90, gapMin: t.gapMin, gapMax: t.gapMax,
+        currentGap: t.currentGap, gapRatio: t.gapRatio, firstPurchaseDate: t.firstPurchaseDate,
         rolling30: t.rolling30, monthlyAvg90: t.monthlyAvg90,
         peakMonth: t.peakMonth, peakMonthSpend: t.peakMonthSpend,
         best6moAvg: t.best6moAvg, monthsOver500: t.monthsOver500,

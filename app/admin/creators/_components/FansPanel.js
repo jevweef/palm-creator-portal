@@ -2417,7 +2417,7 @@ function FansPanel({ creator, allTxns, goingColdAlerts, availableAccounts, focus
           : f
       }
       const detail = {
-        reason: cad.medianGap ? `buys every ~${cad.medianGap}d — silent ${cad.currentGap}d (${cad.gapRatio}×)` : `silent ${cad.currentGap ?? '—'}d`,
+        reason: cad.medianGap ? `buys every ${cad.gapMin != null && cad.gapMax != null && cad.gapMax > cad.gapMin ? `${cad.gapMin}-${cad.gapMax}d (typical ~${cad.medianGap}d)` : `~${cad.medianGap}d`} — silent ${cad.currentGap}d` : `silent ${cad.currentGap ?? '—'}d`,
         currentGap: cad.currentGap, medianGap: cad.medianGap,
         rolling30: cad.rolling30, monthlyAvg90: cad.monthlyAvg90,
         lastPurchase: cad.lastPurchaseDate,

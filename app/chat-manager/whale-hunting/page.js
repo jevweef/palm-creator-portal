@@ -100,7 +100,7 @@ export default function ChatManagerWhaleHunting() {
   const modalData = openFan ? fanFull[openFan] : undefined
 
   return (
-    <div style={{ maxWidth: '1500px', margin: '0 auto' }}>
+    <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>Whale Hunting</h1>
         <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); setOpenFan(''); writeUrl(e.target.value, '') }}
@@ -142,7 +142,7 @@ export default function ChatManagerWhaleHunting() {
                       style={{ fontWeight: 600, maxWidth: '240px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '6px 8px 6px 0' }}>
                       {w.fanName}{w.ofUsername ? <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}> @{w.ofUsername}</span> : null}</td>
                     <td style={{ padding: '6px 8px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--foreground-muted)' }}>
-                      {cad?.medianGap ? <>buys every ~{cad.medianGap}d — <span style={{ color: '#E87878' }}>silent {cad.currentGap}d ({cad.gapRatio}×)</span></> : cad?.currentGap ? `silent ${cad.currentGap}d` : '—'}
+                      {cad?.medianGap ? <>buys every {cad.gapMin != null && cad.gapMax != null && cad.gapMax > cad.gapMin ? `${cad.gapMin}-${cad.gapMax}d (typical ~${cad.medianGap}d)` : `~${cad.medianGap}d`} — <span style={{ color: '#E87878' }}>silent {cad.currentGap}d</span></> : cad?.currentGap ? `silent ${cad.currentGap}d` : '—'}
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 700, padding: '7px 10px', whiteSpace: 'nowrap' }}>{worthMo(w) ? `$${Math.round(worthMo(w))}` : '—'}</td>
                     <td style={{ textAlign: 'right', color: (cad?.rolling30 || 0) === 0 ? '#E87878' : 'var(--foreground)', padding: '7px 10px', whiteSpace: 'nowrap' }}>{cad ? `$${Math.round(cad.rolling30 || 0)}` : '—'}</td>
