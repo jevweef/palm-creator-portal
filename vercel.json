@@ -71,6 +71,14 @@
     {
       "path": "/api/cron/archive-live-append",
       "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-invoices",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-invoices",
+      "schedule": "0 1 * * *"
     }
   ]
 }
