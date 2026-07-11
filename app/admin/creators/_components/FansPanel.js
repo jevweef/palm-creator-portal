@@ -95,8 +95,13 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
     const dailySpend = {}
     const dailyByAccount = {} // { account: { date: spend } }
     for (const t of allTxns) {
+      // Match by username when both sides have one; fold in NAME-ONLY rows
+      // with his exact display name — the 2y transaction backfill wrote older
+      // rows without usernames, which hid $633 of Call-him-Daddy's history
+      // from the chart while his OF-grounded lifetime included it. A row with
+      // a DIFFERENT username never folds in (the two-Jeffs guard).
       const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
-        (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+        ((!t.ofUsername || !f.ofUsername) && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
       if (!match || !isRealPurchase(t)) continue // skip subs + chargebacks
       const d = t.date
       if (!d) continue
