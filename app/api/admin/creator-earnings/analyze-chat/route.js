@@ -385,6 +385,7 @@ export async function POST(request) {
     // creatorName (full legal name) is still used for Airtable Creator field saves,
     // Dropbox path consistency, and prior-analysis lookups.
     const creatorAka = formData.get('creatorAka') || creatorName
+    const trackerRecordId = formData.get('trackerRecordId') || ''
     // accountName + accountKey — present only when the fan is subscribed to multiple accounts
     // and the user explicitly chose which account's chat this upload represents.
     const accountName = formData.get('accountName') || ''
@@ -424,6 +425,19 @@ export async function POST(request) {
       if (parsedConversation) {
         let clientMessages = []
         try { clientMessages = JSON.parse(formData.get('parsedMessages') || '[]') } catch {}
+        if (!clientMessages.length) {
+          // Huge pulls (Dwayne: 10,110 msgs) can overflow the form limit and
+          // truncate parsedMessages to invalid JSON. The conversation text
+          // itself made it through — rebuild the message list from it instead
+          // of bouncing the whole analysis with a 400.
+          let currentDate = ''
+          for (const line of parsedConversation.split('\n')) {
+            const dateMatch = line.match(/^--- (.+?) ---$/)
+            if (dateMatch) { currentDate = dateMatch[1]; continue }
+            const senderMatch = line.match(/^\[(CREATOR|FAN)\]/)
+            if (senderMatch) clientMessages.push({ date: currentDate, time: '', sender: senderMatch[1], line })
+          }
+        }
         parsed = {
           conversation: parsedConversation,
           messages: clientMessages,
@@ -449,7 +463,7 @@ export async function POST(request) {
       const fanUsername = formData.get('fanUsername') || ''
       const creatorRecordId = formData.get('creatorRecordId') || ''
       try {
-        await saveChatToDropbox({
+        await saveChatToDropbox({ trackerRecordId,
           parsedConversation: parsed.conversation,
           parsedMessages: parsed.messages,
           fullAnalysis: null,
@@ -515,6 +529,14 @@ export async function POST(request) {
       }
       spendingTimeline = filtered.join('\n')
       cappedLifetime = totalInWindow || lifetime
+      // GUARD (the two-Jays bug): a timeline summing way past the OF-verified
+      // lifetime means display-name collisions polluted it with other fans'
+      // purchases (Jay: $23.99 his + $1,224 of other Jays). The verified
+      // lifetime wins, and the per-day lines can't be trusted to tell his story.
+      if (lifetime > 0 && totalInWindow > lifetime * 1.2 + 50) {
+        cappedLifetime = lifetime
+        spendingTimeline = ''
+      }
       cappedRolling30 = rolling30InWindow
       if (lastSpendDate) {
         cappedCurrentGap = Math.floor((chatEndDate - lastSpendDate) / 86400000)
@@ -1061,7 +1083,7 @@ Rules:
 
     // Dropbox save + Airtable save in parallel (both need managerBrief)
     await Promise.all([
-      saveChatToDropbox({
+      saveChatToDropbox({ trackerRecordId,
         parsedConversation: parsed.conversation, parsedMessages: parsed.messages,
         fullAnalysis, managerBrief, creatorName, fanName, fanUsername,
         firstMessageDate: parsed.firstMessageDate, lastMessageDate: parsed.lastMessageDate,
@@ -1261,7 +1283,7 @@ async function loadChatHistory(creatorName, fanName, fanUsername, accountKey = n
 // When accountKey is provided (multi-account fan), the master transcript is scoped to
 // that account (e.g. transcript-free.txt). The per-upload snapshot and analysis JSON
 // are also account-tagged so both accounts can coexist in the same folder.
-async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate, accountKey }) {
+async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnalysis, managerBrief, creatorName, fanName, fanUsername, firstMessageDate, lastMessageDate, accountKey, trackerRecordId }) {
   const token = await getDropboxAccessToken()
   const rootNs = await getDropboxRootNamespaceId(token)
   const basePath = getChatBasePath(creatorName, fanName, fanUsername)
@@ -1370,18 +1392,25 @@ async function saveChatToDropbox({ parsedConversation, parsedMessages, fullAnaly
     await uploadToDropbox(token, rootNs, `${basePath}/analysis${accountTag}-${chatStart}_to_${chatEnd}.json`, Buffer.from(analysisJson, 'utf8'))
   }
 
-  // Update Fan Tracker with Dropbox path and chat upload date
+  // Update Fan Tracker with Dropbox path and chat upload date. Fan names
+  // COLLIDE (three "VIP PAUL" rows) — a name lookup stamps the wrong copy,
+  // which is why bulk-pulled fans showed no PULLED badge. Callers that know
+  // the exact tracker row pass trackerRecordId; the name lookup is only the
+  // fallback for legacy manual uploads.
   try {
-    const trackerParams = new URLSearchParams()
-    trackerParams.set('maxRecords', '1')
-    trackerParams.set('filterByFormula', `{Fan Name} = ${quoteAirtableString(fanName)}`)
-    const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
-      headers: AIRTABLE_HEADERS, cache: 'no-store',
-    })
-    const trackerData = await trackerRes.json()
-    const tracker = trackerData.records?.[0]
-    if (tracker) {
-      await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}/${tracker.id}`, {
+    let trackerId = trackerRecordId || null
+    if (!trackerId) {
+      const trackerParams = new URLSearchParams()
+      trackerParams.set('maxRecords', '1')
+      trackerParams.set('filterByFormula', `{Fan Name} = ${quoteAirtableString(fanName)}`)
+      const trackerRes = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}?${trackerParams}`, {
+        headers: AIRTABLE_HEADERS, cache: 'no-store',
+      })
+      const trackerData = await trackerRes.json()
+      trackerId = trackerData.records?.[0]?.id || null
+    }
+    if (trackerId) {
+      await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent(FAN_TRACKER_TABLE)}/${trackerId}`, {
         method: 'PATCH',
         headers: AIRTABLE_HEADERS,
         body: JSON.stringify({
