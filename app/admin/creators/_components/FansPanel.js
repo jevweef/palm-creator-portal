@@ -535,8 +535,11 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
     const accountsSeen = new Set()
     if (allTxns) {
       for (const t of allTxns) {
+        // Same fold-in rule as the card chart: username match, plus NAME-ONLY
+        // rows carrying his exact display name (2y-backfilled rows have no
+        // usernames — without this the PDF chart hid his 2024-25 history)
         const match = (f.ofUsername && t.ofUsername === f.ofUsername) ||
-          (!f.ofUsername && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
+          ((!t.ofUsername || !f.ofUsername) && (t.displayName || '').toLowerCase() === (f.fanName || '').toLowerCase())
         if (!match || !isRealPurchase(t)) continue
         if (t.net > 0) {
           const mo = (t.date || '').slice(0, 7)
