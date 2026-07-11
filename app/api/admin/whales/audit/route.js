@@ -298,7 +298,15 @@ export async function POST(request) {
             fanSince: (so.subscribeAt || '').slice(0, 10) || null,
             fanFor: so.duration || null,
             subStatus: so.status || (d.subscribedOn ? 'active' : 'not subscribed'),
-            subExpires: (so.expiredAt || '').slice(0, 10) || null,
+            // OF stamps free-page subs with a far-future placeholder expiry
+            // (Tassos: "expires Apr 15, 2036") — not a real date, and the
+            // analyst screamed URGENT over it. Anything >2 years out is noise.
+            subExpires: (() => {
+              const e = (so.expiredAt || '').slice(0, 10) || null
+              if (!e) return null
+              const horizon = new Date(Date.now() + 2 * 365 * 86400000).toISOString().slice(0, 10)
+              return e > horizon ? null : e
+            })(),
             lastReplyAt: (d.lastReplyAt || '').slice(0, 10) || null,
             protectedLists,           // on a whale/DNM list → excluded from mass blasts
             exposed: protectedLists.length === 0,
