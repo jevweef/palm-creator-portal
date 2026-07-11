@@ -800,6 +800,52 @@ function AgencyRevenueChart({ earningsData, earningsLoading, creatorList = [], m
   )
 }
 
+// Outstanding (unpaid) invoices — self-contained: fetches its own data so it
+// doesn't touch the main dashboard pipeline. Chase payments auto-reconcile
+// these to Paid daily; this shows what's still owed + who for.
+function OutstandingInvoices() {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState(false)
+  useEffect(() => {
+    fetch('/api/admin/invoicing/outstanding', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => { if (j.error) setErr(true); else setD(j) })
+      .catch(() => setErr(true))
+  }, [])
+  if (err) return null
+  const money = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtDue = (s) => { if (!s) return ''; const t = new Date(s.length <= 10 ? s + 'T12:00:00' : s); return isNaN(t) ? '' : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+  return (
+    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '16px 18px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Outstanding invoices</span>
+        <span style={{ fontSize: '16px', fontWeight: 700, color: d && d.total > 0 ? '#E8C878' : '#7DD3A4' }}>
+          {d ? `${money(d.total)} unpaid` : 'Loading…'}
+        </span>
+      </div>
+      {d && d.count === 0 && (
+        <div style={{ fontSize: '12px', color: '#7DD3A4' }}>All invoices paid — nothing outstanding.</div>
+      )}
+      {d && d.count > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {d.invoices.map((inv) => (
+            <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '5px 0', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '12.5px' }}>
+              <span style={{ color: 'var(--foreground)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {inv.name || 'Unknown'}
+                {inv.status === 'Overdue' && <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, color: '#E87878' }}>OVERDUE</span>}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                {inv.dueDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>due {fmtDue(inv.dueDate)}</span>}
+                <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{money(inv.amount)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────── */
 /* MAIN DASHBOARD */
 /* ─────────────────────────────────────────────── */
@@ -1654,6 +1700,9 @@ export default function AdminDashboard() {
         })}
         </div>{/* close whale scroll container */}
       </div>{/* close Whale Alerts card */}
+
+      {/* ─── OUTSTANDING INVOICES ─── */}
+      <OutstandingInvoices />
 
       {/* ─── ROW 2: Pipeline + Posting + Period History ─── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'flex-start' }}>

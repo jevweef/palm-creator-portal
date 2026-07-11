@@ -496,6 +496,71 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
   )
 }
 
+// Reconcile Chase payments → invoices. Previews (dry run) first, then applies.
+// The cron does this daily automatically; this is the manual trigger + preview.
+function ReconcileControl({ onApplied }) {
+  const [state, setState] = useState('idle') // idle | previewing | preview | applying
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+  const money = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const preview = async () => {
+    setState('previewing'); setError('')
+    try {
+      const r = await fetch('/api/admin/invoicing/reconcile', { cache: 'no-store' })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'preview failed')
+      setResult(j); setState('preview')
+    } catch (e) { setError(e.message); setState('idle') }
+  }
+  const apply = async () => {
+    setState('applying'); setError('')
+    try {
+      const r = await fetch('/api/admin/invoicing/reconcile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'apply failed')
+      setResult(j); setState('idle'); onApplied?.()
+    } catch (e) { setError(e.message); setState('preview') }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={preview} disabled={state === 'previewing' || state === 'applying'}
+        style={{ background: 'transparent', border: '1px solid var(--palm-pink)', color: 'var(--palm-pink)', borderRadius: '8px', padding: '8px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+        {state === 'previewing' ? 'Checking payments…' : 'Reconcile payments'}
+      </button>
+      {error && <div style={{ marginTop: '6px', fontSize: '12px', color: '#E87878' }}>{error}</div>}
+      {state === 'preview' && result && (
+        <div style={{ position: 'absolute', right: 0, top: '44px', zIndex: 50, width: 'min(460px, 90vw)', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', padding: '16px 18px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
+            {result.invoicesPaid} invoice{result.invoicesPaid === 1 ? '' : 's'} matched from {result.matchedCount} payment{result.matchedCount === 1 ? '' : 's'}
+          </div>
+          {result.matched.length === 0 && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>No new payments match open invoices right now.</div>}
+          {result.matched.slice(0, 12).map((m, i) => (
+            <div key={i} style={{ fontSize: '12px', padding: '4px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <span style={{ color: '#7DD3A4', fontWeight: 700 }}>{money(m.depositAmount)}</span>
+              <span style={{ color: 'var(--foreground-muted)' }}> from {m.payerName || '—'} → </span>
+              {m.invoices.map((inv) => inv.name?.split(' | ')[1] || inv.name).join(', ')}
+            </div>
+          ))}
+          <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '8px' }}>
+            Still outstanding after: {money(result.outstandingTotal)}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <button onClick={() => setState('idle')} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-muted)', fontSize: '12px', cursor: 'pointer' }}>Close</button>
+            {result.invoicesPaid > 0 && (
+              <button onClick={apply} disabled={state === 'applying'}
+                style={{ background: 'var(--palm-pink)', border: 'none', color: '#fff', borderRadius: '6px', padding: '7px 16px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                {state === 'applying' ? 'Marking paid…' : `Mark ${result.invoicesPaid} paid`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function InvoicingPage() {
   const { user, isLoaded } = useUser()
@@ -779,7 +844,10 @@ export default function InvoicingPage() {
 
       {/* Title + Tab switcher */}
       <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Invoicing</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Invoicing</h1>
+          <ReconcileControl onApplied={load} />
+        </div>
         <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
           {[
             { key: 'invoices', label: 'Invoices' },
