@@ -1,4 +1,5 @@
 {
+  "date": "2026-07-11",
   "findings": [
     {
       "id": "f0115",
@@ -19825,19 +19826,5 @@
         "recommendation": "Publish a standard Palm PPV ladder with rising steps and trigger conditions, instead of single high asks."
       }
     }
-  ],
-  "departments_present": [
-    "acquisition",
-    "ai-ofm",
-    "chatting",
-    "content",
-    "delegation",
-    "founder-discipline",
-    "instagram",
-    "platform-risk",
-    "pricing",
-    "retention",
-    "systems",
-    "traffic"
   ]
 }
