@@ -973,300 +973,7 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
             })()}
           </div>
 
-          {/* ═══ SECTION 4: Upload New Chat ═══ */}
-          {!readOnly && (
-          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
-              {inModal ? <>Analyze Chat — {f.fanName}</> : <>Upload Chat for {f.fanName}</>}
-            </div>
-
-            {/* Scroll-back hint — HTML-flow only, hidden in the modal */}
-            {!inModal && (() => {
-              const mostRecent = f.analysisRecords?.[0]
-              const lastDate = mostRecent?.lastMessageDate
-              if (lastDate) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
-                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
-                </div>
-              )
-              if (f.analysisRecords?.length > 0) return (
-                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
-                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
-                </div>
-              )
-              return null
-            })()}
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input ref={chatFileRef} type="file" accept=".html,.htm"
-                onChange={e => {
-                  const file = e.target.files[0]
-                  if (!file) return
-                  setAnalysisError(null)
-                  if (accountNames.length > 1 && uploadAccountName) {
-                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
-                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
-                    handleAccountUpload(uploadAccountName, file)
-                  } else {
-                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
-                    setChatFile(file)
-                  }
-                  e.target.value = '' // allow re-selecting the same filename
-                }}
-                style={{ display: 'none' }} />
-
-              {!inModal && (accountNames.length > 1 ? (
-                // Multi-account fan: one button per account, color-coded to match the badges.
-                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
-                <>
-                  {accountNames.map(acct => {
-                    const isFree = /free/i.test(acct)
-                    const isVip = /vip/i.test(acct)
-                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
-                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
-                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
-                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
-                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
-                      : state === 'saved' ? `\u2713 ${label} saved`
-                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
-                      : `Upload ${label} chat`
-                    const isSuccess = state === 'saved'
-                    return (
-                      <button key={acct}
-                        disabled={state === 'saving'}
-                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
-                        style={{
-                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
-                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
-                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
-                          cursor: state === 'saving' ? 'wait' : 'pointer',
-                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
-                          opacity: state === 'saving' ? 0.7 : 1,
-                        }}>
-                        {displayText}
-                      </button>
-                    )
-                  })}
-                </>
-              ) : (
-                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
-                  style={{
-                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
-                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
-                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
-                  }}>
-                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
-                </button>
-              ))}
-              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
-                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
-                  combines them with thread headers, and sends to Claude for one unified analysis. */}
-              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
-                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Pull the conversation straight from OF (read-only API) —
-                  replaces the scroll → save HTML → upload dance. */}
-              {archiveMeta && !ofPull && (
-                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
-                  Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
-                  {' '}· {archiveMeta.totalStored.toLocaleString()} messages archived through {archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                </span>
-              )}
-              {bigPull && (
-                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
-                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
-                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
-                    Pull it anyway ({bigPull.credits} credits)
-                  </button>
-                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
-                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
-                    Keep recent only (cheap top-ups from now on)
-                  </button>
-                </div>
-              )}
-              {archiveMeta && !ofPull && (
-                <button onClick={handleLoadArchive} disabled={pullingOf || analyzing}
-                  style={{
-                    background: 'rgba(125, 211, 164, 0.08)', border: '1px solid rgba(125, 211, 164, 0.3)', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: '#7DD3A4', fontWeight: 600,
-                    cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
-                  }}>
-                  Load archived chat (0 credits)
-                </button>
-              )}
-              {f.alertStatus === 'Deleted' ? (
-                <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', padding: '6px 0' }}>
-                  His OF account is deleted — chat can&apos;t be pulled (his history stays if we archived it).
-                </span>
-              ) : (f.ofUsername || f.fanId || f.fanName) && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
-                style={{
-                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
-                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
-                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
-                }}>
-                {ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
-              </button>}
-              {!readOnly && (f.ofUsername || f.fanId || f.fanName) && f.alertStatus !== 'Deleted' && !pullingOf && (() => {
-                const autoCap = Math.max(15, Math.min(250, Math.round((f.lifetimeSpend || 0) / 50) || 15))
-                return (
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '6px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
-                    <span>Pull back to</span>
-                    <input type="date" value={pullBackTo} onChange={(e) => setPullBackTo(e.target.value)}
-                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', colorScheme: 'dark' }} />
-                    <span>· max credits / round</span>
-                    <input type="number" min="1" value={pullMaxCr} onChange={(e) => setPullMaxCr(e.target.value)} placeholder={`auto ${autoCap}`}
-                      style={{ width: '80px', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }} />
-                    {(pullBackTo || pullMaxCr) && <button onClick={() => { setPullBackTo(''); setPullMaxCr('') }} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>clear</button>}
-                  </div>
-                )
-              })()}
-              {/* ── STATUS LINE — one fixed slot; exactly one state shows here ── */}
-              {(pullingOf || analyzing || (ofPull && !chatFile && ofPull.messageCount > 0)) && (
-                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
-                  background: analyzing ? 'rgba(232,140,92,0.08)' : pullingOf ? 'rgba(196,165,247,0.08)' : 'rgba(125,211,164,0.06)',
-                  border: `1px solid ${analyzing ? 'rgba(232,140,92,0.25)' : pullingOf ? 'rgba(196,165,247,0.25)' : 'rgba(125,211,164,0.2)'}` }}>
-                  {pullingOf && busyMode === 'load' && <span style={{ color: '#7DD3A4' }}>Loading his archived chat (0 credits)…</span>}
-                  {pullingOf && busyMode !== 'load' && pullProgress?.waiting != null && (
-                    <span style={{ color: '#A06FE8' }}>Building his spending-era export at OF… {pullProgress.rowsFound != null ? `${pullProgress.rowsFound.toLocaleString()} real messages found so far` : `${pullProgress.waiting}%`} (checks every few seconds, 0 credits while waiting)</span>
-                  )}
-                  {pullingOf && busyMode !== 'load' && pullProgress && pullProgress.waiting == null && (
-                    <span style={{ color: '#A06FE8' }}>
-                      Pulling from OnlyFans — <b>{(pullProgress.total || 0).toLocaleString()}</b> messages · back to <b>{pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'}</b> · <b>{pullProgress.spent}</b> credits spent
-                    </span>
-                  )}
-                  {pullingOf && busyMode !== 'load' && !pullProgress && <span style={{ color: '#A06FE8' }}>Starting the pull…</span>}
-                  {!pullingOf && analyzing && <span style={{ color: '#E88C5C' }}>Analyzing the conversation — usually 30-60 seconds…</span>}
-                  {!pullingOf && !analyzing && ofPull && !chatFile && ofPull.messageCount > 0 && (
-                    <span style={{ color: '#7DD3A4' }}>
-                      ✓ {ofPull.messageCount.toLocaleString()} messages ready ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
-                      {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'} used</span>}
-                      {ofPull.historyComplete === false && !ofPull.capped && <span style={{ color: '#E8C878' }}> · older history remains</span>}
-                    </span>
-                  )}
-                </div>
-              )}
-              {ofPull?.capped && !pullingOf && (
-                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#E8C878', background: 'rgba(232,200,120,0.08)', border: '1px solid rgba(232,200,120,0.25)', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span>Paused at the credit cap — used <b>{ofPull.credits}</b> of <b>{ofPull.capCr}</b> credits this round; older history remains{ofPull.coverage?.oldestMessageAt ? ` (reached ${new Date(ofPull.coverage.oldestMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })})` : ''}.</span>
-                  <button onClick={() => handlePullFromOf({ noAutoAnalyze: false })} disabled={pullingOf || analyzing}
-                    style={{ background: 'rgba(232,200,120,0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
-                    Continue — another {Number(pullMaxCr) > 0 ? pullMaxCr : ofPull.capCr}cr round
-                  </button>
-                </div>
-              )}
-              {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
-                <span style={{ fontSize: '11px', color: '#E8C878' }}>
-                  Nothing to analyze yet — his history export is still building at OF. Pull again in a few minutes (attaches to the same export, no double charge).
-                </span>
-              )}
-              {ofPull && !chatFile && ofPull.messageCount > 0 && (
-                <button onClick={handleAnalyze} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  Analyze Conversation
-                </button>
-              )}
-
-              {chatFile && (
-                <button onClick={handleAnalyze} disabled={analyzing}
-                  style={{
-                    background: '#E88C5C', border: 'none', borderRadius: '6px',
-                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
-                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
-                  }}>
-                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
-                </button>
-              )}
-
-              {/* Re-analyze from Dropbox transcript */}
-              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
-                <>
-                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
-                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
-                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
-                  </button>
-                  <span style={{ color: 'var(--foreground)' }}>|</span>
-                  <input ref={saveFileRef} type="file" accept=".html,.htm"
-                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
-                    style={{ display: 'none' }} />
-                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
-                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {analysisError && (
-              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
-                {analysisError}
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* Notes */}
-          {f.notes && (
-            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
-              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
-            </div>
-          )}
-
-          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
-          {!readOnly && (
-          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              onClick={async () => {
-                const isBanned = f.banned
-                const confirmMsg = isBanned
-                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
-                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
-                if (!confirm(confirmMsg)) return
-                try {
-                  const res = await fetch('/api/admin/fan-tracker', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      action: 'update_status',
-                      recordId: f.crmId || null,
-                      fanName: f.fanName,
-                      fanUsername: f.ofUsername,
-                      creatorRecordId,
-                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
-                    }),
-                  })
-                  if (!res.ok) throw new Error('Ban update failed')
-                  // Refresh CRM data
-                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
-                  const refreshData = await refreshRes.json()
-                  if (refreshData.fans) setFans(refreshData.fans)
-                } catch (e) {
-                  alert(`Ban update failed: ${e.message}`)
-                }
-              }}
-              style={{
-                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
-                background: 'none', border: 'none', cursor: 'pointer',
-                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
-              }}
-            >
-              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
-            </button>
-          </div>
-          )}          {/* ═══ SECTION 3: Analysis History ═══ */}
+          {/* ═══ SECTION 3: Analysis History (+ spending chart) ═══ */}
           <div style={{ marginTop: '16px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
             <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '10px' }}>
               Analysis History {f.lifetimeSpend >= 1000 ? '— Deep Dive' : '— Quick Snapshot'}
@@ -1711,6 +1418,305 @@ export function FanRow({ f, i, isExpanded, onToggle, alertStatusColors, effectCo
             }
             return null
           })()}
+
+          {/* ═══ Chat data — pull / upload / re-analyze (collapsed once analyses exist) ═══ */}
+          {!readOnly && (
+          <details open={!(f.analysisRecords?.length > 0)} style={{ marginTop: '16px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '2px 14px 12px', background: 'rgba(0,0,0,0.12)' }}>
+            <summary style={{ cursor: 'pointer', fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '9px 0', userSelect: 'none' }}>
+              Chat data — pull from OF, upload HTML, re-analyze
+            </summary>
+          <div style={{ marginTop: '4px', borderTop: '1px solid transparent', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+              {inModal ? <>Analyze Chat — {f.fanName}</> : <>Upload Chat for {f.fanName}</>}
+            </div>
+
+            {/* Scroll-back hint — HTML-flow only, hidden in the modal */}
+            {!inModal && (() => {
+              const mostRecent = f.analysisRecords?.[0]
+              const lastDate = mostRecent?.lastMessageDate
+              if (lastDate) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(232, 168, 120, 0.08)', border: '1px solid rgba(232, 168, 120, 0.15)', borderRadius: '6px', fontSize: '11px', color: '#E8A878' }}>
+                  Last analysis covered messages through <strong>{lastDate}</strong>. Scroll back to at least this date in the OF chat before saving as HTML.
+                </div>
+              )
+              if (f.analysisRecords?.length > 0) return (
+                <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', fontSize: '11px', color: '#78B4E8' }}>
+                  Each upload is analyzed independently. Scroll back far enough in the OF chat to include all messages you want covered, then save as HTML.
+                </div>
+              )
+              return null
+            })()}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input ref={chatFileRef} type="file" accept=".html,.htm"
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setAnalysisError(null)
+                  if (accountNames.length > 1 && uploadAccountName) {
+                    // Multi-account: auto-save this account's transcript to Dropbox immediately.
+                    // User can then pick another account and repeat. Final Analyze uses combined transcripts.
+                    handleAccountUpload(uploadAccountName, file)
+                  } else {
+                    // Single-account: existing flow — hold file in state, user clicks Analyze to run.
+                    setChatFile(file)
+                  }
+                  e.target.value = '' // allow re-selecting the same filename
+                }}
+                style={{ display: 'none' }} />
+
+              {!inModal && (accountNames.length > 1 ? (
+                // Multi-account fan: one button per account, color-coded to match the badges.
+                // Clicking opens picker; picking a file auto-saves to that account's Dropbox transcript.
+                <>
+                  {accountNames.map(acct => {
+                    const isFree = /free/i.test(acct)
+                    const isVip = /vip/i.test(acct)
+                    const baseColor = isFree ? '#3B82F6' : isVip ? '#A78BFA' : 'var(--foreground-muted)'
+                    const baseBg = isFree ? 'rgba(59,130,246,0.08)' : isVip ? 'rgba(167, 139, 250, 0.06)' : 'var(--card-bg-solid)'
+                    const state = accountUploadState[acct] // 'saving' | 'saved' | 'error' | undefined
+                    const label = acct.replace(/^.*?-\s*/, '').trim() // "Free OF", "VIP OF"
+                    const displayText = state === 'saving' ? `Saving ${label}\u2026`
+                      : state === 'saved' ? `\u2713 ${label} saved`
+                      : state === 'error' ? `\u26A0 ${label} failed \u2014 retry`
+                      : `Upload ${label} chat`
+                    const isSuccess = state === 'saved'
+                    return (
+                      <button key={acct}
+                        disabled={state === 'saving'}
+                        onClick={() => { setUploadAccountName(acct); chatFileRef.current?.click() }}
+                        style={{
+                          background: isSuccess ? 'rgba(125, 211, 164, 0.06)' : baseBg,
+                          border: `1px solid ${isSuccess ? 'rgba(125, 211, 164, 0.2)' : baseColor + '66'}`,
+                          borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                          cursor: state === 'saving' ? 'wait' : 'pointer',
+                          color: isSuccess ? '#7DD3A4' : baseColor, fontWeight: isSuccess ? 600 : 500,
+                          opacity: state === 'saving' ? 0.7 : 1,
+                        }}>
+                        {displayText}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <button onClick={() => { setUploadAccountName(null); chatFileRef.current?.click() }}
+                  style={{
+                    background: chatFile ? 'rgba(125, 211, 164, 0.06)' : 'var(--card-bg-solid)', border: `1px solid ${chatFile ? 'rgba(125, 211, 164, 0.2)' : 'rgba(255,255,255,0.06)'}`,
+                    borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer',
+                    color: chatFile ? '#7DD3A4' : 'var(--foreground-muted)',
+                  }}>
+                  {chatFile ? `\u2713 ${chatFile.name}` : 'Upload OF chat HTML'}
+                </button>
+              ))}
+              {/* Multi-account: Analyze button appears once at least one account's transcript is saved.
+                  Uses the "useTranscript" flow — server loads ALL saved account transcripts from Dropbox,
+                  combines them with thread headers, and sends to Claude for one unified analysis. */}
+              {accountNames.length > 1 && Object.values(accountUploadState).some(s => s === 'saved') && (
+                <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing\u2026' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Pull the conversation straight from OF (read-only API) —
+                  replaces the scroll → save HTML → upload dance. */}
+              {archiveMeta && !ofPull && (
+                <span style={{ fontSize: '11px', color: 'var(--foreground-muted)', width: '100%' }}>
+                  Last pulled from OF: <b style={{ color: 'var(--foreground)' }}>{archiveMeta.pulledAt ? new Date(archiveMeta.pulledAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : 'unknown'}</b>
+                  {' '}· {archiveMeta.totalStored.toLocaleString()} messages archived through {archiveMeta.lastMessageAt ? new Date(archiveMeta.lastMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </span>
+              )}
+              {bigPull && (
+                <div style={{ width: '100%', padding: '10px 14px', background: 'rgba(232, 200, 120, 0.08)', border: '1px solid rgba(232, 200, 120, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#E8C878', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Full history is <b>{bigPull.messages ? bigPull.messages.toLocaleString() : 'a lot of'} messages ≈ {bigPull.credits} credits.</b></span>
+                  <button onClick={() => handlePullFromOf({ confirmBig: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(232, 200, 120, 0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Pull it anyway ({bigPull.credits} credits)
+                  </button>
+                  <button onClick={() => handlePullFromOf({ acceptPartial: true })} disabled={pullingOf}
+                    style={{ background: 'rgba(125, 211, 164, 0.1)', border: '1px solid rgba(125,211,164,0.35)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#7DD3A4', fontWeight: 700, cursor: 'pointer' }}>
+                    Keep recent only (cheap top-ups from now on)
+                  </button>
+                </div>
+              )}
+              {archiveMeta && !ofPull && (
+                <button onClick={handleLoadArchive} disabled={pullingOf || analyzing}
+                  style={{
+                    background: 'rgba(125, 211, 164, 0.08)', border: '1px solid rgba(125, 211, 164, 0.3)', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: '#7DD3A4', fontWeight: 600,
+                    cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                  }}>
+                  Load archived chat (0 credits)
+                </button>
+              )}
+              {f.alertStatus === 'Deleted' ? (
+                <span style={{ fontSize: '12px', color: 'var(--foreground-muted)', padding: '6px 0' }}>
+                  His OF account is deleted — chat can&apos;t be pulled (his history stays if we archived it).
+                </span>
+              ) : (f.ofUsername || f.fanId || f.fanName) && <button onClick={handlePullFromOf} disabled={pullingOf || analyzing}
+                style={{
+                  background: 'rgba(196, 165, 247, 0.10)', border: '1px solid rgba(196, 165, 247, 0.4)', borderRadius: '6px',
+                  padding: '6px 14px', fontSize: '12px', color: '#A06FE8', fontWeight: 600,
+                  cursor: pullingOf ? 'not-allowed' : 'pointer', opacity: pullingOf ? 0.6 : 1,
+                }}>
+                {ofPull ? '↻ Re-pull from OF' : 'Pull from OF'}
+              </button>}
+              {!readOnly && (f.ofUsername || f.fanId || f.fanName) && f.alertStatus !== 'Deleted' && !pullingOf && (() => {
+                const autoCap = Math.max(15, Math.min(250, Math.round((f.lifetimeSpend || 0) / 50) || 15))
+                return (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '6px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                    <span>Pull back to</span>
+                    <input type="date" value={pullBackTo} onChange={(e) => setPullBackTo(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', colorScheme: 'dark' }} />
+                    <span>· max credits / round</span>
+                    <input type="number" min="1" value={pullMaxCr} onChange={(e) => setPullMaxCr(e.target.value)} placeholder={`auto ${autoCap}`}
+                      style={{ width: '80px', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }} />
+                    {(pullBackTo || pullMaxCr) && <button onClick={() => { setPullBackTo(''); setPullMaxCr('') }} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>clear</button>}
+                  </div>
+                )
+              })()}
+              {/* ── STATUS LINE — one fixed slot; exactly one state shows here ── */}
+              {(pullingOf || analyzing || (ofPull && !chatFile && ofPull.messageCount > 0)) && (
+                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+                  background: analyzing ? 'rgba(232,140,92,0.08)' : pullingOf ? 'rgba(196,165,247,0.08)' : 'rgba(125,211,164,0.06)',
+                  border: `1px solid ${analyzing ? 'rgba(232,140,92,0.25)' : pullingOf ? 'rgba(196,165,247,0.25)' : 'rgba(125,211,164,0.2)'}` }}>
+                  {pullingOf && busyMode === 'load' && <span style={{ color: '#7DD3A4' }}>Loading his archived chat (0 credits)…</span>}
+                  {pullingOf && busyMode !== 'load' && pullProgress?.waiting != null && (
+                    <span style={{ color: '#A06FE8' }}>Building his spending-era export at OF… {pullProgress.rowsFound != null ? `${pullProgress.rowsFound.toLocaleString()} real messages found so far` : `${pullProgress.waiting}%`} (checks every few seconds, 0 credits while waiting)</span>
+                  )}
+                  {pullingOf && busyMode !== 'load' && pullProgress && pullProgress.waiting == null && (
+                    <span style={{ color: '#A06FE8' }}>
+                      Pulling from OnlyFans — <b>{(pullProgress.total || 0).toLocaleString()}</b> messages · back to <b>{pullProgress.oldest ? new Date(pullProgress.oldest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '…'}</b> · <b>{pullProgress.spent}</b> credits spent
+                    </span>
+                  )}
+                  {pullingOf && busyMode !== 'load' && !pullProgress && <span style={{ color: '#A06FE8' }}>Starting the pull…</span>}
+                  {!pullingOf && analyzing && <span style={{ color: '#E88C5C' }}>Analyzing the conversation — usually 30-60 seconds…</span>}
+                  {!pullingOf && !analyzing && ofPull && !chatFile && ofPull.messageCount > 0 && (
+                    <span style={{ color: '#7DD3A4' }}>
+                      ✓ {ofPull.messageCount.toLocaleString()} messages ready ({ofPull.firstMessageDate} → {ofPull.lastMessageDate})
+                      {typeof ofPull.newMessages === 'number' && <span style={{ color: 'var(--foreground-muted)' }}> · {ofPull.newMessages} new · {ofPull.credits || 0} credit{(ofPull.credits || 0) === 1 ? '' : 's'} used</span>}
+                      {ofPull.historyComplete === false && !ofPull.capped && <span style={{ color: '#E8C878' }}> · older history remains</span>}
+                    </span>
+                  )}
+                </div>
+              )}
+              {ofPull?.capped && !pullingOf && (
+                <div style={{ width: '100%', marginTop: '8px', fontSize: '12px', color: '#E8C878', background: 'rgba(232,200,120,0.08)', border: '1px solid rgba(232,200,120,0.25)', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>Paused at the credit cap — used <b>{ofPull.credits}</b> of <b>{ofPull.capCr}</b> credits this round; older history remains{ofPull.coverage?.oldestMessageAt ? ` (reached ${new Date(ofPull.coverage.oldestMessageAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })})` : ''}.</span>
+                  <button onClick={() => handlePullFromOf({ noAutoAnalyze: false })} disabled={pullingOf || analyzing}
+                    style={{ background: 'rgba(232,200,120,0.15)', border: '1px solid rgba(232,200,120,0.4)', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', color: '#E8C878', fontWeight: 700, cursor: 'pointer' }}>
+                    Continue — another {Number(pullMaxCr) > 0 ? pullMaxCr : ofPull.capCr}cr round
+                  </button>
+                </div>
+              )}
+              {ofPull && !chatFile && !(ofPull.messageCount > 0) && (
+                <span style={{ fontSize: '11px', color: '#E8C878' }}>
+                  Nothing to analyze yet — his history export is still building at OF. Pull again in a few minutes (attaches to the same export, no double charge).
+                </span>
+              )}
+              {ofPull && !chatFile && ofPull.messageCount > 0 && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  Analyze Conversation
+                </button>
+              )}
+
+              {chatFile && (
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{
+                    background: '#E88C5C', border: 'none', borderRadius: '6px',
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--foreground)', fontWeight: 600,
+                    cursor: analyzing ? 'not-allowed' : 'pointer', opacity: analyzing ? 0.6 : 1,
+                  }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze Conversation'}
+                </button>
+              )}
+
+              {/* Re-analyze from Dropbox transcript */}
+              {!chatFile && !ofPull && f.analysisRecords?.length > 0 && (
+                <>
+                  <button onClick={() => handleAnalyze(true)} disabled={analyzing}
+                    style={{ fontSize: '11px', color: '#E88C5C', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}>
+                    {analyzing ? 'Re-analyzing...' : 'Re-analyze from saved transcript'}
+                  </button>
+                  <span style={{ color: 'var(--foreground)' }}>|</span>
+                  <input ref={saveFileRef} type="file" accept=".html,.htm"
+                    onChange={e => { if (e.target.files[0]) handleSaveTranscript(e.target.files[0]) }}
+                    style={{ display: 'none' }} />
+                  <button onClick={() => saveFileRef.current?.click()} disabled={savingTranscript}
+                    style={{ fontSize: '11px', color: '#0369A1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {savingTranscript ? 'Saving...' : transcriptSaved ? '\u2713 Saved' : 'Save transcript to Dropbox'}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {analysisError && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(232, 120, 120, 0.08)', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '12px', color: '#E87878' }}>
+                {analysisError}
+              </div>
+            )}
+          </div>
+          </details>
+          )}
+
+          {/* Notes */}
+          {f.notes && (
+            <div style={{ marginTop: '14px', borderTop: '1px solid transparent', paddingTop: '12px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '12px', color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>{f.notes}</div>
+            </div>
+          )}
+          {/* Ban / Unban — low-visibility footer action (creator flagged as do-not-contact) */}
+          {!readOnly && (
+          <div style={{ marginTop: '16px', paddingTop: '10px', borderTop: '1px solid transparent', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={async () => {
+                const isBanned = f.banned
+                const confirmMsg = isBanned
+                  ? `Unban ${f.fanName}? They'll become eligible for alerts again.`
+                  : `Ban ${f.fanName}? They'll be hidden from the Fans list and excluded from all future alerts. The chat team won't see them.`
+                if (!confirm(confirmMsg)) return
+                try {
+                  const res = await fetch('/api/admin/fan-tracker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'update_status',
+                      recordId: f.crmId || null,
+                      fanName: f.fanName,
+                      fanUsername: f.ofUsername,
+                      creatorRecordId,
+                      status: isBanned ? 'Monitoring' : 'Banned', // flip to Monitoring when unbanning — neutral state
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Ban update failed')
+                  // Refresh CRM data
+                  const refreshRes = await fetch(`/api/admin/fan-tracker?creatorFull=${encodeURIComponent(creatorName || '')}`)
+                  const refreshData = await refreshRes.json()
+                  if (refreshData.fans) setFans(refreshData.fans)
+                } catch (e) {
+                  alert(`Ban update failed: ${e.message}`)
+                }
+              }}
+              style={{
+                fontSize: '10px', color: f.banned ? '#1F2937' : '#9CA3AF',
+                background: 'none', border: 'none', cursor: 'pointer',
+                textDecoration: 'underline', fontWeight: f.banned ? 600 : 400,
+              }}
+            >
+              {f.banned ? '↶ Unban this fan' : '🚫 Ban this fan (do not contact)'}
+            </button>
+          </div>
+          )}
 
           {/* ═══ SECTION 2: Spending Chart (unchanged) ═══ */}
           {/* (chart code above this block) */}

@@ -86,12 +86,18 @@ export async function GET(request) {
       })
     }
 
-    // Merge analysis records — add to existing tracker entries or create new "Analyzed" entries
+    // Merge analysis records — add to existing tracker entries or create new "Analyzed" entries.
+    // Attach by USERNAME and by NAME: duplicate tracker rows exist for the same
+    // fan (one keyed by username, a twin keyed by bare name — Taby's "VIP Call
+    // him Daddy"), and an analysis attached only to the username row left the
+    // twin card saying "No analyses yet" after the fan was fully analyzed.
     for (const a of analysisRecords) {
-      const key = (a.ofUsername || a.fanName || '').toLowerCase()
-      if (fanMap.has(key)) {
-        fanMap.get(key).analysisRecords.push(a)
+      const keys = [...new Set([(a.ofUsername || '').toLowerCase(), (a.fanName || '').toLowerCase()].filter(Boolean))]
+      const hits = keys.filter((k) => fanMap.has(k))
+      if (hits.length) {
+        for (const k of hits) fanMap.get(k).analysisRecords.push(a)
       } else {
+        const key = keys[0] || ''
         // Fan has analysis but no tracker record — show as "Analyzed"
         if (status && status !== 'all' && status !== 'analyzed') continue
         fanMap.set(key, {
