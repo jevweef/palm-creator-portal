@@ -332,7 +332,7 @@ export default function AuditTab() {
         if (Array.isArray(txns)) {
           const daily = {}
           for (const t of txns) {
-            if ((t.ofUsername || '') === (w.ofUsername || '') || (t.displayName || '') === (w.fanName || '')) {
+            if ((w.ofUsername && t.ofUsername === w.ofUsername) || ((!t.ofUsername || !w.ofUsername) && (t.displayName || '') === (w.fanName || ''))) {
               if ((t.type || '') === 'Chargeback' || /subscription/i.test(t.type || '')) continue
               daily[t.date] = (daily[t.date] || 0) + (t.net || 0)
             }
