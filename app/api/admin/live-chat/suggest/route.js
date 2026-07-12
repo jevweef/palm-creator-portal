@@ -42,8 +42,6 @@ export async function POST(request) {
     const fan = String(body.fan || '')          // username or name key from the URL
     const fanName = String(body.fanName || '')   // human display name if the UI has it
     const messages = Array.isArray(body.messages) ? body.messages : []
-    // How many recent thread messages to feed the model (operator picks 25/50/100).
-    const count = Math.max(10, Math.min(150, parseInt(body.count, 10) || 25))
     if (!account || !fan) return NextResponse.json({ error: 'account and fan required' }, { status: 400 })
 
     // ── Resolve the creator from the OF account id → voice profile ──
@@ -81,10 +79,10 @@ export async function POST(request) {
       break
     }
 
-    // ── Build context from the thread the operator is looking at ──
-    // Take the last `count` messages so the operator can widen the window for
-    // more back-and-forth context before the draft.
-    const windowMsgs = messages.slice(-count)
+    // ── Build context from whatever the operator has loaded in the thread ──
+    // Suggest never pulls; it reads what's there (grab more from OF separately).
+    // Cap at 120 to bound tokens.
+    const windowMsgs = messages.slice(-120)
     const recent = windowMsgs.map((m) => {
       const who = m.dir === 'in' ? 'FAN' : 'CREATOR'
       const bought = (m.dir === 'sale' || m.dir === 'unlock') ? ` [bought${m.price ? ` $${m.price}` : ''}]` : ''

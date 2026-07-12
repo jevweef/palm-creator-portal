@@ -147,8 +147,11 @@ export default function LiveChatPage() {
   // grounded in her voice + his dossier. Never sends — copy/paste only.
   const [suggestion, setSuggestion] = useState(null)
   const [suggesting, setSuggesting] = useState(false)
-  const [ctxCount, setCtxCount] = useState(50) // how many recent msgs feed the suggestion
-  useEffect(() => { setSuggestion(null) }, [account, fan])
+  // Grab-from-OF is a SEPARATE action from Suggest — it pulls this fan's real
+  // convo from OnlyFans (costs credits); Suggest only reads what's loaded.
+  const [grabbing, setGrabbing] = useState(false)
+  const [grabInfo, setGrabInfo] = useState(null)
+  useEffect(() => { setSuggestion(null); setGrabInfo(null) }, [account, fan])
   const [history, setHistory] = useState([])
   const [transcript, setTranscript] = useState(null)
   const [liveEvents, setLiveEvents] = useState([])
@@ -335,7 +338,7 @@ export default function LiveChatPage() {
       const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price }))
       const r = await fetch('/api/admin/live-chat/suggest', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs, count: ctxCount }),
+        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'suggest failed')
@@ -343,6 +346,25 @@ export default function LiveChatPage() {
     } catch (e) {
       setSuggestion({ error: e.message || 'suggest failed' })
     } finally { setSuggesting(false) }
+  }
+
+  // Pull this fan's real convo from OnlyFans (costs credits) into the thread.
+  async function grabFromOf(n) {
+    if (!account || !fan || grabbing) return
+    setGrabbing(true); setGrabInfo(null)
+    try {
+      const selConv = conversations.find((c) => c.fan === fan)
+      const r = await fetch('/api/admin/live-chat/grab', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', count: n }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'grab failed')
+      if (Array.isArray(d.messages)) setHistory(d.messages)
+      setGrabInfo({ shown: d.shown ?? (d.messages || []).length, credits: d.credits || 0 })
+    } catch (e) {
+      setGrabInfo({ error: e.message || 'grab failed' })
+    } finally { setGrabbing(false) }
   }
 
   // Older sale events stored `at` as "YYYY-MM-DD HH:MM:SS" (UTC, no zone) —
@@ -579,21 +601,24 @@ export default function LiveChatPage() {
               </div>
               {/* ── Suggest reply (draft-only, never sends) ── */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <button onClick={suggestReply} disabled={suggesting}
-                    style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
-                    {suggesting ? 'Thinking…' : '✨ Suggest reply'}
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>context</span>
-                    {[25, 50, 100].map((n) => (
-                      <button key={n} onClick={() => setCtxCount(n)} title={`Feed the last ${n} messages into the suggestion`}
-                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', background: ctxCount === n ? 'rgba(160,111,232,0.25)' : 'transparent', color: ctxCount === n ? '#C4A5F7' : 'var(--foreground-muted)' }}>
-                        {n}
-                      </button>
-                    ))}
-                  </div>
+                {/* Grab from OF — pulls this fan's real convo (costs credits). Separate from Suggest. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grab from OF</span>
+                  {[25, 50, 100].map((n) => (
+                    <button key={n} onClick={() => grabFromOf(n)} disabled={grabbing} title={`Pull this fan's last ${n} messages from OnlyFans (about 1 credit)`}
+                      style={{ padding: '5px 12px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', cursor: grabbing ? 'default' : 'pointer', background: 'transparent', color: 'var(--foreground)' }}>
+                      {n}
+                    </button>
+                  ))}
+                  {grabbing && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>pulling…</span>}
+                  {grabInfo && !grabInfo.error && <span style={{ fontSize: '11px', color: '#7DD3A4' }}>pulled {grabInfo.shown} msgs · {grabInfo.credits} credit{grabInfo.credits === 1 ? '' : 's'}</span>}
+                  {grabInfo?.error && <span style={{ fontSize: '11px', color: '#E8A0A0' }}>{grabInfo.error}</span>}
                 </div>
+                {/* Suggest — draft-only, uses whatever's loaded (never pulls) */}
+                <button onClick={suggestReply} disabled={suggesting}
+                  style={{ alignSelf: 'flex-start', padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
+                  {suggesting ? 'Thinking…' : '✨ Suggest reply'}
+                </button>
                 {suggestion?.error && <div style={{ fontSize: '12px', color: '#E8A0A0' }}>{suggestion.error}</div>}
                 {suggestion && !suggestion.error && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
