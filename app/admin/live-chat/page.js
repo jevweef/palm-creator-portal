@@ -143,6 +143,11 @@ export default function LiveChatPage() {
   const [account, setAccount] = useState(() => fromUrl('account'))
   const [conversations, setConversations] = useState([])
   const [fan, setFan] = useState(() => fromUrl('fan'))
+  // Suggest-mode (draft-only): an AI-drafted next message for the open fan,
+  // grounded in her voice + his dossier. Never sends — copy/paste only.
+  const [suggestion, setSuggestion] = useState(null)
+  const [suggesting, setSuggesting] = useState(false)
+  useEffect(() => { setSuggestion(null) }, [account, fan])
   const [history, setHistory] = useState([])
   const [transcript, setTranscript] = useState(null)
   const [liveEvents, setLiveEvents] = useState([])
@@ -319,6 +324,25 @@ export default function LiveChatPage() {
 
   const muteFromStream = (e) => muteFan(e.account, e.fan?.username || e.fan?.name || '', true)
   const toggleMute = (fanKey, mute) => muteFan(account, fanKey, mute)
+
+  // Draft the next message for the open fan (SUGGEST-ONLY — never sends).
+  async function suggestReply() {
+    if (!account || !fan || suggesting) return
+    setSuggesting(true); setSuggestion(null)
+    try {
+      const selConv = conversations.find((c) => c.fan === fan)
+      const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price }))
+      const r = await fetch('/api/admin/live-chat/suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'suggest failed')
+      setSuggestion(d)
+    } catch (e) {
+      setSuggestion({ error: e.message || 'suggest failed' })
+    } finally { setSuggesting(false) }
+  }
 
   // Older sale events stored `at` as "YYYY-MM-DD HH:MM:SS" (UTC, no zone) —
   // parsing that as local shifted times 4h. Treat zoneless as UTC.
@@ -551,6 +575,32 @@ export default function LiveChatPage() {
                     </div>
                   )
                 })}
+              </div>
+              {/* ── Suggest reply (draft-only, never sends) ── */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button onClick={suggestReply} disabled={suggesting}
+                  style={{ alignSelf: 'flex-start', padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
+                  {suggesting ? 'Thinking…' : '✨ Suggest reply'}
+                </button>
+                {suggestion?.error && <div style={{ fontSize: '12px', color: '#E8A0A0' }}>{suggestion.error}</div>}
+                {suggestion && !suggestion.error && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                      {suggestion.note}
+                      {' · '}
+                      <span style={{ color: suggestion.usedProfile ? '#7DD3A4' : 'var(--foreground-muted)' }}>
+                        {suggestion.usedProfile ? 'using fan profile' : 'no profile on file'}
+                      </span>
+                    </div>
+                    {(suggestion.suggestions || []).map((s, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(0,145,234,0.12)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '10px 12px' }}>
+                        <div style={{ flex: 1, fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.45 }}>{s}</div>
+                        <button onClick={() => navigator.clipboard?.writeText(s)}
+                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', color: 'var(--foreground-muted)', fontSize: '11px', padding: '3px 8px', cursor: 'pointer', flexShrink: 0 }}>copy</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

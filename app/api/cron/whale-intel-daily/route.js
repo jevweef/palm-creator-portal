@@ -55,17 +55,27 @@ export async function GET(request) {
   }
   const deadline = Date.now() + 230000 // leave headroom under maxDuration
   try {
-    const date = new URL(request.url).searchParams.get('date') || yesterdayEt()
+    const sp = new URL(request.url).searchParams
+    const date = sp.get('date') || yesterdayEt()
+    // ?silent=1 suppresses the Telegram summary — used for manual backfills so a
+    // catch-up run doesn't blast the team at an odd hour.
+    const silent = sp.get('silent') === '1'
+    // ?force=1 ignores any existing report for the day and regrades every creator
+    // from scratch (used to re-run a day on a newer model, not resume a partial).
+    // Fire it ONCE, then plain passes (no force) to sweep the rest without wiping.
+    const force = sp.get('force') === '1'
 
     // Existing report for today → idempotent second pass
     const token = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(token)
     const reportPath = `/Palm Ops/Whale Intel/daily/${date}.json`
     let report = { date, window: `${date} 12:00 AM \u2013 11:59 PM ET`, generatedAt: new Date().toISOString(), perCreator: [] }
-    try {
-      const buf = await downloadFromDropbox(token, ns, reportPath)
-      if (buf) report = JSON.parse(buf.toString('utf8'))
-    } catch { /* first pass */ }
+    if (!force) {
+      try {
+        const buf = await downloadFromDropbox(token, ns, reportPath)
+        if (buf) report = JSON.parse(buf.toString('utf8'))
+      } catch { /* first pass */ }
+    }
     // aiFailed creators are NOT done — the second nightly pass redoes them
     const doneAkas = new Set(report.perCreator.filter((c) => !c.aiFailed).map((c) => c.aka))
 
@@ -77,6 +87,51 @@ export async function GET(request) {
     for (const r of tracker) {
       const u = (r.fields?.['OF Username'] || '').toLowerCase()
       if (u) whaleByUsername.set(u, { name: r.fields['Fan Name'], lifetime: r.fields['Lifetime Spend'] || 0 })
+    }
+
+    // Per-fan whale dossiers (Manager Brief = the CHATTER CARD from the full-history
+    // deep dive: FORMULA / WANTS / PRICE / NEVER). These become a per-fan rubric so
+    // the judge can catch fan-SPECIFIC mistakes (priced over his band, off-preference
+    // content, ignored a known ask) that fan-blind voice grading can't see. Fans with
+    // no dossier fall back to generic grading. Newest analysis per fan wins (sorted desc).
+    const analyses = await fetchAll('tblNMtOEg2AIzvLDK', { 'sort[0][field]': 'Analyzed Date', 'sort[0][direction]': 'desc' })
+    const dossierByUsername = new Map()      // username -> entry
+    const dossierByCreatorName = new Map()   // `${creatorLower}|${nameLower}` -> [entries]
+    for (const r of analyses) {
+      const f = r.fields || {}
+      if (!f['Manager Brief']) continue
+      const entry = {
+        card: f['Manager Brief'], name: f['Fan Name'] || '',
+        username: (f['OF Username'] || '').toLowerCase().trim(),
+        lifetime: f['Lifetime Spend'] || 0,
+      }
+      if (entry.username && !dossierByUsername.has(entry.username)) dossierByUsername.set(entry.username, entry)
+      const nm = String(f['Fan Name'] || '').toLowerCase().trim()
+      const cr = String(f['Creator'] || '').toLowerCase().trim()
+      if (nm && cr) {
+        const key = `${cr}|${nm}`
+        if (!dossierByCreatorName.has(key)) dossierByCreatorName.set(key, [])
+        dossierByCreatorName.get(key).push(entry)
+      }
+    }
+    // Resolve a live-event fan to its dossier. Username match is high confidence;
+    // name match is creator-scoped and SKIPS when ambiguous (two different usernames
+    // share the name) — better no dossier than grading against the wrong fan's manual
+    // (the Chris/Bren duplicate-row trap).
+    const resolveDossier = (fan, creatorNames) => {
+      const u = (fan?.username || '').toLowerCase().trim()
+      if (u && dossierByUsername.has(u)) return dossierByUsername.get(u)
+      const nm = (fan?.name || '').toLowerCase().trim()
+      if (!nm) return null
+      for (const ck of creatorNames) {
+        const arr = dossierByCreatorName.get(`${ck}|${nm}`)
+        if (arr && arr.length) {
+          const usernames = new Set(arr.map((e) => e.username).filter(Boolean))
+          if (usernames.size > 1) return null   // ambiguous — skip
+          return arr[0]
+        }
+      }
+      return null
     }
 
     // Playbook slice for the judge prompt
@@ -149,7 +204,10 @@ export async function GET(request) {
         }))
         .sort((a, b) => b.fanCount - a.fanCount).slice(0, 10)
 
-      // ── AI pass: authenticity + content demand + wins (one Sonnet call) ──
+      // ── AI pass: authenticity + content demand + wins (one Opus 4.8 call) ──
+      // Opus, not Sonnet: this judge now grades each message against the fan's
+      // dossier (price band, preferences, sleeping threads) — nuanced judgment
+      // that drives how the whole chat team gets coached, so it's worth the model.
       let ai = { authenticity: [], contentDemand: [], wins: [] }
       let aiOk = true
       const hasMaterial = outbound.length >= 5 || inbound.length >= 5
@@ -167,10 +225,27 @@ export async function GET(request) {
           return `[to ${e.fan?.name || e.fan?.username || '?'}${whale ? ` — WHALE $${Math.round(whale.lifetime)}` : ''} @ ${e.at.slice(11, 16)}] ${strip(e.text).slice(0, 300)}`
         }).join('\n')
         const inLines = inbound.slice(0, 250).map((e) => `[from ${e.fan?.name || e.fan?.username || '?'}] ${strip(e.text).slice(0, 300)}`).join('\n')
+
+        // Per-fan dossiers for the whales this creator messaged yesterday (top 15 by
+        // lifetime to bound tokens). Keyed by the SAME display label used in outLines
+        // so the judge can join each message to the right fan's manual.
+        const creatorNames = [c.fields.AKA, c.fields.Creator].filter(Boolean).map((x) => String(x).toLowerCase().trim())
+        const seenDossier = new Map()
+        for (const e of outbound) {
+          const disp = e.fan?.name || e.fan?.username || '?'
+          if (seenDossier.has(disp)) continue
+          const d = resolveDossier(e.fan, creatorNames)
+          if (d) seenDossier.set(disp, d)
+        }
+        const dossierList = [...seenDossier.entries()].sort((a, b) => (b[1].lifetime || 0) - (a[1].lifetime || 0)).slice(0, 15)
+        const dossierBlock = dossierList.length
+          ? `FAN DOSSIERS (deep profiles from full-history analysis — for THESE specific fans, ALSO grade each message against the fan's own manual below. Fans not listed have no dossier: judge them normally, do NOT apply the dossier-specific issue types to them):\n${dossierList.map(([disp, d]) => `### ${disp}${d.lifetime ? ` ($${Math.round(d.lifetime)} lifetime)` : ''}\n${String(d.card).trim()}`).join('\n\n')}\n\n`
+          : ''
+
         const prompt = `You are the overnight chat-quality analyst for an OnlyFans agency. Below are YESTERDAY's 1:1 messages for creator "${aka}" (mass blasts excluded). Chatters type AS the creator.
 
 ${voice ? `HER VOICE PROFILE:\n${voice}\n` : ''}${playbook ? `AGENCY PLAYBOOK EXCERPT (standards we coach toward):\n${playbook}\n` : ''}${calibration}
-CHATTER-SENT MESSAGES (what "she" said):
+${dossierBlock}CHATTER-SENT MESSAGES (what "she" said):
 ${outLines}
 
 FAN MESSAGES (what fans said):
@@ -178,11 +253,12 @@ ${inLines}
 
 Return STRICT JSON only, no prose, shaped exactly:
 {
- "authenticity": [{"fan":"name","message":"the exact chatter message","issues":["broken-english"|"robotic"|"off-voice"|"persona-break"|"canned-spam"|"ignored-fan"],"severity":"high"|"medium","note":"one plain sentence"}],
+ "authenticity": [{"fan":"name","message":"the exact chatter message","issues":["broken-english"|"robotic"|"off-voice"|"persona-break"|"canned-spam"|"ignored-fan"|"priced-over-band"|"off-preference"|"ignored-known-ask"|"pushed-past-brake"],"severity":"high"|"medium","note":"one plain sentence"}],
  "contentDemand": [{"theme":"short label e.g. 'feet content'","quotes":["short fan quote"],"count":N}],
  "wins": [{"fan":"name","note":"one sentence on what the chatter did well and why it worked"}]
 }
-Rules: authenticity flags only for REAL problems a manager should coach (max 8, prioritize WHALE conversations); persona-break = talking about the creator in third person or admitting to being staff. contentDemand only for explicit fan asks/requests (max 6 themes). wins max 3. Empty arrays are fine.`
+Rules: authenticity flags only for REAL problems a manager should coach (max 8, prioritize WHALE conversations); persona-break = talking about the creator in third person or admitting to being staff. contentDemand only for explicit fan asks/requests (max 6 themes). wins max 3. Empty arrays are fine.
+DOSSIER-BASED FLAGS (only for fans that appear in FAN DOSSIERS above — never apply these to fans without a dossier): "priced-over-band" = a PPV/ask above that fan's stated PRICE band; "off-preference" = pushed content that conflicts with his WANTS/NEVER; "ignored-known-ask" = the fan asked for something in his WANTS/sleeping threads and the chatter didn't act on it; "pushed-past-brake" = kept selling after hitting one of his NEVER/brakes. For each, the note MUST quote the exact dossier line you judged against (e.g. "his PRICE is $20-30, chatter pitched $79").`
           // .slice(0,300) can cut an emoji in half, leaving a lone surrogate
           // that makes the JSON body invalid ("no low surrogate" 400s for
           // Raya + Caitie on 7/7). Strip unpaired surrogates from the prompt.
@@ -192,7 +268,7 @@ Rules: authenticity flags only for REAL problems a manager should coach (max 8, 
         for (let attempt = 0; attempt < 3 && !aiOk; attempt++) {
           try {
             const resp = await anthropic.messages.create({
-              model: 'claude-sonnet-4-6', max_tokens: 2000,
+              model: 'claude-opus-4-8', max_tokens: 3000,
               messages: [{ role: 'user', content: prompt }],
             })
             const text = resp.content?.map((b) => b.text || '').join('') || '{}'
@@ -232,7 +308,7 @@ Rules: authenticity flags only for REAL problems a manager should coach (max 8, 
     const tgToken = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
     const tgChat = process.env.WHALE_INTEL_CHAT_ID || '-1004293138854'
     const tgThread = process.env.WHALE_INTEL_TOPIC_ID || '85'
-    if (tgToken && tgChat && !report.partial && !report.summarySent) {
+    if (tgToken && tgChat && !report.partial && !report.summarySent && !silent) {
       const flags = report.perCreator.reduce((s, cr) => s + (cr.authenticity?.length || 0), 0)
       const highFlags = report.perCreator.flatMap((cr) => (cr.authenticity || []).filter((a) => a.severity === 'high').map((a) => `${cr.aka}: ${a.issues?.join('/')} → ${a.fan}`))
       const templates = report.perCreator.reduce((s, cr) => s + (cr.massTemplates?.length || 0), 0)

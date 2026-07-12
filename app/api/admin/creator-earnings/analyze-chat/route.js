@@ -318,6 +318,73 @@ function parseChatHtml(html) {
   }
 }
 
+// ── Free deterministic QA pass ─────────────────────────────────────────────
+// No API cost — pure string/date math. Catches the mechanical errors the model
+// keeps making regardless of prompt wording:
+//   1. Recency math ("N days ago") anchored to the transcript's last line
+//      instead of real today. We recompute it from the FAN's true last reply
+//      date (ground truth from the message array) and the real current date.
+//   2. CHATTER CARD handle drifting from the FAN: line handle.
+// Returns { text, issues } — issues are logged, corrections applied in place.
+
+const _QA_MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 }
+function parseLooseDate(str, defaultYear) {
+  if (!str) return null
+  const m = String(str).match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:\s*,?\s*'?(\d{2,4}))?/)
+  if (!m) return null
+  const mon = _QA_MONTHS[m[1].slice(0, 3).toLowerCase()]
+  if (mon == null) return null
+  const day = parseInt(m[2], 10)
+  if (day < 1 || day > 31) return null
+  let year = m[3] ? parseInt(m[3], 10) : defaultYear
+  if (year < 100) year += 2000
+  return new Date(year, mon, day)
+}
+// Whole-day index in local time — subtracting two gives an exact day count
+// with no DST/hour drift.
+const _dayIndex = (d) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000)
+
+function validateAndFixAnalysis(analysis, { now, messages = [], fanUsername = '' }) {
+  const issues = []
+  let text = analysis
+  const fallbackYear = now.getFullYear()
+
+  // Ground truth: the FAN's actual last reply date from the parsed message list
+  // (OF omits the year only for current-calendar-year dates, so fallbackYear is safe).
+  let trueLast = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.sender === 'FAN' && messages[i]?.date) {
+      trueLast = parseLooseDate(messages[i].date, fallbackYear)
+      if (trueLast) break
+    }
+  }
+  const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  // Fix the "Last fan reply:" line — correct both the date and the days-ago count.
+  text = text.replace(/^([ \t]*Last fan reply:).*$/im, (line, prefix) => {
+    const modelDate = parseLooseDate(line, fallbackYear)
+    const useDate = trueLast || modelDate
+    if (!useDate) return line
+    let days = _dayIndex(now) - _dayIndex(useDate)
+    if (days < 0) days = 0
+    const newLine = `${prefix} ${fmt(useDate)} — ${days} day${days === 1 ? '' : 's'} ago`
+    if (newLine.trim() !== line.trim()) issues.push(`last-fan-reply: "${line.trim()}" -> "${newLine.trim()}"`)
+    return newLine
+  })
+
+  // CHATTER CARD handle must match the FAN: line handle (guards against a
+  // drifted/invented @handle in the spoon-feed card).
+  const fanHandle = (text.match(/^FAN:.*?\(\s*@?([A-Za-z0-9_.]+)\s*\)/m) || [])[1] || fanUsername
+  if (fanHandle) {
+    text = text.replace(/^(CARD:[^\n]*?@)([A-Za-z0-9_.]+)/m, (mm, pre, h) => {
+      if (h !== fanHandle) { issues.push(`card-handle: @${h} -> @${fanHandle}`); return pre + fanHandle }
+      return mm
+    })
+  }
+
+  return { text, issues }
+}
+
 // ── GET (load existing analysis from Airtable) ────────────────────────────
 
 export async function GET(request) {
@@ -594,7 +661,17 @@ export async function POST(request) {
       }
     } catch { /* optional */ }
 
-    const spendingContext = `SPENDING DATA FOR THIS FAN:
+    // TODAY anchor. Without this the model has no idea what "today" is, so it
+    // treats the LAST message in the transcript as today and every "N days ago"
+    // collapses to near-zero — even for a fan who's been silent for months and
+    // whose chat was pulled from an archive weeks ago. All recency math counts
+    // from THIS date, never from the transcript's final line.
+    const nowDate = new Date()
+    const todayLong = nowDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    const spendingContext = `TODAY'S DATE: ${todayLong}. This is "today" for ALL recency math — "N days ago", days-since-last-reply, staleness. Do NOT infer today from the last line of the transcript: the chat may have been pulled days or weeks ago, so its final message is NOT today. Anchor every day-count to ${todayLong}.
+
+SPENDING DATA FOR THIS FAN:
 - Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
 - Normal purchase cadence: every ${medianGap} days
 - Gap since last purchase (at end of chat): ${cappedCurrentGap} days
@@ -725,6 +802,8 @@ HARD RULES:
   1. NEVER tell the team to give up on a fan. No "write off," "mark as lost," "move on." If odds are low, say so and prescribe patience — the door stays open.
   2. Don't reference anything time-sensitive unless it's still fresh (within ~3 weeks of "today" in the chat). Stale hooks become timeless facts.
   3. Every claim needs evidence — a quote or a date. No vibes.
+  3a. NO INVENTED DETAILS. Every personal fact — name, nickname, age, location, job, family, backstory, kink — must come from something the FAN actually said in the transcript (or an operator note baked into his display name). If he never stated it, LEAVE IT OUT. Never invent a nickname, never shorten his handle into a pet name, never infer a backstory from his username, his content choices, or vibes. If you can't point to a line for a detail, it does not go in the brief. A thin dossier is correct and expected — 3 real facts beat 7 with 4 guessed. WHO HE IS and the CHATTER CARD may contain ONLY transcript-grounded facts.
+  3b. ONE INCIDENT, ONE SECTION. Each concrete dated moment or quote belongs to exactly one section — do not re-narrate it. WHAT HAPPENED owns the cause; PEAK FORMULA owns peak-era mechanics; CHATTER PERFORMANCE owns graded failures; SLEEPING THREADS owns open loops; NEXT MOVE owns the prescription. If a later section needs an earlier moment, name it in a few words ("the Feb 20 song-lyrics break") — never repeat the full story. No sentence should restate what another section already said.
   4. Sample messages must be copy-paste ready. Do not write "reference his past messages" — pull the actual phrase.
   5. No jargon in the OUTPUT. Translate internal concepts:
      - "quote-back pattern" → "pasting his own messages back at him"
@@ -754,10 +833,11 @@ Last purchase: [EXACT date from the SPENDING DATA block above — specifically t
 Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
 
 CRITICAL DATE RULES:
+- "TODAY" is the TODAY'S DATE given at the top of the SPENDING DATA block — NOT the last message in the transcript. The transcript may have been pulled days or weeks ago; its final line is not today. Every "N days ago" counts from that TODAY'S DATE.
 - EVERY date you write anywhere in this brief MUST include a two-digit year: "Jun 17, 26" — never a bare "Jun 17". The conversation now spans multiple years; a date without a year is ambiguous and useless.
 - "Last fan reply" is the FAN's last message, NOT the creator's last message. Creator-side re-engagement pings sent after the fan went quiet do NOT count.
 - If today's date (or any obviously recent date) shows up in the transcript, it's usually a creator-side outbound ping — skip past it to find the fan's actual last reply.
-- The "[N] days ago" MUST match the date you just wrote. Do not pull the number from one section and the date from another. If the fan last replied Feb 27 and today is Apr 19, that's 51 days. If unsure, count from the year-month-day.
+- The "[N] days ago" MUST equal (TODAY'S DATE − the date you just wrote), counted in whole days. Do not pull the number from one section and the date from another. Example: TODAY'S DATE is Jul 11, 2026 and the fan last replied Feb 27, 2026 → that is 134 days ago, NOT 3. A single-digit "days ago" on a chat whose last line is months before today is the #1 error we catch — recount from TODAY'S DATE.
 
 QUICK READ
 [1-2 sentences. Lead with the FAN'S situation and what's at stake — not with meta-commentary about the analysis itself. Do NOT open with "This is a follow-up," "This is the first analysis," "The record shows," or anything describing the brief. If prior context exists and is genuinely relevant, fold it in naturally ("Since the last analysis he's gone another 3 weeks silent"). Otherwise just describe what's happening with the fan right now.]
@@ -818,7 +898,7 @@ CRITICAL for any suggested/sample message you write: the chatter sends AS the cr
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
 
 LAST TOUCH
-Last fan reply: [EXACT date of the FAN's most recent message (last [FAN] line in transcript — ignore creator re-engagement pings sent after)] — [N] days ago (count from today)
+Last fan reply: [EXACT date of the FAN's most recent message (last [FAN] line in transcript — ignore creator re-engagement pings sent after)] — [N] days ago (count from TODAY'S DATE at the top of the SPENDING DATA block, NOT the last transcript message)
 Last purchase: [EXACT date + $amount from the SPENDING DATA block above, e.g. "Feb 27, 2026 — $4.00"]
 Last topic: [1 sentence on what the fan was last actually discussing or responding to — not what the creator pushed at him afterward.]
 
@@ -847,6 +927,7 @@ NEXT MOVE
 HARD RULES:
 - Never write "mark as lost," "write off," "move on," "cold list" — doors stay open.
 - Every claim needs a quote or date as evidence. No vibes labels.
+- NO INVENTED DETAILS. Names, nicknames, location, job, backstory, kinks — only what the FAN actually said in the transcript. If he never stated it, leave it out. Never invent a nickname or infer a backstory from his username or content. A short honest dossier beats a padded one.
 - Sample messages must be copy-paste ready. Pull actual phrases from the chat.
 - If the fan is a $50 one-off with no rapport, output 3 sentences total with guidance to "keep it light, no investment" rather than a full brief.
 - Inline chat payment markers ("$10 paid", "Tipped $X", "Purchased ... for $X") are QUALITATIVE buy-trigger evidence — use them to name content types and hooks that convert, NOT to cite dollar totals. All totals come from the SPENDING DATA block above.`
@@ -1020,15 +1101,31 @@ HARD RULES:
       fullAnalysis = `Analysis failed — ${err?.message || 'unknown error'}. Check Vercel logs for details.`
     }
 
+    // Free deterministic QA — fix recency math (anchored to real today) and card
+    // handle drift before the CHATTER CARD is sliced out for the manager brief,
+    // so corrections propagate to both. No API cost.
+    if (fullAnalysis && !fullAnalysis.startsWith('Analysis failed')) {
+      const qa = validateAndFixAnalysis(fullAnalysis, { now: nowDate, messages: parsed.messages, fanUsername })
+      if (qa.issues.length) console.log(`[Whale Analysis QA] ${fanName} • ${creatorAka} | ${qa.issues.join(' | ')}`)
+      fullAnalysis = qa.text
+    }
+
     // Cost + usage logging for real-time visibility (Anthropic Console lags ~15min-2hr)
+    // Model-aware pricing (per MTok): deep dives run on Opus 4.8, quick snapshots on
+    // Sonnet 4.6. Cache read = 0.1x input, 5-min cache write = 1.25x input.
+    let usageSummary = null
     if (claudeUsage) {
       const input = claudeUsage.input_tokens || 0
       const output = claudeUsage.output_tokens || 0
       const cacheRead = claudeUsage.cache_read_input_tokens || 0
       const cacheCreate = claudeUsage.cache_creation_input_tokens || 0
-      // Sonnet 4.6 pricing per million tokens
-      const cost = (input * 3 + output * 15 + cacheRead * 0.3 + cacheCreate * 3.75) / 1_000_000
-      console.log(`[Whale Analysis] ${fanName} • ${creatorAka} | stop_reason=${claudeStopReason} | in=${input} out=${output} cacheR=${cacheRead} cacheW=${cacheCreate} | $${cost.toFixed(4)}`)
+      const rates = isHighValue
+        ? { in: 5, out: 25, cacheR: 0.5, cacheW: 6.25 }   // claude-opus-4-8
+        : { in: 3, out: 15, cacheR: 0.3, cacheW: 3.75 }   // claude-sonnet-4-6
+      const cost = (input * rates.in + output * rates.out + cacheRead * rates.cacheR + cacheCreate * rates.cacheW) / 1_000_000
+      const model = isHighValue ? 'claude-opus-4-8' : 'claude-sonnet-4-6'
+      console.log(`[Whale Analysis] ${fanName} • ${creatorAka} | model=${model} stop_reason=${claudeStopReason} | in=${input} out=${output} cacheR=${cacheRead} cacheW=${cacheCreate} | $${cost.toFixed(4)}`)
+      usageSummary = { model, inputTokens: input, outputTokens: output, cacheReadTokens: cacheRead, cacheWriteTokens: cacheCreate, costUsd: Number(cost.toFixed(4)) }
     }
 
     // Run manager brief, Dropbox save, and fan tracker upsert in parallel
@@ -1120,6 +1217,7 @@ Rules:
       creatorMessages: parsed.creatorMessages,
       firstMessageDate: parsed.firstMessageDate || '',
       lastMessageDate: parsed.lastMessageDate || '',
+      usage: usageSummary,
       saved: true,
     })
   } catch (err) {
