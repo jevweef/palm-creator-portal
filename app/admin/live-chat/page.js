@@ -361,7 +361,7 @@ export default function LiveChatPage() {
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'grab failed')
       if (Array.isArray(d.messages)) setHistory(d.messages)
-      setGrabInfo({ shown: d.shown ?? (d.messages || []).length, credits: d.credits || 0 })
+      setGrabInfo({ added: d.added ?? 0, total: d.total ?? (d.messages || []).length, credits: d.credits || 0 })
     } catch (e) {
       setGrabInfo({ error: e.message || 'grab failed' })
     } finally { setGrabbing(false) }
@@ -611,7 +611,7 @@ export default function LiveChatPage() {
                     </button>
                   ))}
                   {grabbing && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>pulling…</span>}
-                  {grabInfo && !grabInfo.error && <span style={{ fontSize: '11px', color: '#7DD3A4' }}>pulled {grabInfo.shown} msgs · {grabInfo.credits} credit{grabInfo.credits === 1 ? '' : 's'}</span>}
+                  {grabInfo && !grabInfo.error && <span style={{ fontSize: '11px', color: '#7DD3A4' }}>+{grabInfo.added} new · {grabInfo.total} in history · {grabInfo.credits} credit{grabInfo.credits === 1 ? '' : 's'} · saved</span>}
                   {grabInfo?.error && <span style={{ fontSize: '11px', color: '#E8A0A0' }}>{grabInfo.error}</span>}
                 </div>
                 {/* Suggest — draft-only, uses whatever's loaded (never pulls) */}
