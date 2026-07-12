@@ -324,11 +324,30 @@ export async function GET() {
       tasksByCreator[creatorId].push(task)
     }
 
+    // RUNWAY = banked, unposted posts ÷ posts/day. Scheduled Date is a FIFO
+    // token now (not a real future date), so the old "future Scheduled Date"
+    // count was always 0. Count by STATUS instead: anything prepped and sitting
+    // in the outbound pipeline that hasn't been posted yet (Posted At empty).
+    // Posts leave the buffer when marked posted (Posted At) — e.g. a ❤️ react in
+    // the Telegram topic, once that drawdown is wired.
+    const BANKED_STATUSES = ['Ready to Go', 'Staged', 'Queued for Telegram', 'Sending', 'Sent to Telegram']
+    const bankedByCreator = {}
+    try {
+      const banked = await fetchAirtableRecords('Posts', {
+        filterByFormula: `AND({Posted At}='', OR(${BANKED_STATUSES.map(s => `{Status}='${s}'`).join(',')}))`,
+        fields: ['Creator'],
+      })
+      for (const p of banked) {
+        const cid = (p.fields?.Creator || [])[0]
+        if (cid && creatorIdSet.has(cid)) bankedByCreator[cid] = (bankedByCreator[cid] || 0) + 1
+      }
+    } catch (e) { console.error('[dashboard] banked runway fetch failed:', e.message) }
+
     const editorRunway = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
-      const approvedBuffer = futurePostsByCreator[c.id] || 0
+      const approvedBuffer = bankedByCreator[c.id] || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
       const doneThisWeek = ctasks.filter(t =>
