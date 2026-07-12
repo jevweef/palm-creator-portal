@@ -147,6 +147,7 @@ export default function LiveChatPage() {
   // grounded in her voice + his dossier. Never sends — copy/paste only.
   const [suggestion, setSuggestion] = useState(null)
   const [suggesting, setSuggesting] = useState(false)
+  const [ctxCount, setCtxCount] = useState(50) // how many recent msgs feed the suggestion
   useEffect(() => { setSuggestion(null) }, [account, fan])
   const [history, setHistory] = useState([])
   const [transcript, setTranscript] = useState(null)
@@ -334,7 +335,7 @@ export default function LiveChatPage() {
       const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price }))
       const r = await fetch('/api/admin/live-chat/suggest', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs }),
+        body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs, count: ctxCount }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'suggest failed')
@@ -578,10 +579,21 @@ export default function LiveChatPage() {
               </div>
               {/* ── Suggest reply (draft-only, never sends) ── */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button onClick={suggestReply} disabled={suggesting}
-                  style={{ alignSelf: 'flex-start', padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
-                  {suggesting ? 'Thinking…' : '✨ Suggest reply'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button onClick={suggestReply} disabled={suggesting}
+                    style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
+                    {suggesting ? 'Thinking…' : '✨ Suggest reply'}
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>context</span>
+                    {[25, 50, 100].map((n) => (
+                      <button key={n} onClick={() => setCtxCount(n)} title={`Feed the last ${n} messages into the suggestion`}
+                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', background: ctxCount === n ? 'rgba(160,111,232,0.25)' : 'transparent', color: ctxCount === n ? '#C4A5F7' : 'var(--foreground-muted)' }}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {suggestion?.error && <div style={{ fontSize: '12px', color: '#E8A0A0' }}>{suggestion.error}</div>}
                 {suggestion && !suggestion.error && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -591,6 +603,7 @@ export default function LiveChatPage() {
                       <span style={{ color: suggestion.usedProfile ? '#7DD3A4' : 'var(--foreground-muted)' }}>
                         {suggestion.usedProfile ? 'using fan profile' : 'no profile on file'}
                       </span>
+                      {suggestion.usedCount ? ` · read ${suggestion.usedCount} msgs` : ''}
                     </div>
                     {(suggestion.suggestions || []).map((s, i) => (
                       <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(0,145,234,0.12)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '10px 12px' }}>

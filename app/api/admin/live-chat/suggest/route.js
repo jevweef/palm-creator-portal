@@ -42,6 +42,8 @@ export async function POST(request) {
     const fan = String(body.fan || '')          // username or name key from the URL
     const fanName = String(body.fanName || '')   // human display name if the UI has it
     const messages = Array.isArray(body.messages) ? body.messages : []
+    // How many recent thread messages to feed the model (operator picks 25/50/100).
+    const count = Math.max(10, Math.min(150, parseInt(body.count, 10) || 25))
     if (!account || !fan) return NextResponse.json({ error: 'account and fan required' }, { status: 400 })
 
     // ── Resolve the creator from the OF account id → voice profile ──
@@ -80,15 +82,18 @@ export async function POST(request) {
     }
 
     // ── Build context from the thread the operator is looking at ──
-    const recent = messages.slice(-25).map((m) => {
+    // Take the last `count` messages so the operator can widen the window for
+    // more back-and-forth context before the draft.
+    const windowMsgs = messages.slice(-count)
+    const recent = windowMsgs.map((m) => {
       const who = m.dir === 'in' ? 'FAN' : 'CREATOR'
       const bought = (m.dir === 'sale' || m.dir === 'unlock') ? ` [bought${m.price ? ` $${m.price}` : ''}]` : ''
       return `${who}: ${strip(m.text)}${bought}`
     }).filter((l) => l.length > 8).join('\n')
     // Her real outbound to THIS fan = free, perfect few-shot for her voice.
-    const herLines = messages.filter((m) => m.dir === 'out' && strip(m.text))
+    const herLines = windowMsgs.filter((m) => m.dir === 'out' && strip(m.text))
       .slice(-8).map((m) => `- ${strip(m.text).slice(0, 200)}`).join('\n')
-    const lastFan = [...messages].reverse().find((m) => m.dir === 'in' && strip(m.text))
+    const lastFan = [...windowMsgs].reverse().find((m) => m.dir === 'in' && strip(m.text))
 
     const prompt = `You are drafting the NEXT message a chatter will send AS ${aka} to ONE fan on OnlyFans. Write in FIRST PERSON as her. This is a SUGGESTION a human will review before sending, so make it genuinely good.
 
@@ -122,6 +127,7 @@ Return STRICT JSON only, no prose:
       usedProfile: !!dossier,
       usedVoice: !!voice,
       fewShot: !!herLines,
+      usedCount: windowMsgs.length,
     })
   } catch (err) {
     console.error('[live-chat suggest]', err?.message || err)
