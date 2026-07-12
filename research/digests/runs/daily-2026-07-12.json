@@ -1,0 +1,181 @@
+{
+  "run": "daily-2026-07-12",
+  "findings": [
+    {
+      "department": "systems",
+      "topic": "Agency model selection",
+      "title": "Pick one of three OFM agency models before building anything",
+      "claim": "Agencies must choose a model (full-service, chatting-only, or marketing-only) before outreach because each requires a completely different infrastructure.",
+      "what_they_do": "Defines three distinct agency models: (1) Full-service \u2014 chatting, traffic, content, management; charges highest percentage. (2) Chatting-only \u2014 DMs and monetization only; lean and profitable for psychology-focused operators. (3) Marketing-only \u2014 traffic and follower growth; outsources chatting to a specialist agency. Recommends starting full-service for premium pricing leverage.",
+      "vs_us": "Palm currently operates as a de-facto full-service agency (social content \u00a71, outsourced chatting \u00a78, fan retention \u00a79) but this model choice has never been explicitly codified as a strategic decision. Palm's chatting is outsourced (\u00a78), which mirrors the full-service model delegating chat to a specialist \u2014 but the framing and pricing rationale for that choice aren't documented (\u00a77 gap).",
+      "recommendation": "Formally document Palm's agency model as 'full-service with outsourced chat' and articulate the rationale in creator-facing materials. This positions Palm against chatting-only competitors and justifies premium commission rates. When building the in-house chat team (\u00a78 roadmap), use this framework to define the transition milestone.",
+      "applicability": "both",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 529,
+          "quote": "pick your agency model. You can't build anything without a sense of clarity"
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 561,
+          "quote": "model 2 is a chatting only agency. You just handle the DMs and monetization"
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Agency brand / storefront for creator trust",
+      "title": "Build an Instagram agency storefront with daily content before outreaching creators",
+      "claim": "Creators are bombarded with manager DMs daily, so a professional Instagram presence with consistent content and testimonial highlights is required to convert outreach into signed clients.",
+      "what_they_do": "Sets up an agency Instagram page with: clean username, professional layout, consistent visuals, a bio that communicates value immediately, highlights showcasing results/testimonials. Posts short Reels daily teaching creators how to grow or showing proof \u2014 goal is trust-building, not virality. The page acts as the 'storefront' that validates cold DMs.",
+      "vs_us": "Palm's acquisition is Josh-DM-led outbound with no documented agency brand presence on social (\u00a76 gap). There is no mention of an agency Instagram page used to warm creator prospects before or during outreach. This is a significant credibility gap vs. competitors who lead with proof-of-results content.",
+      "recommendation": "Create a Palm agency Instagram page with creator-facing content (results, how-to Reels, testimonials). Even 2\u20133 posts per week would give outreach targets a credibility anchor when they check the profile after receiving a DM. Prioritize adding a testimonials/results highlight reel as the minimum viable trust signal.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 593,
+          "quote": "create your brand identity in this industry cuz your brand is everything"
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 624,
+          "quote": "Produce content that provides value. So, short reels teaching creators how to grow, showing proof, or giving insights. And post every day."
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Offer construction and outreach script structure",
+      "title": "Frame the agency offer as transformation + timeframe + proof, never a service statement",
+      "claim": "Saying 'we manage your OnlyFans' is a statement, not an offer \u2014 a real offer specifies the result delivered, the timeline to deliver it, and proof of capability.",
+      "what_they_do": "Constructs offers with three components: (1) transformation (e.g., 3K to 10K/month), (2) timeframe (under 60 days), (3) proof/mechanism (named system). Example: 'We help creators scale from 3 to 10K a month in under 60 days using our optics system that handles traffic, chatting, and retention.' Outreach DMs are personalized: compliment something specific \u2192 identify a missed opportunity \u2192 offer help with no hard sell. Tracks open rates, response rates, close rates and iterates on whichever funnel stage is weakest.",
+      "vs_us": "Palm's acquisition is DM-led (\u00a76) but there is no documented offer framework, outreach script structure, or funnel tracking. The \u00a76 gap explicitly notes no systematic acquisition machine. This competitor has a repeatable, measurable outreach system; Palm does not.",
+      "recommendation": "Codify Palm's offer using the transformation + timeframe + proof formula, incorporating real creator results as proof points. Build a short personalized outreach script template and track the three funnel metrics (open, response, close rate) in Airtable so Josh can iterate on weak stages systematically rather than by feel.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 654,
+          "quote": "An offer needs three things. Number one, a transformation. What result you actually deliver? Two, a time frame. How quickly can you deliver that? And three, proof."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 868,
+          "quote": "start with personalized messages, you know, short, direct, and human. Here's a basic structure you can use"
+        }
+      ]
+    },
+    {
+      "department": "acquisition",
+      "topic": "Sales call structure and closing",
+      "title": "Run discovery-style sales calls focused on diagnosing creator problems, not pitching",
+      "claim": "Creators don't buy services, they buy certainty \u2014 so sales calls should diagnose the creator's struggles and show how the agency's system fixes them, then close immediately with a contract.",
+      "what_they_do": "On the call, asks diagnostic questions: 'How are you currently promoting your page?', 'What's your biggest challenge with consistency?', 'What does your ideal month look like income-wise?' Then maps the agency system directly to the identified pain points. Never tries to close in the DMs \u2014 always moves to a call first. Sends the contract immediately upon verbal agreement; never onboards without a signed contract.",
+      "vs_us": "Palm's acquisition relies on Josh DMs and referrals (\u00a76) with no documented sales call process or qualification framework. The instruction to 'never close in the DMs' and always move to a call is a specific, actionable process Palm lacks.",
+      "recommendation": "Document a Palm sales call playbook with 3\u20135 diagnostic questions, a system-mapping script, and a post-call contract send SOP. Implement a rule: no onboarding begins without a signed agreement. This formalizes what may already happen informally and reduces creator drop-off between verbal yes and signed contract.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 898,
+          "quote": "Once they reply, move them to a call. Never try to close in the DMs."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 928,
+          "quote": "Creators don't buy services, they buy certainty. If you sound certain, they'll trust you."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "Onboarding structure and first-week creator communication",
+      "title": "Run a structured onboarding flow with daily creator updates in week one to build loyalty",
+      "claim": "90% of agencies fall apart post-signing because they have no structured onboarding \u2014 a fast, clear onboarding with daily creator touchpoints in week one drives long-term retention.",
+      "what_they_do": "Onboarding sequence: (1) welcome message + contract signed, (2) next-steps document sent, (3) request logins and content material immediately, (4) conduct audit of profile, pricing, bio, PPV, content style, (5) implement chat setup, posting schedule, traffic plan. Updates the creator daily for the first full week. Tracks visible progress metrics (traffic growth, PPV sales) in the first two weeks to create momentum and trust.",
+      "vs_us": "Palm has an onboarding form wizard that collects creator info (\u00a76) but no documented post-signing delivery flow or first-week communication cadence. The Airtable `Creators` table tracks status through form completion but not through active delivery milestones. The daily-update-in-week-one protocol is absent.",
+      "recommendation": "Add a post-signing onboarding checklist to the Palm admin portal: audit \u2192 setup \u2192 daily update cadence for 7 days \u2192 two-week progress review. This is low-effort to build (a simple Airtable view or Telegram checklist) and directly addresses the retention risk at the fragile early stage of a creator relationship.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 959,
+          "quote": "Your on boarding needs to be structured and fast."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 990,
+          "quote": "Update the model daily draw in the first week, you know, to build that trust. And when creators feel guided and secure, they're going to stay loyal."
+        }
+      ]
+    },
+    {
+      "department": "chatting",
+      "topic": "Chatter hiring criteria and KPI tracking",
+      "title": "Hire chatters for emotional intelligence over typing speed, track PPV open rate and golden ratio daily",
+      "claim": "Chatters who understand human emotion outperform fast typists \u2014 track daily KPIs (messages sent, PPV open rate, golden ratio) to manage performance at scale.",
+      "what_they_do": "Hires chatters based on potential and emotional intelligence, not just prior experience. Trains using scripts and real message examples. Tracks daily KPIs per chatter: average messages sent, PPV open rate, and 'golden ratio' (implied spend-per-subscriber metric). Adds a QA manager role who monitors message quality and reports performance metrics daily and weekly. Chatters are treated as 'revenue operators.'",
+      "vs_us": "Palm's chatting is fully outsourced to an external team (\u00a78) with no internal SOP, hiring criteria, or KPI framework. This is build-toward intelligence for Palm's ~1yr roadmap to bring chat in-house and the active AI chatting project. The 'golden ratio' KPI and the QA manager role are specific additions to capture for the future in-house design.",
+      "recommendation": "Document these chatter KPIs (messages sent, PPV open rate, golden ratio) and the QA manager role spec as reference architecture for Palm's in-house chat build. When designing the AI chatting system, use these metrics as the performance evaluation layer. Start requesting these same KPIs from the external chat team now to establish baseline data before the transition.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 837,
+          "quote": "Hire based on potential, not just experience. You want people to understand human emotion, not just people, you know, who can type fast."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 837,
+          "quote": "track their KPIs daily. Average messages sent, PPV, open rate, golden ratio."
+        }
+      ]
+    },
+    {
+      "department": "retention",
+      "topic": "Creator referral program as growth channel",
+      "title": "Pay creators a referral incentive (e.g. $5K/month) to sign other models as a systematic acquisition channel",
+      "claim": "Delivering results turns creators into a referral engine \u2014 structured creator referral incentives can become a primary acquisition channel that compounds without outreach spend.",
+      "what_they_do": "Operates a formal referral program where existing creators earn additional income (cited example: $5K/month) for referring other models to the agency. Frames referrals as a byproduct of result delivery \u2014 the agency earns referrals by performing, then formalizes the incentive to accelerate the flywheel. Describes this as building 'a large part' of the agency.",
+      "vs_us": "Palm has no documented referral program (\u00a76 gap). Acquisition is Josh-DM-led with no systematic way to incentivize existing creators to refer. This is a low-cost, high-trust acquisition channel Palm could layer on top of existing creator relationships immediately.",
+      "recommendation": "Design a simple creator referral program: for each signed creator referred, the referring creator earns a one-time bonus or ongoing rev-share reduction. Document it in the onboarding materials so every creator knows it exists from day one. This converts satisfied creators into an acquisition channel and improves retention simultaneously.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 990,
+          "quote": "We even have creators who make an extra 5k a month just from referring other models. It's crazy."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1020,
+          "quote": "focus on quick wins. So, traffic growth, better chats, more PPV sales. Give your new creator visible progress in the first two weeks."
+        }
+      ]
+    },
+    {
+      "department": "systems",
+      "topic": "Performance tracking dashboard and iteration cadence",
+      "title": "Track five core agency KPIs daily and use data to diagnose and fix specific funnel weak points",
+      "claim": "OFM is a data game \u2014 agencies that track daily revenue, chatting conversions, subscriber churn, traffic source performance, and PPV averages scale fastest because they fix the right things.",
+      "what_they_do": "Tracks five KPIs continuously: (1) daily revenue, (2) chatting conversion rate, (3) subscriber churn, (4) traffic source performance by channel, (5) PPV averages. Uses data to diagnose specific problems: high churn \u2192 improve retention tactics; inconsistent revenue \u2192 refine messaging or PPV timing; traffic not converting \u2192 change the funnel. Scales only after systems are proven with 2\u20133 creators, then systematizes outreach scripts, onboarding templates, chatting frameworks, traffic strategies, and reporting dashboards.",
+      "vs_us": "Palm has partial fan intelligence infrastructure (whale hunting, Fan Tracker CRM, \u00a79) and daily editor task queues (\u00a71) but no documented agency-level KPI dashboard tracking these five metrics across the creator portfolio. The \u00a79 gap explicitly notes no written retention/churn strategy. Traffic source performance tracking is also a \u00a75 gap.",
+      "recommendation": "Build a Palm agency KPI dashboard in Airtable (or a new `/admin/kpis` view) tracking these five metrics per creator and in aggregate: daily revenue, chat conversion, subscriber churn, traffic source, PPV average. Review weekly at the leadership level. This is immediately actionable given Palm's existing Airtable infrastructure.",
+      "applicability": "real-creator",
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1020,
+          "quote": "start tracking everything. So what I mean by that is daily revenue, chatting conversions, subscriber churn, traffic source performance, PPV averages."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1051,
+          "quote": "Once you've refined your systems and proven them with two to three creators, it's time to scale. Systemize everything."
+        }
+      ]
+    }
+  ]
+}

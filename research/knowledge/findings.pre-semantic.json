@@ -352,7 +352,7 @@
       }
     },
     {
-      "id": "f0507",
+      "id": "f0515",
       "department": "chatting",
       "topic": "three-phase conversation",
       "title": "Rapport, transition, then sell",
@@ -393,7 +393,7 @@
       }
     },
     {
-      "id": "f0508",
+      "id": "f0516",
       "department": "chatting",
       "topic": "let the fan initiate",
       "title": "Make the fan chase to hold power",
@@ -2570,7 +2570,7 @@
       }
     },
     {
-      "id": "f0467",
+      "id": "f0475",
       "department": "acquisition",
       "topic": "signing call vibe and red flags",
       "title": "Treat the signing call as a two-way interview with hard non-negotiables",
@@ -2615,7 +2615,7 @@
       }
     },
     {
-      "id": "f0472",
+      "id": "f0480",
       "department": "chatting",
       "topic": "chatter onboarding framework",
       "title": "Train chatters on a fixed funnel: questions, imposition, pull-push, guilt trips",
@@ -2660,7 +2660,7 @@
       }
     },
     {
-      "id": "f0488",
+      "id": "f0496",
       "department": "retention",
       "topic": "whale nurturing",
       "title": "Give high spenders 1:1 personalized treatment, never mass messages",
@@ -2705,7 +2705,7 @@
       }
     },
     {
-      "id": "f0495",
+      "id": "f0503",
       "department": "delegation",
       "topic": "accountability levels",
       "title": "Promote staff up the five levels of accountability to remove yourself as bottleneck",
@@ -10682,6 +10682,286 @@
     },
     {
       "id": "f0428",
+      "department": "systems",
+      "topic": "Agency model selection",
+      "title": "Pick one of three OFM agency models before building anything",
+      "variants": [
+        {
+          "claim": "Agencies must choose a model (full-service, chatting-only, or marketing-only) before outreach because each requires a completely different infrastructure.",
+          "what_they_do": "Defines three distinct agency models: (1) Full-service \u2014 chatting, traffic, content, management; charges highest percentage. (2) Chatting-only \u2014 DMs and monetization only; lean and profitable for psychology-focused operators. (3) Marketing-only \u2014 traffic and follower growth; outsources chatting to a specialist agency. Recommends starting full-service for premium pricing leverage.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 529,
+          "quote": "pick your agency model. You can't build anything without a sense of clarity"
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 561,
+          "quote": "model 2 is a chatting only agency. You just handle the DMs and monetization"
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "both"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm currently operates as a de-facto full-service agency (social content \u00a71, outsourced chatting \u00a78, fan retention \u00a79) but this model choice has never been explicitly codified as a strategic decision. Palm's chatting is outsourced (\u00a78), which mirrors the full-service model delegating chat to a specialist \u2014 but the framing and pricing rationale for that choice aren't documented (\u00a77 gap).",
+        "recommendation": "Formally document Palm's agency model as 'full-service with outsourced chat' and articulate the rationale in creator-facing materials. This positions Palm against chatting-only competitors and justifies premium commission rates. When building the in-house chat team (\u00a78 roadmap), use this framework to define the transition milestone."
+      }
+    },
+    {
+      "id": "f0429",
+      "department": "acquisition",
+      "topic": "Agency brand / storefront for creator trust",
+      "title": "Build an Instagram agency storefront with daily content before outreaching creators",
+      "variants": [
+        {
+          "claim": "Creators are bombarded with manager DMs daily, so a professional Instagram presence with consistent content and testimonial highlights is required to convert outreach into signed clients.",
+          "what_they_do": "Sets up an agency Instagram page with: clean username, professional layout, consistent visuals, a bio that communicates value immediately, highlights showcasing results/testimonials. Posts short Reels daily teaching creators how to grow or showing proof \u2014 goal is trust-building, not virality. The page acts as the 'storefront' that validates cold DMs.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 593,
+          "quote": "create your brand identity in this industry cuz your brand is everything"
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 624,
+          "quote": "Produce content that provides value. So, short reels teaching creators how to grow, showing proof, or giving insights. And post every day."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is Josh-DM-led outbound with no documented agency brand presence on social (\u00a76 gap). There is no mention of an agency Instagram page used to warm creator prospects before or during outreach. This is a significant credibility gap vs. competitors who lead with proof-of-results content.",
+        "recommendation": "Create a Palm agency Instagram page with creator-facing content (results, how-to Reels, testimonials). Even 2\u20133 posts per week would give outreach targets a credibility anchor when they check the profile after receiving a DM. Prioritize adding a testimonials/results highlight reel as the minimum viable trust signal."
+      }
+    },
+    {
+      "id": "f0430",
+      "department": "acquisition",
+      "topic": "Offer construction and outreach script structure",
+      "title": "Frame the agency offer as transformation + timeframe + proof, never a service statement",
+      "variants": [
+        {
+          "claim": "Saying 'we manage your OnlyFans' is a statement, not an offer \u2014 a real offer specifies the result delivered, the timeline to deliver it, and proof of capability.",
+          "what_they_do": "Constructs offers with three components: (1) transformation (e.g., 3K to 10K/month), (2) timeframe (under 60 days), (3) proof/mechanism (named system). Example: 'We help creators scale from 3 to 10K a month in under 60 days using our optics system that handles traffic, chatting, and retention.' Outreach DMs are personalized: compliment something specific \u2192 identify a missed opportunity \u2192 offer help with no hard sell. Tracks open rates, response rates, close rates and iterates on whichever funnel stage is weakest.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 654,
+          "quote": "An offer needs three things. Number one, a transformation. What result you actually deliver? Two, a time frame. How quickly can you deliver that? And three, proof."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 868,
+          "quote": "start with personalized messages, you know, short, direct, and human. Here's a basic structure you can use"
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition is DM-led (\u00a76) but there is no documented offer framework, outreach script structure, or funnel tracking. The \u00a76 gap explicitly notes no systematic acquisition machine. This competitor has a repeatable, measurable outreach system; Palm does not.",
+        "recommendation": "Codify Palm's offer using the transformation + timeframe + proof formula, incorporating real creator results as proof points. Build a short personalized outreach script template and track the three funnel metrics (open, response, close rate) in Airtable so Josh can iterate on weak stages systematically rather than by feel."
+      }
+    },
+    {
+      "id": "f0431",
+      "department": "acquisition",
+      "topic": "Sales call structure and closing",
+      "title": "Run discovery-style sales calls focused on diagnosing creator problems, not pitching",
+      "variants": [
+        {
+          "claim": "Creators don't buy services, they buy certainty \u2014 so sales calls should diagnose the creator's struggles and show how the agency's system fixes them, then close immediately with a contract.",
+          "what_they_do": "On the call, asks diagnostic questions: 'How are you currently promoting your page?', 'What's your biggest challenge with consistency?', 'What does your ideal month look like income-wise?' Then maps the agency system directly to the identified pain points. Never tries to close in the DMs \u2014 always moves to a call first. Sends the contract immediately upon verbal agreement; never onboards without a signed contract.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 898,
+          "quote": "Once they reply, move them to a call. Never try to close in the DMs."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 928,
+          "quote": "Creators don't buy services, they buy certainty. If you sound certain, they'll trust you."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's acquisition relies on Josh DMs and referrals (\u00a76) with no documented sales call process or qualification framework. The instruction to 'never close in the DMs' and always move to a call is a specific, actionable process Palm lacks.",
+        "recommendation": "Document a Palm sales call playbook with 3\u20135 diagnostic questions, a system-mapping script, and a post-call contract send SOP. Implement a rule: no onboarding begins without a signed agreement. This formalizes what may already happen informally and reduces creator drop-off between verbal yes and signed contract."
+      }
+    },
+    {
+      "id": "f0432",
+      "department": "systems",
+      "topic": "Onboarding structure and first-week creator communication",
+      "title": "Run a structured onboarding flow with daily creator updates in week one to build loyalty",
+      "variants": [
+        {
+          "claim": "90% of agencies fall apart post-signing because they have no structured onboarding \u2014 a fast, clear onboarding with daily creator touchpoints in week one drives long-term retention.",
+          "what_they_do": "Onboarding sequence: (1) welcome message + contract signed, (2) next-steps document sent, (3) request logins and content material immediately, (4) conduct audit of profile, pricing, bio, PPV, content style, (5) implement chat setup, posting schedule, traffic plan. Updates the creator daily for the first full week. Tracks visible progress metrics (traffic growth, PPV sales) in the first two weeks to create momentum and trust.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 959,
+          "quote": "Your on boarding needs to be structured and fast."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 990,
+          "quote": "Update the model daily draw in the first week, you know, to build that trust. And when creators feel guided and secure, they're going to stay loyal."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has an onboarding form wizard that collects creator info (\u00a76) but no documented post-signing delivery flow or first-week communication cadence. The Airtable `Creators` table tracks status through form completion but not through active delivery milestones. The daily-update-in-week-one protocol is absent.",
+        "recommendation": "Add a post-signing onboarding checklist to the Palm admin portal: audit \u2192 setup \u2192 daily update cadence for 7 days \u2192 two-week progress review. This is low-effort to build (a simple Airtable view or Telegram checklist) and directly addresses the retention risk at the fragile early stage of a creator relationship."
+      }
+    },
+    {
+      "id": "f0434",
+      "department": "retention",
+      "topic": "Creator referral program as growth channel",
+      "title": "Pay creators a referral incentive (e.g. $5K/month) to sign other models as a systematic acquisition channel",
+      "variants": [
+        {
+          "claim": "Delivering results turns creators into a referral engine \u2014 structured creator referral incentives can become a primary acquisition channel that compounds without outreach spend.",
+          "what_they_do": "Operates a formal referral program where existing creators earn additional income (cited example: $5K/month) for referring other models to the agency. Frames referrals as a byproduct of result delivery \u2014 the agency earns referrals by performing, then formalizes the incentive to accelerate the flywheel. Describes this as building 'a large part' of the agency.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 990,
+          "quote": "We even have creators who make an extra 5k a month just from referring other models. It's crazy."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1020,
+          "quote": "focus on quick wins. So, traffic growth, better chats, more PPV sales. Give your new creator visible progress in the first two weeks."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has no documented referral program (\u00a76 gap). Acquisition is Josh-DM-led with no systematic way to incentivize existing creators to refer. This is a low-cost, high-trust acquisition channel Palm could layer on top of existing creator relationships immediately.",
+        "recommendation": "Design a simple creator referral program: for each signed creator referred, the referring creator earns a one-time bonus or ongoing rev-share reduction. Document it in the onboarding materials so every creator knows it exists from day one. This converts satisfied creators into an acquisition channel and improves retention simultaneously."
+      }
+    },
+    {
+      "id": "f0435",
+      "department": "systems",
+      "topic": "Performance tracking dashboard and iteration cadence",
+      "title": "Track five core agency KPIs daily and use data to diagnose and fix specific funnel weak points",
+      "variants": [
+        {
+          "claim": "OFM is a data game \u2014 agencies that track daily revenue, chatting conversions, subscriber churn, traffic source performance, and PPV averages scale fastest because they fix the right things.",
+          "what_they_do": "Tracks five KPIs continuously: (1) daily revenue, (2) chatting conversion rate, (3) subscriber churn, (4) traffic source performance by channel, (5) PPV averages. Uses data to diagnose specific problems: high churn \u2192 improve retention tactics; inconsistent revenue \u2192 refine messaging or PPV timing; traffic not converting \u2192 change the funnel. Scales only after systems are proven with 2\u20133 creators, then systematizes outreach scripts, onboarding templates, chatting frameworks, traffic strategies, and reporting dashboards.",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1020,
+          "quote": "start tracking everything. So what I mean by that is daily revenue, chatting conversions, subscriber churn, traffic source performance, PPV averages."
+        },
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 1051,
+          "quote": "Once you've refined your systems and proven them with two to three creators, it's time to scale. Systemize everything."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm has partial fan intelligence infrastructure (whale hunting, Fan Tracker CRM, \u00a79) and daily editor task queues (\u00a71) but no documented agency-level KPI dashboard tracking these five metrics across the creator portfolio. The \u00a79 gap explicitly notes no written retention/churn strategy. Traffic source performance tracking is also a \u00a75 gap.",
+        "recommendation": "Build a Palm agency KPI dashboard in Airtable (or a new `/admin/kpis` view) tracking these five metrics per creator and in aggregate: daily revenue, chat conversion, subscriber churn, traffic source, PPV average. Review weekly at the leadership level. This is immediately actionable given Palm's existing Airtable infrastructure."
+      }
+    },
+    {
+      "id": "f0436",
       "department": "acquisition",
       "topic": "paid-ads funnel",
       "title": "Predictable creator-signing via paid ad funnel",
@@ -10721,7 +11001,7 @@
       }
     },
     {
-      "id": "f0429",
+      "id": "f0437",
       "department": "acquisition",
       "topic": "lead magnet design",
       "title": "Lead magnet must solve a quarter of the core offer",
@@ -10761,7 +11041,7 @@
       }
     },
     {
-      "id": "f0431",
+      "id": "f0439",
       "department": "acquisition",
       "topic": "metrics / unit economics",
       "title": "Optimize acquisition for ROI/LTV, not cost-per-lead",
@@ -10801,7 +11081,7 @@
       }
     },
     {
-      "id": "f0432",
+      "id": "f0440",
       "department": "acquisition",
       "topic": "ad volume cadence",
       "title": "Ad creative is a volume game (1-5 ads per 1k spend)",
@@ -10841,7 +11121,7 @@
       }
     },
     {
-      "id": "f0433",
+      "id": "f0441",
       "department": "systems",
       "topic": "proof capture",
       "title": "Install a system to capture proof continuously",
@@ -10881,7 +11161,7 @@
       }
     },
     {
-      "id": "f0434",
+      "id": "f0442",
       "department": "acquisition",
       "topic": "brand as moat",
       "title": "Personal/agency brand is the real acquisition constraint",
@@ -10921,7 +11201,7 @@
       }
     },
     {
-      "id": "f0435",
+      "id": "f0443",
       "department": "content",
       "topic": "volume/clarity/proof",
       "title": "Volume, clarity, and proof drive content performance",
@@ -10961,7 +11241,7 @@
       }
     },
     {
-      "id": "f0436",
+      "id": "f0444",
       "department": "instagram",
       "topic": "posting cadence",
       "title": "High daily posting cadence and brand decay",
@@ -11001,7 +11281,7 @@
       }
     },
     {
-      "id": "f0437",
+      "id": "f0445",
       "department": "content",
       "topic": "production friction",
       "title": "Done beats perfect; minimize record-to-publish friction",
@@ -11041,7 +11321,7 @@
       }
     },
     {
-      "id": "f0438",
+      "id": "f0446",
       "department": "acquisition",
       "topic": "influence levers",
       "title": "Status/power/credibility/likeness engineer influence",
@@ -11081,7 +11361,7 @@
       }
     },
     {
-      "id": "f0439",
+      "id": "f0447",
       "department": "founder-discipline",
       "topic": "time allocation",
       "title": "Founder should spend hours/day on the highest-leverage asset",
@@ -11121,7 +11401,7 @@
       }
     },
     {
-      "id": "f0440",
+      "id": "f0448",
       "department": "delegation",
       "topic": "delegate menial work",
       "title": "Delegate menial work to protect creative output",
@@ -11161,7 +11441,7 @@
       }
     },
     {
-      "id": "f0441",
+      "id": "f0449",
       "department": "platform-risk",
       "topic": "AI-proofing",
       "title": "A human brand is the moat against AI commoditization",
@@ -11201,7 +11481,7 @@
       }
     },
     {
-      "id": "f0442",
+      "id": "f0450",
       "department": "chatting",
       "topic": "chat audit as wedge",
       "title": "Live chat teardown reveals revenue left in DMs",
@@ -11241,7 +11521,7 @@
       }
     },
     {
-      "id": "f0443",
+      "id": "f0451",
       "department": "retention",
       "topic": "guarantee / risk reversal",
       "title": "Concrete performance guarantee reduces creator risk",
@@ -11281,7 +11561,7 @@
       }
     },
     {
-      "id": "f0444",
+      "id": "f0452",
       "department": "acquisition",
       "topic": "cold outreach system",
       "title": "Cold outreach is a volume-consistency-conversation game",
@@ -11321,7 +11601,7 @@
       }
     },
     {
-      "id": "f0445",
+      "id": "f0453",
       "department": "acquisition",
       "topic": "outreach funnel tracking",
       "title": "Track the full outreach funnel and fix one stage at a time",
@@ -11361,7 +11641,7 @@
       }
     },
     {
-      "id": "f0446",
+      "id": "f0454",
       "department": "pricing",
       "topic": "tiered deal structure",
       "title": "Match deal structure to creator tier, not one-size 50/50",
@@ -11401,7 +11681,7 @@
       }
     },
     {
-      "id": "f0447",
+      "id": "f0455",
       "department": "retention",
       "topic": "productized fulfillment",
       "title": "Productized fulfillment makes the creator the only variable",
@@ -11441,7 +11721,7 @@
       }
     },
     {
-      "id": "f0448",
+      "id": "f0456",
       "department": "content",
       "topic": "evergreen verticals over niches",
       "title": "Use proven evergreen content verticals, not niches/trends",
@@ -11481,7 +11761,7 @@
       }
     },
     {
-      "id": "f0449",
+      "id": "f0457",
       "department": "delegation",
       "topic": "founder operating system",
       "title": "Replace yourself via ownership ladder, not task delegation",
@@ -11521,7 +11801,7 @@
       }
     },
     {
-      "id": "f0450",
+      "id": "f0458",
       "department": "systems",
       "topic": "operating cadence",
       "title": "Weekly cadence and standards prevent regression to chaos",
@@ -11561,7 +11841,7 @@
       }
     },
     {
-      "id": "f0451",
+      "id": "f0459",
       "department": "ai-ofm",
       "topic": "AI in fulfillment",
       "title": "AI voice cloning and AI-assisted chat monetization",
@@ -11601,7 +11881,7 @@
       }
     },
     {
-      "id": "f0468",
+      "id": "f0476",
       "department": "acquisition",
       "topic": "never promise income",
       "title": "Never promise income numbers; sell yourself and let results speak",
@@ -11641,7 +11921,7 @@
       }
     },
     {
-      "id": "f0469",
+      "id": "f0477",
       "department": "acquisition",
       "topic": "outreach sourcing and message",
       "title": "Source creators from OF-video comment sections and push to a call",
@@ -11681,7 +11961,7 @@
       }
     },
     {
-      "id": "f0470",
+      "id": "f0478",
       "department": "pricing",
       "topic": "percentage vs salary model",
       "title": "Prefer percentage deals with Western creators over LATAM salary models",
@@ -11721,7 +12001,7 @@
       }
     },
     {
-      "id": "f0471",
+      "id": "f0479",
       "department": "pricing",
       "topic": "no upfront fees",
       "title": "Charge no upfront or hidden fees; earn only on a partnership split",
@@ -11761,7 +12041,7 @@
       }
     },
     {
-      "id": "f0473",
+      "id": "f0481",
       "department": "chatting",
       "topic": "data collection before selling",
       "title": "Build a fan profile through scripted questions before any PPV",
@@ -11801,7 +12081,7 @@
       }
     },
     {
-      "id": "f0474",
+      "id": "f0482",
       "department": "systems",
       "topic": "smart messages / automated re-engagement",
       "title": "Automate fan re-engagement so chatters focus only on inbound",
@@ -11841,7 +12121,7 @@
       }
     },
     {
-      "id": "f0475",
+      "id": "f0483",
       "department": "systems",
       "topic": "software stack",
       "title": "Run the agency on a defined six-tool stack",
@@ -11881,7 +12161,7 @@
       }
     },
     {
-      "id": "f0476",
+      "id": "f0484",
       "department": "delegation",
       "topic": "cheap offshore chatters + heavy training",
       "title": "Hire cheap offshore chatters but train them intensively and systemize the work",
@@ -11921,7 +12201,7 @@
       }
     },
     {
-      "id": "f0477",
+      "id": "f0485",
       "department": "founder-discipline",
       "topic": "systemize then scale one creator at a time",
       "title": "Systemize day-one onboarding and perfect one creator before scaling",
@@ -11961,7 +12241,7 @@
       }
     },
     {
-      "id": "f0479",
+      "id": "f0487",
       "department": "ai-ofm",
       "topic": "AI vs real model economics",
       "title": "Real models beat AI on connection, customs and platform access",
@@ -12001,7 +12281,7 @@
       }
     },
     {
-      "id": "f0480",
+      "id": "f0488",
       "department": "ai-ofm",
       "topic": "AI chatbot replacing chatters",
       "title": "An AI chatbot can replace much of the chat team at a fraction of the cost",
@@ -12041,7 +12321,7 @@
       }
     },
     {
-      "id": "f0481",
+      "id": "f0489",
       "department": "ai-ofm",
       "topic": "AI + human hybrid chatting meta",
       "title": "Let AI sort and convert new subs; route spenders to human chatters",
@@ -12081,7 +12361,7 @@
       }
     },
     {
-      "id": "f0482",
+      "id": "f0490",
       "department": "acquisition",
       "topic": "personal-account outreach",
       "title": "DM prospects from a personal-looking account, not an agency page",
@@ -12121,7 +12401,7 @@
       }
     },
     {
-      "id": "f0483",
+      "id": "f0491",
       "department": "acquisition",
       "topic": "DM message framework",
       "title": "Use an Intrigue-Curiosity-CTA opener and book the call fast",
@@ -12161,7 +12441,7 @@
       }
     },
     {
-      "id": "f0484",
+      "id": "f0492",
       "department": "acquisition",
       "topic": "ideal-client qualification",
       "title": "Qualify creators against a checklist and disqualify on red flags",
@@ -12201,7 +12481,7 @@
       }
     },
     {
-      "id": "f0485",
+      "id": "f0493",
       "department": "acquisition",
       "topic": "sourcing channels",
       "title": "Source creators across IG, Twitter, Reddit, TikTok, and prioritize referrals",
@@ -12241,7 +12521,7 @@
       }
     },
     {
-      "id": "f0486",
+      "id": "f0494",
       "department": "pricing",
       "topic": "commission split",
       "title": "Anchor on a 50% full-service split, don't undersell at 20-30%",
@@ -12281,7 +12561,7 @@
       }
     },
     {
-      "id": "f0487",
+      "id": "f0495",
       "department": "pricing",
       "topic": "PPV script price ladder",
       "title": "Sell content as an escalating PPV script ladder",
@@ -12321,7 +12601,7 @@
       }
     },
     {
-      "id": "f0490",
+      "id": "f0498",
       "department": "content",
       "topic": "niche-fit content",
       "title": "Build content around the creator's niche and her own strengths",
@@ -12361,7 +12641,7 @@
       }
     },
     {
-      "id": "f0491",
+      "id": "f0499",
       "department": "traffic",
       "topic": "backup accounts + multi-platform",
       "title": "Spin up backup/secondary accounts and post across many platforms",
@@ -12401,7 +12681,7 @@
       }
     },
     {
-      "id": "f0492",
+      "id": "f0500",
       "department": "systems",
       "topic": "onboarding speed + SOP",
       "title": "Onboard with a documented same-day process and a welcome video",
@@ -12441,7 +12721,7 @@
       }
     },
     {
-      "id": "f0494",
+      "id": "f0502",
       "department": "delegation",
       "topic": "three-department manager structure",
       "title": "Run three departments (acquisition, marketing, chatting) each under a manager",
@@ -12481,7 +12761,7 @@
       }
     },
     {
-      "id": "f0497",
+      "id": "f0505",
       "department": "founder-discipline",
       "topic": "document before delegating",
       "title": "Do every role yourself first, document it, then hand it off",
@@ -12521,7 +12801,7 @@
       }
     },
     {
-      "id": "f0498",
+      "id": "f0506",
       "department": "ai-ofm",
       "topic": "platform choice + realism",
       "title": "Put AI creators on Fanvue and make every asset look real",
@@ -12561,7 +12841,7 @@
       }
     },
     {
-      "id": "f0499",
+      "id": "f0507",
       "department": "platform-risk",
       "topic": "AI cold-start + believability risk",
       "title": "Weigh AI's zero-follower cold start and believability problem before betting on it",
@@ -12601,7 +12881,7 @@
       }
     },
     {
-      "id": "f0504",
+      "id": "f0512",
       "department": "founder-discipline",
       "topic": "CAC:LTV not vanity metrics",
       "title": "Steer on CAC:LTV and margin, not followers",
@@ -12641,7 +12921,7 @@
       }
     },
     {
-      "id": "f0509",
+      "id": "f0517",
       "department": "chatting",
       "topic": "fan personalization",
       "title": "Use the fan's name, kill mass-messages",
@@ -12681,7 +12961,7 @@
       }
     },
     {
-      "id": "f0511",
+      "id": "f0519",
       "department": "pricing",
       "topic": "dynamic / per-fan pricing",
       "title": "Price dynamically off purchase history",
@@ -18881,7 +19161,42 @@
       }
     },
     {
-      "id": "f0430",
+      "id": "f0433",
+      "department": "chatting",
+      "topic": "Chatter hiring criteria and KPI tracking",
+      "title": "Hire chatters for emotional intelligence over typing speed, track PPV open rate and golden ratio daily",
+      "variants": [
+        {
+          "claim": "Chatters who understand human emotion outperform fast typists \u2014 track daily KPIs (messages sent, PPV open rate, golden ratio) to manage performance at scale.",
+          "what_they_do": "Hires chatters based on potential and emotional intelligence, not just prior experience. Trains using scripts and real message examples. Tracks daily KPIs per chatter: average messages sent, PPV open rate, and 'golden ratio' (implied spend-per-subscriber metric). Adds a QA manager role who monitors message quality and reports performance metrics daily and weekly. Chatters are treated as 'revenue operators.'",
+          "run": "daily-2026-07-12"
+        }
+      ],
+      "sources": [
+        {
+          "video_id": "loa7cmCfAyk",
+          "timestamp_seconds": 837,
+          "quote": "Hire based on potential, not just experience. You want people to understand human emotion, not just people, you know, who can type fast."
+        }
+      ],
+      "creators": [
+        "Dylan Frano "
+      ],
+      "consensus": {
+        "creators": 1,
+        "label": "low",
+        "contested": false
+      },
+      "applicability": [
+        "real-creator"
+      ],
+      "palm_comparison": {
+        "vs_us": "Palm's chatting is fully outsourced to an external team (\u00a78) with no internal SOP, hiring criteria, or KPI framework. This is build-toward intelligence for Palm's ~1yr roadmap to bring chat in-house and the active AI chatting project. The 'golden ratio' KPI and the QA manager role are specific additions to capture for the future in-house design.",
+        "recommendation": "Document these chatter KPIs (messages sent, PPV open rate, golden ratio) and the QA manager role spec as reference architecture for Palm's in-house chat build. When designing the AI chatting system, use these metrics as the performance evaluation layer. Start requesting these same KPIs from the external chat team now to establish baseline data before the transition."
+      }
+    },
+    {
+      "id": "f0438",
       "department": "acquisition",
       "topic": "ad scripting",
       "title": "Six-step ad script for qualified creator leads",
@@ -18916,7 +19231,7 @@
       }
     },
     {
-      "id": "f0452",
+      "id": "f0460",
       "department": "ai-ofm",
       "topic": "hybrid AI model",
       "title": "Real creator + AI clone, kept on OnlyFans",
@@ -18951,7 +19266,7 @@
       }
     },
     {
-      "id": "f0453",
+      "id": "f0461",
       "department": "ai-ofm",
       "topic": "platform choice",
       "title": "Hybrid keeps OnlyFans trust vs full-AI Fanvue conversion loss",
@@ -18986,7 +19301,7 @@
       }
     },
     {
-      "id": "f0454",
+      "id": "f0462",
       "department": "content",
       "topic": "real/AI content ratio",
       "title": "20% real / 80% AI mix to keep trust and volume",
@@ -19021,7 +19336,7 @@
       }
     },
     {
-      "id": "f0455",
+      "id": "f0463",
       "department": "instagram",
       "topic": "AI metadata",
       "title": "Strip AI metadata before posting or reach is throttled",
@@ -19056,7 +19371,7 @@
       }
     },
     {
-      "id": "f0456",
+      "id": "f0464",
       "department": "instagram",
       "topic": "trend speed",
       "title": "Motion control lets you copy trends in minutes",
@@ -19091,7 +19406,7 @@
       }
     },
     {
-      "id": "f0457",
+      "id": "f0465",
       "department": "traffic",
       "topic": "X engagement + paid promo",
       "title": "Engagement-trap, trendjack, and paid promo pages on X",
@@ -19126,7 +19441,7 @@
       }
     },
     {
-      "id": "f0458",
+      "id": "f0466",
       "department": "chatting",
       "topic": "GFE strategy",
       "title": "Girlfriend-experience parasocial selling, not PPV spam",
@@ -19161,7 +19476,7 @@
       }
     },
     {
-      "id": "f0459",
+      "id": "f0467",
       "department": "chatting",
       "topic": "24/7 coverage",
       "title": "Three chatters + reliever for seamless 24/7 shifts",
@@ -19196,7 +19511,7 @@
       }
     },
     {
-      "id": "f0460",
+      "id": "f0468",
       "department": "delegation",
       "topic": "hiring stages",
       "title": "Revenue-gated hiring ladder: VAs, then chat manager, then ops",
@@ -19231,7 +19546,7 @@
       }
     },
     {
-      "id": "f0461",
+      "id": "f0469",
       "department": "delegation",
       "topic": "SOPs via Loom",
       "title": "Loom-video SOPs to eliminate training misinterpretation",
@@ -19266,7 +19581,7 @@
       }
     },
     {
-      "id": "f0462",
+      "id": "f0470",
       "department": "platform-risk",
       "topic": "IG ban cause",
       "title": "Bans driven by unbranded sexual content, not IP/proxies",
@@ -19301,7 +19616,7 @@
       }
     },
     {
-      "id": "f0463",
+      "id": "f0471",
       "department": "content",
       "topic": "branding over volume",
       "title": "Branded persona replacing pure volume in 2026",
@@ -19336,7 +19651,7 @@
       }
     },
     {
-      "id": "f0464",
+      "id": "f0472",
       "department": "pricing",
       "topic": "salary models",
       "title": "Hybrid AI makes salary creators highly profitable",
@@ -19371,7 +19686,7 @@
       }
     },
     {
-      "id": "f0465",
+      "id": "f0473",
       "department": "traffic",
       "topic": "Snapchat",
       "title": "Snapchat as an under-saturated OF traffic + income channel",
@@ -19406,7 +19721,7 @@
       }
     },
     {
-      "id": "f0466",
+      "id": "f0474",
       "department": "systems",
       "topic": "central CRM + trackers",
       "title": "Central account/team/finance trackers to remove owner from ops",
@@ -19441,7 +19756,7 @@
       }
     },
     {
-      "id": "f0478",
+      "id": "f0486",
       "department": "content",
       "topic": "tease-not-reveal on the wall",
       "title": "Keep the profile wall teasing, never explicit, to preserve PPV value",
@@ -19476,7 +19791,7 @@
       }
     },
     {
-      "id": "f0489",
+      "id": "f0497",
       "department": "retention",
       "topic": "win-back expired subs",
       "title": "Win back expired subscribers with a discounted mass message on day one",
@@ -19511,7 +19826,7 @@
       }
     },
     {
-      "id": "f0493",
+      "id": "f0501",
       "department": "systems",
       "topic": "expectation management",
       "title": "Manage creator expectations week-by-week or they invent their own",
@@ -19546,7 +19861,7 @@
       }
     },
     {
-      "id": "f0496",
+      "id": "f0504",
       "department": "chatting",
       "topic": "staff quality gating",
       "title": "Gate chatter hires on English, typing speed, and connection before training",
@@ -19581,7 +19896,7 @@
       }
     },
     {
-      "id": "f0500",
+      "id": "f0508",
       "department": "systems",
       "topic": "standardized content format",
       "title": "Standardized weekly content box per model",
@@ -19616,7 +19931,7 @@
       }
     },
     {
-      "id": "f0501",
+      "id": "f0509",
       "department": "systems",
       "topic": "spreadsheet-as-database",
       "title": "Spreadsheet/Airtable backend at scale",
@@ -19651,7 +19966,7 @@
       }
     },
     {
-      "id": "f0502",
+      "id": "f0510",
       "department": "platform-risk",
       "topic": "account burn & redundancy",
       "title": "Provision reserve accounts for burn",
@@ -19686,7 +20001,7 @@
       }
     },
     {
-      "id": "f0503",
+      "id": "f0511",
       "department": "delegation",
       "topic": "founder replaceability",
       "title": "Build so the founder can disappear",
@@ -19721,7 +20036,7 @@
       }
     },
     {
-      "id": "f0505",
+      "id": "f0513",
       "department": "ai-ofm",
       "topic": "AI chat QA at scale",
       "title": "AI scores chat transcripts daily",
@@ -19756,7 +20071,7 @@
       }
     },
     {
-      "id": "f0506",
+      "id": "f0514",
       "department": "content",
       "topic": "character-driven content",
       "title": "Give every model a written character",
@@ -19791,7 +20106,7 @@
       }
     },
     {
-      "id": "f0510",
+      "id": "f0518",
       "department": "pricing",
       "topic": "price ladder",
       "title": "Ladder PPV prices upward in sequence",
