@@ -4,14 +4,17 @@ import { fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 export const dynamic = 'force-dynamic'
 
 // Telegram reaction webhook for the "Palm Send Posts" bot. When the SMM reacts
-// with a ❤️ to a post's message in its topic, that reel is "used" (posted to
-// social) → mark the matching Post as Posted so it drops out of the runway
-// buffer. Un-reacting restores it. Requires: the bot is an ADMIN in the SMM
-// group, setWebhook with allowed_updates:['message_reaction'], and (optionally)
-// a secret token in TELEGRAM_WEBHOOK_SECRET.
+// with a 👍 / ❤️ / ✅ to a post's message in its topic, that reel is "used"
+// (posted to social) → mark the matching Post as Posted so it drops out of the
+// runway buffer. Un-reacting restores it. Requires: the bot is an ADMIN in the
+// SMM group, setWebhook with allowed_updates:['message_reaction'], and
+// (optionally) a secret token in TELEGRAM_WEBHOOK_SECRET.
 
-const HEARTS = new Set(['❤', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💖', '💗', '💓', '💞', '💕', '♥', '♥️'])
-const hasHeart = (arr) => (arr || []).some((r) => r?.type === 'emoji' && HEARTS.has(r.emoji))
+// Any of these "used it" reactions count — thumbs-up is the primary one the
+// managers use; hearts and check kept as equivalents.
+const USED = new Set(['👍', '👍🏻', '👍🏼', '👍🏽', '👍🏾', '👍🏿', '✅', '☑', '☑️', '✔', '✔️',
+  '❤', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💖', '💗', '💓', '💞', '💕', '♥', '♥️'])
+const hasHeart = (arr) => (arr || []).some((r) => r?.type === 'emoji' && USED.has(r.emoji))
 
 // Posts store 'Telegram Message ID' as a comma-joined string (video msg [+ cover
 // photo msg]). FIND() matches substrings, so verify the id is an exact member.
