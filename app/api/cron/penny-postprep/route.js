@@ -32,8 +32,8 @@ export async function GET(request) {
   // Naked real-content reels in Post-Prep: approved (Ready to Go), no caption,
   // not yet channeled. Exclude AI (Pipeline Target 'Publer' / 'AI'). Oldest first.
   const naked = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Type}='Reel', {Status}='Ready to Go', {Caption}='', {Channel}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
-    fields: ['Post Name', 'Creator', 'Asset', 'Caption', 'Channel'],
+    filterByFormula: `AND({Type}='Reel', {Status}='Ready to Go', {Caption}='', {Channel}='', {Pipeline Target}!='Publer')`,
+    fields: ['Post Name', 'Creator', 'Asset', 'Caption', 'Channel', 'Pipeline Target'],
     sort: [{ field: 'Scheduled Date', direction: 'asc' }],
     maxRecords: limit,
   })

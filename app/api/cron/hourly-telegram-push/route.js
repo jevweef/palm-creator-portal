@@ -30,7 +30,7 @@ export async function GET(request) {
   // ── 1) Recovery sweep: channel + thumbnail-fill staged-unchanneled creators ──
   const creatorOps = []
   const pending = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Status}='Staged', {Channel}='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
+    filterByFormula: `AND({Status}='Staged', {Channel}='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer')`,
     fields: ['Creator'],
   })
   const creatorSet = new Set()
@@ -41,7 +41,7 @@ export async function GET(request) {
   for (const creatorId of creatorSet) {
     const cRec = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
-      fields: ['Creator', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
+      fields: ['Creator', 'Telegram IG Topic ID', 'Telegram FB Topic ID', 'Telegram AI Topic ID'],
     })
     const cf = cRec[0]?.fields || {}
     const channels = await assignChannels(creatorId, cf)
@@ -51,7 +51,7 @@ export async function GET(request) {
 
   // ── 2) Push: staged + channeled real reels → Queued for Telegram ──
   const ready = await fetchAirtableRecords('Posts', {
-    filterByFormula: `AND({Status}='Staged', {Channel}!='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer', {Pipeline Target}!='AI')`,
+    filterByFormula: `AND({Status}='Staged', {Channel}!='', {Telegram Sent At}='', {Posted At}='', {Pipeline Target}!='Publer')`,
     fields: ['Post Name', 'Channel'],
     sort: [{ field: 'Scheduled Date', direction: 'asc' }],
   })
