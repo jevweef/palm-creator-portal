@@ -103,7 +103,10 @@ export async function GET(request) {
     // is just one Stream UID per record.
     const [assetCandidates, inspoCandidates, reelCandidates] = await Promise.all([
       fetchAirtableRecords(ASSETS, {
-        filterByFormula: `AND({Asset Type}='Video',OR(NOT({Edited File Link}=''),NOT({Dropbox Shared Link}='')),OR({Stream Edit ID}='',{Stream Raw ID}=''))`,
+        // AI reels have Asset Type='' (only Source Type='AI Generated') and no
+        // Edited File Link — their video lives in Dropbox Shared Link. Include
+        // them so they get a Stream Raw ID and play in the post-prep card.
+        filterByFormula: `AND(OR({Asset Type}='Video',{Source Type}='AI Generated'),OR(NOT({Edited File Link}=''),NOT({Dropbox Shared Link}='')),OR({Stream Edit ID}='',{Stream Raw ID}=''))`,
         fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Stream Edit ID', 'Stream Raw ID'],
       }),
       fetchAirtableRecords(INSPIRATION, {

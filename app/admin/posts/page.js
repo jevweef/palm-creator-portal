@@ -764,6 +764,9 @@ function PostCard({ post, onRefresh, onSend }) {
   // For frame picker: prefer original dropboxLink, fall back to editedFileLink
   const sourceVideoUrl = post.asset?.dropboxLink || post.asset?.editedFileLink || ''
   const canPickFrame = hasFile && !isCarousel && isVideo(post.asset?.editedFileLink || post.asset?.dropboxLink || '')
+  // Real reels get a Stream EDIT ID; AI reels (mirrored from their Dropbox Shared
+  // Link, no Edited File Link) get a Stream RAW ID. Play via whichever exists.
+  const streamId = post.asset?.streamEditId || post.asset?.streamRawId
 
   const togglePlatform = (p) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
@@ -1037,17 +1040,17 @@ function PostCard({ post, onRefresh, onSend }) {
           reaches the wrapping <button>. */}
       <div style={{ width: '300px', flexShrink: 0, background: 'rgba(232, 160, 160, 0.04)', position: 'relative', aspectRatio: '9/16' }}>
         {hasFile ? (
-          isVideo(post.asset.editedFileLink) ? (
+          isVideo(post.asset.editedFileLink || post.asset.dropboxLink) ? (
             <button
               onClick={() => {
-                if (post.asset?.streamEditId) setVideoModal({ streamUid: post.asset.streamEditId })
-                else if (post.asset?.editedFileLink) setVideoModal({ url: post.asset.editedFileLink })
+                if (streamId) setVideoModal({ streamUid: streamId })
+                else if (post.asset?.editedFileLink || post.asset?.dropboxLink) setVideoModal({ url: post.asset.editedFileLink || post.asset.dropboxLink })
               }}
               style={{ position: 'absolute', inset: 0, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
               title="Play with audio"
             >
-              {post.asset?.streamEditId ? (
-                <iframe src={buildStreamIframeUrl(post.asset.streamEditId, { autoplay: true, muted: true, loop: true, controls: false })}
+              {streamId ? (
+                <iframe src={buildStreamIframeUrl(streamId, { autoplay: true, muted: true, loop: true, controls: false })}
                   allow="autoplay" loading="lazy"
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }} />
               ) : (thumbnailUrl || post.asset?.cdnUrl) ? (
