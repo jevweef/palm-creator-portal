@@ -14,15 +14,19 @@ export async function GET() {
 
     const [aiInFlightRecords, realInFlightRecords, needsReviewRecords, activeWarmupsRecords] = await Promise.all([
       settle(fetchAirtableRecords('Posts', {
-        // Publer Phase 1+2 stamps Publer Status = 'Submitted' once a post is
-        // sent to Publer and awaiting publish.
-        filterByFormula: "{Publer Status}='Submitted'",
-        fields: ['Publer Status'],
+        // AI in flight = handed off to an outbound channel, not yet posted.
+        //  • Publer AI accounts: Publer Status='Submitted'.
+        //  • AI reels routed to the AI Telegram topic (Pipeline Target='AI'):
+        //    queued/sending/sent to Telegram but not yet posted (the ❤️
+        //    reaction stamps Posted At and drops it out of flight).
+        filterByFormula: "OR({Publer Status}='Submitted',AND({Pipeline Target}='AI',{Posted At}='',OR({Status}='Queued for Telegram',{Status}='Sending to Telegram',{Status}='Sent to Telegram')))",
+        fields: ['Status'],
       })),
       settle(fetchAirtableRecords('Posts', {
-        // Real-stream content sitting in the Telegram queue (sent to Amin
-        // for manual posting). Two states bracket "in flight."
-        filterByFormula: "OR({Status}='Queued for Telegram',{Status}='Sending to Telegram')",
+        // Real content sitting in the manager's Telegram, awaiting manual
+        // posting. In flight = queued/sending/sent to Telegram but not yet
+        // posted. Exclude AI (that's the AI-in-flight tile).
+        filterByFormula: "AND({Pipeline Target}!='AI',{Posted At}='',OR({Status}='Queued for Telegram',{Status}='Sending to Telegram',{Status}='Sent to Telegram'))",
         fields: ['Status'],
       })),
       settle(fetchAirtableRecords('Tasks', {

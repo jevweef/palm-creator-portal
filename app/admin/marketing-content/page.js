@@ -18,8 +18,8 @@ import Link from 'next/link'
 const HUB = '/admin/social'
 
 const TILES = [
-  { key: 'aiInFlight',    label: 'AI posts in flight',   hint: 'Submitted to Publer, awaiting publish', href: `${HUB}?tab=outbound&sub=publer` },
-  { key: 'realInFlight',  label: 'Real posts in flight', hint: 'Queued / sending to Telegram (Amin)',    href: `${HUB}?tab=outbound&sub=postprep` },
+  { key: 'aiInFlight',    label: 'AI posts in flight',   hint: 'In Telegram / Publer, awaiting posting', href: `${HUB}?tab=outbound&sub=postprep` },
+  { key: 'realInFlight',  label: 'Real posts in flight', hint: 'Sent to Telegram, awaiting posting',      href: `${HUB}?tab=outbound&sub=postprep` },
   { key: 'needsReview',   label: 'Needs your review',    hint: 'Content awaiting admin approval',         href: `${HUB}?tab=content&sub=review` },
   { key: 'activeWarmups', label: 'Active warm-ups',      hint: 'AI accounts in their 90-day warm-up',     href: `${HUB}?tab=accounts&sub=warmup` },
 ]
