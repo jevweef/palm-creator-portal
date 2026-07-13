@@ -37,7 +37,7 @@ export async function GET() {
         fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Status'],
       }),
       fetchAirtableRecordsByIds('Assets', assetIds, {
-        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Stream Edit ID', 'Stream Raw ID'],
+        fields: ['Asset Name', 'Edited File Link', 'Dropbox Shared Link', 'Thumbnail', 'CDN URL', 'Asset Type', 'Stream Edit ID', 'Stream Raw ID', 'Source Type'],
       }),
     ])
 
@@ -75,6 +75,9 @@ export async function GET() {
         // Surface the linked Task ID so Post Prep can call the revision
         // endpoint directly when admin wants to recall an approval.
         taskId: (f.Task || [])[0] || null,
+        // Source Type='AI Generated' on the linked Asset makes the post AI (routes
+        // to the AI Telegram topic; drives the Post-Prep AI filter + badge).
+        isAI: (typeof asset['Source Type'] === 'string' ? asset['Source Type'] : asset['Source Type']?.name) === 'AI Generated',
         creator: {
           id: creatorId,
           name: creator.AKA || creator.Creator || '',
@@ -90,6 +93,7 @@ export async function GET() {
           streamEditId: asset['Stream Edit ID'] || null,
           streamRawId: asset['Stream Raw ID'] || null,
           assetType: asset['Asset Type'] || '',
+          sourceType: (typeof asset['Source Type'] === 'string' ? asset['Source Type'] : asset['Source Type']?.name) || '',
         },
       }
     })

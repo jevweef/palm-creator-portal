@@ -748,7 +748,9 @@ function PostCard({ post, onRefresh, onSend }) {
   const [selectedCapIdx, setSelectedCapIdx] = useState(null)
   const [selectedThumb, setSelectedThumb] = useState(null)
 
-  const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || '')
+  // AI reels store the video in Dropbox Shared Link (no Edited File Link), so
+  // fall back to it for the preview/player.
+  const rawUrl = rawDropboxUrl(post.asset?.editedFileLink || post.asset?.dropboxLink || '')
   // Carousel posts are multiple Photo slides (no Edited File Link / video).
   // They preview off the first slide's CDN image, so the file/preview/action
   // logic below must not gate on the video-only editedFileLink.
@@ -757,11 +759,11 @@ function PostCard({ post, onRefresh, onSend }) {
   const carouselPreview = isCarousel
     ? (carouselSlides.find(s => s?.cdnUrl || s?.dropboxLink) || post.asset)
     : null
-  const hasFile = !!post.asset?.editedFileLink
+  const hasFile = !!(post.asset?.editedFileLink || post.asset?.dropboxLink)
     || (isCarousel && !!(carouselPreview?.cdnUrl || carouselPreview?.dropboxLink))
   // For frame picker: prefer original dropboxLink, fall back to editedFileLink
   const sourceVideoUrl = post.asset?.dropboxLink || post.asset?.editedFileLink || ''
-  const canPickFrame = hasFile && !isCarousel && isVideo(post.asset?.editedFileLink || '')
+  const canPickFrame = hasFile && !isCarousel && isVideo(post.asset?.editedFileLink || post.asset?.dropboxLink || '')
 
   const togglePlatform = (p) => {
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
@@ -1069,6 +1071,11 @@ function PostCard({ post, onRefresh, onSend }) {
         {isCarousel && carouselSlides.length > 0 && (
           <div style={{ position: 'absolute', top: '6px', right: '6px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.95)', background: 'rgba(0,0,0,0.55)', padding: '2px 8px', borderRadius: '20px' }}>
             Carousel · {carouselSlides.length}
+          </div>
+        )}
+        {post.isAI && (
+          <div title="AI-generated — routes to the creator's AI Telegram topic" style={{ position: 'absolute', top: '6px', left: '6px', fontSize: '10px', fontWeight: 800, color: '#1a1a1a', background: 'var(--palm-pink)', padding: '2px 8px', borderRadius: '20px', letterSpacing: '0.04em' }}>
+            AI
           </div>
         )}
         <div style={{ position: 'absolute', bottom: '6px', left: '6px' }}>
