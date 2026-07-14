@@ -509,6 +509,8 @@ export default function AdminOnboarding() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
+          padding: '20px',
+          overflowY: 'auto',
         }}
           onClick={() => setShowModal(false)}
         >
@@ -519,6 +521,8 @@ export default function AdminOnboarding() {
               padding: '28px',
               width: '420px',
               maxWidth: '90vw',
+              maxHeight: 'calc(100vh - 40px)',
+              overflowY: 'auto',
               boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
             }}
             onClick={e => e.stopPropagation()}
@@ -533,13 +537,16 @@ export default function AdminOnboarding() {
             <form onSubmit={handleStartOnboarding}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#333', marginBottom: '4px' }}>
-                  Creator Name
+                  Full Legal Name <span style={{ color: 'var(--palm-pink)' }}>*</span>
                 </label>
+                <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px', lineHeight: '1.4' }}>
+                  Their real legal name (for the contract) — <strong>not</strong> their stage/AKA name.
+                </div>
                 <input
                   type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
-                  placeholder="Full name or stage name"
+                  placeholder="e.g. Emma Johnson"
                   required
                   style={{
                     width: '100%',
@@ -838,6 +845,8 @@ export default function AdminOnboarding() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
+          padding: '20px',
+          overflowY: 'auto',
         }}
           onClick={() => setEditCreator(null)}
         >
@@ -848,6 +857,8 @@ export default function AdminOnboarding() {
               padding: '28px',
               width: '420px',
               maxWidth: '90vw',
+              maxHeight: 'calc(100vh - 40px)',
+              overflowY: 'auto',
               boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
             }}
             onClick={e => e.stopPropagation()}
