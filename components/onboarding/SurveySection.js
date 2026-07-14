@@ -88,7 +88,7 @@ export default function SurveySection({ title, questions, answers, onAnswerChang
               gap: '6px',
             }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#F57F17"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-              {totalCount - answeredCount} question{totalCount - answeredCount !== 1 ? 's' : ''} remaining to unlock the next section
+              {totalCount - answeredCount} question{totalCount - answeredCount !== 1 ? 's' : ''} still open — you can skip any and continue
             </div>
           )}
           {questions.map(q => (
