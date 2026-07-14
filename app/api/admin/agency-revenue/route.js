@@ -1,27 +1,20 @@
 import { auth } from '@clerk/nextjs/server'
-import { google } from 'googleapis'
+import { sheetsClient, SPREADSHEET_ID, etWallToUtcDate } from '@/lib/transactionsSheet'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
-// Reads the `Agency Revenue` tab from the OF Transactions spreadsheet — a
-// purely-formula-driven daily ledger where each row = one day, columns =
-// per-account net revenue (Sales + Chargebacks), gated by each account's
-// "Managed From" date in the `Accounts` config tab. See spreadsheet for math.
+// Daily agency revenue for the dashboard chart, bucketed by the UTC (OnlyFans)
+// day so it MATCHES OF's per-account statistics graph + our invoices (midnight
+// UTC = 8 PM ET → evening-ET sales roll into the next day). Reads the raw
+// "<account> - Sales"/"- Chargebacks" tabs (ET timestamps) and re-buckets each
+// row by its UTC date — the same net (col D) + chargeback-by-payment-date (col
+// H) logic invoicing's refresh-period uses, so the numbers stay consistent.
+// (Superseded the ET-dated formula-driven "Agency Revenue" tab, which is what
+// made the dashboard disagree with OF. Management-start gating happens
+// client-side, so we return every creator's full daily series here.)
 //
-// Returns the chart's existing earningsData shape so the dashboard chart
-// doesn't need to change: { [creatorName]: { dailyData: [{date, net}], ... } }
-// where multi-account creators (e.g. Sunny Free + VIP) are pre-summed.
-
-function getAuth() {
-  const oauth2 = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  )
-  oauth2.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
-  return oauth2
-}
-
-const SPREADSHEET_ID = process.env.OF_TRANSACTIONS_SPREADSHEET_ID
+// Shape unchanged: { [creatorName]: { dailyData: [{date, net}] } } (multi-
+// account creators e.g. Sunny Free + VIP are summed).
 
 // 5-min in-memory cache
 let cache = null
@@ -37,6 +30,7 @@ function creatorFromAccount(accountName) {
   const m = accountName.match(/^(.+?)\s+-\s+/)
   return m ? m[1] : accountName
 }
+const money = (v) => { const n = parseFloat(String(v ?? '').replace(/[$,]/g, '')); return isNaN(n) ? 0 : n }
 
 export async function GET(request) {
   const { userId } = await auth()
@@ -50,38 +44,47 @@ export async function GET(request) {
   }
 
   try {
-    const sheets = google.sheets({ version: 'v4', auth: getAuth() })
+    const sheets = sheetsClient()
 
-    // Pull whole Agency Revenue tab as unformatted (we want raw numbers + date serials)
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `'Agency Revenue'!A1:Z2000`,
-      valueRenderOption: 'UNFORMATTED_VALUE',
-      dateTimeRenderOption: 'FORMATTED_STRING', // dates come back as 'yyyy-mm-dd'
-    })
-    const rows = res.data.values || []
-    if (rows.length < 2) {
-      return Response.json({ error: 'no_data', message: 'Agency Revenue tab is empty' })
+    // Every managed account = a "<account> - Sales" tab.
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID, fields: 'sheets(properties(title))' })
+    const titles = (meta.data.sheets || []).map((s) => s.properties.title)
+    const accounts = titles.filter((t) => / - Sales$/.test(t)).map((t) => t.replace(/ - Sales$/, ''))
+    if (!accounts.length) return Response.json({ error: 'no_data', message: 'No Sales tabs found' })
+
+    // Batch-read Sales + Chargebacks (A4:I) in one request. Only include tabs
+    // that EXIST — a range pointing at a missing tab 400s the whole batch, and
+    // most accounts have no Chargebacks tab. Track the creator per range so we
+    // can map results back after conditional inclusion.
+    const ranges = []
+    const rangeCreator = []
+    for (const a of accounts) {
+      const creator = creatorFromAccount(a)
+      if (titles.includes(`${a} - Sales`)) { ranges.push(`'${a} - Sales'!A4:I`); rangeCreator.push(creator) }
+      if (titles.includes(`${a} - Chargebacks`)) { ranges.push(`'${a} - Chargebacks'!A4:I`); rangeCreator.push(creator) }
     }
+    const batch = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges })
+    const valueRanges = batch.data.valueRanges || []
 
-    const header = rows[0]
-    // header: ['Date', 'Total Net', accountName, accountName, ...]
-    const accountNames = header.slice(2)
-
-    // Build per-creator daily map (sum multi-account creators)
-    // creatorMap: { [creator]: { [date]: net } }
+    // creatorMap: { [creator]: { [utcDate]: net } }
     const creatorMap = {}
-    for (const r of rows.slice(1)) {
-      const date = r[0]
-      if (!date) continue
-      for (let i = 0; i < accountNames.length; i++) {
-        const acctName = accountNames[i]
-        const creator = creatorFromAccount(acctName)
-        const net = Number(r[2 + i]) || 0
+    valueRanges.forEach((vr, idx) => {
+      const creator = rangeCreator[idx]
+      for (const row of (vr.values || [])) {
+        const dateTime = row[0]
+        if (!dateTime) continue
+        const net = money(row[3]) // col D
+        const type = row[4]       // col E
+        const originalDate = row[7] // col H — chargeback payment date
+        // Chargebacks bucket by their ORIGINAL PAYMENT date (col H), not the
+        // dispute date; net is already negative. Same as invoicing.
+        const isChargeback = typeof type === 'string' && type.startsWith('Chargeback')
+        const utcDate = etWallToUtcDate(isChargeback ? (originalDate || dateTime) : dateTime)
+        if (!utcDate) continue
         if (!creatorMap[creator]) creatorMap[creator] = {}
-        creatorMap[creator][date] = (creatorMap[creator][date] || 0) + net
+        creatorMap[creator][utcDate] = (creatorMap[creator][utcDate] || 0) + net
       }
-    }
+    })
 
     // Reshape to the chart's expected earningsData shape
     const earningsData = {}
