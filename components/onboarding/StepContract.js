@@ -353,6 +353,17 @@ export default function StepContract({ hqId, onComplete }) {
           </button>
         )}
       </div>
+
+      {/* Never trap her on the contract — she can move on and sign later /
+          the manager handles it. Go-Live still requires a signed contract. */}
+      <div style={{ textAlign: 'center', marginTop: '16px' }}>
+        <button
+          onClick={onComplete}
+          style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          Skip for now — I&apos;ll sign later
+        </button>
+      </div>
     </div>
   )
 }

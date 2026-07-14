@@ -229,7 +229,9 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
         </div>
       )}
 
-      {/* Submit */}
+      {/* Submit is ALWAYS allowed — a creator can finish even with gaps (any
+          missing items are flagged on the admin onboarding board for follow-up).
+          Never trap her here. */}
       {!allComplete && (
         <div style={{
           background: 'rgba(232, 200, 120, 0.06)',
@@ -240,22 +242,22 @@ export default function StepReview({ hqId, completedSteps, onGoToStep, onSubmitt
           fontSize: '13px',
           color: '#E8A878',
         }}>
-          Please complete all steps before submitting.
+          A few items are still open — that&apos;s okay, you can submit now and your manager will follow up on anything missing.
         </div>
       )}
 
       <button
         onClick={handleSubmit}
-        disabled={!allComplete || submitting}
+        disabled={submitting}
         style={{
           padding: '12px 40px',
-          background: (!allComplete || submitting) ? 'transparent' : 'var(--palm-pink)',
-          color: 'var(--foreground)',
+          background: submitting ? 'transparent' : 'var(--palm-pink)',
+          color: submitting ? 'var(--foreground)' : '#060606',
           border: 'none',
           borderRadius: '8px',
           fontSize: '15px',
           fontWeight: 600,
-          cursor: (!allComplete || submitting) ? 'not-allowed' : 'pointer',
+          cursor: submitting ? 'not-allowed' : 'pointer',
           width: '100%',
         }}
       >

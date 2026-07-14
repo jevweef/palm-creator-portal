@@ -104,16 +104,17 @@ export default function StepBasicInfo({ initialData = {}, onSave, saving }) {
         </div>
 
         <div>
-          <label style={labelStyle}>Stage Name / AKA</label>
+          <label style={labelStyle}>Stage Name / AKA <span style={{ color: 'var(--palm-pink)' }}>*</span></label>
           <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '6px', lineHeight: '1.4' }}>
-            The name we&apos;ll use on your social accounts, OF page, and bios. Can be your real name or a stage name — whatever your fans know you by.
+            The name you go by on OnlyFans — your <strong>real first name</strong> (e.g. Emma) or a <strong>made-up stage name</strong> (e.g. Skye Rose). Used on your OF page, bios, and the socials we run for you. <strong>Not</strong> a @username or chat nickname.
           </div>
           <input
             type="text"
             value={form.stageName}
             onChange={e => update('stageName', e.target.value)}
-            placeholder='e.g. "Bella," "Mia Rose," or your first name'
+            placeholder='e.g. Emma, or Skye Rose'
             style={inputStyle}
+            required
           />
         </div>
 
