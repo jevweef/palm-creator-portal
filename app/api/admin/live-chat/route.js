@@ -48,40 +48,42 @@ export async function GET(request) {
       })
       .sort((a, b) => a.aka.localeCompare(b.aka))
 
-    // ?sales48=1 — every sale in the last 48h across all creators (deep read
-    // past the stream's tail cap; feeds the Sales tab graph). Cached 60s.
+    // ?sales48=1&days=N — every sale in the last N days across all creators
+    // (deep read past the stream's tail cap; feeds the Sales tab graph). The
+    // graph picks days from its selected period (day/week/month/custom).
+    // Cached 60s, keyed by days so switching periods doesn't serve stale ranges.
     if (url.searchParams.get('sales48') === '1') {
-      if (SALES48_CACHE.data && Date.now() - SALES48_CACHE.at < 60000) {
+      const days = Math.min(31, Math.max(1, Number(url.searchParams.get('days')) || 2))
+      if (SALES48_CACHE.data && SALES48_CACHE.days === days && Date.now() - SALES48_CACHE.at < 60000) {
         return NextResponse.json({ sales: SALES48_CACHE.data })
       }
       const { readLiveMany } = await import('@/lib/ofLiveBuffer')
       let byAccount = {}
       try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
-      const cutoff = Date.now() - 48 * 3600 * 1000
+      const cutoff = Date.now() - days * 86400 * 1000
       const sales = accounts.flatMap((a) => (byAccount[a.account] || [])
         .filter((e) => e.dir === 'sale' && e.at && new Date(e.at).getTime() >= cutoff)
         .map((e) => ({ at: e.at, price: +e.price || 0, aka: a.aka })))
-      SALES48_CACHE.at = Date.now()
-      SALES48_CACHE.data = sales
+      SALES48_CACHE.at = Date.now(); SALES48_CACHE.days = days; SALES48_CACHE.data = sales
       return NextResponse.json({ sales })
     }
 
-    // ?sent48=1 — every OUTGOING 1:1 message in the last 48h across all
-    // creators (feeds the Outgoing tab's messages-sent graph). Cached 60s.
-    // Only timestamps are needed (we bucket by count), so rows stay thin.
+    // ?sent48=1&days=N — every OUTGOING 1:1 message in the last N days across
+    // all creators (feeds the Outgoing tab's messages-sent graph). Only
+    // timestamps + creator are needed (we bucket by count), so rows stay thin.
     if (url.searchParams.get('sent48') === '1') {
-      if (SENT48_CACHE.data && Date.now() - SENT48_CACHE.at < 60000) {
+      const days = Math.min(31, Math.max(1, Number(url.searchParams.get('days')) || 2))
+      if (SENT48_CACHE.data && SENT48_CACHE.days === days && Date.now() - SENT48_CACHE.at < 60000) {
         return NextResponse.json({ sent: SENT48_CACHE.data })
       }
       const { readLiveMany } = await import('@/lib/ofLiveBuffer')
       let byAccount = {}
       try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
-      const cutoff = Date.now() - 48 * 3600 * 1000
+      const cutoff = Date.now() - days * 86400 * 1000
       const sent = accounts.flatMap((a) => (byAccount[a.account] || [])
         .filter((e) => e.dir === 'out' && e.at && new Date(e.at).getTime() >= cutoff)
         .map((e) => ({ at: e.at, aka: a.aka })))
-      SENT48_CACHE.at = Date.now()
-      SENT48_CACHE.data = sent
+      SENT48_CACHE.at = Date.now(); SENT48_CACHE.days = days; SENT48_CACHE.data = sent
       return NextResponse.json({ sent })
     }
 
