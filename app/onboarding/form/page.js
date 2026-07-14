@@ -10,6 +10,7 @@ import StepSurvey from '@/components/onboarding/StepSurvey'
 import StepContract from '@/components/onboarding/StepContract'
 import StepVoiceMemo from '@/components/onboarding/StepVoiceMemo'
 import StepReview from '@/components/onboarding/StepReview'
+import { SURVEY_QUESTIONS } from '@/lib/onboarding/surveyQuestions'
 
 function AccountLinkingScreen() {
   const [countdown, setCountdown] = useState(10)
@@ -114,41 +115,51 @@ export default function OnboardingForm() {
   const hqId = user?.publicMetadata?.airtableHqId
   const opsId = user?.publicMetadata?.airtableOpsId
 
-  // Fetch existing profile data to pre-fill
+  // Fetch existing profile + survey progress so we can RESUME the creator to
+  // exactly where she left off (she can X out mid-flow and pick back up).
   const fetchProfile = async () => {
     if (!hqId) return
     try {
-      const res = await fetch(`/api/creator-profile?hqId=${hqId}`)
-      const data = await res.json()
+      const [data, surveyData] = await Promise.all([
+        fetch(`/api/creator-profile?hqId=${hqId}`).then(r => r.json()),
+        fetch(`/api/onboarding/survey?hqId=${hqId}`).then(r => r.json()).catch(() => ({ answers: {} })),
+      ])
       if (data.profile) {
         setProfileData(data.profile)
         setSkipContract(!!data.profile.skipContract)
 
-        // Block re-entry if onboarding already completed
+        // Block re-entry only once she's truly finished (Submit at Review).
         if (data.profile.onboardingStatus === 'Completed') {
           router.replace('/dashboard')
           return
         }
 
-        // Auto-detect completed steps based on saved data
+        // Evidence per step — basic-info counts done once she's saved it
+        // (status flips to In Progress on the first save); accounts is treated
+        // as passed once she has any survey progress (OF logins are optional
+        // in-portal). Survey is "done" only when every question is answered.
+        const inProgress = data.profile.onboardingStatus === 'In Progress'
+        const hasBasic = !!data.profile.name && inProgress
+        const hasAccounts = !!(data.profile.ofEmail || data.profile.onlyfansUrl)
+        const surveyCount = Object.values(surveyData.answers || {}).filter(a => a.answer).length
+        const surveyDone = surveyCount >= SURVEY_QUESTIONS.length
+        const contractDone = !!data.profile.contractUrl || !!data.profile.skipContract
+
         const completed = []
-        if (data.profile.name && data.profile.onboardingStatus === 'In Progress') {
-          completed.push('basic-info')
-        }
-        if (data.profile.ofEmail || data.profile.onlyfansUrl) {
-          completed.push('accounts')
-        }
-        if (completed.length > 0) {
-          setCompletedSteps(prev => [...new Set([...prev, ...completed])])
-          // Only auto-advance if no hash is set (first visit vs refresh)
-          const hash = window.location.hash.replace('#', '')
-          if (!hash || !STEPS.includes(hash)) {
-            if (completed.includes('basic-info') && !completed.includes('accounts')) {
-              goToStep('accounts')
-            } else if (completed.includes('accounts')) {
-              goToStep('survey')
-            }
-          }
+        if (hasBasic) completed.push('basic-info')
+        if (hasBasic && (hasAccounts || surveyCount > 0)) completed.push('accounts')
+        if (surveyDone) completed.push('survey')
+        if (completed.length > 0) setCompletedSteps(prev => [...new Set([...prev, ...completed])])
+
+        // Resume: land on the furthest step she still needs. Only when there's
+        // no explicit #step hash (a shared #survey link or a refresh wins).
+        const hash = window.location.hash.replace('#', '')
+        if (!hash || !STEPS.includes(hash)) {
+          let resume = 'basic-info'
+          if (hasBasic) resume = 'accounts'
+          if (hasBasic && (hasAccounts || surveyCount > 0)) resume = 'survey'
+          if (hasBasic && surveyDone) resume = contractDone ? 'voice-memo' : 'contract'
+          if (resume !== 'basic-info') goToStep(resume)
         }
       }
     } catch (err) {
