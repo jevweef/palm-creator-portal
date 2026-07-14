@@ -218,6 +218,15 @@ export default function LiveChatPage({ chatManagerView = false }) {
   // previewing it sees exactly what she sees) AND to any real chat_manager,
   // wherever they land. Admins on their own /admin/live-chat keep all tabs.
   const isChatManager = chatManagerView || user?.publicMetadata?.role === 'chat_manager'
+  // Admin "View As <chat manager>" stores the impersonated manager in
+  // localStorage (same contract as photo library / whale hunting). Pass her id
+  // as viewAsUserId so the scoped APIs show exactly HER team's creators — an
+  // admin previewing sees the real chat-manager view, not the god-mode all-list.
+  const viewAsId = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    try { return JSON.parse(window.localStorage.getItem('superadmin_chatManager') || 'null')?.id || '' } catch { return '' }
+  }, [])
+  const withV = (url) => (viewAsId ? url + (url.includes('?') ? '&' : '?') + `viewAsUserId=${encodeURIComponent(viewAsId)}` : url)
   const [accounts, setAccounts] = useState([])
   const [account, setAccount] = useState(() => fromUrl('account'))
   const [conversations, setConversations] = useState([])
@@ -236,7 +245,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
     if (!account) { setVoiceCard(null); return }
     let cancelled = false
     setVoiceCard(null); setVoiceCardOpen(false)
-    fetch(`/api/admin/live-chat/voice-card?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+    fetch(withV(`/api/admin/live-chat/voice-card?account=${encodeURIComponent(account)}`), { cache: 'no-store' })
       .then((r) => r.json()).then((d) => { if (!cancelled) setVoiceCard(d?.hasCard ? d : null) }).catch(() => {})
     return () => { cancelled = true }
   }, [account])
@@ -244,14 +253,14 @@ export default function LiveChatPage({ chatManagerView = false }) {
   useEffect(() => {
     if (!account) { setWhales([]); return }
     setWhalesLoading(true)
-    fetch(`/api/admin/live-chat/whales?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+    fetch(withV(`/api/admin/live-chat/whales?account=${encodeURIComponent(account)}`), { cache: 'no-store' })
       .then((r) => r.json()).then((d) => setWhales(d.whales || [])).catch(() => setWhales([])).finally(() => setWhalesLoading(false))
   }, [account])
   // Load the fan's whale-hunting brief for the sidebar when a fan opens.
   useEffect(() => {
     if (!account || !fan) { setBrief(null); return }
     setBriefLoading(true)
-    fetch('/api/admin/live-chat/brief', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, fan }) })
+    fetch(withV('/api/admin/live-chat/brief'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, fan }) })
       .then((r) => r.json()).then((d) => setBrief(d || null)).catch(() => setBrief(null)).finally(() => setBriefLoading(false))
   }, [account, fan])
   const [history, setHistory] = useState([])
@@ -335,13 +344,13 @@ export default function LiveChatPage({ chatManagerView = false }) {
   const mutedKeys = useRef(new Set())
 
   useEffect(() => {
-    fetch('/api/admin/live-chat', { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
+    fetch(withV('/api/admin/live-chat'), { cache: 'no-store' }).then((r) => r.json()).then((d) => setAccounts(d.accounts || [])).catch(() => {})
   }, [])
 
   // Stream views: ALL creators' events merged, thin rows, auto-updating
   useEffect(() => {
     if (view === 'inbox') return
-    const load = () => fetch('/api/admin/live-chat?stream=1', { cache: 'no-store' })
+    const load = () => fetch(withV('/api/admin/live-chat?stream=1'), { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
         // UNION with what's already on screen — a row, once shown, never
@@ -373,7 +382,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
     if (!account) return
     setConversations([]); setHistory([]); setLiveEvents([]); setConvosLoading(true)
     writeUrl(account, fan)
-    fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+    fetch(withV(`/api/admin/live-chat?account=${encodeURIComponent(account)}`), { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => { setConversations(overlayMutes(account, d.conversations || [])) })
       .catch(() => {})
@@ -386,7 +395,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
   useEffect(() => {
     if (!account) return
     const t = setInterval(() => {
-      fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+      fetch(withV(`/api/admin/live-chat?account=${encodeURIComponent(account)}`), { cache: 'no-store' })
         .then((r) => r.json())
         .then((d) => { if (d.conversations) setConversations(overlayMutes(account, d.conversations)) })
         .catch(() => {})
@@ -400,13 +409,13 @@ export default function LiveChatPage({ chatManagerView = false }) {
     // Clear the previous fan's messages immediately so the switch is instant and
     // the loading shows INSIDE the newly-opened conversation, not the old one.
     setHistory([]); setTranscript(null); setArchiveInfo(null); setLiveEvents([]); setThreadLoading(true)
-    fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&fan=${encodeURIComponent(fan)}`, { cache: 'no-store' })
+    fetch(withV(`/api/admin/live-chat?account=${encodeURIComponent(account)}&fan=${encodeURIComponent(fan)}`), { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => { setHistory(d.history || []); setTranscript(d.transcript || null); setArchiveInfo(d.archiveInfo || null); setLiveEvents(d.live || []); setLastPoll(new Date()) })
       .catch(() => {})
       .finally(() => setThreadLoading(false))
     timer.current = setInterval(() => {
-      fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&liveOnly=1`, { cache: 'no-store' })
+      fetch(withV(`/api/admin/live-chat?account=${encodeURIComponent(account)}&liveOnly=1`), { cache: 'no-store' })
         .then((r) => r.json())
         .then((d) => {
           const mine = (d.live || []).filter((e) => (e.fan?.username || e.fan?.name || '') === fan)
@@ -461,7 +470,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
       : prev))
     setConversations((cs) => cs.map((c) => (c.fan === fanKey ? { ...c, muted: mute } : c)))
     try {
-      await fetch('/api/admin/live-chat', {
+      await fetch(withV('/api/admin/live-chat'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account: acct, fan: fanKey, mute }),
       })
@@ -478,7 +487,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
     try {
       const selConv = conversations.find((c) => c.fan === fan)
       const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price, at: m.at, mass: m.mass }))
-      const r = await fetch('/api/admin/live-chat/suggest', {
+      const r = await fetch(withV('/api/admin/live-chat/suggest'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs }),
       })
@@ -496,7 +505,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
     setGrabbing(true); setGrabInfo(null)
     try {
       const selConv = conversations.find((c) => c.fan === fan)
-      const r = await fetch('/api/admin/live-chat/grab', {
+      const r = await fetch(withV('/api/admin/live-chat/grab'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, fan, fanName: selConv?.name || '', count: n }),
       })
@@ -517,7 +526,7 @@ export default function LiveChatPage({ chatManagerView = false }) {
     setAskThread((t) => [...t, { q, a: null }])
     setAskQ('')
     try {
-      const r = await fetch('/api/admin/live-chat/ask', {
+      const r = await fetch(withV('/api/admin/live-chat/ask'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, fan, fanName: brief?.fanName || '', question: q, messages: [...history, ...liveEvents] }),
       })
