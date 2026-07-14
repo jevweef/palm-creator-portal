@@ -193,7 +193,18 @@ const CARD_LABEL_COLORS = { TYPE: '#C4A5F7', STANCE: '#E8C878', LANDMINE: '#E8A0
 // One "LABEL: value" line → colored label + value (OPENER renders as a quote).
 function CardLine({ line }) {
   const m = String(line).match(/^([A-Z][A-Z /]{1,18}):\s*(.*)$/)
-  if (!m) return <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, margin: '2px 0' }}>{line}</div>
+  if (!m) {
+    const s = String(line).trim()
+    // Older briefs use markdown section headers (**Situation**, **Action**,
+    // **Key Insight**) instead of the LABEL: card. Render a lone **Header** as a
+    // styled section head; strip stray ** from any other line so no raw
+    // asterisks leak into the sidebar.
+    const h = s.match(/^\*\*(.+?)\*\*:?\s*$/)
+    if (h) {
+      return <div style={{ fontSize: '11px', fontWeight: 800, color: '#C4A5F7', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '12px 0 4px' }}>{h[1]}</div>
+    }
+    return <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, margin: '2px 0' }}>{s.replace(/\*\*/g, '')}</div>
+  }
   const label = m[1].trim(), val = m[2]
   const color = CARD_LABEL_COLORS[label.split(' ')[0]] || 'var(--foreground-muted)'
   if (label === 'OPENER') {
@@ -226,7 +237,10 @@ export default function LiveChatPage({ chatManagerView = false }) {
     if (typeof window === 'undefined') return ''
     try { return JSON.parse(window.localStorage.getItem('superadmin_chatManager') || 'null')?.id || '' } catch { return '' }
   }, [])
-  const withV = (url) => (viewAsId ? url + (url.includes('?') ? '&' : '?') + `viewAsUserId=${encodeURIComponent(viewAsId)}` : url)
+  // Only scope on the chat-manager SURFACE. On the admin's own /admin/live-chat
+  // a leftover "View As" in localStorage must NEVER filter — admin always sees
+  // every creator there.
+  const withV = (url) => (chatManagerView && viewAsId ? url + (url.includes('?') ? '&' : '?') + `viewAsUserId=${encodeURIComponent(viewAsId)}` : url)
   const [accounts, setAccounts] = useState([])
   const [account, setAccount] = useState(() => fromUrl('account'))
   const [conversations, setConversations] = useState([])
