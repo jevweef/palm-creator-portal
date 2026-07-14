@@ -129,7 +129,7 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--foreground-muted)' }}>
             Answer these questions so our chat team can represent you authentically.
-            Your answers auto-save as you type.
+            You can skip any question and come back — your answers auto-save as you type.
           </p>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -170,27 +170,23 @@ export default function StepSurvey({ hqId, opsId, onComplete }) {
         </div>
       </div>
 
-      {SECTION_ORDER.map((sectionName, index) => {
-        // A section is locked if the previous section isn't fully answered
-        const prevSection = index > 0 ? SECTION_ORDER[index - 1] : null
-        const prevQuestions = prevSection ? (sections[prevSection] || []) : []
-        const prevAllAnswered = prevSection
-          ? prevQuestions.every(q => answers[q.key]?.answer)
-          : true
-
-        return (
-          <SurveySection
-            key={sectionName}
-            title={sectionName}
-            questions={sections[sectionName] || []}
-            answers={answers}
-            onAnswerChange={handleAnswerChange}
-            saving={saving}
-            locked={!prevAllAnswered}
-            defaultExpanded={index === 0}
-          />
-        )
-      })}
+      {/* NO section is locked — open workflow: a creator can always open every
+          section, answer what she can, skip the rest, and continue. Locking
+          sections behind "previous fully answered" trapped a creator who left
+          one question blank (2026-07-13). Gaps are followed up on; the admin
+          Go-Live gate is the real check. */}
+      {SECTION_ORDER.map((sectionName, index) => (
+        <SurveySection
+          key={sectionName}
+          title={sectionName}
+          questions={sections[sectionName] || []}
+          answers={answers}
+          onAnswerChange={handleAnswerChange}
+          saving={saving}
+          locked={false}
+          defaultExpanded={index === 0}
+        />
+      ))}
 
       {/* Save Progress indicator */}
       <div style={{
