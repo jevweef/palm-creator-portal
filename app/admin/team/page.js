@@ -15,6 +15,7 @@ export default function TeamAccessPage() {
   const [msg, setMsg] = useState(null) // { ok, text }
   const [invites, setInvites] = useState([])
   const [managers, setManagers] = useState([])
+  const [savingId, setSavingId] = useState(null)
 
   const load = () => {
     fetch('/api/admin/invites', { cache: 'no-store' }).then((r) => r.json()).then((d) => setInvites(d.invites || [])).catch(() => {})
@@ -47,6 +48,24 @@ export default function TeamAccessPage() {
   const revoke = async (id) => {
     await fetch('/api/admin/invites', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).catch(() => {})
     load()
+  }
+
+  // Instant Live Chat kill-switch. Flips the manager's Clerk flag; the server
+  // reads it fresh on every request, so turning it off cuts her view at once.
+  const toggleLiveChat = async (m) => {
+    const next = !m.liveChatAccess
+    setSavingId(m.id)
+    setManagers((prev) => prev.map((x) => (x.id === m.id ? { ...x, liveChatAccess: next } : x))) // optimistic
+    try {
+      const res = await fetch('/api/admin/team/live-chat-access', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: m.id, enabled: next }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'toggle failed')
+    } catch (e) {
+      setManagers((prev) => prev.map((x) => (x.id === m.id ? { ...x, liveChatAccess: !next } : x))) // revert
+      setMsg({ ok: false, text: e.message })
+    } finally { setSavingId(null) }
   }
 
   return (
@@ -107,8 +126,15 @@ export default function TeamAccessPage() {
         <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--foreground-muted)', marginBottom: '10px' }}>Enrolled chat managers</div>
         {managers.length === 0 && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>None yet.</div>}
         {managers.map((m) => (
-          <div key={m.id} style={{ padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }}>
-            {m.fullName || m.email} <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>· {m.email}{m.chatTeam ? ` · Team ${m.chatTeam}` : ''}</span>
+          <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '9px 0', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '13px' }}>
+            <span>{m.fullName || m.email} <span style={{ color: 'var(--foreground-muted)', fontSize: '11px' }}>· {m.email}{m.chatTeam ? ` · Team ${m.chatTeam}` : ''}</span></span>
+            <button onClick={() => toggleLiveChat(m)} disabled={savingId === m.id} title="Live Chat AI console (whale briefs, Suggest, Ask) — instant on/off"
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'transparent', border: 'none', cursor: savingId === m.id ? 'default' : 'pointer', flexShrink: 0 }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: m.liveChatAccess ? '#7DD3A4' : 'var(--foreground-muted)' }}>Live Chat AI</span>
+              <span style={{ width: '38px', height: '22px', borderRadius: '11px', background: m.liveChatAccess ? '#7DD3A4' : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background 0.15s', opacity: savingId === m.id ? 0.5 : 1 }}>
+                <span style={{ position: 'absolute', top: '2px', left: m.liveChatAccess ? '18px' : '2px', width: '18px', height: '18px', borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+              </span>
+            </button>
           </div>
         ))}
       </div>

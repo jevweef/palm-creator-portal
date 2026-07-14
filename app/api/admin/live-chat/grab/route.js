@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireLiveChatAccess, fetchAirtableRecords } from '@/lib/adminAuth'
+import { guardAccount } from '@/lib/chatTeamScope'
 import { resolveFanId, fetchChatHistory } from '@/lib/onlyfansApi'
 import { loadChatArchive, saveChatArchive, mergeMessages } from '@/lib/chatArchive'
 
@@ -24,10 +25,11 @@ const norm = (raw, fanId) => (raw || []).map((m) => ({
 }))
 
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireLiveChatAccess() } catch (e) { return e }
   try {
     const { account, fan, fanName, count } = await request.json()
     if (!account || !fan) return NextResponse.json({ error: 'account and fan required' }, { status: 400 })
+    try { await guardAccount(request, account) } catch (e) { return e }
     const n = Math.max(10, Math.min(100, parseInt(count, 10) || 25))
 
     // Creator name for the archive path — MUST match how /api/admin/live-chat

@@ -5,6 +5,7 @@
 // Right: the thread — archive history + live events, updating every 8s.
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 // Selection persists in the URL (?account=…&fan=…) — refresh/share keeps
 // you on the same creator and conversation (same pattern as whale-hunting).
@@ -24,121 +25,199 @@ function writeUrl(account, fan, view) {
 // don't really ever care about gross."
 const net = (v) => (+v || 0) * 0.8
 
-// Sales-per-15-min bar graph for the last 48h; right edge = now. Height ≈ 8
-// table rows. Re-buckets on every poll so bars drift left as time passes.
-function SalesGraph({ sales }) {
-  const BUCKET = 15 * 60 * 1000
-  const N = 192 // 48h of 15-min buckets
-  const now = Date.now()
-  // Clock-aligned slots (:00/:15/:30/:45) — anchoring to "now" made every
-  // refresh re-slice time, so sales slid between bars and totals wobbled.
-  // A finished slot's total never changes; the rightmost bar is the current
-  // in-progress slot and a fresh one appears when the clock rolls over.
-  const end = Math.ceil(now / BUCKET) * BUCKET
-  const start = end - N * BUCKET
-  const buckets = Array(N).fill(0)
-  for (const e of sales) {
-    const t = new Date(e.at).getTime()
-    if (isNaN(t) || t < start || t > end) continue
-    buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += net(e.price)
-  }
-  const max = Math.max(...buckets, 1)
-  const total = buckets.reduce((a, b) => a + b, 0)
-  const H = 220
-  const ticks = []
-  for (let i = 0; i <= N; i += 24) { // a tick every 6h
-    const t = new Date(start + i * BUCKET)
-    ticks.push({ x: (i / N) * 100, label: t.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric' }) })
-  }
-  const fmtBucket = (i) => {
-    const t = new Date(start + i * BUCKET)
-    return t.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  }
-  return (
-    <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '14px 16px 6px', marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net sales · last 48h · 15-min buckets</span>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#7DD3A4' }}>${total.toLocaleString(undefined, { maximumFractionDigits: 0 })} net</span>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <svg viewBox={`0 0 ${N} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px`, display: 'block' }}>
-          {buckets.map((v, i) => v > 0 && (
-            <rect key={i} x={i + 0.12} y={H - (v / max) * (H - 14)} width={0.76} height={(v / max) * (H - 14)} fill="#A06FE8" opacity="0.9">
-              <title>{`${fmtBucket(i)} ET — $${v.toFixed(2)} net`}</title>
-            </rect>
-          ))}
-          {ticks.map((t, i) => <line key={i} x1={(t.x / 100) * N} x2={(t.x / 100) * N} y1={0} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />)}
-        </svg>
-        <span style={{ position: 'absolute', top: 0, left: 4, fontSize: '10px', color: 'var(--foreground-muted)' }}>${max.toFixed(0)}</span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--foreground-muted)', paddingTop: '3px' }}>
-        {ticks.filter((_, i) => i % 2 === 0).map((t, i) => <span key={i}>{t.label}</span>)}
-        <span style={{ color: '#7DD3A4', fontWeight: 700 }}>now</span>
-      </div>
-    </div>
-  )
+const ET = 'America/New_York'
+const BUCKET_SIZES = [5, 15, 30, 60, 120, 240] // minutes
+const GRAPH_PERIODS = [
+  { key: 'day', label: 'Day', minutes: 1440 },
+  { key: '2day', label: '2D', minutes: 2880 },
+  { key: 'week', label: 'Week', minutes: 10080 },
+  { key: 'month', label: 'Month', minutes: 43200 },
+  { key: 'custom', label: 'Custom', minutes: null },
+]
+// Keep enough bars that the graph stays readable/squished — no 4h buckets on a
+// single day (that'd be 6 bars), and no absurd counts on a month.
+const MIN_BARS = 12
+const MAX_BARS = 800
+const readParam = (k) => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get(k) || '')
+const bucketLabel = (m) => (m >= 60 ? `${m / 60}h` : `${m}m`)
+const validBucketSizes = (minutes) => BUCKET_SIZES.filter((b) => { const n = minutes / b; return n >= MIN_BARS && n <= MAX_BARS })
+function defaultBucketSize(minutes) {
+  const v = validBucketSizes(minutes)
+  const under = v.filter((b) => minutes / b <= 200) // most squished under ~200 bars
+  return under[0] ?? v[v.length - 1] ?? 15
 }
 
-// Messages-sent-per-15-min bar graph for the last 48h — same shape as
-// SalesGraph but counts outgoing 1:1 messages instead of summing sale $.
-function MessagesSentGraph({ messages, creatorOptions = [], creator = '', onCreator }) {
-  const shown = creator ? messages.filter((m) => m.aka === creator) : messages
-  const BUCKET = 15 * 60 * 1000
-  const N = 192 // 48h of 15-min buckets
-  const now = Date.now()
-  const end = Math.ceil(now / BUCKET) * BUCKET
+// Shared bar graph: day/week/month/custom periods × 5–240min buckets
+// (constrained so you never get too few bars). Self-fetches the data window
+// its period needs. Used by both the Sales tab (net $) and Outgoing tab
+// (message counts). Right edge = now; bars scale to the SVG width, so more
+// buckets = thinner, tightly-packed bars.
+function BucketGraph({ urlKey, endpoint, dataKey, mapValue, color, label, fmtTotal, fmtBar, fmtAxis, creatorFilter = false }) {
+  const [period, setPeriod] = useState(() => readParam(`${urlKey}Period`) || 'day')
+  const [bucketPref, setBucketPref] = useState(() => Number(readParam(`${urlKey}Bucket`)) || 0)
+  const [creator, setCreator] = useState(() => (creatorFilter ? readParam(`${urlKey}Creator`) : ''))
+  const [customFrom, setCustomFrom] = useState(() => readParam(`${urlKey}From`))
+  const [customTo, setCustomTo] = useState(() => readParam(`${urlKey}To`))
+  const [events, setEvents] = useState([])
+
+  const isCustom = period === 'custom' && customFrom && customTo
+  const periodMinutes = isCustom
+    ? Math.max(60, Math.round((new Date(`${customTo}T23:59:59`) - new Date(`${customFrom}T00:00:00`)) / 60000))
+    : (GRAPH_PERIODS.find((p) => p.key === period)?.minutes || 1440)
+  const valid = validBucketSizes(periodMinutes)
+  const bucketMin = valid.includes(bucketPref) ? bucketPref : defaultBucketSize(periodMinutes)
+  const BUCKET = bucketMin * 60000
+  const N = Math.min(MAX_BARS, Math.max(1, Math.round(periodMinutes / bucketMin)))
+  const end = isCustom ? Math.ceil(new Date(`${customTo}T23:59:59`).getTime() / BUCKET) * BUCKET : Math.ceil(Date.now() / BUCKET) * BUCKET
   const start = end - N * BUCKET
+
+  // Fetch the window the period needs (day→2d … month→31d), poll every 60s.
+  useEffect(() => {
+    const days = Math.min(31, Math.ceil(periodMinutes / 1440) + 1)
+    const load = () => fetch(`${endpoint}&days=${days}`, { cache: 'no-store' }).then((r) => r.json()).then((j) => setEvents(j[dataKey] || [])).catch(() => {})
+    load()
+    const t = setInterval(load, 60000)
+    return () => clearInterval(t)
+  }, [endpoint, dataKey, periodMinutes])
+
+  // Persist controls in the URL (prefixed so the two graphs don't collide).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const set = (k, v) => { if (v) p.set(k, v); else p.delete(k) }
+    set(`${urlKey}Period`, period === 'day' ? '' : period)
+    set(`${urlKey}Bucket`, validBucketSizes(periodMinutes).includes(bucketPref) ? String(bucketPref) : '')
+    set(`${urlKey}Creator`, creatorFilter ? creator : '')
+    set(`${urlKey}From`, period === 'custom' ? customFrom : '')
+    set(`${urlKey}To`, period === 'custom' ? customTo : '')
+    window.history.replaceState(null, '', `${window.location.pathname}${p.toString() ? '?' + p : ''}`)
+  }, [urlKey, period, bucketPref, creator, customFrom, customTo, creatorFilter, periodMinutes])
+
+  const creatorOptions = creatorFilter ? [...new Set(events.map((e) => e.aka).filter(Boolean))].sort() : []
+  const shown = creatorFilter && creator ? events.filter((e) => e.aka === creator) : events
   const buckets = Array(N).fill(0)
   for (const e of shown) {
     const t = new Date(e.at).getTime()
     if (isNaN(t) || t < start || t > end) continue
-    buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += 1
+    buckets[Math.min(N - 1, Math.floor((t - start) / BUCKET))] += mapValue(e)
   }
   const max = Math.max(...buckets, 1)
   const total = buckets.reduce((a, b) => a + b, 0)
   const H = 220
+  const shortSpan = periodMinutes <= 2 * 1440
+  const step = Math.max(1, Math.round(N / 8))
   const ticks = []
-  for (let i = 0; i <= N; i += 24) { // a tick every 6h
-    const t = new Date(start + i * BUCKET)
-    ticks.push({ x: (i / N) * 100, label: t.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric' }) })
+  for (let i = 0; i <= N; i += step) {
+    const d = new Date(start + i * BUCKET)
+    ticks.push({ x: i, label: d.toLocaleString('en-US', shortSpan ? { timeZone: ET, weekday: 'short', hour: 'numeric' } : { timeZone: ET, month: 'short', day: 'numeric' }) })
   }
-  const fmtBucket = (i) => {
-    const t = new Date(start + i * BUCKET)
-    return t.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  }
+  const fmtBucketTime = (i) => new Date(start + i * BUCKET).toLocaleString('en-US', { timeZone: ET, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+  const ctrl = { background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px' }
+  const changePeriod = (k) => { setPeriod(k); setBucketPref(0) }
+
   return (
     <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '14px 16px 6px', marginBottom: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '10px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Messages sent · last 48h · 15-min buckets</span>
-          <select value={creator} onChange={(e) => onCreator?.(e.target.value)}
-            style={{ background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '3px 8px', fontSize: '11px' }}>
-            <option value="">All creators</option>
-            {creatorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label} · {bucketLabel(bucketMin)} buckets</span>
+          <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', padding: '2px' }}>
+            {GRAPH_PERIODS.map((p) => (
+              <button key={p.key} onClick={() => changePeriod(p.key)}
+                style={{ padding: '3px 9px', fontSize: '11px', fontWeight: 700, borderRadius: '4px', border: 'none', cursor: 'pointer', background: period === p.key ? color : 'transparent', color: period === p.key ? '#0a0a0a' : 'var(--foreground-muted)' }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <select value={bucketMin} onChange={(e) => setBucketPref(Number(e.target.value))} style={ctrl}>
+            {valid.map((b) => <option key={b} value={b}>{bucketLabel(b)}</option>)}
           </select>
+          {period === 'custom' && (
+            <>
+              <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={ctrl} />
+              <span style={{ fontSize: '10px', color: 'var(--foreground-muted)' }}>to</span>
+              <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={ctrl} />
+            </>
+          )}
+          {creatorFilter && (
+            <select value={creator} onChange={(e) => setCreator(e.target.value)} style={ctrl}>
+              <option value="">All creators</option>
+              {creatorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
         </div>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#7aa9ff' }}>{total.toLocaleString()} sent</span>
+        <span style={{ fontSize: '12px', fontWeight: 700, color }}>{fmtTotal(total)}</span>
       </div>
-      <div style={{ position: 'relative' }}>
-        <svg viewBox={`0 0 ${N} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px`, display: 'block' }}>
-          {buckets.map((v, i) => v > 0 && (
-            <rect key={i} x={i + 0.12} y={H - (v / max) * (H - 14)} width={0.76} height={(v / max) * (H - 14)} fill="#7aa9ff" opacity="0.9">
-              <title>{`${fmtBucket(i)} ET — ${v} sent`}</title>
-            </rect>
-          ))}
-          {ticks.map((t, i) => <line key={i} x1={(t.x / 100) * N} x2={(t.x / 100) * N} y1={0} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />)}
-        </svg>
-        <span style={{ position: 'absolute', top: 0, left: 4, fontSize: '10px', color: 'var(--foreground-muted)' }}>{max}</span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--foreground-muted)', paddingTop: '3px' }}>
-        {ticks.filter((_, i) => i % 2 === 0).map((t, i) => <span key={i}>{t.label}</span>)}
-        <span style={{ color: '#7aa9ff', fontWeight: 700 }}>now</span>
-      </div>
+      {period === 'custom' && !isCustom ? (
+        <div style={{ padding: '30px', textAlign: 'center', fontSize: '12px', color: 'var(--foreground-muted)' }}>Pick a start and end date.</div>
+      ) : (
+        <>
+          <div style={{ position: 'relative' }}>
+            <svg viewBox={`0 0 ${N} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: `${H}px`, display: 'block' }}>
+              {buckets.map((v, i) => v > 0 && (
+                <rect key={i} x={i + 0.12} y={H - (v / max) * (H - 14)} width={0.76} height={(v / max) * (H - 14)} fill={color} opacity="0.9">
+                  <title>{`${fmtBucketTime(i)} ET — ${fmtBar(v)}`}</title>
+                </rect>
+              ))}
+              {ticks.map((t, i) => <line key={i} x1={t.x} x2={t.x} y1={0} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />)}
+            </svg>
+            <span style={{ position: 'absolute', top: 0, left: 4, fontSize: '10px', color: 'var(--foreground-muted)' }}>{fmtAxis(max)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--foreground-muted)', paddingTop: '3px' }}>
+            {ticks.filter((_, i) => i % 2 === 0).map((t, i) => <span key={i}>{t.label}</span>)}
+            <span style={{ color, fontWeight: 700 }}>now</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
-export default function LiveChatPage() {
+// Split a full whale analysis into titled sections for the modal's card layout.
+const WHALE_SECTION_TITLES = ['LAST TOUCH', 'QUICK READ', 'WHAT HAPPENED', 'PEAK FORMULA', 'CHATTER PERFORMANCE', 'WHO HE IS', 'WHAT HE BUYS', 'SLEEPING THREADS', 'NEXT MOVE', 'CHATTER CARD']
+function parseWhaleAnalysis(full) {
+  if (!full) return { fanLine: '', sections: [] }
+  const lines = String(full).split('\n')
+  const sections = []
+  let cur = null, fanLine = ''
+  for (const raw of lines) {
+    const t = raw.trim()
+    const hit = WHALE_SECTION_TITLES.find((s) => t.toUpperCase().startsWith(s) && t.length < 70)
+    if (hit) { cur = { title: t, body: [] }; sections.push(cur) }
+    else if (/^FAN:/i.test(t) && !cur) fanLine = t
+    else if (cur) cur.body.push(raw)
+  }
+  return { fanLine, sections: sections.map((s) => ({ title: s.title, body: s.body.join('\n').replace(/^\n+|\n+$/g, '') })) }
+}
+// Color for each CHATTER CARD label (LABEL: value rows).
+const CARD_LABEL_COLORS = { TYPE: '#C4A5F7', STANCE: '#E8C878', LANDMINE: '#E8A0A0', NEVER: '#E8A0A0', WANTS: '#7DD3A4', PRICE: '#7DD3A4', FORMULA: '#8FD3F0', THREADS: '#E8C878', OPENER: '#7DD3A4', CARD: 'var(--foreground-muted)', VOICE: '#C4A5F7', FAN: 'var(--foreground-muted)' }
+// One "LABEL: value" line → colored label + value (OPENER renders as a quote).
+function CardLine({ line }) {
+  const m = String(line).match(/^([A-Z][A-Z /]{1,18}):\s*(.*)$/)
+  if (!m) return <div style={{ fontSize: '13px', color: 'var(--foreground)', lineHeight: 1.5, margin: '2px 0' }}>{line}</div>
+  const label = m[1].trim(), val = m[2]
+  const color = CARD_LABEL_COLORS[label.split(' ')[0]] || 'var(--foreground-muted)'
+  if (label === 'OPENER') {
+    return (
+      <div style={{ margin: '8px 0 2px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Opener</div>
+        <div style={{ background: 'rgba(125,211,164,0.08)', borderLeft: '3px solid #7DD3A4', borderRadius: '6px', padding: '10px 14px', fontSize: '13px', fontStyle: 'italic', color: 'var(--foreground)', lineHeight: 1.5 }}>{val.replace(/^"|"$/g, '')}</div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', gap: '8px', margin: '5px 0', fontSize: '13px', lineHeight: 1.5 }}>
+      <span style={{ flexShrink: 0, minWidth: '74px', fontWeight: 700, color, textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.03em', paddingTop: '1px' }}>{label}</span>
+      <span style={{ color: 'var(--foreground)' }}>{val}</span>
+    </div>
+  )
+}
+
+export default function LiveChatPage({ chatManagerView = false }) {
+  const { user } = useUser()
+  // The Inbox-only restriction applies to the chat-manager SURFACE (so an admin
+  // previewing it sees exactly what she sees) AND to any real chat_manager,
+  // wherever they land. Admins on their own /admin/live-chat keep all tabs.
+  const isChatManager = chatManagerView || user?.publicMetadata?.role === 'chat_manager'
   const [accounts, setAccounts] = useState([])
   const [account, setAccount] = useState(() => fromUrl('account'))
   const [conversations, setConversations] = useState([])
@@ -151,16 +230,102 @@ export default function LiveChatPage() {
   // convo from OnlyFans (costs credits); Suggest only reads what's loaded.
   const [grabbing, setGrabbing] = useState(false)
   const [grabInfo, setGrabInfo] = useState(null)
-  useEffect(() => { setSuggestion(null); setGrabInfo(null) }, [account, fan])
+  useEffect(() => { setSuggestion(null); setGrabInfo(null); setArchiveInfo(null); setBrief(null); setAskThread([]); setAskQ(''); setShowFull(false); setWhaleModal(false) }, [account, fan])
+  // Voice Card is per-CREATOR (account), not per-fan — load once when the account changes.
+  useEffect(() => {
+    if (!account) { setVoiceCard(null); return }
+    let cancelled = false
+    setVoiceCard(null); setVoiceCardOpen(false)
+    fetch(`/api/admin/live-chat/voice-card?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((d) => { if (!cancelled) setVoiceCard(d?.hasCard ? d : null) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [account])
+  // Load the creator's scraped-whale list for the Whales tab.
+  useEffect(() => {
+    if (!account) { setWhales([]); return }
+    setWhalesLoading(true)
+    fetch(`/api/admin/live-chat/whales?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((d) => setWhales(d.whales || [])).catch(() => setWhales([])).finally(() => setWhalesLoading(false))
+  }, [account])
+  // Load the fan's whale-hunting brief for the sidebar when a fan opens.
+  useEffect(() => {
+    if (!account || !fan) { setBrief(null); return }
+    setBriefLoading(true)
+    fetch('/api/admin/live-chat/brief', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, fan }) })
+      .then((r) => r.json()).then((d) => setBrief(d || null)).catch(() => setBrief(null)).finally(() => setBriefLoading(false))
+  }, [account, fan])
   const [history, setHistory] = useState([])
   const [transcript, setTranscript] = useState(null)
+  // Whether we've already done the deep OnlyFans pull for this fan. When true,
+  // the credit-costing "Grab 25/50/100" buttons hide — we already have his full
+  // history (webhooks keep it current), so paying to re-pull is wasted.
+  const [archiveInfo, setArchiveInfo] = useState(null)
+  // Whale-hunting sidebar for the open fan: his analysis brief + an ask-Opus box.
+  const [brief, setBrief] = useState(null)
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [askQ, setAskQ] = useState('')
+  const [asking, setAsking] = useState(false)
+  const [askThread, setAskThread] = useState([]) // [{ q, a }]
+  // Left column can show live Conversations or the creator's scraped Whales.
+  const [leftMode, setLeftMode] = useState('convos') // 'convos' | 'whales'
+  const [whales, setWhales] = useState([])
+  const [whalesLoading, setWhalesLoading] = useState(false)
+  const [convosLoading, setConvosLoading] = useState(false) // list build is slow (chunky archives)
+  const [threadLoading, setThreadLoading] = useState(false) // thread fetch in flight for the open fan
+  const [showFull, setShowFull] = useState(false) // sidebar: expand full analysis
+  const [whaleModal, setWhaleModal] = useState(false) // full whale analysis pop-up
+  const [fanTxns, setFanTxns] = useState(null) // monthly spend (full history) for the modal chart
+  const [voiceCard, setVoiceCard] = useState(null) // creator's onboarding-survey Voice Card (per creator, shared across VIP/Free)
+  const [voiceCardOpen, setVoiceCardOpen] = useState(false)
+  const [fanByType, setFanByType] = useState(null) // this fan's lifetime spend split by type (PPV/tips/subs) for the modal
+  // Full transaction history for the modal spend chart — fetched lazily when the
+  // modal opens (the browser is authed, so it can hit the earnings endpoint).
+  useEffect(() => {
+    if (!whaleModal || !account || !fan) return
+    // Earnings endpoint keys on the creator AKA (e.g. "Taby"), which is what the
+    // analysis was saved under (brief.creator). Strip any "(Free)/(VIP)" suffix.
+    const cr = brief?.creator || accounts.find((a) => a.account === account)?.aka?.replace(/\s*\((Free|VIP)\)\s*$/i, '')
+    if (!cr) return
+    setFanTxns(null); setFanByType(null)
+    // OF transaction types → chatter-facing buckets. "Payment for message" = PPV,
+    // "Tip" = tips, "Subscription"/"Recurring subscription" = subs.
+    const bucketOf = (type) => {
+      const t = String(type || '').toLowerCase()
+      if (t.includes('message')) return 'ppv'
+      if (t.includes('tip')) return 'tips'
+      if (t.includes('subscription')) return 'subs'
+      if (t.includes('stream')) return 'streams'
+      if (t.includes('post')) return 'posts'
+      return 'other'
+    }
+    fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(cr)}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        const txns = d.transactions || []
+        const fanNameL = String(brief?.fanName || '').toLowerCase()
+        const mo = {}
+        const bt = {}
+        for (const t of txns) {
+          const net = Number(t.net) || 0
+          if (net <= 0 || !t.date) continue
+          const matches = (fan && t.ofUsername === fan) || ((!t.ofUsername || !fan) && String(t.displayName || '').toLowerCase() === fanNameL)
+          if (!matches) continue
+          const m = String(t.date).slice(0, 7)
+          mo[m] = (mo[m] || 0) + net
+          bt[bucketOf(t.type)] = (bt[bucketOf(t.type)] || 0) + net
+        }
+        setFanTxns(Object.entries(mo).sort(([a], [b]) => a.localeCompare(b)).map(([m, net]) => ({ m, net: Math.round(net) })))
+        setFanByType(bt)
+      })
+      .catch(() => { setFanTxns([]); setFanByType(null) })
+  }, [whaleModal, account, fan]) // eslint-disable-line react-hooks/exhaustive-deps
   const [liveEvents, setLiveEvents] = useState([])
   const [lastPoll, setLastPoll] = useState(null)
   const [showMuted, setShowMuted] = useState(false)
   const [view, setView] = useState(() => fromUrl('tab') || 'inbox') // 'inbox' | 'in' | 'out' | 'sales'
-  const [sales48, setSales48] = useState([])
-  const [sent48, setSent48] = useState([])
-  const [sentCreator, setSentCreator] = useState(() => fromUrl('sentCreator') || '') // messages-sent graph creator filter
+  // A chat manager can only ever be on Inbox — snap back if a stale ?tab= URL
+  // (or a shared admin link) lands her on a firehose tab she can't see.
+  useEffect(() => { if (isChatManager && view !== 'inbox') setView('inbox') }, [isChatManager, view])
   const [stream, setStream] = useState([])
   const scroller = useRef(null)
   const timer = useRef(null)
@@ -202,44 +367,17 @@ export default function LiveChatPage() {
     return () => clearInterval(t)
   }, [view])
 
-  // 48h sales for the graph — deep read, 60s cadence (server caches too)
-  useEffect(() => {
-    if (view !== 'sales') return
-    const load = () => fetch('/api/admin/live-chat?sales48=1', { cache: 'no-store' })
-      .then((r) => r.json()).then((d) => setSales48(d.sales || [])).catch(() => {})
-    load()
-    const t = setInterval(load, 60000)
-    return () => clearInterval(t)
-  }, [view])
-
-  // 48h outgoing messages for the Outgoing tab graph — same cadence.
-  useEffect(() => {
-    if (view !== 'out') return
-    const load = () => fetch('/api/admin/live-chat?sent48=1', { cache: 'no-store' })
-      .then((r) => r.json()).then((d) => setSent48(d.sent || [])).catch(() => {})
-    load()
-    const t = setInterval(load, 60000)
-    return () => clearInterval(t)
-  }, [view])
-
-  // Persist the messages-sent graph creator filter in the URL (refresh-safe);
-  // writeUrl preserves other params so account/fan/tab are untouched.
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search)
-    if (sentCreator) p.set('sentCreator', sentCreator); else p.delete('sentCreator')
-    window.history.replaceState(null, '', `${window.location.pathname}${p.toString() ? '?' + p : ''}`)
-  }, [sentCreator])
-
   // Load conversations when account changes (URL-restored fan survives the
   // first load; manual switches clear it via the select's onChange)
   useEffect(() => {
     if (!account) return
-    setConversations([]); setHistory([]); setLiveEvents([])
+    setConversations([]); setHistory([]); setLiveEvents([]); setConvosLoading(true)
     writeUrl(account, fan)
     fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => { setConversations(overlayMutes(account, d.conversations || [])) })
       .catch(() => {})
+      .finally(() => setConvosLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
 
@@ -259,10 +397,14 @@ export default function LiveChatPage() {
   // Load thread when fan changes; then poll live buffer
   useEffect(() => {
     if (!account || !fan) return
+    // Clear the previous fan's messages immediately so the switch is instant and
+    // the loading shows INSIDE the newly-opened conversation, not the old one.
+    setHistory([]); setTranscript(null); setArchiveInfo(null); setLiveEvents([]); setThreadLoading(true)
     fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&fan=${encodeURIComponent(fan)}`, { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => { setHistory(d.history || []); setTranscript(d.transcript || null); setLiveEvents(d.live || []); setLastPoll(new Date()) })
+      .then((d) => { setHistory(d.history || []); setTranscript(d.transcript || null); setArchiveInfo(d.archiveInfo || null); setLiveEvents(d.live || []); setLastPoll(new Date()) })
       .catch(() => {})
+      .finally(() => setThreadLoading(false))
     timer.current = setInterval(() => {
       fetch(`/api/admin/live-chat?account=${encodeURIComponent(account)}&liveOnly=1`, { cache: 'no-store' })
         .then((r) => r.json())
@@ -335,7 +477,7 @@ export default function LiveChatPage() {
     setSuggesting(true); setSuggestion(null)
     try {
       const selConv = conversations.find((c) => c.fan === fan)
-      const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price }))
+      const msgs = thread.map((m) => ({ dir: m.dir, text: m.text, price: m.price, at: m.at, mass: m.mass }))
       const r = await fetch('/api/admin/live-chat/suggest', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account, fan, fanName: selConv?.name || '', messages: msgs }),
@@ -367,6 +509,26 @@ export default function LiveChatPage() {
     } finally { setGrabbing(false) }
   }
 
+  // Ask Opus a question about the open fan (grounded in his analysis + thread).
+  async function askAbout() {
+    const q = askQ.trim()
+    if (!account || !fan || !q || asking) return
+    setAsking(true)
+    setAskThread((t) => [...t, { q, a: null }])
+    setAskQ('')
+    try {
+      const r = await fetch('/api/admin/live-chat/ask', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account, fan, fanName: brief?.fanName || '', question: q, messages: [...history, ...liveEvents] }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'ask failed')
+      setAskThread((t) => t.map((e, i) => (i === t.length - 1 ? { ...e, a: d.answer } : e)))
+    } catch (e) {
+      setAskThread((t) => t.map((e, i) => (i === t.length - 1 ? { ...e, a: 'error: ' + (e.message || 'failed') } : e)))
+    } finally { setAsking(false) }
+  }
+
   // Older sale events stored `at` as "YYYY-MM-DD HH:MM:SS" (UTC, no zone) —
   // parsing that as local shifted times 4h. Treat zoneless as UTC.
   const parseAt = (iso) => new Date(iso.includes('T') || iso.includes('+') ? iso : iso.replace(' ', 'T') + 'Z')
@@ -387,11 +549,11 @@ export default function LiveChatPage() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: '1700px', margin: '0 auto' }}>
+    <div style={{ padding: '20px clamp(10px, 1.5vw, 24px)', maxWidth: '1760px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Live Chat</h1>
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-          {[['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing'], ['sales', 'Sales']].map(([k, label]) => (
+          {(isChatManager ? [['inbox', 'Inbox']] : [['inbox', 'Inbox'], ['in', 'Incoming'], ['out', 'Outgoing'], ['sales', 'Sales']]).map(([k, label]) => (
             <button key={k} onClick={() => { setView(k); writeUrl(account, fan, k) }}
               style={{ padding: '7px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer', background: view === k ? 'rgba(160,111,232,0.25)' : 'transparent', color: view === k ? '#C4A5F7' : 'var(--foreground-muted)' }}>
               {label}
@@ -430,13 +592,19 @@ export default function LiveChatPage() {
           : 'Waiting — every sale (PPVs, tips, subs) across ALL creators lands here as it happens.'
         return (
         <>
-        {view === 'sales' && <SalesGraph sales={sales48} />}
+        {view === 'sales' && (
+          <BucketGraph
+            urlKey="sales" endpoint="/api/admin/live-chat?sales48=1" dataKey="sales"
+            mapValue={(e) => net(e.price)} color="#A06FE8" label="Net sales"
+            fmtTotal={(t) => `$${Math.round(t).toLocaleString()} net`} fmtBar={(v) => `$${v.toFixed(2)} net`} fmtAxis={(v) => `$${Math.round(v)}`}
+          />
+        )}
         {view === 'out' && (
-          <MessagesSentGraph
-            messages={sent48}
-            creatorOptions={[...new Set(accounts.map((a) => a.aka))]}
-            creator={sentCreator}
-            onCreator={setSentCreator}
+          <BucketGraph
+            urlKey="sent" endpoint="/api/admin/live-chat?sent48=1" dataKey="sent"
+            mapValue={() => 1} color="#7aa9ff" label="Messages sent"
+            fmtTotal={(t) => `${t.toLocaleString()} sent`} fmtBar={(v) => `${v} sent`} fmtAxis={(v) => `${v}`}
+            creatorFilter
           />
         )}
         <div style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden' }}>
@@ -484,16 +652,45 @@ export default function LiveChatPage() {
           Pick a creator to open her inbox.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '0', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 170px)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: fan ? '300px 1fr 420px' : '320px 1fr', gap: '0', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 170px)' }}>
 
           {/* ── Conversation list ── */}
           <div style={{ borderRight: '1px solid rgba(255,255,255,0.07)', overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              Conversations ({conversations.length})
+            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, background: 'var(--card-bg-solid)', zIndex: 1 }}>
+              {[['convos', `Conversations (${conversations.length})`], ['whales', `Whales (${whales.length})`]].map(([k, label]) => (
+                <button key={k} onClick={() => setLeftMode(k)}
+                  style={{ flex: 1, padding: '11px 8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', border: 'none', cursor: 'pointer', background: leftMode === k ? 'rgba(160,111,232,0.15)' : 'transparent', color: leftMode === k ? '#C4A5F7' : 'var(--foreground-muted)', borderBottom: leftMode === k ? '2px solid #C4A5F7' : '2px solid transparent' }}>
+                  {label}
+                </button>
+              ))}
             </div>
+            {leftMode === 'whales' && (
+              <>
+                {whalesLoading && <div style={{ padding: '20px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>loading whales…</div>}
+                {!whalesLoading && whales.length === 0 && <div style={{ padding: '20px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>No analyzed whales for this creator yet. Scrape + analyze fans on Whale Hunting.</div>}
+                {whales.map((w) => {
+                  const active = fan === w.username
+                  return (
+                    <div key={w.username || w.fanName} onClick={() => { if (w.username) { setFan(w.username); writeUrl(account, w.username) } }}
+                      style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px 14px', cursor: w.username ? 'pointer' : 'default', background: active ? 'rgba(160,111,232,0.10)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = active ? 'rgba(160,111,232,0.10)' : 'transparent' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(125,211,164,0.15)', color: '#7DD3A4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', flexShrink: 0 }}>🐋</div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.fanName || w.username}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>
+                          {w.lifetime != null ? `$${Math.round(w.lifetime).toLocaleString()}` : ''}{w.currentGap != null ? ` · ${w.currentGap}d gap` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+            {leftMode === 'convos' && (<>
             {conversations.length === 0 && (
               <div style={{ padding: '20px 16px', fontSize: '12px', color: 'var(--foreground-muted)' }}>
-                No archived or live conversations yet for this creator.
+                {convosLoading ? 'loading conversations…' : 'No archived or live conversations yet for this creator.'}
               </div>
             )}
             {conversations.filter((c) => showMuted || !c.muted).map((c) => {
@@ -534,6 +731,7 @@ export default function LiveChatPage() {
                 {showMuted ? 'Hide muted' : `Show muted (${conversations.filter((c) => c.muted).length})`}
               </button>
             )}
+            </>)}
           </div>
 
           {/* ── Thread ── */}
@@ -544,10 +742,14 @@ export default function LiveChatPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>
-                @{fan}
+                {brief?.fanName || archiveInfo?.fanName || conversations.find((c) => c.fan === fan)?.name || fan}
+                <span style={{ color: 'var(--foreground-muted)', fontWeight: 500, marginLeft: '8px', fontSize: '12px' }}>@{fan}</span>
               </div>
               <div ref={scroller} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {thread.length === 0 && !transcript && (
+                {threadLoading && thread.length === 0 && (
+                  <div style={{ color: 'var(--foreground-muted)', fontSize: '13px', textAlign: 'center', marginTop: '40px' }}>loading conversation…</div>
+                )}
+                {!threadLoading && thread.length === 0 && !transcript && (
                   <div style={{ color: 'var(--foreground-muted)', fontSize: '12px', textAlign: 'center', marginTop: '40px', lineHeight: 1.7 }}>
                     No message archive for @{fan} yet — this folder only has old analysis files.<br />
                     Open his fan card on Whale Hunting and hit <b>Pull from OF</b> to load his history.<br />
@@ -602,18 +804,59 @@ export default function LiveChatPage() {
               {/* ── Suggest reply (draft-only, never sends) ── */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {/* Grab from OF — pulls this fan's real convo (costs credits). Separate from Suggest. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grab from OF</span>
-                  {[25, 50, 100].map((n) => (
-                    <button key={n} onClick={() => grabFromOf(n)} disabled={grabbing} title={`Pull this fan's last ${n} messages from OnlyFans (about 1 credit)`}
-                      style={{ padding: '5px 12px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', cursor: grabbing ? 'default' : 'pointer', background: 'transparent', color: 'var(--foreground)' }}>
-                      {n}
+                {/* Grab buttons only for fans we've NEVER deep-pulled. Once his
+                    full history is on file (webhooks keep it current), re-pulling
+                    just burns OnlyFans credits, so we hide them and say so. */}
+                {(() => {
+                  const pulled = !!archiveInfo && (archiveInfo.historyComplete || (archiveInfo.count || 0) >= 300)
+                  if (pulled) {
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: '#7DD3A4', fontWeight: 600 }}>✓ Full history on file{archiveInfo.count ? ` (${archiveInfo.count.toLocaleString()} msgs)` : ''} — kept current by webhooks</span>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grab from OF</span>
+                      {[25, 50, 100].map((n) => (
+                        <button key={n} onClick={() => grabFromOf(n)} disabled={grabbing} title={`Pull this fan's last ${n} messages from OnlyFans (about 1 credit)`}
+                          style={{ padding: '5px 12px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', cursor: grabbing ? 'default' : 'pointer', background: 'transparent', color: 'var(--foreground)' }}>
+                          {n}
+                        </button>
+                      ))}
+                      {grabbing && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>pulling…</span>}
+                      {grabInfo && !grabInfo.error && <span style={{ fontSize: '11px', color: '#7DD3A4' }}>+{grabInfo.added} new · {grabInfo.total} in history · {grabInfo.credits} credit{grabInfo.credits === 1 ? '' : 's'} · saved</span>}
+                      {grabInfo?.error && <span style={{ fontSize: '11px', color: '#E8A0A0' }}>{grabInfo.error}</span>}
+                    </div>
+                  )
+                })()}
+                {/* Voice Card — per creator, from her onboarding survey. Shared across her VIP + Free pages. */}
+                {voiceCard && (
+                  <div style={{ border: '1px solid rgba(196,165,247,0.25)', borderRadius: '8px', background: 'rgba(160,111,232,0.06)', overflow: 'hidden' }}>
+                    <button onClick={() => setVoiceCardOpen((o) => !o)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#C4A5F7', fontSize: '12px', fontWeight: 700 }}>
+                      <span>Voice Card — how {voiceCard.creator || 'she'} talks · {voiceCard.answerCount} answers</span>
+                      <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{voiceCardOpen ? 'hide' : 'show'}</span>
                     </button>
-                  ))}
-                  {grabbing && <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>pulling…</span>}
-                  {grabInfo && !grabInfo.error && <span style={{ fontSize: '11px', color: '#7DD3A4' }}>+{grabInfo.added} new · {grabInfo.total} in history · {grabInfo.credits} credit{grabInfo.credits === 1 ? '' : 's'} · saved</span>}
-                  {grabInfo?.error && <span style={{ fontSize: '11px', color: '#E8A0A0' }}>{grabInfo.error}</span>}
-                </div>
+                    {voiceCardOpen && (
+                      <div style={{ padding: '2px 12px 12px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', overflowY: 'auto' }}>
+                        {voiceCard.groups.map((g) => (
+                          <div key={g.label}>
+                            <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: g.label.startsWith('NEVER') ? '#E8A0A0' : '#C4A5F7', marginBottom: '4px' }}>{g.label}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {g.items.map((it) => (
+                                <div key={it.key} style={{ fontSize: '12px', lineHeight: 1.45, color: 'var(--foreground)' }}>
+                                  <span style={{ color: 'var(--foreground-muted)' }}>{it.label}: </span>{it.value}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* Suggest — draft-only, uses whatever's loaded (never pulls) */}
                 <button onClick={suggestReply} disabled={suggesting}
                   style={{ alignSelf: 'flex-start', padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: suggesting ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
@@ -628,6 +871,7 @@ export default function LiveChatPage() {
                       <span style={{ color: suggestion.usedProfile ? '#7DD3A4' : 'var(--foreground-muted)' }}>
                         {suggestion.usedProfile ? 'using fan profile' : 'no profile on file'}
                       </span>
+                      {suggestion.usedVoiceCard ? <span style={{ color: '#C4A5F7' }}>{` · voice card (${suggestion.voiceCardAnswers})`}</span> : null}
                       {suggestion.usedCount ? ` · read ${suggestion.usedCount} msgs` : ''}
                     </div>
                     {(suggestion.suggestions || []).map((s, i) => (
@@ -642,8 +886,183 @@ export default function LiveChatPage() {
               </div>
             </div>
           )}
+          {/* ── Whale-hunting sidebar: the fan's brief + ask-Opus box ── */}
+          {fan && (
+            <div style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', background: 'rgba(160,111,232,0.03)' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px' }}>🐋</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>Whale Brief</span>
+                {brief?.hasAnalysis && brief.analyzedDate && <span style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginLeft: 'auto' }}>{new Date(brief.analyzedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', minHeight: 0 }}>
+                {briefLoading && <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>loading brief…</div>}
+                {!briefLoading && brief && !brief.hasAnalysis && (
+                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', lineHeight: 1.5 }}>
+                    No whale analysis on this fan yet. Open him on <b style={{ color: '#C4A5F7' }}>Whale Hunting</b> and run the analysis to populate this.
+                  </div>
+                )}
+                {!briefLoading && brief?.hasAnalysis && (
+                  <>
+                    {brief.fullAnalysis && (
+                      <button onClick={() => setWhaleModal(true)}
+                        style={{ marginBottom: '12px', padding: '9px 12px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7', cursor: 'pointer', width: '100%' }}>
+                        See full analysis →
+                      </button>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      {brief.stats?.lifetime != null && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(125,211,164,0.14)', color: '#7DD3A4', padding: '3px 8px', borderRadius: '6px' }}>${Math.round(brief.stats.lifetime).toLocaleString()} lifetime</span>}
+                      {brief.stats?.currentGap != null && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(160,111,232,0.15)', color: '#C4A5F7', padding: '3px 8px', borderRadius: '6px' }}>{brief.stats.currentGap}d gap</span>}
+                      {brief.stats?.medianGap != null && <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(255,255,255,0.06)', color: 'var(--foreground-muted)', padding: '3px 8px', borderRadius: '6px' }}>~{brief.stats.medianGap}d rhythm</span>}
+                    </div>
+                    <div>{(brief.brief || brief.fullAnalysis || '').split('\n').filter((l) => l.trim()).map((l, i) => <CardLine key={i} line={l.trim()} />)}</div>
+                  </>
+                )}
+              </div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ask Opus about him</div>
+                {askThread.length > 0 && (
+                  <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px' }}>
+                    {askThread.map((e, i) => (
+                      <div key={i} style={{ fontSize: '12px' }}>
+                        <div style={{ color: '#C4A5F7', fontWeight: 600 }}>{e.q}</div>
+                        <div style={{ color: 'var(--foreground)', lineHeight: 1.45, marginTop: '3px' }}>{e.a == null ? <span style={{ color: 'var(--foreground-muted)' }}>thinking…</span> : e.a}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input value={askQ} onChange={(e) => setAskQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') askAbout() }} placeholder="e.g. what should I not bring up?"
+                    style={{ flex: 1, background: 'var(--card-bg-solid)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '7px 10px', fontSize: '12px' }} />
+                  <button onClick={askAbout} disabled={asking || !askQ.trim()}
+                    style={{ padding: '7px 12px', fontSize: '12px', fontWeight: 700, border: 'none', borderRadius: '8px', cursor: (asking || !askQ.trim()) ? 'default' : 'pointer', background: 'rgba(160,111,232,0.25)', color: '#C4A5F7' }}>
+                    {asking ? '…' : 'Ask'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* ── Full whale analysis modal — wide, formatted, most-important-first ── */}
+      {whaleModal && brief?.hasAnalysis && (() => {
+        const parsed = parseWhaleAnalysis(brief.fullAnalysis || '')
+        const cardText = brief.brief || (parsed.sections.find((s) => /^CHATTER CARD/i.test(s.title))?.body) || ''
+        const detail = parsed.sections.filter((s) => !/^CHATTER CARD/i.test(s.title))
+        const secColor = (t) => {
+          const u = t.toUpperCase()
+          if (u.startsWith('LAST TOUCH') || u.startsWith('WHO HE IS')) return '#8FD3F0'
+          if (u.startsWith('QUICK READ') || u.startsWith('NEXT MOVE')) return '#C4A5F7'
+          if (u.startsWith('WHAT HAPPENED') || u.startsWith('SLEEPING')) return '#E8C878'
+          if (u.startsWith('PEAK FORMULA') || u.startsWith('WHAT HE BUYS')) return '#7DD3A4'
+          if (u.startsWith('CHATTER PERFORMANCE')) return '#E8A0A0'
+          return 'var(--foreground-muted)'
+        }
+        return (
+          <div onClick={() => setWhaleModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px 24px', overflowY: 'auto' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '1400px', background: 'var(--card-bg-solid, #0f0f0f)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '18px 26px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(90deg, rgba(160,111,232,0.12), transparent)' }}>
+                <span style={{ fontSize: '20px' }}>🐋</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--foreground)' }}>{brief.fanName || fan}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>{brief.creator}{brief.analyzedDate ? ` · analyzed ${new Date(brief.analyzedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
+                </div>
+                {brief.stats?.lifetime != null && <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(125,211,164,0.14)', color: '#7DD3A4', padding: '4px 10px', borderRadius: '7px' }}>${Math.round(brief.stats.lifetime).toLocaleString()} lifetime</span>}
+                {brief.stats?.currentGap != null && <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(160,111,232,0.15)', color: '#C4A5F7', padding: '4px 10px', borderRadius: '7px' }}>{brief.stats.currentGap}d gap</span>}
+                <button onClick={() => setWhaleModal(false)} style={{ background: 'none', border: 'none', color: 'var(--foreground-muted)', fontSize: '24px', cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}>×</button>
+              </div>
+              <div style={{ padding: '22px 26px', maxHeight: 'calc(90vh - 84px)', overflowY: 'auto' }}>
+                {cardText && (
+                  <div style={{ background: 'linear-gradient(135deg, rgba(232,143,172,0.09), rgba(124,58,237,0.05))', border: '1px solid rgba(232,143,172,0.25)', borderRadius: '12px', padding: '18px 22px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#E88FAC', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>The Card — what a chatter needs first</div>
+                    {cardText.split('\n').filter((l) => l.trim()).map((l, i) => <CardLine key={i} line={l.trim()} />)}
+                  </div>
+                )}
+                {(fanTxns?.length > 0 || archiveInfo?.monthly?.length > 0) && (() => {
+                  const spendMap = Object.fromEntries((fanTxns || []).map((x) => [x.m, x.net]))
+                  const chatMap = Object.fromEntries((archiveInfo?.monthly || []).map((x) => [x.m, x.c]))
+                  const allM = [...new Set([...Object.keys(spendMap), ...Object.keys(chatMap)])].sort()
+                  if (!allM.length) return null
+                  const months = []
+                  let [y, mo] = allM[0].split('-').map(Number)
+                  // Always run the axis to TODAY, not the last month with data —
+                  // an empty recent stretch is the story (he went cold), and it
+                  // stops the last data bar from looking like "this month".
+                  const _now = new Date()
+                  const ey = _now.getFullYear(), em = _now.getMonth() + 1
+                  let guard = 0
+                  while ((y < ey || (y === ey && mo <= em)) && guard++ < 240) { months.push(`${y}-${String(mo).padStart(2, '0')}`); mo++; if (mo > 12) { mo = 1; y++ } }
+                  const maxSpend = Math.max(...months.map((m) => spendMap[m] || 0), 1)
+                  const lifetime = Object.values(spendMap).reduce((s, v) => s + v, 0)
+                  return (
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 18px', marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#7DD3A4', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Spending &amp; conversation — full history</div>
+                        <div style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{fanTxns == null ? 'loading spend…' : `${months.length} months${lifetime ? ` · $${lifetime.toLocaleString()} matched` : ''}`}</div>
+                      </div>
+                      {fanByType && (() => {
+                        const buckets = [
+                          { key: 'ppv', label: 'PPV', color: '#7DD3A4' },
+                          { key: 'tips', label: 'Tips', color: '#E8C878' },
+                          { key: 'subs', label: 'Subs', color: '#C4A5F7' },
+                          { key: 'streams', label: 'Streams', color: '#8FD3F0' },
+                          { key: 'posts', label: 'Posts', color: '#E8A0A0' },
+                          { key: 'other', label: 'Other', color: 'var(--foreground-muted)' },
+                        ].map((b) => ({ ...b, val: Math.round(fanByType[b.key] || 0) })).filter((b) => b.val > 0)
+                        const tot = buckets.reduce((s, b) => s + b.val, 0)
+                        if (!tot) return null
+                        return (
+                          <div style={{ marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                              {buckets.map((b) => <div key={b.key} title={`${b.label}: $${b.val.toLocaleString()}`} style={{ width: `${(b.val / tot) * 100}%`, background: b.color }} />)}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                              {buckets.map((b) => (
+                                <span key={b.key} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground)' }}>
+                                  <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '2px', background: b.color, marginRight: '5px' }} />
+                                  {b.label} ${b.val.toLocaleString()} <span style={{ color: 'var(--foreground-muted)', fontWeight: 400 }}>{Math.round((b.val / tot) * 100)}%</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '72px' }}>
+                        {months.map((m, i) => { const v = spendMap[m] || 0; return (
+                          <div key={i} title={`${m}: $${v.toLocaleString()}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minWidth: 0 }}>
+                            <div style={{ width: '100%', maxWidth: '20px', height: `${Math.max(Math.round((v / maxSpend) * 64), v > 0 ? 3 : 0)}px`, background: '#E88FAC', borderRadius: '2px 2px 0 0' }} />
+                          </div>
+                        ) })}
+                      </div>
+                      <div style={{ display: 'flex', gap: '2px', height: '9px', marginTop: '3px' }}>
+                        {months.map((m, i) => (
+                          <div key={i} style={{ flex: 1, display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+                            <div title={chatMap[m] ? `${chatMap[m]} msgs` : 'no chat pulled'} style={{ width: '100%', maxWidth: '20px', height: '100%', background: chatMap[m] ? '#8FD3F0' : 'rgba(255,255,255,0.05)', borderRadius: '2px' }} />
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: '2px', marginTop: '3px' }}>
+                        {months.map((m, i) => (<div key={i} style={{ flex: 1, fontSize: '8px', color: 'var(--foreground-muted)', textAlign: 'center', minWidth: 0 }}>{(m.slice(5) === '01' || i === 0) ? `'${m.slice(2, 4)}` : ''}</div>))}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--foreground-muted)', marginTop: '8px' }}>
+                        <span style={{ color: '#E88FAC' }}>▮</span> monthly spend &nbsp;·&nbsp; <span style={{ color: '#8FD3F0' }}>▮</span> months we have chat ({(archiveInfo?.count || 0).toLocaleString()} msgs{archiveInfo?.first ? `, ${archiveInfo.first} → ${archiveInfo.last}` : ''})
+                      </div>
+                    </div>
+                  )
+                })()}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  {detail.map((s, i) => (
+                    <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '16px 18px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: secColor(s.title), textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>{s.title}</div>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: 1.55, color: 'var(--foreground)' }}>{s.body}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

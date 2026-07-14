@@ -31,6 +31,7 @@ export async function GET() {
         fullName: [u.firstName, u.lastName].filter(Boolean).join(' ') || (u.publicMetadata?.name || ''),
         email: u.primaryEmailAddress?.emailAddress || u.emailAddresses?.[0]?.emailAddress || '',
         chatTeam: u.publicMetadata?.chatTeam || null,
+        liveChatAccess: u.publicMetadata?.liveChatAccess === true,
       }))
       // Sort by first name for a stable dropdown order
       .sort((a, b) => (a.fullName || a.email).localeCompare(b.fullName || b.email))

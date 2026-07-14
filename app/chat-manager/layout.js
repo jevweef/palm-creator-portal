@@ -21,9 +21,14 @@ export default function ChatManagerLayout({ children }) {
   if (!allowed) return <div style={{ padding: '60px', textAlign: 'center', color: '#8B8680' }}>This area is for the chat team. Ask Evan for access.</div>
 
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'there'
+  // Live Chat is an opt-in per-person tool (toggled from /admin/team). Admins
+  // always see it; a chat manager only sees the tab when her flag is on. The
+  // server-side gate is the real enforcement — this just hides the entry point.
+  const liveChatOn = ['admin', 'super_admin'].includes(role) || user?.publicMetadata?.liveChatAccess === true
   const tabs = [
     ['/chat-manager/photo-library', 'Photo Library'],
     ['/chat-manager/whale-hunting', 'Whale Hunting'],
+    ...(liveChatOn ? [['/chat-manager/live-chat', 'Live Chat']] : []),
     ['/chat-manager/chat-team-report', 'Chat Team Report'],
   ]
 
@@ -31,12 +36,12 @@ export default function ChatManagerLayout({ children }) {
     <div className="cm-shell" style={{ minHeight: '100vh', background: 'var(--background, #141414)', color: 'var(--foreground, #F0ECE8)' }}>
       <style>{`
         .cm-shell { display: flex; align-items: stretch; }
-        .cm-sidebar { width: 232px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 16px; padding: 20px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+        .cm-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 16px; padding: 20px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
         .cm-nav { display: flex; flex-direction: column; gap: 4px; }
         .cm-navlink { padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background 0.12s; }
         .cm-userbtn { margin-top: auto; padding-top: 14px; }
-        .cm-main { flex: 1; min-width: 0; padding: 26px 26px 80px; }
-        .cm-content { max-width: 1320px; margin: 0 auto; width: 100%; }
+        .cm-main { flex: 1; min-width: 0; padding: 24px clamp(12px, 2vw, 32px) 80px; }
+        .cm-content { max-width: 1600px; margin: 0 auto; width: 100%; }
         @media (max-width: 768px) {
           .cm-shell { flex-direction: column; }
           .cm-sidebar { width: auto; height: auto; position: static; flex-direction: row; align-items: center; gap: 10px; padding: 12px 14px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); overflow-x: auto; }

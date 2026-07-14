@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
+import { requireLiveChatAccess, fetchAirtableRecords } from '@/lib/adminAuth'
+import { resolveChatTeamScope, akaScopeKey, guardAccount } from '@/lib/chatTeamScope'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, downloadFromDropbox, uploadToDropbox } from '@/lib/dropbox'
 import { readLiveMerged } from '@/lib/ofLiveBuffer'
 
@@ -25,7 +26,7 @@ const CONV_CACHE = new Map() // account -> { at, conversations }
 //   ?account=…&fan=<username>  → that fan's thread: archive tail (last 120)
 //                                merged with live events
 export async function GET(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireLiveChatAccess() } catch (e) { return e }
   try {
     const url = new URL(request.url)
     const account = url.searchParams.get('account') || ''
@@ -35,7 +36,7 @@ export async function GET(request) {
     const creators = await fetchAirtableRecords('Palm Creators', {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
-    const accounts = creators
+    let accounts = creators
       .filter((c) => c.fields?.['OF API Account ID'])
       .flatMap((c) => {
         const ids = String(c.fields['OF API Account ID']).split(',').map((x) => x.trim()).filter(Boolean)
@@ -48,40 +49,48 @@ export async function GET(request) {
       })
       .sort((a, b) => a.aka.localeCompare(b.aka))
 
-    // ?sales48=1 — every sale in the last 48h across all creators (deep read
-    // past the stream's tail cap; feeds the Sales tab graph). Cached 60s.
+    // Team scoping: a chat manager only sees her team's creators (admins see
+    // all). This narrows the dropdown, Stream, Sales/Outgoing graphs, and the
+    // thread lookup below — an out-of-team account simply isn't in the list.
+    const scope = await resolveChatTeamScope(request)
+    if (scope.scoped) accounts = accounts.filter((a) => scope.allowedAkas.has(akaScopeKey(a.aka)))
+
+    // ?sales48=1&days=N — every sale in the last N days across all creators
+    // (deep read past the stream's tail cap; feeds the Sales tab graph). The
+    // graph picks days from its selected period (day/week/month/custom).
+    // Cached 60s, keyed by days so switching periods doesn't serve stale ranges.
     if (url.searchParams.get('sales48') === '1') {
-      if (SALES48_CACHE.data && Date.now() - SALES48_CACHE.at < 60000) {
+      const days = Math.min(31, Math.max(1, Number(url.searchParams.get('days')) || 2))
+      if (SALES48_CACHE.data && SALES48_CACHE.days === days && Date.now() - SALES48_CACHE.at < 60000) {
         return NextResponse.json({ sales: SALES48_CACHE.data })
       }
       const { readLiveMany } = await import('@/lib/ofLiveBuffer')
       let byAccount = {}
       try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
-      const cutoff = Date.now() - 48 * 3600 * 1000
+      const cutoff = Date.now() - days * 86400 * 1000
       const sales = accounts.flatMap((a) => (byAccount[a.account] || [])
         .filter((e) => e.dir === 'sale' && e.at && new Date(e.at).getTime() >= cutoff)
         .map((e) => ({ at: e.at, price: +e.price || 0, aka: a.aka })))
-      SALES48_CACHE.at = Date.now()
-      SALES48_CACHE.data = sales
+      SALES48_CACHE.at = Date.now(); SALES48_CACHE.days = days; SALES48_CACHE.data = sales
       return NextResponse.json({ sales })
     }
 
-    // ?sent48=1 — every OUTGOING 1:1 message in the last 48h across all
-    // creators (feeds the Outgoing tab's messages-sent graph). Cached 60s.
-    // Only timestamps are needed (we bucket by count), so rows stay thin.
+    // ?sent48=1&days=N — every OUTGOING 1:1 message in the last N days across
+    // all creators (feeds the Outgoing tab's messages-sent graph). Only
+    // timestamps + creator are needed (we bucket by count), so rows stay thin.
     if (url.searchParams.get('sent48') === '1') {
-      if (SENT48_CACHE.data && Date.now() - SENT48_CACHE.at < 60000) {
+      const days = Math.min(31, Math.max(1, Number(url.searchParams.get('days')) || 2))
+      if (SENT48_CACHE.data && SENT48_CACHE.days === days && Date.now() - SENT48_CACHE.at < 60000) {
         return NextResponse.json({ sent: SENT48_CACHE.data })
       }
       const { readLiveMany } = await import('@/lib/ofLiveBuffer')
       let byAccount = {}
       try { byAccount = await readLiveMany(accounts.map((a) => a.account), { limit: 20000 }) } catch { /* empty */ }
-      const cutoff = Date.now() - 48 * 3600 * 1000
+      const cutoff = Date.now() - days * 86400 * 1000
       const sent = accounts.flatMap((a) => (byAccount[a.account] || [])
         .filter((e) => e.dir === 'out' && e.at && new Date(e.at).getTime() >= cutoff)
         .map((e) => ({ at: e.at, aka: a.aka })))
-      SENT48_CACHE.at = Date.now()
-      SENT48_CACHE.data = sent
+      SENT48_CACHE.at = Date.now(); SENT48_CACHE.days = days; SENT48_CACHE.data = sent
       return NextResponse.json({ sent })
     }
 
@@ -147,11 +156,36 @@ export async function GET(request) {
     if (fan) {
       // Thread: archive tail + live events for this fan
       let history = []
+      // archiveInfo drives the UI: whether we've already done the deep OnlyFans
+      // pull for this fan (so the credit-costing "Grab 25/50/100" buttons hide),
+      // plus his stored fan name for the whale-brief lookup.
+      let archiveInfo = { hasArchive: false, historyComplete: false, count: 0, fanName: '' }
       try {
         const buf = await downloadFromDropbox(token, ns, `/Palm Ops/Chat Logs/${safeCreator}/${fan}/messages.json`)
         if (buf) {
           const arc = JSON.parse(buf.toString('utf8'))
           const fanId = String(arc.fanId || '')
+          // Conversation coverage: monthly message counts + the span we hold,
+          // so the modal can show "how much chat we have" (vs full txn history).
+          const _msgs = arc.messages || []
+          const _monthly = {}
+          let _first = null, _last = null
+          for (const m of _msgs) {
+            if (!m.createdAt) continue
+            const mm = String(m.createdAt).slice(0, 7)
+            _monthly[mm] = (_monthly[mm] || 0) + 1
+            if (!_first || m.createdAt < _first) _first = m.createdAt
+            if (!_last || m.createdAt > _last) _last = m.createdAt
+          }
+          archiveInfo = {
+            hasArchive: true,
+            historyComplete: !!arc.historyComplete,
+            count: _msgs.length,
+            fanName: arc.fanName || '',
+            first: _first ? String(_first).slice(0, 10) : null,
+            last: _last ? String(_last).slice(0, 10) : null,
+            monthly: Object.entries(_monthly).sort(([a], [b]) => a.localeCompare(b)).map(([m, c]) => ({ m, c })),
+          }
           history = (arc.messages || []).slice(-120).map((m) => ({
             id: m.id,
             dir: (m.isSentByMe === true || String(m?.fromUser?.id ?? '') !== fanId) ? 'out' : 'in',
@@ -176,7 +210,7 @@ export async function GET(request) {
         }
       }
       const liveForFan = live.filter((e) => e.dir !== 'sale' && (e.fan?.username || e.fan?.name || '') === fan)
-      return NextResponse.json({ history, live: liveForFan, transcript })
+      return NextResponse.json({ history, live: liveForFan, transcript, archiveInfo })
     }
 
     // Conversation list: archived fans (with real last-message previews, like
@@ -254,10 +288,11 @@ export async function GET(request) {
 // POST — mute/unmute a conversation for an account (e.g. other creators she
 // follows whose promo blasts land in the inbox). {account, fan, mute: bool}
 export async function POST(request) {
-  try { await requireAdmin() } catch (e) { return e }
+  try { await requireLiveChatAccess() } catch (e) { return e }
   try {
     const { account, fan, mute } = await request.json()
     if (!account || !fan) return NextResponse.json({ error: 'account and fan required' }, { status: 400 })
+    try { await guardAccount(request, account) } catch (e) { return e }
     const token = await getDropboxAccessToken()
     const ns = await getDropboxRootNamespaceId(token)
     const path = `/Palm Ops/OF Webhooks/live/${account}-muted.json`
