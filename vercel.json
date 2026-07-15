@@ -46,11 +46,11 @@
     },
     {
       "path": "/api/cron/penny-postprep",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/hourly-telegram-push",
-      "schedule": "0 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/trueup-transactions",
@@ -79,6 +79,10 @@
     {
       "path": "/api/cron/reconcile-invoices",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/cache-agency-revenue",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
