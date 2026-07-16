@@ -55,6 +55,7 @@ const ADMIN_NAV = [
     { key: 'invoices', label: 'Invoices' },
     { key: 'upload', label: 'Raw Data Upload' },
   ]},
+  { href: '/admin/software', label: 'Software', icon: '💳', ownerOnly: true },
   { href: '/admin/inbox', label: 'Inbox', icon: '📥', ownerOnly: true, children: [
     { key: 'tasks', label: 'Tasks' },
     { key: 'chats', label: 'Messages' },
