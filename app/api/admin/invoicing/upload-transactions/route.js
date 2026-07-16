@@ -468,9 +468,19 @@ export async function POST(request) {
 
     const html = await file.text()
     const formDataType = formData.get('dataType')
-    // Auto-detect page type from HTML, or use the explicit dataType from the modal
-    const isDisputesPage = html.includes('statements/disputes') || html.includes('Dispute date')
-    if (isDisputesPage || formDataType === 'chargebacks') {
+    // Route by the actual DATA-ROW structure, NOT a nav-link substring. Every OF
+    // page (including the earnings statement) has a sidebar link to
+    // /statements/disputes, so the old `includes('statements/disputes')` check
+    // misfiled EVERY earnings upload as a chargeback file — the CB parser then
+    // found no dispute rows and imported nothing (Ocean Ray, 2026-07-16).
+    // Earnings rows are `<td class="b-table__date">`; dispute rows are
+    // `<tr class="m-responsive__reset-pb">`. Trust the rows that are present.
+    const hasEarningsRows = html.includes('b-table__date')
+    const hasDisputeRows = html.includes('m-responsive__reset-pb')
+    const isChargebacks = formDataType === 'chargebacks'
+      ? hasDisputeRows || !hasEarningsRows   // honor explicit choice unless it's clearly earnings
+      : hasDisputeRows && !hasEarningsRows
+    if (isChargebacks) {
       txns = parseChargebackHtml(html)
       sheetType = 'Chargebacks'
     } else {
@@ -595,11 +605,7 @@ export async function POST(request) {
       t.type,
       t.displayName || t.fan,
       t.username || '',
-      // Payment date WITH time (col H). Chargeback period-bucketing in
-      // refresh-period converts this ET timestamp to UTC; a date-only value
-      // defaults to midnight ET and mis-buckets late-day payments across the
-      // 8 PM ET / midnight UTC period boundary.
-      t.origDate ? fmtDateTime(t.origDate) : '',
+      t.origDate ? fmtDate(t.origDate) : '',
       t.desc,
     ])
 
