@@ -104,7 +104,7 @@ async function processOnePost(postId) {
   const [creatorList, assetList] = await Promise.all([
     fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
-      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID'],
+      fields: ['Creator', 'AKA', 'Telegram Thread ID', 'Telegram IG Topic ID', 'Telegram FB Topic ID', 'Telegram AI Topic ID'],
     }),
     fetchAirtableRecords('Assets', {
       filterByFormula: assetFilter,
@@ -117,10 +117,13 @@ async function processOnePost(postId) {
   const asset = assetById[assetId] || {}
 
   // Resolve the per-channel Telegram topic for this creator.
-  // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID.
-  // Both live on Palm Creators (Ops base). If the topic ID is missing, fail
-  // loud — we'd otherwise post into the group's General topic by accident.
-  const channelTopicField = channel === 'IG' ? 'Telegram IG Topic ID' : 'Telegram FB Topic ID'
+  // Channel='IG' → Telegram IG Topic ID, Channel='FB' → Telegram FB Topic ID,
+  // Channel='AI' → Telegram AI Topic ID (AI-generated reels go to the creator's
+  // dedicated AI topic). All live on Palm Creators. If the topic ID is missing,
+  // fail loud — we'd otherwise post into the group's General topic by accident.
+  const channelTopicField = channel === 'AI' ? 'Telegram AI Topic ID'
+    : channel === 'IG' ? 'Telegram IG Topic ID'
+    : 'Telegram FB Topic ID'
   const smmTopicId = creator[channelTopicField]
   if (!smmTopicId) {
     throw new Error(`Creator missing ${channelTopicField} for Channel=${channel} — set it on Palm Creators record`)
@@ -254,6 +257,32 @@ export async function GET(request) {
       console.log(`[telegram-queue] stale-lock reset on ${s.id}`)
     } catch (e) {
       console.warn(`[telegram-queue] failed to reset stuck ${s.id}:`, e.message)
+    }
+  }
+
+  // SEND-FAILED AUTO-RETRY: a 'Send Failed' post used to sit in Post Prep
+  // forever (nothing re-queued it), even though most failures are transient
+  // ("fetch failed" — a video-fetch/Telegram network blip). Re-queue it up to
+  // 3 times; a genuinely-broken post (e.g. a bad video URL) fails fast 3x then
+  // stays Send Failed for manual attention. Publer-routed AI is excluded.
+  const failed = await fetchAirtableRecords('Posts', {
+    filterByFormula: `AND({Status}='Send Failed', {Posted At}='', {Pipeline Target}!='Publer', OR({Send Retries}=BLANK(), {Send Retries}<3))`,
+    fields: ['Send Retries'],
+    maxRecords: 10,
+  }).catch(err => {
+    console.warn('[telegram-queue] send-failed query failed:', err.message)
+    return []
+  })
+  for (const p of failed) {
+    try {
+      await patchAirtableRecord('Posts', p.id, {
+        'Status': 'Queued for Telegram',
+        'Send Retries': (Number(p.fields?.['Send Retries']) || 0) + 1,
+        'Sending Since': null,
+      }, { typecast: true })
+      console.log(`[telegram-queue] send-failed retry ${(Number(p.fields?.['Send Retries']) || 0) + 1}/3 on ${p.id}`)
+    } catch (e) {
+      console.warn(`[telegram-queue] failed to re-queue ${p.id}:`, e.message)
     }
   }
 
