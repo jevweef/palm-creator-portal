@@ -66,15 +66,17 @@ export async function GET(request) {
 
     // Secondary signal sources — all best-effort and parallel. A failure in any
     // one degrades that tile to "todo" rather than breaking the whole board.
-    const [cpdCount, revenueLinked, publerActive, smSetup] = await Promise.all([
+    const [cpdCount, revenueLinked, publerActive, smSetup, surveyAnswerCount, profileDocs] = await Promise.all([
       countCpd(opsId),
       isRevenueLinked(aka),
       isPublerActive(opsId),
       loadSmSetup(opsId, name),
+      countSurveyAnswers(hqId),
+      loadProfileDocs(opsId),
     ])
 
     const phase1 = computePhase1(cf, of)
-    const board = computeBoard({ cf, of, ops, phase1, cpdCount, revenueLinked, publerActive, smSetup, creator: { id: hqId, opsId } })
+    const board = computeBoard({ cf, of, ops, phase1, cpdCount, revenueLinked, publerActive, smSetup, surveyAnswerCount, profileDocs, creator: { id: hqId, opsId } })
 
     return NextResponse.json({
       creator: {
@@ -168,5 +170,42 @@ async function loadSmSetup(opsId, name) {
   } catch (e) {
     console.warn('[board] loadSmSetup failed:', e.message)
     return { exists: false }
+  }
+}
+
+// Survey answers (Ops base 'Onboarding Survey Responses', keyed by HQ Creator ID
+// text). The count tells us how much they filled in even if they never hit Submit.
+async function countSurveyAnswers(hqId) {
+  try {
+    const rows = await fetchAirtableRecords('Onboarding Survey Responses', {
+      filterByFormula: `{HQ Creator ID} = ${quoteAirtableString(hqId)}`,
+      fields: ['Question Key'],
+    })
+    return rows.filter((r) => r.fields?.['Question Key']).length
+  } catch (e) {
+    console.warn('[board] countSurveyAnswers failed:', e.message)
+    return 0
+  }
+}
+
+// DNA profile documents (Ops base, linked to the Ops creator). Lets a voice memo
+// / doc uploaded from the DNA → Documents tab also reflect on the board.
+async function loadProfileDocs(opsId) {
+  if (!opsId) return { count: 0, hasAudio: false }
+  try {
+    const rows = await fetchAirtableRecords('Creator Profile Documents', {
+      fields: ['File Name', 'File Type', 'Creator'],
+    })
+    const AUDIO = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm']
+    const mine = rows.filter((r) => Array.isArray(r.fields?.['Creator']) && r.fields['Creator'].includes(opsId))
+    const hasAudio = mine.some((r) => {
+      const ft = r.fields?.['File Type']
+      const fn = String(r.fields?.['File Name'] || '').toLowerCase()
+      return ft === 'Audio' || AUDIO.some((ext) => fn.endsWith(ext))
+    })
+    return { count: mine.length, hasAudio }
+  } catch (e) {
+    console.warn('[board] loadProfileDocs failed:', e.message)
+    return { count: 0, hasAudio: false }
   }
 }

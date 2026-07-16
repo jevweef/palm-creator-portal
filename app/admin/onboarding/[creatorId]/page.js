@@ -28,6 +28,15 @@ function NaIcon({ size = 16 }) {
     </svg>
   )
 }
+// Neutral "to-do" marker (an unchecked circle) — NOT a warning. Used for any
+// incomplete tile; the "Next" badge/border is what signals where to start.
+function ToDoIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" stroke="var(--foreground-muted)" strokeWidth="1.5" />
+    </svg>
+  )
+}
 
 const CHAT_TEAMS = ['A Team', 'B Team']
 
@@ -41,6 +50,7 @@ export default function OnboardingWorkspace() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null)        // action key in flight
   const [toast, setToast] = useState(null)
+  const [showAll, setShowAll] = useState(false) // default: only what's left to do
 
   const load = useCallback(async () => {
     if (!hqId) return
@@ -122,7 +132,7 @@ export default function OnboardingWorkspace() {
         const json = await res.json().catch(() => ({}))
         if (res.ok && json.onboardingUrl) {
           try { await navigator.clipboard.writeText(json.onboardingUrl) } catch { /* clipboard blocked */ }
-          flash('Reminder link copied')
+          flash('Onboarding link copied — send it to the creator')
         }
       }
     } catch (err) {
@@ -230,33 +240,66 @@ export default function OnboardingWorkspace() {
         </div>
       )}
 
+      {/* what's-left / show-all toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', gap: '10px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
+          {showAll ? 'Showing every step' : `Showing what’s left (${counts.total - counts.done} to do)`}
+        </span>
+        <button
+          onClick={() => setShowAll((s) => !s)}
+          style={{
+            padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '999px', cursor: 'pointer',
+            border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)',
+          }}
+        >
+          {showAll ? 'Show only what’s left' : 'Show all steps'}
+        </button>
+      </div>
+
       {/* groups */}
-      {groups.map((g) => (
-        <section key={g.key} style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
-            <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{g.title}</h2>
-            <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>{g.subtitle}</span>
-            <span style={{ marginLeft: 'auto', fontSize: '11px', color: g.done === g.total ? '#43A047' : 'var(--foreground-muted)', fontWeight: 600 }}>
-              {g.done}/{g.total}
-            </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '10px' }}>
-            {g.tiles.map((t) => (
-              <Tile
-                key={t.key}
-                tile={t}
-                busy={busy}
-                onAction={() => runAction(t)}
-                chatTeam={creator?.chatTeam}
-                onChatTeam={setChatTeam}
-              />
-            ))}
-            {g.key === 'golive' && (
-              <GoLiveTile isActive={isActive} readiness={readiness} busy={busy === 'golive:go-live'} onGo={() => runAction({ key: 'golive', action: { type: 'go-live' } })} startDate={creator?.managementStartDate} />
-            )}
-          </div>
-        </section>
-      ))}
+      {groups.map((g) => {
+        const vis = showAll ? g.tiles : g.tiles.filter((t) => t.status !== 'done' && t.status !== 'na')
+        const showGoLive = g.key === 'golive' && !isActive
+        if (vis.length === 0 && !showGoLive) return null   // hide fully-done phases when only showing what's left
+        return (
+          <section key={g.key} style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{g.title}</h2>
+              <span style={{ fontSize: '11px', color: 'var(--foreground-subtle)' }}>{g.subtitle}</span>
+              <span style={{ marginLeft: 'auto', fontSize: '11px', color: g.done === g.total ? '#43A047' : 'var(--foreground-muted)', fontWeight: 600 }}>
+                {g.done}/{g.total}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
+              {vis.map((t) => (
+                <Tile
+                  key={t.key}
+                  tile={t}
+                  busy={busy}
+                  onAction={() => runAction(t)}
+                  chatTeam={creator?.chatTeam}
+                  onChatTeam={setChatTeam}
+                  hqId={hqId}
+                  onboardingId={onboardingId}
+                  creatorAka={creator?.aka}
+                  onRefresh={load}
+                  flash={flash}
+                />
+              ))}
+              {showGoLive && (
+                <GoLiveTile isActive={isActive} readiness={readiness} busy={busy === 'golive:go-live'} onGo={() => runAction({ key: 'golive', action: { type: 'go-live' } })} startDate={creator?.managementStartDate} />
+              )}
+            </div>
+          </section>
+        )
+      })}
+
+      {/* nothing-left state (only-what's-left mode, everything done) */}
+      {!showAll && counts.done === counts.total && isActive && (
+        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--foreground-muted)', fontSize: '14px' }}>
+          All steps complete — nothing left to do. <button onClick={() => setShowAll(true)} style={{ ...backLink, color: 'var(--palm-pink)' }}>Show all</button>
+        </div>
+      )}
 
       {toast && (
         <div style={{
@@ -270,11 +313,11 @@ export default function OnboardingWorkspace() {
   )
 }
 
-function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
+function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, creatorAka, onRefresh, flash }) {
   const a = tile.action
   const isNa = tile.status === 'na'
   const blocked = tile.blocked
-  const Icon = tile.status === 'done' ? CheckIcon : isNa ? NaIcon : WarnIcon
+  const Icon = tile.status === 'done' ? CheckIcon : isNa ? NaIcon : ToDoIcon
   const actionBusy = a && busy === `${tile.key}:${a.type}`
 
   return (
@@ -294,7 +337,7 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
               <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--palm-pink)', background: 'rgba(232,160,160,0.16)', padding: '1px 6px', borderRadius: '4px' }}>Next</span>
             )}
           </div>
-          {tile.detail && (
+          {tile.detail && a?.type !== 'of-login' && (
             <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tile.detail}>
               {tile.detail}
             </div>
@@ -326,6 +369,12 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
             <option value="">Unassigned</option>
             {CHAT_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+        ) : a?.type === 'of-login' ? (
+          <OfLoginAction tile={tile} hqId={hqId} onboardingId={onboardingId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'survey-send' ? (
+          <SurveySendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'telegram-assign' ? (
+          <TelegramAssignAction tile={tile} hqId={hqId} onboardingId={onboardingId} creatorAka={creatorAka} onRefresh={onRefresh} flash={flash} />
         ) : a ? (
           <button
             onClick={onAction}
@@ -346,14 +395,328 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam }) {
   )
 }
 
+// OF-login card: 4 editable credential boxes (free + paid email/password) with
+// Edit/Save, plus an Approve toggle that sets 'OF Login Confirmed' (tile = done).
+function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
+  const a = tile.action || {}
+  const [editing, setEditing] = useState(false)
+  const [busy, setBusy] = useState(null) // 'save' | 'approve'
+  const [v, setV] = useState({
+    freeEmail: a.freeEmail || '', freePass: a.freePass || '',
+    paidEmail: a.paidEmail || '', paidPass: a.paidPass || '',
+  })
+  const confirmed = tile.status === 'done'
+
+  const inputStyle = {
+    width: '100%', padding: '5px 8px', fontSize: '12px', borderRadius: '6px',
+    border: '1px solid rgba(255,255,255,0.12)',
+    background: editing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
+    color: editing ? 'var(--foreground)' : 'var(--foreground-muted)', outline: 'none',
+  }
+  const labelStyle = { fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--foreground-subtle)', marginBottom: '2px' }
+  const btn = (bg, color) => ({ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: bg, color, opacity: busy ? 0.6 : 1 })
+
+  const field = (key, label, ph) => (
+    <div>
+      <div style={labelStyle}>{label}</div>
+      <input value={v[key]} placeholder={ph} disabled={!editing || !!busy}
+        onChange={(e) => setV((s) => ({ ...s, [key]: e.target.value }))} style={inputStyle} />
+    </div>
+  )
+
+  const save = async () => {
+    setBusy('save')
+    try {
+      const res = await fetch('/api/admin/onboarding/of-login', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, fields: {
+          'OF Email': v.freeEmail, 'OF Password': v.freePass,
+          '2nd OF Email': v.paidEmail, '2nd OF Password': v.paidPass,
+        } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed')
+      setEditing(false)
+      flash('OF login saved')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const approve = async () => {
+    setBusy('approve')
+    try {
+      const res = await fetch('/api/admin/onboarding/checklist', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingId, fields: { 'OF Login Confirmed': !confirmed } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed')
+      flash(confirmed ? 'Approval cleared' : 'OF login approved')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+        {field('freeEmail', 'Free email', 'free page email')}
+        {field('freePass', 'Free password', '—')}
+        {field('paidEmail', 'Paid/VIP email', 'paid page email')}
+        {field('paidPass', 'Paid/VIP password', '—')}
+      </div>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {editing ? (
+          <>
+            <button onClick={save} disabled={!!busy} style={btn('rgba(232,160,160,0.16)', 'var(--palm-pink)')}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+            <button onClick={() => { setEditing(false); setV({ freeEmail: a.freeEmail || '', freePass: a.freePass || '', paidEmail: a.paidEmail || '', paidPass: a.paidPass || '' }) }} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground-muted)')}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => setEditing(true)} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>Edit</button>
+            <button onClick={approve} disabled={!!busy} style={btn(confirmed ? 'rgba(67,160,71,0.18)' : '#43A047', confirmed ? '#43A047' : '#fff')}>{busy === 'approve' ? '…' : confirmed ? 'Approved ✓' : 'Approve'}</button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Survey → chat team card: Preview (renders the answered Q&A in an in-app modal)
+// and Send (deliver to the Palm Chatting group + stamp). Both call the local-only
+// route; preview no longer opens Numbers/Acrobat.
+function SurveySendAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(null) // 'preview' | 'send'
+  const [preview, setPreview] = useState(null) // { items, answered, total, creator, team, skipped }
+  const sent = tile.status === 'done'
+
+  const run = async (mode) => {
+    setBusy(mode)
+    try {
+      const res = await fetch('/api/admin/onboarding/survey-send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, mode }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Failed')
+      if (mode === 'preview') {
+        setPreview(j)
+      } else {
+        flash(`Sent to Palm Chatting — ${j.answered} of ${j.total} answered${j.stamped ? '' : ' (mark sent manually)'}`)
+        await onRefresh()
+      }
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const btn = (bg, color) => ({ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: bg, color, opacity: busy ? 0.6 : 1 })
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <button onClick={() => run('preview')} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'preview' ? 'Building…' : 'Preview'}</button>
+      <button onClick={() => run('send')} disabled={!!busy} style={btn(sent ? 'rgba(67,160,71,0.18)' : '#43A047', sent ? '#43A047' : '#fff')}>{busy === 'send' ? 'Sending…' : sent ? 'Re-send' : 'Send to chat'}</button>
+      {preview && <SurveyPreviewModal data={preview} onClose={() => setPreview(null)} onSend={async () => { setPreview(null); await run('send') }} sending={busy === 'send'} sent={sent} />}
+    </div>
+  )
+}
+
+// In-app preview of the survey brief (replaces opening PDF/CSV in Numbers/Acrobat).
+// Renders the answered Q&A grouped by section, with a Send button to deliver.
+function SurveyPreviewModal({ data, onClose, onSend, sending, sent }) {
+  const items = Array.isArray(data?.items) ? data.items : []
+  // Group answered items by section, preserving order.
+  const groups = []
+  for (const it of items) {
+    let g = groups[groups.length - 1]
+    if (!g || g.section !== it.section) { g = { section: it.section, rows: [] }; groups.push(g) }
+    g.rows.push(it)
+  }
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', width: 'min(680px, 100%)', maxHeight: '86vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+      >
+        {/* header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>{data?.creator || 'Creator'} — Chat Team Brief</div>
+            <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px' }}>
+              Onboarding survey{data?.team ? ` · ${data.team}` : ''} · Answered {data?.answered ?? items.length} of {data?.total ?? items.length}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--foreground-muted)', width: '28px', height: '28px', borderRadius: '7px', cursor: 'pointer', fontSize: '15px', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* body */}
+        <div style={{ padding: '8px 20px 16px', overflowY: 'auto' }}>
+          {items.length === 0 && (
+            <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', padding: '24px 0', textAlign: 'center' }}>No answered questions to show.</div>
+          )}
+          {groups.map((g, gi) => (
+            <div key={gi}>
+              <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--palm-pink)', padding: '16px 0 6px' }}>{g.section}</div>
+              {g.rows.map((r, ri) => (
+                <div key={ri} style={{ padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ fontSize: '11.5px', color: 'var(--foreground-subtle)', marginBottom: '3px' }}>{r.label}</div>
+                  <div style={{ fontSize: '13.5px', color: 'var(--foreground)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{r.answer}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+          {Array.isArray(data?.skipped) && data.skipped.length > 0 && (
+            <div style={{ marginTop: '16px', padding: '9px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', fontSize: '11px', color: 'var(--foreground-subtle)', lineHeight: 1.5 }}>
+              Not provided ({data.skipped.length}): {data.skipped.join(', ')}
+            </div>
+          )}
+        </div>
+
+        {/* footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)' }}>Close</button>
+          <button onClick={onSend} disabled={sending} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: sending ? 'default' : 'pointer', background: '#43A047', color: '#fff', opacity: sending ? 0.6 : 1 }}>
+            {sending ? 'Sending…' : sent ? 'Re-send to chat' : 'Send to chat'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Telegram group linker: shows the Add-bot link + the Telegram chats the bot has
+// discovered (Pending, or already mapped to THIS creator). One tap on "This is
+// her group" assigns the chat to the creator AND flips it to Watching (which
+// starts task/to-do extraction for the dashboard). "Not hers" ignores a chat so
+// it stops cluttering. Reuses the inbox's chats GET + per-chat PATCH endpoints.
+function TelegramAssignAction({ tile, hqId, onboardingId, creatorAka, onRefresh, flash }) {
+  const a = tile.action || {}
+  const [chats, setChats] = useState(null) // null = not loaded yet
+  const [loading, setLoading] = useState(false)
+  const [busyId, setBusyId] = useState(null)
+  const [err, setErr] = useState('')
+
+  const akaLc = (creatorAka || '').trim().toLowerCase()
+
+  const loadChats = useCallback(async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch('/api/admin/inbox/chats')
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Could not load chats')
+      // Telegram only. Show chats that are candidates (Pending) or already this
+      // creator's (mapped by HQ id, or title starts with her AKA — the bot's
+      // "PALM x {aka}" auto-map). Hide unrelated watched/ignored chats.
+      const rows = (j.chats || []).filter((c) => {
+        if (c.source !== 'telegram') return false
+        const mine = (c.creatorHqId && c.creatorHqId === hqId) ||
+          (akaLc && String(c.title || '').toLowerCase().includes(akaLc)) ||
+          (akaLc && String(c.subtitle || '').toLowerCase().includes(akaLc))
+        return c.status === 'Pending Review' || mine
+      })
+      setChats(rows)
+    } catch (e) { setErr(e.message); setChats([]) } finally { setLoading(false) }
+  }, [hqId, akaLc])
+
+  useEffect(() => { loadChats() }, [loadChats])
+
+  const patchChat = async (chat, body, okMsg) => {
+    setBusyId(chat.id)
+    try {
+      const res = await fetch(`/api/admin/inbox/chats/${chat.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Update failed')
+      flash(okMsg)
+      // First successful link auto-completes the "Telegram group" tile.
+      if (body.status === 'Watching' && onboardingId) {
+        try {
+          await fetch('/api/admin/onboarding/checklist', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ onboardingId, fields: { 'Telegram Bot Added': true } }),
+          })
+        } catch { /* non-fatal */ }
+      }
+      await loadChats()
+      await onRefresh()
+    } catch (e) { flash(e.message) } finally { setBusyId(null) }
+  }
+
+  const claim = (chat) => patchChat(
+    chat,
+    { status: 'Watching', category: 'Creator', creatorAka: creatorAka || '', creatorHqId: hqId },
+    `Linked to ${creatorAka || 'creator'} — now tracking`,
+  )
+  const ignore = (chat) => patchChat(chat, { category: 'Personal' }, 'Marked personal — ignored')
+
+  const linkBtn = 'https://t.me/palmmanage_bot?startgroup=true'
+  const smallBtn = (bg, color) => ({ padding: '5px 9px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', border: 'none', cursor: 'pointer', background: bg, color, whiteSpace: 'nowrap' })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <a href={a.deepLink || linkBtn} target="_blank" rel="noreferrer"
+          style={{ ...smallBtn('rgba(255,255,255,0.05)', 'var(--foreground)'), flex: 1, textAlign: 'center', textDecoration: 'none', lineHeight: '1.6' }}>
+          {a.deepLinkLabel || 'Add bot'}
+        </a>
+        <button onClick={loadChats} disabled={loading} style={{ ...smallBtn('rgba(255,255,255,0.05)', 'var(--foreground-muted)'), opacity: loading ? 0.6 : 1 }}>
+          {loading ? '…' : 'Refresh'}
+        </button>
+      </div>
+
+      {err && <div style={{ fontSize: '11px', color: '#E87878' }}>{err}</div>}
+
+      {chats && chats.length === 0 && !err && (
+        <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', lineHeight: 1.4 }}>
+          No group found yet. Add the bot, post any message in her group, then Refresh.
+        </div>
+      )}
+
+      {chats && chats.map((c) => {
+        const watching = c.status === 'Watching'
+        const b = busyId === c.id
+        return (
+          <div key={c.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '7px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.title}>{c.title || '(untitled group)'}</div>
+              {c.lastMessageSnippet && (
+                <div style={{ fontSize: '10px', color: 'var(--foreground-subtle)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.lastMessageSnippet}</div>
+              )}
+            </div>
+            {watching ? (
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#7AC97A' }}>✓ Tracking{c.creatorAka ? ` · ${c.creatorAka}` : ''}</div>
+            ) : (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button onClick={() => claim(c)} disabled={b} style={{ ...smallBtn('rgba(232,160,160,0.14)', 'var(--palm-pink)'), flex: 1, opacity: b ? 0.6 : 1 }}>
+                  {b ? 'Linking…' : `This is ${creatorAka || 'her'}’s group`}
+                </button>
+                <button onClick={() => ignore(c)} disabled={b} style={{ ...smallBtn('rgba(255,255,255,0.05)', 'var(--foreground-muted)'), opacity: b ? 0.6 : 1 }}>
+                  Not hers
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function actionLabel(tile) {
   const a = tile.action
   if (!a) return ''
   if (a.label) return a.label
   if (a.type === 'run-setup') return tile.status === 'done' ? 'Re-run setup' : 'Run setup'
   if (a.type === 'check') return tile.status === 'done' ? 'Mark undone' : 'Mark done'
-  if (a.type === 'analyze-dna') return tile.status === 'done' ? 'Re-run builder' : 'Run builder'
-  if (a.type === 'reminder') return 'Copy reminder'
+  if (a.type === 'analyze-dna') return tile.status === 'done' ? 'Re-run Analyze' : 'Run Analyze'
+  if (a.type === 'reminder') return 'Copy onboarding link'
   return 'Open'
 }
 
