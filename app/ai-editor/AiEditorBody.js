@@ -750,7 +750,12 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
+  const [showVideo, setShowVideo] = useState(false)
   const fileRef = useRef(null)
+
+  // The rejected AI reel, playable: prefer CF Stream, fall back to Dropbox raw.
+  const rawDropbox = rev.dropboxLink ? String(rev.dropboxLink).replace('dl=0', 'raw=1').replace('dl=1', 'raw=1') : ''
+  const canPlay = !!(rev.streamUid || rawDropbox)
 
   const fileToBase64 = (file) => new Promise((res, rej) => {
     const r = new FileReader()
@@ -815,9 +820,18 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
   return (
     <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(232,120,120,0.25)', borderRadius: 8, padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        {rev.thumbnail && (
-          <img src={rev.thumbnail} alt="" loading="lazy"
-            style={{ width: 56, aspectRatio: '9/16', objectFit: 'cover', borderRadius: 5, background: '#000' }} />
+        {(rev.thumbnail || canPlay) && (
+          <button
+            onClick={() => canPlay && setShowVideo(true)}
+            title={canPlay ? 'Play the rejected video' : ''}
+            style={{ position: 'relative', width: 56, aspectRatio: '9/16', flexShrink: 0, padding: 0, border: 'none', borderRadius: 5, overflow: 'hidden', background: '#000', cursor: canPlay ? 'pointer' : 'default' }}>
+            {rev.thumbnail
+              ? <img src={rev.thumbnail} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ width: '100%', height: '100%' }} />}
+            {canPlay && (
+              <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, textShadow: '0 1px 4px rgba(0,0,0,0.7)', background: 'rgba(0,0,0,0.15)' }}>▶</span>
+            )}
+          </button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, fontWeight: 700, color: '#E87878', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -887,6 +901,23 @@ function RevisionCard({ rev, creatorId, onResubmitted }) {
             style={{ width: '100%', marginTop: 8, padding: '7px 0', fontSize: 12, fontWeight: 700, color: '#1a0a0a', background: 'var(--palm-pink)', border: 'none', borderRadius: 5, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.5 : 1 }}>
             {uploading ? 'Uploading…' : 'Submit revised → Pending Review'}
           </button>
+        </div>
+      )}
+
+      {/* Play the rejected video so the editor can see exactly what was sent back. */}
+      {showVideo && canPlay && (
+        <div onClick={() => setShowVideo(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', width: 'min(420px, 92vw)', aspectRatio: '9/16', maxHeight: '92vh', background: '#000', borderRadius: 10, overflow: 'hidden' }}>
+            {rev.streamUid ? (
+              <iframe src={buildStreamIframeUrl(rev.streamUid, { autoplay: true })} allow="autoplay; fullscreen" allowFullScreen
+                style={{ width: '100%', height: '100%', border: 'none' }} title="rejected reel" />
+            ) : (
+              <video src={rawDropbox} controls autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />
+            )}
+            <button onClick={() => setShowVideo(false)}
+              style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 20, lineHeight: 1, width: 32, height: 32, borderRadius: 16, cursor: 'pointer' }}>×</button>
+          </div>
         </div>
       )}
     </div>
