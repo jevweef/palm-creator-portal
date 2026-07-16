@@ -31,7 +31,8 @@ export async function GET(request) {
       ? await fetchAirtableRecords('Assets', {
           filterByFormula: `OR(${assetIds.map(id => `RECORD_ID() = ${quoteAirtableString(id)}`).join(',')})`,
           fields: ['Asset Name', 'Source Type', 'Reference Source URL',
-            'Dropbox Shared Link', 'Dropbox Path (Current)', 'Thumbnail', 'Pipeline Status'],
+            'Dropbox Shared Link', 'Dropbox Path (Current)', 'Thumbnail', 'Pipeline Status',
+            'Stream Raw ID', 'Stream Edit ID'],
         })
       : []
     const assetById = Object.fromEntries(assets.map(a => [a.id, a.fields || {}]))
@@ -86,6 +87,9 @@ export async function GET(request) {
           dropboxLink: af['Dropbox Shared Link'] || '',
           dropboxPath: af['Dropbox Path (Current)'] || '',
           thumbnail: thumb,
+          // For playback: prefer the raw upload on CF Stream, fall back to the
+          // edited stream, then the Dropbox raw URL in the client.
+          streamUid: af['Stream Raw ID'] || af['Stream Edit ID'] || null,
           stageBParent: parent ? {
             id: parent.id,
             slug,
