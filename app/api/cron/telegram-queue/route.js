@@ -274,6 +274,32 @@ export async function GET(request) {
     }
   }
 
+  // SEND-FAILED AUTO-RETRY: a 'Send Failed' post used to sit in Post Prep
+  // forever (nothing re-queued it), even though most failures are transient
+  // ("fetch failed" — a video-fetch/Telegram network blip). Re-queue it up to
+  // 3 times; a genuinely-broken post (e.g. a bad video URL) fails fast 3x then
+  // stays Send Failed for manual attention. Publer-routed AI is excluded.
+  const failed = await fetchAirtableRecords('Posts', {
+    filterByFormula: `AND({Status}='Send Failed', {Posted At}='', {Pipeline Target}!='Publer', OR({Send Retries}=BLANK(), {Send Retries}<3))`,
+    fields: ['Send Retries'],
+    maxRecords: 10,
+  }).catch(err => {
+    console.warn('[telegram-queue] send-failed query failed:', err.message)
+    return []
+  })
+  for (const p of failed) {
+    try {
+      await patchAirtableRecord('Posts', p.id, {
+        'Status': 'Queued for Telegram',
+        'Send Retries': (Number(p.fields?.['Send Retries']) || 0) + 1,
+        'Sending Since': null,
+      }, { typecast: true })
+      console.log(`[telegram-queue] send-failed retry ${(Number(p.fields?.['Send Retries']) || 0) + 1}/3 on ${p.id}`)
+    } catch (e) {
+      console.warn(`[telegram-queue] failed to re-queue ${p.id}:`, e.message)
+    }
+  }
+
   // Fetch oldest queued posts. Order by Scheduled Date ASC so reels go
   // out in calendar order — important when an account has Apr 27, 28, 29
   // queued and you don't want them landing 28, 27, 29.
