@@ -165,11 +165,21 @@ async function fillMissing(sheets, tabName, fresh) {
   const res = await withRetry(() => sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID, range: `'${tabName}'!A4:L`,
   }), `trueup read ${tabName}`)
-  const have = new Set((res.data.values || []).map((r) => `${r[0] || ''}|${(parseFloat(r[3]) || 0).toFixed(2)}`))
-  const rows = fresh
-    .filter((f) => f.dtEt && !have.has(`${f.dtEt}|${f.net.toFixed(2)}`))
-    .sort((a, b) => (b.dtEt || '').localeCompare(a.dtEt || ''))
-    .map((f) => f.row)
+  // MULTISET diff, not presence: same-minute + same-net siblings share a key,
+  // so a boolean Set dropped the second one. Keep an incoming row only while the
+  // sheet is still short by one of that key (see getLastFingerprints note).
+  const remaining = new Map()
+  for (const r of (res.data.values || [])) {
+    const k = `${r[0] || ''}|${(parseFloat(r[3]) || 0).toFixed(2)}`
+    remaining.set(k, (remaining.get(k) || 0) + 1)
+  }
+  const rows = []
+  for (const f of fresh.filter((f) => f.dtEt).sort((a, b) => (b.dtEt || '').localeCompare(a.dtEt || ''))) {
+    const k = `${f.dtEt}|${f.net.toFixed(2)}`
+    const have = remaining.get(k) || 0
+    if (have > 0) { remaining.set(k, have - 1); continue }
+    rows.push(f.row)
+  }
   await insertRowsAtTop(sheets, tabName, rows)
   return rows.length
 }

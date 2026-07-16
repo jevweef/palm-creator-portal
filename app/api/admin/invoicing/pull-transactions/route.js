@@ -27,10 +27,14 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorRecordId, accountName } = await request.json()
+    const { creatorRecordId, accountName, sinceDate } = await request.json()
     if (!creatorRecordId || !accountName) {
       return NextResponse.json({ error: 'creatorRecordId and accountName required' }, { status: 400 })
     }
+    // Optional override: force the pull window back to `sinceDate` (YYYY-MM-DD)
+    // to recover a MID-RANGE gap the normal cutoff-minus-4d window won't reach.
+    // The multiset dedup makes re-covering already-present days harmless.
+    const sinceOverride = sinceDate ? new Date(`${sinceDate}T00:00:00Z`) : null
 
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorRecordId)}`,
@@ -58,9 +62,10 @@ export async function POST(request) {
       // makes the overlap harmless), or 365 days on an empty tab.
       const cutoff = await getCutoff(sheets, tabName)
       const end = new Date()
-      const start = cutoff
-        ? new Date(cutoff.getTime() - 4 * 86400000)
-        : new Date(end.getTime() - 365 * 86400000)
+      const start = sinceOverride
+        || (cutoff
+          ? new Date(cutoff.getTime() - 4 * 86400000)
+          : new Date(end.getTime() - 365 * 86400000))
 
       const exp = await createDataExport({
         type: exportType,
@@ -117,10 +122,18 @@ export async function POST(request) {
         } catch { /* usernames stay blank like deleted accounts in HTML flow */ }
       }
 
-      // Dedup — same fingerprint as the HTML upload (datetime|net|displayName),
-      // against the tab's recent rows.
-      const existingFps = await getLastFingerprints(sheets, tabName)
-      const fresh = txns.filter((t) => !existingFps.has(txnFingerprint(t.dateTimeEt, t.net, t.displayName)))
+      // Dedup — MULTISET diff against the tab's recent rows. The fingerprint
+      // (datetime|net|displayName) collides when a fan makes two identical-value
+      // transactions in the same minute; a boolean check dropped the sibling, so
+      // we instead keep an incoming row only while the sheet is still short by
+      // one of that fingerprint (getLastFingerprints returns counts).
+      const remainingFps = new Map(await getLastFingerprints(sheets, tabName))
+      const fresh = txns.filter((t) => {
+        const fp = txnFingerprint(t.dateTimeEt, t.net, t.displayName)
+        const have = remainingFps.get(fp) || 0
+        if (have > 0) { remainingFps.set(fp, have - 1); return false } // already in the sheet
+        return true // new — or a legit same-minute sibling the sheet is missing
+      })
         .filter((t) => !cutoff || new Date(t.dateTimeEt.replace(' ', 'T') + ':00') > new Date(cutoff.getTime() - 4 * 86400000))
 
       // Newest first, then insert at top (identical to the HTML flow).

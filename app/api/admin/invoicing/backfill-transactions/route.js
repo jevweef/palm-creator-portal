@@ -141,10 +141,20 @@ export async function POST(request) {
         } catch { /* usernames stay blank like deleted accounts */ }
       }
 
-      // Dedup against the WHOLE tab (backfill overlaps the oldest rows, not
-      // the newest, so the top-rows fingerprint window doesn't apply here).
-      const existingFps = new Set(existing.map((r) => txnFingerprint(r.dateTime, r.net, r.displayName)))
-      const fresh = txns.filter((t) => !existingFps.has(txnFingerprint(t.dateTimeEt, t.net, t.displayName)))
+      // MULTISET dedup against the WHOLE tab (backfill overlaps the oldest rows,
+      // not the newest). Counts, not presence — keep a same-minute/same-amount
+      // sibling the sheet is still short by (see getLastFingerprints note).
+      const remainingFps = new Map()
+      for (const r of existing) {
+        const fp = txnFingerprint(r.dateTime, r.net, r.displayName)
+        remainingFps.set(fp, (remainingFps.get(fp) || 0) + 1)
+      }
+      const fresh = txns.filter((t) => {
+        const fp = txnFingerprint(t.dateTimeEt, t.net, t.displayName)
+        const have = remainingFps.get(fp) || 0
+        if (have > 0) { remainingFps.set(fp, have - 1); return false }
+        return true
+      })
 
       // Newest-first within the batch, appended under the oldest existing row
       // → the whole tab stays globally newest-first. Cutoff banner untouched
