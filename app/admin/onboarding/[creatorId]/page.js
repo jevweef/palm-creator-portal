@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 // ── tiny inline icons (no emoji per house style) ──
@@ -495,7 +495,38 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
   const [busy, setBusy] = useState(null) // 'draft' | 'save' | 'copy' | 'clear' | 'compare'
   const [proposals, setProposals] = useState(null) // [{title, request, current, proposed, kind, accepted}]
   const [compare, setCompare] = useState(null) // { oldHtml, newHtml }
+  const [editor, setEditor] = useState(null)   // { editorHtml }
   const count = tile.action?.count || 0
+  const hasOverride = !!tile.action?.hasOverride
+
+  // Open the current effective contract with the body region contenteditable.
+  const openEditor = async () => {
+    setBusy('editor')
+    try {
+      const res = await fetch('/api/admin/onboarding/contract-amendments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, mode: 'get-body' }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Could not load the contract')
+      setEditor({ editorHtml: j.editorHtml })
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const saveBody = async (body) => {
+    setBusy('save-body')
+    try {
+      const res = await fetch('/api/admin/onboarding/contract-amendments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, mode: 'save-body', bodyHtml: body }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(body ? 'Contract text saved — this is now exactly what she sees and signs' : 'Hand edits cleared — back to template + amendments')
+      setEditor(null)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
 
   // Render the FULL contract twice — as saved today vs with the accepted
   // proposals — so the admin sees exactly what the creator will see.
@@ -576,11 +607,21 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={copyLink} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'copy' ? '…' : 'Copy link'}</button>
         <button onClick={() => setOpen((o) => !o)} disabled={!!busy} style={btn('rgba(232,160,160,0.14)', 'var(--palm-pink)')}>{open ? 'Close' : 'Request changes'}</button>
+        <button onClick={openEditor} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'editor' ? 'Loading…' : 'Edit text'}</button>
       </div>
-      {count > 0 && !open && (
-        <button onClick={() => save([])} disabled={!!busy} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '2px', textDecoration: 'underline' }}>
-          {busy === 'save' ? '…' : `Clear ${count} amendment${count === 1 ? '' : 's'}`}
-        </button>
+      {(count > 0 || hasOverride) && !open && (
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {count > 0 && (
+            <button onClick={() => save([])} disabled={!!busy} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '2px', textDecoration: 'underline' }}>
+              {busy === 'save' ? '…' : `Clear ${count} amendment${count === 1 ? '' : 's'}`}
+            </button>
+          )}
+          {hasOverride && (
+            <button onClick={() => saveBody('')} disabled={!!busy} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '2px', textDecoration: 'underline' }}>
+              {busy === 'save-body' ? '…' : 'Reset hand edits'}
+            </button>
+          )}
+        </div>
       )}
       {open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
@@ -631,6 +672,61 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
           acceptedCount={(proposals || []).filter((p) => p.accepted).length}
         />
       )}
+      {editor && (
+        <ContractEditorModal
+          editorHtml={editor.editorHtml}
+          onClose={() => setEditor(null)}
+          onSave={saveBody}
+          saving={busy === 'save-body'}
+        />
+      )}
+    </div>
+  )
+}
+
+// Full-document contract editor: the agreement renders true-to-life in an
+// iframe with the body sections contenteditable (dashed outline). On save we
+// read the edited region back and store it as the creator's Contract Body
+// Override — from then on that EXACT text is her wizard preview + signed PDF.
+function ContractEditorModal({ editorHtml, onClose, onSave, saving }) {
+  const frameRef = useRef(null)
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const handleSave = () => {
+    const doc = frameRef.current?.contentDocument
+    const el = doc?.getElementById('palm-editable')
+    if (!el) return
+    onSave(el.innerHTML)
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', width: 'min(980px, 100%)', height: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ padding: '13px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>Edit contract text</div>
+            <div style={{ fontSize: '11.5px', color: 'var(--foreground-muted)', marginTop: '2px' }}>Click into the dashed area and edit like a document. What you save is exactly what she sees and signs.</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--foreground-muted)', width: '28px', height: '28px', borderRadius: '7px', cursor: 'pointer', fontSize: '15px', lineHeight: 1 }}>×</button>
+        </div>
+        <iframe
+          ref={frameRef}
+          srcDoc={editorHtml}
+          title="Contract editor"
+          style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }}
+        />
+        <div style={{ padding: '11px 18px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: saving ? 'default' : 'pointer', background: '#43A047', color: '#fff', opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : 'Save contract text'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -769,6 +865,11 @@ function SurveySendAction({ tile, hqId, onboardingId, sentToTeam, onRefresh, fla
         <button onClick={() => run('preview')} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'preview' ? 'Loading…' : 'View answers'}</button>
         <button onClick={() => run('send')} disabled={!!busy} style={btn(sent ? 'rgba(67,160,71,0.18)' : '#43A047', sent ? '#43A047' : '#fff')}>{busy === 'send' ? 'Sending…' : sent ? 'Re-send' : 'Send to chat'}</button>
       </div>
+      {/* A-team CSV: the 62 CREATOR INTAKE FORM questions in Typeform order, filled
+          from this creator's onboarding answers — what we hand the A-team. */}
+      <a href={`/api/admin/onboarding/ateam-export?hqId=${hqId}`} style={{ ...btn('rgba(90,140,255,0.14)', '#7ea6ff'), textDecoration: 'none', textAlign: 'center', pointerEvents: hqId ? 'auto' : 'none' }}>
+        Download A-Team CSV
+      </a>
       <button onClick={markSent} disabled={!!busy} style={{ ...btn('transparent', 'var(--foreground-subtle)'), fontSize: '11px', fontWeight: 600, padding: '3px', textDecoration: 'underline' }}>
         {busy === 'mark' ? '…' : sent ? 'Unmark sent' : 'Mark as already sent'}
       </button>

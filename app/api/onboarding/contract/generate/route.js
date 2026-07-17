@@ -38,6 +38,7 @@ export async function GET(request) {
 
     const contractData = {
       amendments,
+      bodyOverride: c['Contract Body Override'] || '',
       creatorName: c['Creator'] || '',
       commissionPct: c['Commission %'] || 0,
       commissionTier,

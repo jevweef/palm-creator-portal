@@ -40,6 +40,7 @@ export async function POST(request) {
 
     const contractData = {
       amendments,
+      bodyOverride: c['Contract Body Override'] || '',
       creatorName,
       commissionPct: c['Commission %'] || 0,
       commissionTier,

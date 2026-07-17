@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAdmin } from '@/lib/adminAuth'
 import { fetchHqRecord, patchHqRecord } from '@/lib/hqAirtable'
-import { buildContractHtml, renderContract } from '@/lib/generateContractPdf'
+import { buildContractHtml, renderContract, contractBodyBounds } from '@/lib/generateContractPdf'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -15,7 +15,11 @@ const strip = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, 
 function contractDataFor(c) {
   let commissionTier = null
   try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch { /* ignore */ }
+  let savedAmendments = []
+  try { savedAmendments = c['Contract Amendments'] ? JSON.parse(c['Contract Amendments']) : [] } catch { /* ignore */ }
   return {
+    amendments: savedAmendments,
+    bodyOverride: c['Contract Body Override'] || '',
     creatorName: c['Creator'] || '',
     commissionPct: c['Commission %'] || 0,
     commissionTier,
@@ -51,7 +55,7 @@ function editableRegion(html) {
 export async function POST(request) {
   try {
     await requireAdmin()
-    const { hqId, mode, requestText, amendments, highlight } = await request.json()
+    const { hqId, mode, requestText, amendments, highlight, bodyHtml } = await request.json()
     if (!hqId || !/^rec[A-Za-z0-9]{14}$/.test(hqId)) {
       return NextResponse.json({ error: 'valid hqId required' }, { status: 400 })
     }
@@ -59,12 +63,46 @@ export async function POST(request) {
     if (mode === 'preview') {
       const record = await fetchHqRecord(HQ_CREATORS, hqId)
       const c = record.fields || {}
-      let source = amendments
-      if (!Array.isArray(source)) {
-        try { source = c['Contract Amendments'] ? JSON.parse(c['Contract Amendments']) : [] } catch { source = [] }
-      }
-      const html = renderContract({ ...contractDataFor(c), amendments: source }, { highlight: !!highlight })
+      const data = contractDataFor(c)
+      // Explicit amendments array = previewing a PROSPECTIVE AI set → show the
+      // template + that set (drop any hand-edit so the changes are visible).
+      // Omitted = the true current state (hand-edit wins if present).
+      const html = Array.isArray(amendments)
+        ? renderContract({ ...data, amendments, bodyOverride: '' }, { highlight: !!highlight })
+        : renderContract(data, { highlight: !!highlight })
       return NextResponse.json({ success: true, html })
+    }
+
+    // mode: 'get-body' — the current effective contract with the body region
+    // wrapped contenteditable, for the in-place text editor modal.
+    if (mode === 'get-body') {
+      const record = await fetchHqRecord(HQ_CREATORS, hqId)
+      const c = record.fields || {}
+      const html = renderContract(contractDataFor(c))
+      const b = contractBodyBounds(html)
+      if (!b) return NextResponse.json({ error: 'Could not locate the editable region' }, { status: 500 })
+      const editorHtml =
+        html.slice(0, b.start) +
+        '<div id="palm-editable" contenteditable="true" spellcheck="false" style="outline: 2px dashed rgba(194,96,122,0.45); outline-offset: 8px; border-radius: 4px;">' +
+        html.slice(b.start, b.end) +
+        '</div>' +
+        html.slice(b.end)
+      return NextResponse.json({ success: true, editorHtml, hasOverride: !!(c['Contract Body Override'] || '').trim() })
+    }
+
+    // mode: 'save-body' — persist the hand-edited body (empty string clears →
+    // falls back to template + amendments).
+    if (mode === 'save-body') {
+      const body = String(bodyHtml || '').trim()
+      if (body.length > 150000) {
+        return NextResponse.json({ error: 'Edited contract too large' }, { status: 400 })
+      }
+      // Admin-authored, but strip anything executable as a precaution.
+      const safe = body
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/\son[a-z]+="[^"]*"/gi, '')
+      await patchHqRecord(HQ_CREATORS, hqId, { 'Contract Body Override': safe })
+      return NextResponse.json({ success: true, cleared: !safe })
     }
 
     if (mode === 'save') {
