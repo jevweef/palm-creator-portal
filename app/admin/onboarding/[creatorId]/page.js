@@ -282,6 +282,7 @@ export default function OnboardingWorkspace() {
                   hqId={hqId}
                   onboardingId={onboardingId}
                   creatorAka={creator?.aka}
+                  opsId={creator?.opsId}
                   onRefresh={load}
                   flash={flash}
                 />
@@ -313,7 +314,7 @@ export default function OnboardingWorkspace() {
   )
 }
 
-function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, creatorAka, onRefresh, flash }) {
+function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, creatorAka, opsId, onRefresh, flash }) {
   const a = tile.action
   const isNa = tile.status === 'na'
   const blocked = tile.blocked
@@ -373,6 +374,8 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <OfLoginAction tile={tile} hqId={hqId} onboardingId={onboardingId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'survey-send' ? (
           <SurveySendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'toggle-social' ? (
+          <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'telegram-assign' ? (
           <TelegramAssignAction tile={tile} hqId={hqId} onboardingId={onboardingId} creatorAka={creatorAka} onRefresh={onRefresh} flash={flash} />
         ) : a ? (
@@ -475,6 +478,44 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// Inline Yes/No for "Social media managed?" — flips the same `Social Media
+// Editing` flag the dashboard "Editor" toggle writes (via the pipeline PATCH),
+// so you can decide it right on the onboarding card instead of leaving to the
+// profile. The board re-renders after, collapsing/expanding social-only steps.
+function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const on = tile.status === 'done' // done ⟺ Social Media Editing = true
+
+  const set = async (value) => {
+    if (busy || value === on) return
+    if (!opsId) { flash('No Ops creator record for this creator yet'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/creators/pipeline', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: opsId, socialMediaEditing: value }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Update failed')
+      flash(value ? 'Palm runs their socials — social steps enabled' : 'Socials not managed — social steps hidden')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  const seg = (active, activeBg) => ({
+    flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 700, borderRadius: '7px',
+    border: 'none', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+    background: active ? activeBg : 'rgba(255,255,255,0.05)',
+    color: active ? '#fff' : 'var(--foreground-muted)',
+  })
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <button onClick={() => set(true)} disabled={busy} style={seg(on, '#43A047')}>Yes</button>
+      <button onClick={() => set(false)} disabled={busy} style={seg(!on, '#8a6b74')}>No</button>
     </div>
   )
 }

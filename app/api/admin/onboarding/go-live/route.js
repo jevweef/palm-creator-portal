@@ -1,13 +1,41 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdmin, fetchAirtableRecords } from '@/lib/adminAuth'
 import { fetchHqRecord, patchHqRecord } from '@/lib/hqAirtable'
 import { getOrCreateOnboardingRecord } from '@/lib/creatorSetup'
 import { computePhase1, computeReadiness } from '@/lib/onboarding/checklist'
+import { quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
+const OPS_PALM_CREATORS = 'Palm Creators'
+
+// Is Palm running this creator's socials? Lives on the Ops Palm Creators record
+// (same flag the dashboard "Editor" toggle writes). Needed so the go-live gate
+// doesn't require social-only tasks (bios/pics/first-week/QA) for OF-only creators.
+async function isSocialManaged(hqId, name, aka) {
+  try {
+    const byLink = await fetchAirtableRecords(OPS_PALM_CREATORS, {
+      filterByFormula: `{HQ Record ID}='${hqId}'`, maxRecords: 1,
+    })
+    let rec = byLink[0]
+    if (!rec) {
+      const clauses = []
+      if (name) clauses.push(`{Creator}=${quoteAirtableString(name)}`)
+      if (aka) clauses.push(`{AKA}=${quoteAirtableString(aka)}`)
+      if (clauses.length) {
+        const byName = await fetchAirtableRecords(OPS_PALM_CREATORS, {
+          filterByFormula: `OR(${clauses.join(',')})`, maxRecords: 1,
+        })
+        rec = byName[0]
+      }
+    }
+    return rec?.fields?.['Social Media Editing'] === true
+  } catch {
+    return true // fail safe: keep the full (stricter) gate if lookup fails
+  }
+}
 
 /**
  * POST /api/admin/onboarding/go-live
@@ -34,8 +62,10 @@ export async function POST(request) {
     const creator = await fetchHqRecord(HQ_CREATORS, hqId)
     const ob = await getOrCreateOnboardingRecord(hqId, creator.fields['Creator'] || creator.fields['AKA'] || '')
 
-    const phase1 = computePhase1(creator.fields || {}, ob.fields || {})
-    const { ready, missing } = computeReadiness(phase1, ob.fields || {})
+    const cf = creator.fields || {}
+    const socialManaged = await isSocialManaged(hqId, cf['Creator'] || '', cf['AKA'] || '')
+    const phase1 = computePhase1(cf, ob.fields || {})
+    const { ready, missing } = computeReadiness(phase1, ob.fields || {}, socialManaged)
 
     if (!ready) {
       return NextResponse.json(

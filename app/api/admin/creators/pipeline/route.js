@@ -2,6 +2,13 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
+import { fetchHqRecords } from '@/lib/hqAirtable'
+import { PHASE3_ITEMS } from '@/lib/onboarding/checklist'
+
+const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
+// Social-only go-live tasks a creator still owes once Palm runs their socials.
+// Derived from the checklist so the dashboard nudge never drifts from the board.
+const SOCIAL_REQUIRED_FIELDS = PHASE3_ITEMS.filter((it) => it.required && it.socialOnly).map((it) => it.field)
 
 // GET — list ALL Palm Creators with their pipeline flag + readiness indicators.
 // Used by the Admin Dashboard "Pipeline Status" panel to add/remove creators
@@ -12,7 +19,7 @@ export async function GET() {
   try {
     // Pull Active + Onboarding creators. Churned/Inactive roster entries stay
     // in Airtable for history but shouldn't clutter the admin's live controls.
-    const [creators, igAccounts] = await Promise.all([
+    const [creators, igAccounts, onboardings] = await Promise.all([
       fetchAirtableRecords('Palm Creators', {
         filterByFormula: `OR({Status}='Active',{Status}='Onboarding')`,
         fields: [
@@ -20,7 +27,7 @@ export async function GET() {
           'TJP Enabled',
           'Weekly Reel Quota', 'Telegram Thread ID',
           'Profile Summary', 'Music DNA Processed',
-          'Communication Chat',
+          'Communication Chat', 'HQ Record ID',
         ],
       }),
       // Only count accounts that actually exist — i.e. have a real handle.
@@ -31,6 +38,9 @@ export async function GET() {
         filterByFormula: `AND({Platform}='Instagram',{Managed by Palm}=1,{Status}!='Does Not Exist',OR({Handle Override}!='',{Handle/ Username}!='',{URL}!=''))`,
         fields: ['Creator', 'Platform', 'Account Name', 'Handle/ Username', 'Handle Override', 'URL'],
       }),
+      // HQ Onboarding records — social-only setup tasks, to flag creators whose
+      // socials Palm runs but whose social setup isn't finished (the nudge).
+      fetchHqRecords(HQ_ONBOARDING, { fields: ['Creator', ...SOCIAL_REQUIRED_FIELDS] }).catch(() => []),
     ])
 
     // Count IG accounts per creator
@@ -41,10 +51,24 @@ export async function GET() {
       }
     }
 
+    // Index onboarding records by their linked HQ creator id.
+    const obByHq = {}
+    for (const ob of onboardings) {
+      const link = ob.fields?.Creator
+      if (Array.isArray(link) && link[0]) obByHq[link[0]] = ob.fields || {}
+    }
+
     const result = creators.map(c => {
       const f = c.fields || {}
+      const hqId = f['HQ Record ID'] || ''
+      const ob = obByHq[hqId] || {}
+      // How many social-only go-live tasks are still open (only meaningful when
+      // Palm runs their socials — the dashboard shows the nudge in that case).
+      const socialStepsRemaining = SOCIAL_REQUIRED_FIELDS.filter((field) => ob[field] !== true).length
       return {
         id: c.id,
+        hqId,
+        socialStepsRemaining,
         name: f.AKA || f.Creator || '(unnamed)',
         status: f.Status || '',
         socialMediaEditing: !!f['Social Media Editing'],
