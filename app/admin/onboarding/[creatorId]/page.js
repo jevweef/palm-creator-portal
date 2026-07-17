@@ -502,14 +502,16 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
   const openCompare = async () => {
     setBusy('compare')
     try {
-      const accepted = (proposals || []).filter((p) => p.accepted).map((p) => ({ title: p.title, text: p.proposed }))
+      const accepted = (proposals || []).filter((p) => p.accepted).map((p) => (
+        p.applied ? { title: p.title, find: p.find, replace: p.replace } : { title: p.title, text: p.text || p.proposed }
+      ))
       const call = (body) => fetch('/api/admin/onboarding/contract-amendments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Preview failed'); return j.html })
       const [oldHtml, newHtml] = await Promise.all([
-        call({ hqId, mode: 'preview' }),                       // saved state (what she sees today)
-        call({ hqId, mode: 'preview', amendments: accepted }), // with accepted proposals
+        call({ hqId, mode: 'preview' }),                                        // saved state (what she sees today)
+        call({ hqId, mode: 'preview', amendments: accepted, highlight: true }), // accepted edits, changes highlighted
       ])
       setCompare({ oldHtml, newHtml })
     } catch (err) { flash(err.message) } finally { setBusy(null) }
@@ -547,7 +549,9 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
   const save = async (list) => {
     setBusy('save')
     try {
-      const accepted = (list || proposals || []).filter((p) => p.accepted).map((p) => ({ title: p.title, text: p.proposed }))
+      const accepted = (list || proposals || []).filter((p) => p.accepted).map((p) => (
+        p.applied ? { title: p.title, find: p.find, replace: p.replace } : { title: p.title, text: p.text || p.proposed }
+      ))
       const res = await fetch('/api/admin/onboarding/contract-amendments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hqId, mode: 'save', amendments: accepted }),
@@ -596,6 +600,9 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
                   <input type="checkbox" checked={p.accepted} onChange={(e) => setProposals((ps) => ps.map((x, j) => j === i ? { ...x, accepted: e.target.checked } : x))} />
                   <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>{p.title}</span>
                   <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', color: k.color, border: `1px solid ${k.color}55`, borderRadius: '4px', padding: '1px 5px' }}>{k.label}</span>
+                  {!p.applied && (
+                    <span title="No clean in-place match — this one gets added as a numbered amendment at the end instead" style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--foreground-subtle)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '1px 5px' }}>ADDS AT END</span>
+                  )}
                 </label>
                 {p.current && <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '3px' }}>Now: {p.current}</div>}
                 <div style={{ fontSize: '11.5px', color: 'var(--foreground)', lineHeight: 1.45 }}>{p.proposed}</div>

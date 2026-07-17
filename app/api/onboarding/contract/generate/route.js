@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchHqRecord } from '@/lib/hqAirtable'
-import { buildContractHtml } from '@/lib/generateContractPdf'
+import { renderContract } from '@/lib/generateContractPdf'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
 
@@ -60,7 +60,7 @@ export async function GET(request) {
     }
 
     // Return the contract HTML for in-browser preview
-    const html = buildContractHtml(contractData)
+    const html = renderContract(contractData)
 
     return NextResponse.json({
       html,
