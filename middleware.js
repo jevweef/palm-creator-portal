@@ -5,6 +5,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/onboarding',
+  // Public creator link-in-bio pages + their gate/resolve (no auth).
+  '/l/(.*)',
+  '/api/l/(.*)',
   '/api/webhooks(.*)',
   '/api/onboarding/validate-token(.*)',
   '/api/admin/apify-callback(.*)',

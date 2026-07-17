@@ -50,6 +50,8 @@ export default function Header() {
   const hqSuffix = hqId ? `?hqId=${hqId}` : ''
 
   if (pathname?.startsWith('/sign-') || pathname?.startsWith('/onboarding')) return null
+  // Public creator link-in-bio pages are standalone — no Palm app chrome.
+  if (pathname?.startsWith('/l/')) return null
   // The chat-manager section has its own left sidebar (Palm + greeting + tab
   // menu), so the global top header is redundant here — hiding it removes the
   // double "Palm" and the stale "Photo Library" label (the section is more
