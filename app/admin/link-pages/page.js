@@ -21,7 +21,7 @@ const BLANK = () => ({
   links: [],
 })
 
-const PLATFORMS = ['OnlyFans', 'Instagram', 'TikTok', 'Twitter', 'Threads', 'Snapchat', 'YouTube', 'Fanvue', 'Amazon', 'link']
+const PLATFORMS = ['OnlyFans', 'Instagram', 'TikTok', 'Twitter', 'Threads', 'Snapchat', 'YouTube', 'Patreon', 'Spotify', 'Twitch', 'Kick', 'Discord', 'Telegram', 'Fanvue', 'Amazon', 'link']
 
 export default function LinkPagesAdmin() {
   const [pages, setPages] = useState([])
@@ -136,7 +136,7 @@ export default function LinkPagesAdmin() {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Link Pages</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Multi-Link</h1>
         <button onClick={startNew} style={btnPrimary}>+ New page</button>
       </div>
       <p style={{ color: 'var(--foreground-muted)', fontSize: 13, marginTop: 0, marginBottom: 20 }}>
