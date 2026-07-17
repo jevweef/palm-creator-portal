@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/adminAuth'
 import { fetchHqRecords, createHqRecord, patchHqRecord } from '@/lib/hqAirtable'
-import { createAirtableRecord } from '@/lib/adminAuth'
+import { createAirtableRecord, patchAirtableRecord } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
 
 const HQ_CREATORS = 'tblYhkNvrNuOAHfgw'
@@ -79,12 +79,20 @@ export async function POST(request) {
       })
     })()
 
+    // Set the Ops→HQ back-link at the START of onboarding (not only at
+    // completion). Creator-page features that resolve hqId from the Ops record
+    // (Upload Social card, dashboard "social steps" nudge, etc.) need it, and we
+    // routinely work a creator before they finish onboarding.
     let opsId
     if (opsExisting.length > 0) {
       opsId = opsExisting[0].id
+      if (!opsExisting[0].fields?.['HQ Record ID']) {
+        try { await patchAirtableRecord(OPS_CREATORS, opsId, { 'HQ Record ID': hqId }) } catch { /* non-fatal */ }
+      }
     } else {
       const opsRecord = await createAirtableRecord(OPS_CREATORS, {
         'Creator': name,
+        'HQ Record ID': hqId,
       })
       opsId = opsRecord.id
     }

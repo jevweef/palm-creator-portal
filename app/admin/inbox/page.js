@@ -1125,6 +1125,14 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const scrollRef = useRef(null)
+  // Whether the reader is pinned to the bottom. The 10s poll should only
+  // auto-scroll to the newest message if they're ALREADY at the bottom —
+  // otherwise it yanks them down mid-read. Updated on every manual scroll.
+  const atBottomRef = useRef(true)
+  const onMessagesScroll = () => {
+    const el = scrollRef.current
+    if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
 
   // Privacy: client-side guard. If the chat row in our list is already
   // marked Ignored, don't even ask the server. The server also blocks
@@ -1157,6 +1165,7 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
   useEffect(() => {
     setMessages([])
     setBlocked(null)
+    atBottomRef.current = true // opening a chat starts pinned to the newest
     loadMessages(false)
     // Auto-poll while a chat is open so backfills + new messages show without
     // a manual refresh. Skip polling for ignored chats.
@@ -1165,9 +1174,10 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
     return () => clearInterval(id)
   }, [chat?.id, isIgnored])
 
-  // Auto-scroll to bottom when messages load
+  // Scroll to the newest message ONLY when the reader is already at the bottom.
+  // If they've scrolled up to read history, a poll refresh leaves them put.
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && atBottomRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
@@ -1316,7 +1326,7 @@ function ChatThread({ chat, onUpdate, toast, creators }) {
       </div>
 
       {/* Message thread */}
-      <div ref={scrollRef} style={{
+      <div ref={scrollRef} onScroll={onMessagesScroll} style={{
         flex: 1, overflowY: 'auto',
         padding: '12px 0',
       }}>

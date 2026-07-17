@@ -19,13 +19,13 @@ export async function GET() {
       }),
     ])
 
-    // Only ACTIVE managed creators (leads/paused/offboarded have no whale work).
-    // Connected accounts always show — keeps the test account visible even if
-    // its status ever changes.
+    // ACTIVE + ONBOARDING managed creators (leads/paused/offboarded have no
+    // whale work). Onboarding creators show so newly-signed ones auto-appear as
+    // they're connected. Connected accounts always show regardless of status.
     const creatorList = creators
       .filter((c) => {
         const status = typeof c.fields?.Status === 'string' ? c.fields.Status : c.fields?.Status?.name
-        return status === 'Active' || !!c.fields?.['OF API Account ID']
+        return status === 'Active' || status === 'Onboarding' || !!c.fields?.['OF API Account ID']
       })
       .map((c) => ({
         id: c.id,

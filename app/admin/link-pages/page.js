@@ -31,7 +31,14 @@ export default function LinkPagesAdmin() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [pulling, setPulling] = useState(false)
+  const [importUrl, setImportUrl] = useState('')
+  const [importing, setImporting] = useState(false)
   const [domainState, setDomainState] = useState(null) // {checking, available, price, period, message}
+  // Dropbox photo picker modal. pickerFor = 'cover' | 'avatar' | {link:i} | null
+  const [pickerFor, setPickerFor] = useState(null)
+  const [pickerPhotos, setPickerPhotos] = useState([])
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerNote, setPickerNote] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -71,6 +78,27 @@ export default function LinkPagesAdmin() {
     return { ...e, links }
   })
 
+  // Dropbox photo picker — lists the selected creator's profile-photos folder.
+  const openPicker = async (target) => {
+    if (!editing?.creatorId) { setMsg('Pick a creator first to browse their Dropbox photos.'); return }
+    const name = creatorName[editing.creatorId]
+    setPickerFor(target); setPickerPhotos([]); setPickerNote(''); setPickerLoading(true)
+    try {
+      const r = await fetch(`/api/admin/link-pages/photos?name=${encodeURIComponent(name || '')}`)
+      const d = await r.json()
+      if (!r.ok) { setPickerNote(d.error || 'Could not load photos'); return }
+      setPickerPhotos(d.photos || [])
+      if (!d.photos?.length) setPickerNote(d.note || 'No photos found in this creator’s Dropbox folder.')
+    } catch { setPickerNote('Could not load photos.') }
+    finally { setPickerLoading(false) }
+  }
+  const applyPicked = (url) => {
+    if (pickerFor === 'cover') setField('coverImageUrl', url)
+    else if (pickerFor === 'avatar') setField('avatarUrl', url)
+    else if (pickerFor && typeof pickerFor === 'object') setLink(pickerFor.link, 'image', url)
+    setPickerFor(null)
+  }
+
   const pullSocials = async () => {
     if (!editing?.creatorId) { setMsg('Pick a creator first to pull their socials.'); return }
     setPulling(true)
@@ -95,6 +123,31 @@ export default function LinkPagesAdmin() {
       setMsg('Could not pull socials.')
     } finally {
       setPulling(false)
+    }
+  }
+
+  // Scrape an existing link-in-bio page (Linktree / link.me / Beacons / etc.),
+  // detect each link's platform for the right icon, and merge in the new ones.
+  const importFromUrl = async () => {
+    const url = importUrl.trim()
+    if (!/^https?:\/\//i.test(url)) { setMsg('Paste a full link-in-bio URL (https://…).'); return }
+    setImporting(true)
+    try {
+      const r = await fetch(`/api/admin/link-pages/scrape?url=${encodeURIComponent(url)}`)
+      const d = await r.json()
+      if (!r.ok) { setMsg(d.error || 'Could not read that page.'); return }
+      const existing = new Set((editing?.links || []).map((l) => (l.url || '').trim().toLowerCase().replace(/\/$/, '')))
+      const fresh = (d.links || [])
+        .filter((l) => l.url && !existing.has(l.url.trim().toLowerCase().replace(/\/$/, '')))
+        .map((l) => ({ id: null, label: l.label || l.platform, url: l.url, platform: l.platform || 'link', gated: !!l.gated }))
+      if (!fresh.length) { setMsg('No new links found on that page.'); return }
+      setEditing((e) => ({ ...e, links: [...e.links, ...fresh] }))
+      setImportUrl('')
+      setMsg(`Imported ${fresh.length} link${fresh.length === 1 ? '' : 's'}.`)
+    } catch (err) {
+      setMsg('Could not read that page.')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -207,8 +260,12 @@ export default function LinkPagesAdmin() {
               <Field label="Handle (shown under name)">
                 <input value={editing.handle} onChange={(e) => setField('handle', e.target.value)} placeholder="@juliafilippo" style={input} />
               </Field>
-              <Field label="Cover photo — the big hero image (Dropbox raw or image URL)" wide>
-                <input value={editing.coverImageUrl} onChange={(e) => setField('coverImageUrl', e.target.value)} placeholder="https://…/hero.jpg" style={input} />
+              <Field label="Cover photo — the big hero image" wide>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {editing.coverImageUrl && <img src={editing.coverImageUrl} alt="" style={thumb} />}
+                  <input value={editing.coverImageUrl} onChange={(e) => setField('coverImageUrl', e.target.value)} placeholder="https://…/hero.jpg  — or Choose from Dropbox →" style={input} />
+                  <button type="button" onClick={() => openPicker('cover')} style={btnGhost}>Dropbox</button>
+                </div>
               </Field>
               <Field label="Theme">
                 <select value={editing.theme} onChange={(e) => setField('theme', e.target.value)} style={input}>
@@ -222,7 +279,11 @@ export default function LinkPagesAdmin() {
                 </label>
               </Field>
               <Field label="Fallback avatar (used if no cover photo)" wide>
-                <input value={editing.avatarUrl} onChange={(e) => setField('avatarUrl', e.target.value)} placeholder="https://…/avatar.jpg" style={input} />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {editing.avatarUrl && <img src={editing.avatarUrl} alt="" style={thumb} />}
+                  <input value={editing.avatarUrl} onChange={(e) => setField('avatarUrl', e.target.value)} placeholder="https://…/avatar.jpg  — or Choose from Dropbox →" style={input} />
+                  <button type="button" onClick={() => openPicker('avatar')} style={btnGhost}>Dropbox</button>
+                </div>
               </Field>
               <Field label="Bio" wide>
                 <textarea value={editing.bio} onChange={(e) => setField('bio', e.target.value)} rows={2} placeholder="Short intro line" style={{ ...input, resize: 'vertical' }} />
@@ -237,6 +298,19 @@ export default function LinkPagesAdmin() {
                   <button onClick={pullSocials} disabled={pulling} style={btnGhost}>{pulling ? 'Pulling…' : 'Pull socials'}</button>
                   <button onClick={addLink} style={btnGhost}>+ Add link</button>
                 </div>
+              </div>
+              {/* Import from an existing link-in-bio page (Linktree / link.me / Beacons…) */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); importFromUrl() } }}
+                  placeholder="Paste an existing link-in-bio URL to import (Linktree, link.me, Beacons…)"
+                  style={{ ...input, flex: 1, padding: '7px 9px' }}
+                />
+                <button onClick={importFromUrl} disabled={importing || !importUrl.trim()} style={btnGhost}>
+                  {importing ? 'Importing…' : 'Import'}
+                </button>
               </div>
               {editing.links.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--foreground-muted)', padding: '8px 0' }}>No links yet. Add one, or pull the creator&apos;s socials.</div>
@@ -258,7 +332,11 @@ export default function LinkPagesAdmin() {
                       <button onClick={() => removeLink(i)} style={{ ...iconBtn, color: '#e88' }} title="Remove">✕</button>
                     </div>
                   </div>
-                  <input value={l.image || ''} onChange={(e) => setLink(i, 'image', e.target.value)} placeholder="Optional photo URL — makes this a full-bleed image tile (great for the gated 'More of me')" style={{ ...input, padding: '6px 8px', marginTop: 6, fontSize: 12 }} />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                    {l.image && <img src={l.image} alt="" style={thumb} />}
+                    <input value={l.image || ''} onChange={(e) => setLink(i, 'image', e.target.value)} placeholder="Optional photo — makes this a full-bleed tile (great for the gated 'More of me')" style={{ ...input, padding: '6px 8px', fontSize: 12 }} />
+                    <button type="button" onClick={() => openPicker({ link: i })} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11 }}>Dropbox</button>
+                  </div>
                 </div>
               ))}
               <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 4 }}>
@@ -304,6 +382,37 @@ export default function LinkPagesAdmin() {
           </div>
         )}
       </div>
+
+      {/* Dropbox photo picker modal */}
+      {pickerFor && (
+        <div onClick={() => setPickerFor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--background, #0d0d0f)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, width: '100%', maxWidth: 720, maxHeight: '82vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+                Choose a photo{editing?.creatorId ? ` — ${creatorName[editing.creatorId] || ''}` : ''}
+              </div>
+              <button onClick={() => setPickerFor(null)} style={iconBtn}>✕</button>
+            </div>
+            <div style={{ padding: 18, overflowY: 'auto' }}>
+              {pickerLoading ? (
+                <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 20, textAlign: 'center' }}>Loading photos from Dropbox…</div>
+              ) : pickerPhotos.length === 0 ? (
+                <div style={{ color: 'var(--foreground-muted)', fontSize: 13, padding: 20, textAlign: 'center' }}>{pickerNote || 'No photos found.'}</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+                  {pickerPhotos.map((p) => (
+                    <button key={p.url} onClick={() => applyPicked(p.url)} title={p.name}
+                      style={{ padding: 0, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#111', aspectRatio: '1', position: 'relative' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -326,3 +435,4 @@ const sectionHead = { padding: '10px 14px', fontSize: 11, fontWeight: 700, textT
 const btnPrimary = { padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--palm-pink, #E88FAC)', color: '#1a0e12', fontSize: 13, fontWeight: 700, cursor: 'pointer' }
 const btnGhost = { padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)', background: 'transparent', color: 'var(--foreground)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
 const iconBtn = { width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer', padding: 0 }
+const thumb = { width: 34, height: 34, borderRadius: 7, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.14)', flexShrink: 0 }

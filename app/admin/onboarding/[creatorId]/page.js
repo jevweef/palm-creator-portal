@@ -373,7 +373,7 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
         ) : a?.type === 'of-login' ? (
           <OfLoginAction tile={tile} hqId={hqId} onboardingId={onboardingId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'survey-send' ? (
-          <SurveySendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+          <SurveySendAction tile={tile} hqId={hqId} onboardingId={onboardingId} sentToTeam={a.sentToTeam} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
           <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'telegram-assign' ? (
@@ -523,10 +523,12 @@ function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
 // Survey → chat team card: Preview (renders the answered Q&A in an in-app modal)
 // and Send (deliver to the Palm Chatting group + stamp). Both call the local-only
 // route; preview no longer opens Numbers/Acrobat.
-function SurveySendAction({ tile, hqId, onRefresh, flash }) {
-  const [busy, setBusy] = useState(null) // 'preview' | 'send'
+function SurveySendAction({ tile, hqId, onboardingId, sentToTeam, onRefresh, flash }) {
+  const [busy, setBusy] = useState(null) // 'preview' | 'send' | 'mark'
   const [preview, setPreview] = useState(null) // { items, answered, total, creator, team, skipped }
-  const sent = tile.status === 'done'
+  // "sent" now tracks whether it went to the chat TEAM (not the card's overall
+  // done state, which reflects survey submission on the merged card).
+  const sent = !!sentToTeam
 
   const run = async (mode) => {
     setBusy(mode)
@@ -546,12 +548,33 @@ function SurveySendAction({ tile, hqId, onRefresh, flash }) {
     } catch (err) { flash(err.message) } finally { setBusy(null) }
   }
 
+  // Manual "already handled it" — flips Survey Sent to Chat Team without sending
+  // anything (for creators onboarded before this flow, or already delivered).
+  const markSent = async () => {
+    if (!onboardingId) { flash('No onboarding record yet'); return }
+    setBusy('mark')
+    try {
+      const res = await fetch('/api/admin/onboarding/checklist', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingId, fields: { 'Survey Sent to Chat Team': !sent, 'Survey Sent to Chat Team At': sent ? null : new Date().toISOString() } }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Update failed')
+      flash(sent ? 'Marked not sent' : 'Marked sent to chat team')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
   const btn = (bg, color) => ({ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: bg, color, opacity: busy ? 0.6 : 1 })
 
   return (
-    <div style={{ display: 'flex', gap: '6px' }}>
-      <button onClick={() => run('preview')} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'preview' ? 'Building…' : 'Preview'}</button>
-      <button onClick={() => run('send')} disabled={!!busy} style={btn(sent ? 'rgba(67,160,71,0.18)' : '#43A047', sent ? '#43A047' : '#fff')}>{busy === 'send' ? 'Sending…' : sent ? 'Re-send' : 'Send to chat'}</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={() => run('preview')} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'preview' ? 'Loading…' : 'View answers'}</button>
+        <button onClick={() => run('send')} disabled={!!busy} style={btn(sent ? 'rgba(67,160,71,0.18)' : '#43A047', sent ? '#43A047' : '#fff')}>{busy === 'send' ? 'Sending…' : sent ? 'Re-send' : 'Send to chat'}</button>
+      </div>
+      <button onClick={markSent} disabled={!!busy} style={{ ...btn('transparent', 'var(--foreground-subtle)'), fontSize: '11px', fontWeight: 600, padding: '3px', textDecoration: 'underline' }}>
+        {busy === 'mark' ? '…' : sent ? 'Unmark sent' : 'Mark as already sent'}
+      </button>
       {preview && <SurveyPreviewModal data={preview} onClose={() => setPreview(null)} onSend={async () => { setPreview(null); await run('send') }} sending={busy === 'send'} sent={sent} />}
     </div>
   )
