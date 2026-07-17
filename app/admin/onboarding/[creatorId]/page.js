@@ -492,9 +492,28 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
 function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
   const [open, setOpen] = useState(false)
   const [reqText, setReqText] = useState('')
-  const [busy, setBusy] = useState(null) // 'draft' | 'save' | 'copy' | 'clear'
+  const [busy, setBusy] = useState(null) // 'draft' | 'save' | 'copy' | 'clear' | 'compare'
   const [proposals, setProposals] = useState(null) // [{title, request, current, proposed, kind, accepted}]
+  const [compare, setCompare] = useState(null) // { oldHtml, newHtml }
   const count = tile.action?.count || 0
+
+  // Render the FULL contract twice — as saved today vs with the accepted
+  // proposals — so the admin sees exactly what the creator will see.
+  const openCompare = async () => {
+    setBusy('compare')
+    try {
+      const accepted = (proposals || []).filter((p) => p.accepted).map((p) => ({ title: p.title, text: p.proposed }))
+      const call = (body) => fetch('/api/admin/onboarding/contract-amendments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Preview failed'); return j.html })
+      const [oldHtml, newHtml] = await Promise.all([
+        call({ hqId, mode: 'preview' }),                       // saved state (what she sees today)
+        call({ hqId, mode: 'preview', amendments: accepted }), // with accepted proposals
+      ])
+      setCompare({ oldHtml, newHtml })
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
 
   const copyLink = async () => {
     setBusy('copy')
@@ -584,12 +603,71 @@ function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
             )
           })}
           {proposals && (
-            <button onClick={() => save()} disabled={!!busy} style={btn('#43A047', '#fff')}>
-              {busy === 'save' ? 'Saving…' : `Save ${proposals.filter((p) => p.accepted).length} accepted — regenerate her contract`}
-            </button>
+            <>
+              <button onClick={openCompare} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>
+                {busy === 'compare' ? 'Rendering…' : 'Preview old vs new'}
+              </button>
+              <button onClick={() => save()} disabled={!!busy} style={btn('#43A047', '#fff')}>
+                {busy === 'save' ? 'Saving…' : `Save ${proposals.filter((p) => p.accepted).length} accepted — regenerate her contract`}
+              </button>
+            </>
           )}
         </div>
       )}
+      {compare && (
+        <ContractCompareModal
+          oldHtml={compare.oldHtml}
+          newHtml={compare.newHtml}
+          onClose={() => setCompare(null)}
+          onSave={async () => { setCompare(null); await save() }}
+          saving={busy === 'save'}
+          acceptedCount={(proposals || []).filter((p) => p.accepted).length}
+        />
+      )}
+    </div>
+  )
+}
+
+// Full-page side-by-side of the rendered agreement: as saved today vs with the
+// accepted amendments — the exact HTML the wizard preview and signed PDF use,
+// isolated in iframes so the contract's own styling shows true to life.
+function ContractCompareModal({ oldHtml, newHtml, onClose, onSave, saving, acceptedCount }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const pane = (label, html, highlight) => (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: highlight ? '#7AC97A' : 'var(--foreground-muted)' }}>{label}</div>
+      <iframe
+        srcDoc={html}
+        title={label}
+        sandbox=""
+        style={{ flex: 1, width: '100%', border: `1px solid ${highlight ? 'rgba(122,201,122,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', background: '#fff' }}
+      />
+    </div>
+  )
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', width: 'min(1500px, 100%)', height: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ padding: '13px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>Contract — current vs with amendments</div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: 'var(--foreground-muted)', width: '28px', height: '28px', borderRadius: '7px', cursor: 'pointer', fontSize: '15px', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ flex: 1, display: 'flex', gap: '14px', padding: '14px 18px', minHeight: 0 }}>
+          {pane('Current — what she sees today', oldHtml, false)}
+          {pane(`With ${acceptedCount} amendment${acceptedCount === 1 ? '' : 's'} — after save`, newHtml, true)}
+        </div>
+        <div style={{ padding: '11px 18px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)' }}>Back to edits</button>
+          <button onClick={onSave} disabled={saving} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: saving ? 'default' : 'pointer', background: '#43A047', color: '#fff', opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : `Looks right — save ${acceptedCount}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

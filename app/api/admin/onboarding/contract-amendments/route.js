@@ -42,6 +42,37 @@ export async function POST(request) {
       return NextResponse.json({ error: 'valid hqId required' }, { status: 400 })
     }
 
+    // mode: 'preview' — render the full contract HTML with an arbitrary
+    // amendment set, so the admin can see old-vs-new exactly as the creator
+    // will (same buildContractHtml the wizard + signed PDF use).
+    if (mode === 'preview') {
+      const record = await fetchHqRecord(HQ_CREATORS, hqId)
+      const c = record.fields || {}
+      let commissionTier = null
+      try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch {}
+      // Explicit array = preview that set; omitted = preview the SAVED state
+      // (what the creator sees today) — that's the "old" side of the compare.
+      let source = amendments
+      if (!Array.isArray(source)) {
+        try { source = c['Contract Amendments'] ? JSON.parse(c['Contract Amendments']) : [] } catch { source = [] }
+      }
+      const list = source
+        .map((a) => ({ title: String(a.title || ''), text: String(a.text || '') }))
+        .filter((a) => a.title && a.text)
+      const html = buildContractHtml({
+        amendments: list,
+        creatorName: c['Creator'] || '',
+        commissionPct: c['Commission %'] || 0,
+        commissionTier,
+        creatorState: c['Creator State'] || '',
+        effectiveDate: c['Onboarding Token Created At'] || new Date().toISOString(),
+        agencySignature: c['Agency Signature'] || null,
+        agencyName: c['Agency Signer Name'] || 'Josh Voto',
+        agencySignDate: c['Onboarding Token Created At'] || new Date().toISOString(),
+      })
+      return NextResponse.json({ success: true, html })
+    }
+
     if (mode === 'save') {
       if (!Array.isArray(amendments)) {
         return NextResponse.json({ error: 'amendments array required' }, { status: 400 })
