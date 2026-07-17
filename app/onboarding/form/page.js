@@ -109,11 +109,19 @@ export default function OnboardingForm() {
   // dropped from the wizard entirely (creator never sees it).
   const [skipContract, setSkipContract] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState(null)
   const [profileData, setProfileData] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const hqId = user?.publicMetadata?.airtableHqId
+  // Admin preview: /onboarding/form?hqId=recXXX lets an admin walk the wizard
+  // EXACTLY as that creator sees it (same pattern as getInitialStep's hash read).
+  const [previewHqId] = useState(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('hqId')
+  })
+  const viewerRole = user?.publicMetadata?.role
+  const isAdminPreview = (viewerRole === 'admin' || viewerRole === 'super_admin') && !!previewHqId
+
+  const hqId = isAdminPreview ? previewHqId : user?.publicMetadata?.airtableHqId
   const opsId = user?.publicMetadata?.airtableOpsId
 
   // Fetch existing profile + survey progress so we can RESUME the creator to
@@ -130,7 +138,8 @@ export default function OnboardingForm() {
         setSkipContract(!!data.profile.skipContract)
 
         // Block re-entry only once she's truly finished (Submit at Review).
-        if (data.profile.onboardingStatus === 'Completed') {
+        // Admin previews stay — they're inspecting, not onboarding.
+        if (data.profile.onboardingStatus === 'Completed' && !isAdminPreview) {
           router.replace('/dashboard')
           return
         }
@@ -172,9 +181,10 @@ export default function OnboardingForm() {
 
   useEffect(() => {
     if (!isLoaded) return
-    // Admins and editors don't need onboarding
+    // Admins and editors don't need onboarding — EXCEPT an admin explicitly
+    // previewing a creator's wizard via ?hqId= (sees it exactly as she does).
     const role = user?.publicMetadata?.role
-    if (role === 'admin' || role === 'super_admin' || role === 'editor') {
+    if ((role === 'admin' || role === 'super_admin' || role === 'editor') && !isAdminPreview) {
       router.replace('/dashboard')
       return
     }
@@ -183,7 +193,7 @@ export default function OnboardingForm() {
       return
     }
     fetchProfile()
-  }, [isLoaded, hqId, user, router])
+  }, [isLoaded, hqId, user, router, isAdminPreview])
 
   // Sync step from hash on back/forward navigation
   useEffect(() => {
@@ -207,7 +217,6 @@ export default function OnboardingForm() {
   const saveStep = async (step, data) => {
     if (!hqId) return false
     setSaving(true)
-    setSaveError(null)
     try {
       const res = await fetch('/api/onboarding/save', {
         method: 'POST',
@@ -219,11 +228,8 @@ export default function OnboardingForm() {
         await fetchProfile()
         return true
       }
-      const body = await res.json().catch(() => ({}))
-      setSaveError(body.error || 'We couldn’t save this step. Please check your details and try again.')
     } catch (err) {
       console.error('Save error:', err)
-      setSaveError('We couldn’t save your progress — this can happen if the connection drops. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -330,6 +336,11 @@ export default function OnboardingForm() {
 
   return (
     <div style={{ minHeight: 'calc(100vh - 49px)', background: 'var(--background)' }}>
+      {isAdminPreview && (
+        <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(232,160,160,0.14)', borderBottom: '1px solid rgba(232,160,160,0.4)', padding: '8px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--palm-pink)' }}>
+          Admin preview — viewing {profileData?.name || 'this creator'}&apos;s onboarding exactly as she sees it. Careful: anything you submit here SAVES to her record.
+        </div>
+      )}
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '32px 20px' }}>
         <div style={{ marginBottom: '8px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>
@@ -346,21 +357,6 @@ export default function OnboardingForm() {
           onStepClick={(step) => goToStep(step)}
           skipContract={skipContract}
         />
-
-        {saveError && (
-          <div style={{
-            background: 'rgba(229, 57, 53, 0.08)',
-            border: '1px solid rgba(229, 57, 53, 0.3)',
-            color: '#E57373',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            fontSize: '13px',
-            lineHeight: '1.4',
-            marginBottom: '16px',
-          }}>
-            {saveError}
-          </div>
-        )}
 
         <div style={{
           background: currentStep === 'survey' ? 'transparent' : 'rgba(255,255,255,0.08)',
