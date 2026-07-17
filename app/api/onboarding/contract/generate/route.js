@@ -31,7 +31,13 @@ export async function GET(request) {
     let commissionTier = null
     try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch {}
 
+    // Accepted per-creator amendments (AI-drafted from her requested changes,
+    // admin-approved on the onboarding contract card).
+    let amendments = []
+    try { amendments = c['Contract Amendments'] ? JSON.parse(c['Contract Amendments']) : [] } catch {}
+
     const contractData = {
+      amendments,
       creatorName: c['Creator'] || '',
       commissionPct: c['Commission %'] || 0,
       commissionTier,

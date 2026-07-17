@@ -34,7 +34,12 @@ export async function POST(request) {
     let commissionTier = null
     try { commissionTier = c['Commission Tier'] ? JSON.parse(c['Commission Tier']) : null } catch {}
 
+    // Accepted per-creator amendments — the signed PDF must match the preview.
+    let amendments = []
+    try { amendments = c['Contract Amendments'] ? JSON.parse(c['Contract Amendments']) : [] } catch {}
+
     const contractData = {
+      amendments,
       creatorName,
       commissionPct: c['Commission %'] || 0,
       commissionTier,

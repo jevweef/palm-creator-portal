@@ -376,6 +376,8 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <SurveySendAction tile={tile} hqId={hqId} onboardingId={onboardingId} sentToTeam={a.sentToTeam} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
           <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'contract-amend' ? (
+          <ContractAmendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'telegram-assign' ? (
           <TelegramAssignAction tile={tile} hqId={hqId} onboardingId={onboardingId} creatorAka={creatorAka} onRefresh={onRefresh} flash={flash} />
         ) : a ? (
@@ -478,6 +480,116 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// Contract card: copy the onboarding link, or paste the creator's requested
+// contract changes → AI drafts amendment clauses → admin accepts/rejects each →
+// accepted set saves to 'Contract Amendments' and the wizard contract (and the
+// signed PDF) regenerate with a numbered Amendments section. "Concession" rows
+// (real business gives — payout timing, exclusivity, renewal…) start UNCHECKED.
+function ContractAmendAction({ tile, hqId, onRefresh, flash }) {
+  const [open, setOpen] = useState(false)
+  const [reqText, setReqText] = useState('')
+  const [busy, setBusy] = useState(null) // 'draft' | 'save' | 'copy' | 'clear'
+  const [proposals, setProposals] = useState(null) // [{title, request, current, proposed, kind, accepted}]
+  const count = tile.action?.count || 0
+
+  const copyLink = async () => {
+    setBusy('copy')
+    try {
+      const res = await fetch('/api/admin/onboarding/resend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok && j.onboardingUrl) {
+        try { await navigator.clipboard.writeText(j.onboardingUrl) } catch { /* clipboard blocked */ }
+        flash('Onboarding link copied')
+      } else throw new Error(j.error || 'Failed')
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const draft = async () => {
+    if (!reqText.trim()) { flash('Paste the creator’s requested changes first'); return }
+    setBusy('draft')
+    try {
+      const res = await fetch('/api/admin/onboarding/contract-amendments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, mode: 'draft', requestText: reqText }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Draft failed')
+      setProposals(j.proposals.map((p) => ({ ...p, accepted: p.kind !== 'concession' })))
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const save = async (list) => {
+    setBusy('save')
+    try {
+      const accepted = (list || proposals || []).filter((p) => p.accepted).map((p) => ({ title: p.title, text: p.proposed }))
+      const res = await fetch('/api/admin/onboarding/contract-amendments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, mode: 'save', amendments: accepted }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(accepted.length ? `Saved ${accepted.length} amendment${accepted.length === 1 ? '' : 's'} — her contract now includes them` : 'Amendments cleared')
+      setProposals(null); setReqText(''); setOpen(false)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  const KIND = {
+    fix: { label: 'FIX', color: '#7AC97A' },
+    clarification: { label: 'CLARIFY', color: '#E8C878' },
+    concession: { label: 'CONCESSION', color: '#E87878' },
+  }
+  const btn = (bg, color) => ({ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: bg, color, opacity: busy ? 0.6 : 1 })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button onClick={copyLink} disabled={!!busy} style={btn('rgba(255,255,255,0.05)', 'var(--foreground)')}>{busy === 'copy' ? '…' : 'Copy link'}</button>
+        <button onClick={() => setOpen((o) => !o)} disabled={!!busy} style={btn('rgba(232,160,160,0.14)', 'var(--palm-pink)')}>{open ? 'Close' : 'Request changes'}</button>
+      </div>
+      {count > 0 && !open && (
+        <button onClick={() => save([])} disabled={!!busy} style={{ background: 'transparent', border: 'none', color: 'var(--foreground-subtle)', fontSize: '11px', cursor: 'pointer', padding: '2px', textDecoration: 'underline' }}>
+          {busy === 'save' ? '…' : `Clear ${count} amendment${count === 1 ? '' : 's'}`}
+        </button>
+      )}
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+          <textarea
+            value={reqText}
+            onChange={(e) => setReqText(e.target.value)}
+            placeholder="Paste the creator’s message with her requested changes…"
+            rows={4}
+            style={{ width: '100%', padding: '7px 9px', fontSize: '12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'var(--foreground)', resize: 'vertical' }}
+          />
+          <button onClick={draft} disabled={!!busy || !reqText.trim()} style={btn('#43A047', '#fff')}>{busy === 'draft' ? 'Drafting…' : 'Draft amendments with AI'}</button>
+          {proposals && proposals.map((p, i) => {
+            const k = KIND[p.kind] || KIND.clarification
+            return (
+              <div key={i} style={{ border: `1px solid ${p.accepted ? 'rgba(122,201,122,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '8px', padding: '8px 9px', background: 'rgba(255,255,255,0.02)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', marginBottom: '4px' }}>
+                  <input type="checkbox" checked={p.accepted} onChange={(e) => setProposals((ps) => ps.map((x, j) => j === i ? { ...x, accepted: e.target.checked } : x))} />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>{p.title}</span>
+                  <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em', color: k.color, border: `1px solid ${k.color}55`, borderRadius: '4px', padding: '1px 5px' }}>{k.label}</span>
+                </label>
+                {p.current && <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '3px' }}>Now: {p.current}</div>}
+                <div style={{ fontSize: '11.5px', color: 'var(--foreground)', lineHeight: 1.45 }}>{p.proposed}</div>
+              </div>
+            )
+          })}
+          {proposals && (
+            <button onClick={() => save()} disabled={!!busy} style={btn('#43A047', '#fff')}>
+              {busy === 'save' ? 'Saving…' : `Save ${proposals.filter((p) => p.accepted).length} accepted — regenerate her contract`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
