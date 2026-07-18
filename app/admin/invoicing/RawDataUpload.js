@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import UploadModal from './UploadModal'
 
 function fmt(n) {
@@ -14,7 +14,8 @@ function fmtCutoff(iso) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-const CREATORS = ['Amelia', 'Laurel', 'Taby', 'Gracie', 'MG']
+// Creator list is DERIVED from the active Revenue Accounts the coverage chart
+// already loads (was a hardcoded 5-name array — new creators never appeared).
 
 function DataCoverageChart({ creators: coverageCreators, loading: coverageLoading, onBarClick }) {
   const scrollRef = useRef(null)
@@ -305,7 +306,7 @@ function DataCoverageChart({ creators: coverageCreators, loading: coverageLoadin
 }
 
 export default function RawDataUpload() {
-  const [creator, setCreator] = useState(CREATORS[0])
+  const [creator, setCreator] = useState('')
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState(null)
@@ -320,6 +321,15 @@ export default function RawDataUpload() {
   const [ofPulling, setOfPulling] = useState(null)     // accountName currently pulling
   const [ofResult, setOfResult] = useState(null)
   const fileRef = useRef(null)
+
+  // Distinct creator AKAs from the active revenue accounts (coverage data).
+  const creators = useMemo(
+    () => [...new Set(coverageAccounts.map(a => a.creatorAka).filter(Boolean))],
+    [coverageAccounts]
+  )
+  useEffect(() => {
+    if (!creator && creators.length) setCreator(creators[0])
+  }, [creators, creator])
 
   const loadCutoffs = useCallback(async () => {
     try {
@@ -476,7 +486,8 @@ export default function RawDataUpload() {
             width: '100%', maxWidth: '300px', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
             color: 'var(--foreground)', fontSize: '14px', padding: '10px 12px', outline: 'none',
           }}>
-          {CREATORS.map(c => <option key={c} value={c}>{c}</option>)}
+          {!creators.length && <option value="">{coverageLoading ? 'Loading…' : 'No active accounts'}</option>}
+          {creators.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 

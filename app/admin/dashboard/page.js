@@ -279,7 +279,21 @@ function PipelineAccessPanel() {
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>
                 {c.name}
               </span>
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {c.socialMediaEditing && c.socialStepsRemaining > 0 && c.hqId && (
+                  <a
+                    href={`/admin/onboarding/${c.hqId}`}
+                    title="Palm runs this creator's socials but their social setup isn't finished — open their onboarding board to fill it out."
+                    style={{
+                      fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
+                      color: '#E8C878', background: 'rgba(232,200,120,0.1)',
+                      border: '1px solid rgba(232,200,120,0.35)', borderRadius: '4px',
+                      padding: '2px 7px', textDecoration: 'none', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {c.socialStepsRemaining} social step{c.socialStepsRemaining === 1 ? '' : 's'} left
+                  </a>
+                )}
                 <ReadinessBadge
                   ok={c.hasProfile}
                   label="DNA Profile"
@@ -1031,28 +1045,34 @@ export default function AdminDashboard() {
       })
   }, [data])
 
-  // Fetch whale alerts for all creators (lazy, after main dashboard loads)
-  const WHALE_CREATORS = ['Laurel', 'Taby', 'MG', 'Sunny']
+  // Fetch whale alerts for all creators (lazy, after main dashboard loads).
+  // The creator list is DERIVED (whales/overview → connected creators), not a
+  // hardcoded array — a newly connected creator appears here with zero code.
   useEffect(() => {
     if (!data || whaleAlertsFetched.current) return
     whaleAlertsFetched.current = true
     setWhaleLoading(true)
-    Promise.all(
-      WHALE_CREATORS.map(name =>
-        fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}&goingColdOnly=true`)
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null)
-      )
-    ).then(results => {
-      const alertMap = {}
-      results.forEach((r, i) => {
-        if (r && r.goingColdAlerts?.length > 0) {
-          alertMap[WHALE_CREATORS[i]] = { alerts: r.goingColdAlerts, count: r.goingColdCount }
-        }
+    fetch('/api/admin/whales/overview')
+      .then(r => r.ok ? r.json() : null)
+      .then(async (ov) => {
+        const names = (ov?.creators || []).filter(c => c.connected).map(c => c.aka).filter(Boolean)
+        const results = await Promise.all(
+          names.map(name =>
+            fetch(`/api/admin/creator-earnings?creator=${encodeURIComponent(name)}&goingColdOnly=true`)
+              .then(r => r.ok ? r.json() : null)
+              .catch(() => null)
+          )
+        )
+        const alertMap = {}
+        results.forEach((r, i) => {
+          if (r && r.goingColdAlerts?.length > 0) {
+            alertMap[names[i]] = { alerts: r.goingColdAlerts, count: r.goingColdCount }
+          }
+        })
+        setWhaleAlerts(alertMap)
+        setWhaleLoading(false)
       })
-      setWhaleAlerts(alertMap)
-      setWhaleLoading(false)
-    })
+      .catch(() => { setWhaleAlerts({}); setWhaleLoading(false) })
   }, [data])
 
   if (loading) {

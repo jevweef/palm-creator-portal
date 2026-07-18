@@ -5,7 +5,7 @@ import { ofApi, createDataExport, waitForDataExport, downloadExportCsv } from '@
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, getCutoff, getLastFingerprints,
   txnFingerprint, insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, utcToEtDate,
-  mapType, stripHtmlText, fetchRevenueAccountNames,
+  mapType, stripHtmlText, fetchRevenueAccountNames, fetchRevenueAccountsApiState,
 } from '@/lib/transactionsSheet'
 import { stampWhaleRun } from '@/lib/whaleRuns'
 
@@ -27,19 +27,39 @@ export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
 
   try {
-    const { creatorRecordId, accountName } = await request.json()
+    const { creatorRecordId, accountName, sinceDate } = await request.json()
     if (!creatorRecordId || !accountName) {
       return NextResponse.json({ error: 'creatorRecordId and accountName required' }, { status: 400 })
     }
+    // Optional override: force the pull window back to `sinceDate` (YYYY-MM-DD)
+    // to recover a MID-RANGE gap the normal cutoff-minus-4d window won't reach.
+    // The multiset dedup makes re-covering already-present days harmless.
+    const sinceOverride = sinceDate ? new Date(`${sinceDate}T00:00:00Z`) : null
 
     const creators = await fetchAirtableRecords('Palm Creators', {
       filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorRecordId)}`,
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const ofAccountId = cf['OF API Account ID']
+    // Per-account first (Revenue Accounts 'OF API Connect'/'OF API Account
+    // ID'): pulling THIS account requires THIS account's id — the legacy
+    // fallback (VIP name → 2nd ops id, else 1st) pulled the Free account's
+    // data into a VIP tab when the VIP page wasn't connected.
+    const apiState = await fetchRevenueAccountsApiState(cf.AKA || cf.Creator)
+    const acct = apiState.find((a) => a.name.toLowerCase() === String(accountName).toLowerCase())
+    let ofAccountId
+    if (acct && (acct.connect || acct.acctId)) {
+      if (acct.connect === 'Skip') {
+        return NextResponse.json({ error: `${accountName} is marked Skip for the OF API — connect it on the onboarding board first` }, { status: 400 })
+      }
+      ofAccountId = acct.acctId
+    } else {
+      // Legacy fallback (no per-account data on the record).
+      const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+      ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
+    }
     if (!ofAccountId) {
-      return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
+      return NextResponse.json({ error: `${accountName} isn't connected to the OnlyFans API yet — connect it on the onboarding board` }, { status: 400 })
     }
 
     const sheets = sheetsClient()
@@ -55,9 +75,10 @@ export async function POST(request) {
       // makes the overlap harmless), or 365 days on an empty tab.
       const cutoff = await getCutoff(sheets, tabName)
       const end = new Date()
-      const start = cutoff
-        ? new Date(cutoff.getTime() - 4 * 86400000)
-        : new Date(end.getTime() - 365 * 86400000)
+      const start = sinceOverride
+        || (cutoff
+          ? new Date(cutoff.getTime() - 4 * 86400000)
+          : new Date(end.getTime() - 365 * 86400000))
 
       const exp = await createDataExport({
         type: exportType,
@@ -114,10 +135,18 @@ export async function POST(request) {
         } catch { /* usernames stay blank like deleted accounts in HTML flow */ }
       }
 
-      // Dedup — same fingerprint as the HTML upload (datetime|net|displayName),
-      // against the tab's recent rows.
-      const existingFps = await getLastFingerprints(sheets, tabName)
-      const fresh = txns.filter((t) => !existingFps.has(txnFingerprint(t.dateTimeEt, t.net, t.displayName)))
+      // Dedup — MULTISET diff against the tab's recent rows. The fingerprint
+      // (datetime|net|displayName) collides when a fan makes two identical-value
+      // transactions in the same minute; a boolean check dropped the sibling, so
+      // we instead keep an incoming row only while the sheet is still short by
+      // one of that fingerprint (getLastFingerprints returns counts).
+      const remainingFps = new Map(await getLastFingerprints(sheets, tabName))
+      const fresh = txns.filter((t) => {
+        const fp = txnFingerprint(t.dateTimeEt, t.net, t.displayName)
+        const have = remainingFps.get(fp) || 0
+        if (have > 0) { remainingFps.set(fp, have - 1); return false } // already in the sheet
+        return true // new — or a legit same-minute sibling the sheet is missing
+      })
         .filter((t) => !cutoff || new Date(t.dateTimeEt.replace(' ', 'T') + ':00') > new Date(cutoff.getTime() - 4 * 86400000))
 
       // Newest first, then insert at top (identical to the HTML flow).
@@ -164,12 +193,21 @@ export async function GET() {
     const connected = creators.filter((c) => c.fields?.['OF API Account ID'])
     const out = []
     for (const c of connected) {
-      const accounts = await fetchRevenueAccountNames(c.fields.AKA || c.fields.Creator)
-      out.push({
-        creatorRecordId: c.id,
-        aka: c.fields.AKA || c.fields.Creator,
-        accounts: accounts.length ? accounts : [`${c.fields.AKA || c.fields.Creator} - Free OF`],
-      })
+      const aka = c.fields.AKA || c.fields.Creator
+      // Per-account: only offer pull buttons for accounts actually connected
+      // (decision=Connect with an id). Accounts with no per-account data yet
+      // (legacy) stay offered via the name list.
+      const apiState = await fetchRevenueAccountsApiState(aka)
+      let accounts
+      if (apiState.length) {
+        accounts = apiState.filter((a) => a.connect === 'Connect' && a.acctId).map((a) => a.name)
+      } else {
+        accounts = await fetchRevenueAccountNames(aka)
+      }
+      if (!accounts.length && !apiState.length) accounts = [`${aka} - Free OF`]
+      if (accounts.length) {
+        out.push({ creatorRecordId: c.id, aka, accounts })
+      }
     }
     return NextResponse.json({ connected: out })
   } catch (err) {

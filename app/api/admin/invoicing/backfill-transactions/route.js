@@ -6,6 +6,7 @@ import { ofApi, createDataExport, waitForDataExport, downloadExportCsv, findData
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, readTabRows, txnFingerprint,
   appendRowsAtBottom, utcToEtDateTime, utcToEtDate, mapType, stripHtmlText,
+  fetchRevenueAccountsApiState,
 } from '@/lib/transactionsSheet'
 
 export const dynamic = 'force-dynamic'
@@ -34,10 +35,22 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
-    const ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
+    // Per-account id first (see pull-transactions — the legacy VIP→2nd-id
+    // fallback could backfill the FREE account's history into a VIP tab).
+    const apiState = await fetchRevenueAccountsApiState(cf.AKA || cf.Creator)
+    const acct = apiState.find((a) => a.name.toLowerCase() === String(accountName).toLowerCase())
+    let ofAccountId
+    if (acct && (acct.connect || acct.acctId)) {
+      if (acct.connect === 'Skip') {
+        return NextResponse.json({ error: `${accountName} is marked Skip for the OF API — connect it on the onboarding board first` }, { status: 400 })
+      }
+      ofAccountId = acct.acctId
+    } else {
+      const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+      ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
+    }
     if (!ofAccountId) {
-      return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
+      return NextResponse.json({ error: `${accountName} isn't connected to the OnlyFans API yet — connect it on the onboarding board` }, { status: 400 })
     }
 
     const sheets = sheetsClient()
@@ -141,10 +154,20 @@ export async function POST(request) {
         } catch { /* usernames stay blank like deleted accounts */ }
       }
 
-      // Dedup against the WHOLE tab (backfill overlaps the oldest rows, not
-      // the newest, so the top-rows fingerprint window doesn't apply here).
-      const existingFps = new Set(existing.map((r) => txnFingerprint(r.dateTime, r.net, r.displayName)))
-      const fresh = txns.filter((t) => !existingFps.has(txnFingerprint(t.dateTimeEt, t.net, t.displayName)))
+      // MULTISET dedup against the WHOLE tab (backfill overlaps the oldest rows,
+      // not the newest). Counts, not presence — keep a same-minute/same-amount
+      // sibling the sheet is still short by (see getLastFingerprints note).
+      const remainingFps = new Map()
+      for (const r of existing) {
+        const fp = txnFingerprint(r.dateTime, r.net, r.displayName)
+        remainingFps.set(fp, (remainingFps.get(fp) || 0) + 1)
+      }
+      const fresh = txns.filter((t) => {
+        const fp = txnFingerprint(t.dateTimeEt, t.net, t.displayName)
+        const have = remainingFps.get(fp) || 0
+        if (have > 0) { remainingFps.set(fp, have - 1); return false }
+        return true
+      })
 
       // Newest-first within the batch, appended under the oldest existing row
       // → the whole tab stays globally newest-first. Cutoff banner untouched
