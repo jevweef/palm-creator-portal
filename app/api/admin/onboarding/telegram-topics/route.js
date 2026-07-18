@@ -52,12 +52,13 @@ export async function POST(request) {
       // "Brielle FB", "Caitie Rosie AI" — AKA space suffix, nothing else.
       const threadId = await createSmmTopic(`${aka} ${ch.suffix}`)
       if (threadId == null) return NextResponse.json({ error: 'SMM group not configured' }, { status: 500 })
+      // Persist EACH id the moment its topic exists — one write at the end
+      // meant an Airtable hiccup orphaned real Telegram topics, and a re-run
+      // (reading the never-saved fields) created a duplicate set.
+      await patchAirtableRecord(OPS_PALM_CREATORS, ops.id, { [ch.field]: String(threadId) })
       created[ch.field] = String(threadId)
     }
 
-    if (Object.keys(created).length) {
-      await patchAirtableRecord(OPS_PALM_CREATORS, ops.id, created)
-    }
     return NextResponse.json({ ok: true, created, skipped })
   } catch (err) {
     console.error('[onboarding/telegram-topics] Error:', err.message)
@@ -68,7 +69,7 @@ export async function POST(request) {
 async function findOpsCreator(hqId, name, aka) {
   try {
     const byLink = await fetchAirtableRecords(OPS_PALM_CREATORS, {
-      filterByFormula: `{HQ Record ID}='${hqId}'`,
+      filterByFormula: `{HQ Record ID}=${quoteAirtableString(hqId)}`,
       maxRecords: 1,
     })
     if (byLink[0]) return byLink[0]

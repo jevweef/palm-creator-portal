@@ -198,13 +198,19 @@ export async function GET() {
       // (decision=Connect with an id). Accounts with no per-account data yet
       // (legacy) stay offered via the name list.
       const apiState = await fetchRevenueAccountsApiState(aka)
+      // Per-account filtering only once the records actually CARRY per-account
+      // data — records that predate the 2026-07-17 fields (all blank) fall back
+      // to the legacy name list so unmigrated creators don't vanish from the UI.
+      const hasPerAccountData = apiState.some((a) => a.connect || a.acctId)
       let accounts
-      if (apiState.length) {
+      if (hasPerAccountData) {
         accounts = apiState.filter((a) => a.connect === 'Connect' && a.acctId).map((a) => a.name)
+      } else if (apiState.length) {
+        accounts = apiState.map((a) => a.name)
       } else {
         accounts = await fetchRevenueAccountNames(aka)
+        if (!accounts.length) accounts = [`${aka} - Free OF`]
       }
-      if (!accounts.length && !apiState.length) accounts = [`${aka} - Free OF`]
       if (accounts.length) {
         out.push({ creatorRecordId: c.id, aka, accounts })
       }

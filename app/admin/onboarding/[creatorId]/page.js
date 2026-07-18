@@ -428,6 +428,18 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
     freeEmail: a.freeEmail || '', freePass: a.freePass || '',
     paidEmail: a.paidEmail || '', paidPass: a.paidPass || '',
   })
+  // Resync from the server after every board refresh (unless mid-edit) —
+  // otherwise creds the creator submits AFTER the board loaded never appear
+  // and the admin concludes "no login yet" (reviewer finding, 2026-07-17).
+  useEffect(() => {
+    if (!editing && !busy) {
+      setV({
+        freeEmail: a.freeEmail || '', freePass: a.freePass || '',
+        paidEmail: a.paidEmail || '', paidPass: a.paidPass || '',
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a.freeEmail, a.freePass, a.paidEmail, a.paidPass])
   const confirmed = tile.status === 'done'
 
   const inputStyle = {
@@ -680,6 +692,8 @@ function InlineNumberAction({ tile, hqId, onRefresh, flash }) {
   const initial = a.mode === 'percent' ? Math.round((a.value || 0) * 100) : (a.value || 0)
   const [v, setV] = useState(String(initial || ''))
   const [busy, setBusy] = useState(false)
+  // Track the server value across refreshes (visible in Show-all mode).
+  useEffect(() => { setV(String(initial || '')) }, [initial])
 
   const save = async () => {
     const num = Number(v)
@@ -812,10 +826,12 @@ function CommsChatAction({ tile, opsId, onRefresh, flash }) {
 
   useEffect(() => {
     if (!opsId) { setChats([]); return }
+    let alive = true
     fetch(`/api/admin/creators/${opsId}/communication-chat`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setChats(d?.chats || []))
-      .catch(() => setChats([]))
+      .then((d) => { if (alive) setChats(d?.chats || []) })
+      .catch(() => { if (alive) setChats([]) })
+    return () => { alive = false }
   }, [opsId])
 
   const pick = async (chatRecordId) => {
@@ -855,6 +871,8 @@ function MusicDnaAction({ tile, opsId, onRefresh, flash }) {
   const a = tile.action || {}
   const [v, setV] = useState(a.input || '')
   const [busy, setBusy] = useState(false)
+  // Track the server value across refreshes (visible in Show-all mode).
+  useEffect(() => { setV(a.input || '') }, [a.input])
 
   const detectType = (s) => (/spotify\.com/i.test(s) ? 'spotify_playlist' : /music\.apple\.com/i.test(s) ? 'apple_music' : 'text_list')
 

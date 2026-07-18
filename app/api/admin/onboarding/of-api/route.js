@@ -112,14 +112,25 @@ async function myOfAccounts(aka) {
 // every consumer assume Free first, VIP second).
 async function syncOpsAccountIds(hqId, cf, aka) {
   const accounts = await myOfAccounts(aka)
-  const connected = accounts.filter((r) => {
+  const val = (v) => (typeof v === 'string' ? v : v?.name || '')
+  const active = accounts.filter((r) => val(r.fields?.['Status']) === 'Active')
+  const connected = active.filter((r) => {
     const f = r.fields || {}
-    const status = typeof f['Status'] === 'string' ? f['Status'] : f['Status']?.name
-    return status === 'Active' && f['OF API Connect'] === 'Connect' && String(f['OF API Account ID'] || '').trim()
+    return val(f['OF API Connect']) === 'Connect' && String(f['OF API Account ID'] || '').trim()
   })
   const isVip = (r) => /vip/i.test(String(r.fields?.['Account Name'] || ''))
   connected.sort((a, b) => (isVip(a) ? 1 : 0) - (isVip(b) ? 1 : 0))
   const list = connected.map((r) => String(r.fields['OF API Account ID']).trim()).join(',')
+
+  // NEVER wipe a working runtime list on incomplete data: an empty rebuild is
+  // only trustworthy when every active account carries an EXPLICIT decision
+  // (all Skip = deliberate disconnect). If any account is still undecided /
+  // unmigrated, leave the ops list alone — a routine Skip on one account must
+  // not blank a legacy creator's ids (reviewer finding, 2026-07-17).
+  if (!list && active.some((r) => !val(r.fields?.['OF API Connect']))) {
+    console.warn('[onboarding/of-api] empty rebuild with undecided accounts — ops list preserved')
+    return null
+  }
 
   const ops = await findOpsCreator(hqId, cf['Creator'], aka)
   if (!ops) {
@@ -134,7 +145,7 @@ async function syncOpsAccountIds(hqId, cf, aka) {
 async function findOpsCreator(hqId, name, aka) {
   try {
     const byLink = await fetchAirtableRecords(OPS_PALM_CREATORS, {
-      filterByFormula: `{HQ Record ID}='${hqId}'`,
+      filterByFormula: `{HQ Record ID}=${quoteAirtableString(hqId)}`,
       maxRecords: 1,
     })
     if (byLink[0]) return byLink[0]

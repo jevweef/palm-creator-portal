@@ -42,7 +42,7 @@ export async function PATCH(request) {
 
     // ops — resolve via HQ Record ID back-link, then name fallback
     const hq = await fetchAirtableRecords(OPS_PALM_CREATORS, {
-      filterByFormula: `{HQ Record ID}='${hqId}'`, maxRecords: 1,
+      filterByFormula: `{HQ Record ID}=${quoteAirtableString(hqId)}`, maxRecords: 1,
     }).catch(() => [])
     let ops = hq[0]
     if (!ops) {

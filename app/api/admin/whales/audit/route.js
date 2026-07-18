@@ -347,6 +347,16 @@ export async function POST(request) {
       }
       await new Promise((r) => setTimeout(r, 120))
     }
+    // Re-fetch the tracker RIGHT before ANY writes: the first fetch above is
+    // minutes stale by now (live enrichment + username resolution), and a
+    // second audit running in parallel used that stale view to create all 18
+    // of Kiki's fans twice (2026-07-17). This fresh read covers the
+    // unreachable patches, deleted tombstones, the upsert loop AND the cadence
+    // refresh below — every Fan Tracker write decides create-vs-patch on it.
+    mine = (await fetchAirtableRecords(FAN_TRACKER, {
+      fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
+    })).filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
+
     const unreachable = noUser.filter((t) => t._unreachable)
     for (const t of unreachable) {
       const row = mine.find((r) => !(r.fields?.['OF Username']) && (r.fields?.['Fan Name'] || '').trim().toLowerCase() === (t.fanName || '').trim().toLowerCase())
@@ -384,14 +394,6 @@ export async function POST(request) {
       triggered = triggered.filter(keep)
       dormantWhales = dormantWhales.filter(keep)
     }
-
-    // Re-fetch the tracker RIGHT before writing: the first fetch above is
-    // minutes stale by now (live enrichment), and a second audit running in
-    // parallel used that stale view to create all 18 of Kiki's fans twice
-    // (2026-07-17). A fresh read shrinks the race window to seconds.
-    mine = (await fetchAirtableRecords(FAN_TRACKER, {
-      fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
-    })).filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
 
     let created = 0, updated = 0
     for (const t of [...triggered, ...dormantWhales]) {
