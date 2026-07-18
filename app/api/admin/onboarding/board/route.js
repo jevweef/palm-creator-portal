@@ -66,15 +66,19 @@ export async function GET(request) {
 
     // Secondary signal sources — all best-effort and parallel. A failure in any
     // one degrades that tile to "todo" rather than breaking the whole board.
-    const [cpdCount, revenueLinked, publerActive, smSetup] = await Promise.all([
+    const [cpdCount, revenueAccounts, publerActive, smSetup, surveyAnswerCount, profileDocs] = await Promise.all([
       countCpd(opsId),
-      isRevenueLinked(aka),
+      loadRevenueAccounts(aka),
       isPublerActive(opsId),
       loadSmSetup(opsId, name),
+      countSurveyAnswers(hqId),
+      loadProfileDocs(opsId),
     ])
+    const revenueLinked = revenueAccounts.some((a) => a.status === 'Active')
+    const expectedOfAccounts = parseExpectedOfAccounts(cf['Selected Platforms'])
 
     const phase1 = computePhase1(cf, of)
-    const board = computeBoard({ cf, of, ops, phase1, cpdCount, revenueLinked, publerActive, smSetup, creator: { id: hqId, opsId } })
+    const board = computeBoard({ cf, of, ops, phase1, cpdCount, revenueLinked, revenueAccounts, expectedOfAccounts, publerActive, smSetup, surveyAnswerCount, profileDocs, creator: { id: hqId, opsId } })
 
     return NextResponse.json({
       creator: {
@@ -122,19 +126,44 @@ async function countCpd(opsId) {
 }
 
 // Revenue Accounts live in the HQ base, linked to a creator by Account-Name
-// prefix (AKA), Platform=OnlyFans, Status=Active.
-async function isRevenueLinked(aka) {
-  if (!aka) return false
+// prefix ("<AKA> - "), Platform=OnlyFans. Returns full per-account detail so
+// the board can render one row per account (create / connect / skip).
+async function loadRevenueAccounts(aka) {
+  if (!aka) return []
   try {
     const rows = await fetchHqRecords(HQ_REVENUE_ACCOUNTS, {
-      filterByFormula: `AND({Platform}='OnlyFans',{Status}='Active')`,
-      fields: ['Account Name', 'Platform', 'Status'],
+      filterByFormula: `{Platform}='OnlyFans'`,
+      fields: ['Account Name', 'Account Type', 'Status', 'OF API Connect', 'OF API Account ID'],
     })
-    const a = aka.toLowerCase()
-    return rows.some((r) => String(r.fields?.['Account Name'] || '').toLowerCase().startsWith(a))
+    const prefix = `${aka.toLowerCase()} - `
+    const val = (v) => (typeof v === 'string' ? v : v?.name || '')
+    return rows
+      .filter((r) => String(r.fields?.['Account Name'] || '').toLowerCase().startsWith(prefix))
+      .map((r) => ({
+        id: r.id,
+        name: r.fields['Account Name'],
+        type: val(r.fields['Account Type']),
+        status: val(r.fields['Status']),
+        connect: val(r.fields['OF API Connect']),
+        acctId: r.fields['OF API Account ID'] || '',
+      }))
   } catch (e) {
-    console.warn('[board] isRevenueLinked failed:', e.message)
-    return false
+    console.warn('[board] loadRevenueAccounts failed:', e.message)
+    return []
+  }
+}
+
+// Which OF accounts should exist, from the wizard's Selected Platforms JSON
+// (e.g. '["freeOf","vipOf","fansly"]'). Unknown/blank → assume just a Free page.
+function parseExpectedOfAccounts(raw) {
+  try {
+    const sel = JSON.parse(raw || '[]')
+    const out = []
+    if (sel.includes('freeOf')) out.push('Free OF')
+    if (sel.includes('vipOf')) out.push('VIP OF')
+    return out.length ? out : ['Free OF']
+  } catch {
+    return ['Free OF']
   }
 }
 
@@ -168,5 +197,42 @@ async function loadSmSetup(opsId, name) {
   } catch (e) {
     console.warn('[board] loadSmSetup failed:', e.message)
     return { exists: false }
+  }
+}
+
+// Survey answers (Ops base 'Onboarding Survey Responses', keyed by HQ Creator ID
+// text). The count tells us how much they filled in even if they never hit Submit.
+async function countSurveyAnswers(hqId) {
+  try {
+    const rows = await fetchAirtableRecords('Onboarding Survey Responses', {
+      filterByFormula: `{HQ Creator ID} = ${quoteAirtableString(hqId)}`,
+      fields: ['Question Key'],
+    })
+    return rows.filter((r) => r.fields?.['Question Key']).length
+  } catch (e) {
+    console.warn('[board] countSurveyAnswers failed:', e.message)
+    return 0
+  }
+}
+
+// DNA profile documents (Ops base, linked to the Ops creator). Lets a voice memo
+// / doc uploaded from the DNA → Documents tab also reflect on the board.
+async function loadProfileDocs(opsId) {
+  if (!opsId) return { count: 0, hasAudio: false }
+  try {
+    const rows = await fetchAirtableRecords('Creator Profile Documents', {
+      fields: ['File Name', 'File Type', 'Creator'],
+    })
+    const AUDIO = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.webm']
+    const mine = rows.filter((r) => Array.isArray(r.fields?.['Creator']) && r.fields['Creator'].includes(opsId))
+    const hasAudio = mine.some((r) => {
+      const ft = r.fields?.['File Type']
+      const fn = String(r.fields?.['File Name'] || '').toLowerCase()
+      return ft === 'Audio' || AUDIO.some((ext) => fn.endsWith(ext))
+    })
+    return { count: mine.length, hasAudio }
+  } catch (e) {
+    console.warn('[board] loadProfileDocs failed:', e.message)
+    return { count: 0, hasAudio: false }
   }
 }
