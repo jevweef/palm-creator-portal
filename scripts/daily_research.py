@@ -271,15 +271,24 @@ def _env(key: str) -> str | None:
 
 
 def notify_telegram(date: str, headline: str, n_fetched: int) -> None:
-    token = _env("TELEGRAM_BOT_TOKEN") or _env("TELEGRAM_TOKEN")
-    chat = _env("RESEARCH_TELEGRAM_CHAT_ID") or _env("TELEGRAM_SMM_GROUP_CHAT_ID")
+    # Same routing as the other local agents (maya_brief etc.): the HEARTBEAT
+    # bot into the Palm Team forum, "OFM Research" topic (thread 169). The old
+    # TELEGRAM_BOT_TOKEN + SMM-group fallback dropped this digest into Palm
+    # Social Media's General topic the day that token appeared locally
+    # (2026-07-18 incident).
+    token = _env("TELEGRAM_HEARTBEAT_BOT_TOKEN") or _env("TELEGRAM_BOT_TOKEN") or _env("TELEGRAM_TOKEN")
+    chat = _env("RESEARCH_TELEGRAM_CHAT_ID") or "-1004293138854"  # Palm Team group
+    thread = _env("RESEARCH_TELEGRAM_TOPIC_ID") or "169"          # OFM Research topic
     if not token or not chat:
         log("       notify: skipped (no Telegram bot token / chat id)")
         return
     import urllib.request
     text = f"OFM Research — {date}\n{headline or 'pipeline ran'}\n({n_fetched} new transcript(s))"
     try:
-        data = json.dumps({"chat_id": chat, "text": text}).encode()
+        payload = {"chat_id": chat, "text": text}
+        if thread:
+            payload["message_thread_id"] = int(thread)
+        data = json.dumps(payload).encode()
         req = urllib.request.Request(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data=data, headers={"content-type": "application/json"})
