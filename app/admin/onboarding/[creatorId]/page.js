@@ -223,7 +223,7 @@ export default function OnboardingWorkspace() {
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.45 }}>{nextTile.instructions}</div>
             )}
           </div>
-          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api'].includes(nextTile.action.type) && (
+          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics'].includes(nextTile.action.type) && (
             <button
               onClick={() => runAction(nextTile)}
               disabled={busy === `${nextTile.key}:${nextTile.action.type}`}
@@ -378,6 +378,8 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <RevenueAccountsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'of-api' ? (
           <OfApiAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'tg-topics' ? (
+          <TgTopicsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
           <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'contract-amend' ? (
@@ -623,6 +625,39 @@ function OfApiAction({ tile, hqId, onRefresh, flash }) {
         Get the ID at app.onlyfansapi.com →
       </a>
     </div>
+  )
+}
+
+// Delivery-topics card: one click creates the creator's missing IG / FB / AI
+// forum topics in the SMM master group and writes the thread ids to ops Palm
+// Creators — the fields ALL Post Prep / Penny / Grid Planner delivery keys on.
+function TgTopicsAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const done = tile.status === 'done'
+
+  const create = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/onboarding/telegram-topics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Topic creation failed')
+      const made = Object.keys(j.created || {}).length
+      flash(made ? `${made} topic${made === 1 ? '' : 's'} created and wired` : 'Nothing to create — all topics already set')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) {
+    return <div style={{ fontSize: '11px', color: '#43A047', padding: '5px 0' }}>All delivery topics wired</div>
+  }
+  return (
+    <button onClick={create} disabled={busy}
+      style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Creating topics…' : 'Create missing topics'}
+    </button>
   )
 }
 
