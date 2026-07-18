@@ -4,8 +4,8 @@ import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/a
 import { fetchHqRecord, patchHqRecord, HQ_BASE, hqHeaders } from '@/lib/hqAirtable'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, moveDropboxItem, createDropboxFolder } from '@/lib/dropbox'
 import { closeDropboxFileRequest } from '@/lib/dropboxFileRequests'
-import { deleteSmmTopic } from '@/lib/telegramTopics'
 import { deleteWhaleTopic } from '@/lib/whaleAlertConfig'
+import { deleteCreatorContentTopics } from '@/lib/contentTopics'
 import { assertRecordId, quoteAirtableString } from '@/lib/airtableFormula'
 
 export const dynamic = 'force-dynamic'
@@ -68,11 +68,14 @@ export async function GET(request) {
       opsRecord = opsRows[0] || null
       if (opsRecord) {
         assertRecordId(opsRecord.id, 'opsRecord.id')
+        // JS link-match — FIND(recId, ARRAYJOIN({Creator})) never matches
+        // (Airtable joins display values, not record ids), which is why this
+        // count showed 0 and per-account topics survived offboarding.
         const cpdRows = await fetchAirtableRecords('Creator Platform Directory', {
-          filterByFormula: `FIND(${quoteAirtableString(opsRecord.id)}, ARRAYJOIN({Creator}))`,
-          fields: ['Account Name', 'Telegram Topic ID'],
+          filterByFormula: `{Telegram Topic ID} != ''`,
+          fields: ['Creator', 'Account Name', 'Telegram Topic ID'],
         })
-        cpdTopicCount = cpdRows.filter(r => r.fields?.['Telegram Topic ID']).length
+        cpdTopicCount = cpdRows.filter(r => Array.isArray(r.fields?.Creator) && r.fields.Creator.includes(opsRecord.id)).length
       }
     } catch (e) {
       console.warn('[Offboard preview] Ops/CPD lookup failed:', e.message)
@@ -206,7 +209,6 @@ export async function POST(request) {
 
     // 3. Look up the Ops Palm Creators row, linked CPD accounts
     let opsRecord = null
-    let cpdRows = []
     try {
       const opsRows = await fetchAirtableRecords('Palm Creators', {
         filterByFormula: `{HQ Record ID} = ${quoteAirtableString(hqId)}`,
@@ -236,30 +238,14 @@ export async function POST(request) {
         summary.errors.push(`Ops Palm Creators patch failed: ${e.message}`)
       }
 
-      // 3b. CPD per-account Telegram topics
-      try {
-        assertRecordId(opsRecord.id, 'opsRecord.id')
-        cpdRows = await fetchAirtableRecords('Creator Platform Directory', {
-          filterByFormula: `FIND(${quoteAirtableString(opsRecord.id)}, ARRAYJOIN({Creator}))`,
-          fields: ['Account Name', 'Telegram Topic ID'],
-        })
-      } catch (e) {
-        summary.errors.push(`CPD lookup failed: ${e.message}`)
-      }
-
-      for (const row of cpdRows) {
-        const topicId = row.fields?.['Telegram Topic ID']
-        if (!topicId) continue
-        const accName = row.fields?.['Account Name'] || row.id
-        try {
-          await deleteSmmTopic(topicId)
-          // Clear the Topic ID on CPD so it doesn't get re-used / linger.
-          await patchAirtableRecord('Creator Platform Directory', row.id, { 'Telegram Topic ID': null })
-          summary.smmTopicsDeleted.push(accName)
-        } catch (e) {
-          summary.smmTopicsFailed.push({ account: accName, error: e.message })
-        }
-      }
+      // 3b. Delete ALL content topics — the IG/FB/AI channel topics (Penny /
+      //     Post Prep delivery) AND the per-account CPD topics — via the shared
+      //     helper (same cleanup the dashboard editor-toggle OFF runs). The
+      //     helper matches CPD links in JS; the old FIND(recId, ARRAYJOIN(...))
+      //     formula here silently never matched, so per-account topics lingered.
+      const topicCleanup = await deleteCreatorContentTopics(opsRecord.id)
+      summary.smmTopicsDeleted.push(...topicCleanup.deleted)
+      summary.smmTopicsFailed.push(...topicCleanup.failed.map((f) => ({ account: f.what, error: f.error })))
     }
 
     // Whale-hunting Telegram topic (A/B team group) — delete on offboard so

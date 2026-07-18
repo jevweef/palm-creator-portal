@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // toggle-off deletes Telegram topics (network fan-out)
 
 import { NextResponse } from 'next/server'
 import { requireAdmin, fetchAirtableRecords, patchAirtableRecord } from '@/lib/adminAuth'
 import { fetchHqRecords } from '@/lib/hqAirtable'
 import { PHASE3_ITEMS } from '@/lib/onboarding/checklist'
+import { deleteCreatorContentTopics } from '@/lib/contentTopics'
 
 const HQ_ONBOARDING = 'tbl4nFzgH6nJHr3q6'
 // Social-only go-live tasks a creator still owes once Palm runs their socials.
@@ -130,7 +132,16 @@ export async function PATCH(request) {
 
     await patchAirtableRecord('Palm Creators', creatorId, patch)
 
-    return NextResponse.json({ ok: true })
+    // Toggling Social Media Editing OFF also deletes the creator's Telegram
+    // content topics (IG/FB/AI channels + per-account CPD topics) so the SMM
+    // group doesn't accumulate dead topics. Re-enabling later recreates them
+    // via the onboarding "telegram-topics" provisioning.
+    let topics = null
+    if (socialMediaEditing === false) {
+      topics = await deleteCreatorContentTopics(creatorId)
+    }
+
+    return NextResponse.json({ ok: true, ...(topics ? { topicsDeleted: topics.deleted, topicsFailed: topics.failed } : {}) })
   } catch (err) {
     console.error('[Pipeline] PATCH error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
