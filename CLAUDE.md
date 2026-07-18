@@ -118,6 +118,21 @@ Lives in memory files (admin surfaces, earnings, fan CRM, per-account coverage,
 invoicing, onboarding, music selector, editor slots, website). `pipeline/CLAUDE.md`
 holds the canonical pointer list. Capture WHY/decisions/gotchas in memory, not here.
 
+## ⚠️ Worktree sessions: your auto-memory is NOT the project memory
+Memory folders are keyed to the working directory. If you're in a worktree, your
+session's memory dir is a different (mostly empty) folder — the real project memory
+(Site Bible + all reference files) lives ONLY at the absolute path
+`/Users/jevanleith/.claude/projects/-Users-jevanleith-palm-creator-portal/memory/`.
+Read files from there by absolute path. Do not conclude a memory file "doesn't exist
+or isn't active" without checking that exact path first.
+
+## 📸 Headless browser / screenshots — read the playbook FIRST
+Before ANY headless-browser work (or any claim that the login session is expired), Read
+`/Users/jevanleith/.claude/projects/-Users-jevanleith-palm-creator-portal/memory/reference_screenshot_pipeline.md`.
+Use `node /Users/jevanleith/.claude-pw-tools/pw-shot.mjs <url> <out.png> [waitMs]` — never
+hand-roll Playwright scripts. One browser at a time owns `.pw-profile`; a second concurrent
+session merely LOOKS logged out. Run the playbook checklist once; it is almost never expired.
+
 ## Commit message convention
 End commit messages with:
 `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
