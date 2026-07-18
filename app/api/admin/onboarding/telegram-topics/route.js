@@ -48,9 +48,9 @@ export async function POST(request) {
     for (const ch of CHANNELS) {
       if (ch.tjpOnly && of_['TJP Enabled'] !== true) { skipped.push(`${ch.suffix} (AI not enabled)`); continue }
       if (String(of_[ch.field] || '').trim()) { skipped.push(`${ch.suffix} (already set)`); continue }
-      // Topic name mirrors the per-handle convention: AKA-first so the SMM
-      // group's topic list groups by creator.
-      const threadId = await createSmmTopic(`${aka} — ${ch.suffix}`)
+      // Topic name matches the existing group convention exactly: "Taby IG",
+      // "Brielle FB", "Caitie Rosie AI" — AKA space suffix, nothing else.
+      const threadId = await createSmmTopic(`${aka} ${ch.suffix}`)
       if (threadId == null) return NextResponse.json({ error: 'SMM group not configured' }, { status: 500 })
       created[ch.field] = String(threadId)
     }

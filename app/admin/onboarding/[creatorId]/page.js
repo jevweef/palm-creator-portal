@@ -381,7 +381,7 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
         ) : a?.type === 'tg-topics' ? (
           <TgTopicsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
-          <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+          <SocialToggleAction tile={tile} opsId={opsId} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'contract-amend' ? (
           <ContractAmendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'telegram-assign' ? (
@@ -956,7 +956,7 @@ function ContractCompareModal({ oldHtml, newHtml, onClose, onSave, saving, accep
 // Editing` flag the dashboard "Editor" toggle writes (via the pipeline PATCH),
 // so you can decide it right on the onboarding card instead of leaving to the
 // profile. The board re-renders after, collapsing/expanding social-only steps.
-function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
+function SocialToggleAction({ tile, opsId, hqId, onRefresh, flash }) {
   const [busy, setBusy] = useState(false)
   const on = tile.status === 'done' // done ⟺ Social Media Editing = true
 
@@ -970,7 +970,26 @@ function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
         body: JSON.stringify({ creatorId: opsId, socialMediaEditing: value }),
       })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Update failed')
-      flash(value ? 'Palm runs their socials — social steps enabled' : 'Socials not managed — social steps hidden')
+      // Flipping social ON auto-provisions her Telegram delivery topics
+      // (IG/FB, +AI when TJP) — the fields all Post Prep delivery keys on.
+      // Best-effort: a Telegram hiccup shouldn't block the toggle itself.
+      let topicsNote = ''
+      if (value && hqId) {
+        try {
+          const tr = await fetch('/api/admin/onboarding/telegram-topics', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hqId }),
+          })
+          const tj = await tr.json().catch(() => ({}))
+          if (tr.ok) {
+            const made = Object.keys(tj.created || {}).length
+            topicsNote = made ? ` — ${made} delivery topic${made === 1 ? '' : 's'} created` : ''
+          } else {
+            topicsNote = ` — delivery topics NOT created (${tj.error || 'error'}); use the Delivery topics card`
+          }
+        } catch { topicsNote = ' — delivery topics not created; use the Delivery topics card' }
+      }
+      flash(value ? `Palm runs their socials — social steps enabled${topicsNote}` : 'Socials not managed — social steps hidden')
       await onRefresh()
     } catch (err) { flash(err.message) } finally { setBusy(false) }
   }
