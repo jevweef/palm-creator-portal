@@ -223,7 +223,7 @@ export default function OnboardingWorkspace() {
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.45 }}>{nextTile.instructions}</div>
             )}
           </div>
-          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics'].includes(nextTile.action.type) && (
+          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics', 'inline-number', 'doc-upload', 'photo-upload', 'comms-chat', 'music-dna', 'publer-sync'].includes(nextTile.action.type) && (
             <button
               onClick={() => runAction(nextTile)}
               disabled={busy === `${nextTile.key}:${nextTile.action.type}`}
@@ -380,6 +380,18 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <OfApiAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'tg-topics' ? (
           <TgTopicsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'inline-number' ? (
+          <InlineNumberAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'doc-upload' ? (
+          <DocUploadAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'photo-upload' ? (
+          <PhotoUploadAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'comms-chat' ? (
+          <CommsChatAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'music-dna' ? (
+          <MusicDnaAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'publer-sync' ? (
+          <PublerSyncAction tile={tile} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
           <SocialToggleAction tile={tile} opsId={opsId} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'contract-amend' ? (
@@ -658,6 +670,251 @@ function TgTopicsAction({ tile, hqId, onRefresh, flash }) {
       style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
       {busy ? 'Creating topics…' : 'Create missing topics'}
     </button>
+  )
+}
+
+// Inline number editor (commission %, weekly reel quota) — type, Save, done.
+// mode 'percent' shows whole percents but stores the decimal (0.45).
+function InlineNumberAction({ tile, hqId, onRefresh, flash }) {
+  const a = tile.action || {}
+  const initial = a.mode === 'percent' ? Math.round((a.value || 0) * 100) : (a.value || 0)
+  const [v, setV] = useState(String(initial || ''))
+  const [busy, setBusy] = useState(false)
+
+  const save = async () => {
+    const num = Number(v)
+    if (!Number.isFinite(num) || num < 0) { flash('Enter a number'); return }
+    setBusy(true)
+    try {
+      const value = a.mode === 'percent' ? num / 100 : num
+      const res = await fetch('/api/admin/onboarding/field', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, target: a.target, field: a.field, value }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(`${a.field} saved`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <input value={v} onChange={(e) => setV(e.target.value)} disabled={busy} inputMode="numeric"
+        style={{ width: '70px', padding: '5px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', outline: 'none' }} />
+      <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{a.mode === 'percent' ? '%' : (a.suffix || '')}</span>
+      <button onClick={save} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+// Voice memo / DNA docs — drop a file right on the card. Same 3-step flow as
+// the DNA→Documents uploader: short-lived Dropbox token → direct browser
+// upload (bypasses the Vercel body limit) → register the Airtable doc record.
+function DocUploadAction({ tile, opsId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef(null)
+  const creatorName = tile.action?.creatorName || ''
+
+  const upload = async (file) => {
+    if (!file) return
+    if (!opsId) { flash('No Ops creator record yet — run Start Onboarding first'); return }
+    setBusy(true)
+    try {
+      const tokenRes = await fetch(`/api/admin/creator-profile/upload-token?creatorName=${encodeURIComponent(creatorName)}`)
+      const tokenData = await tokenRes.json().catch(() => ({}))
+      if (!tokenRes.ok) throw new Error(tokenData.error || 'Failed to get upload token')
+      const { accessToken, namespaceId, uploadPathPrefix } = tokenData
+      const dropboxPath = `${uploadPathPrefix}/${file.name}`
+      const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: namespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: file,
+      })
+      const uploadData = await uploadRes.json().catch(() => ({}))
+      if (!uploadRes.ok) throw new Error(uploadData.error_summary || 'Dropbox upload failed')
+      const isAudio = /\.(mp3|m4a|wav|ogg|flac|webm)$/i.test(file.name)
+      const res = await fetch('/api/admin/creator-profile/upload', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: opsId, fileType: isAudio ? 'Audio' : 'Document', notes: 'Uploaded from onboarding board',
+          fileName: file.name, dropboxPath: uploadData.path_display || dropboxPath,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to register document')
+      flash(`${file.name} uploaded${isAudio ? ' — counts as her voice memo' : ''}`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  return (
+    <div>
+      <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
+      <button onClick={() => fileRef.current?.click()} disabled={busy}
+        style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Uploading…' : 'Upload voice memo / doc'}
+      </button>
+    </div>
+  )
+}
+
+// Profile photos — multi-file drop straight to Dropbox + her profile.
+function PhotoUploadAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef(null)
+  const href = tile.action?.href
+
+  const upload = async (files) => {
+    if (!files?.length) return
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      for (const f of files) fd.append('file', f)
+      const res = await fetch(`/api/admin/onboarding/${hqId}/photos`, { method: 'POST', body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Upload failed')
+      flash(`${files.length} photo${files.length === 1 ? '' : 's'} uploaded`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => upload([...(e.target.files || [])])} />
+      <button onClick={() => fileRef.current?.click()} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Uploading…' : 'Upload photos'}
+      </button>
+      {href && (
+        <button onClick={() => window.open(href, '_self')} disabled={busy}
+          style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)' }}>
+          View
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Comms chat — pick the master communication chat inline (same route the
+// Creators→Communication tab uses).
+function CommsChatAction({ tile, opsId, onRefresh, flash }) {
+  const [chats, setChats] = useState(null) // null = loading
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!opsId) { setChats([]); return }
+    fetch(`/api/admin/creators/${opsId}/communication-chat`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setChats(d?.chats || []))
+      .catch(() => setChats([]))
+  }, [opsId])
+
+  const pick = async (chatRecordId) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/creators/${opsId}/communication-chat`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatRecordId: chatRecordId || null }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(chatRecordId ? 'Master chat set' : 'Master chat cleared')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (chats === null) return <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '5px 0' }}>Loading chats…</div>
+  if (!chats.length) return <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '5px 0' }}>No chats linked yet — add the bot to her group first.</div>
+
+  const current = chats.find((c) => c.isCurrentMaster)
+  return (
+    <select value={current?.recordId || ''} disabled={busy} onChange={(e) => pick(e.target.value)}
+      style={{ width: '100%', padding: '5px 8px', fontSize: '12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'var(--foreground)' }}>
+      <option value="">— pick her master chat —</option>
+      {chats.map((c) => (
+        <option key={c.recordId} value={c.recordId}>
+          {c.title || c.chatId} ({c.source}{c.messageCount ? ` · ${c.messageCount} msgs` : ''})
+        </option>
+      ))}
+    </select>
+  )
+}
+
+// Music DNA — paste her playlist link (or a plain song list) and process, in
+// one card. process-dna saves the input AND writes the processed DNA.
+function MusicDnaAction({ tile, opsId, onRefresh, flash }) {
+  const a = tile.action || {}
+  const [v, setV] = useState(a.input || '')
+  const [busy, setBusy] = useState(false)
+
+  const detectType = (s) => (/spotify\.com/i.test(s) ? 'spotify_playlist' : /music\.apple\.com/i.test(s) ? 'apple_music' : 'text_list')
+
+  const process = async () => {
+    const raw = v.trim()
+    if (!raw) { flash('Paste a playlist link or song list first'); return }
+    if (!opsId) { flash('No Ops creator record yet'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/music/process-dna', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: opsId, inputType: detectType(raw), rawInput: raw }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Processing failed')
+      flash(`Music DNA processed${j.tracks?.length ? ` — ${j.tracks.length} tracks` : ''}`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <input value={v} placeholder="Spotify / Apple Music link or song list" disabled={busy}
+        onChange={(e) => setV(e.target.value)}
+        style={{ flex: 1, minWidth: 0, padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', outline: 'none' }} />
+      <button onClick={process} disabled={busy || !v.trim()}
+        style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy || !v.trim() ? 0.6 : 1, flexShrink: 0 }}>
+        {busy ? 'Processing…' : (tile.status === 'done' ? 'Re-process' : 'Process')}
+      </button>
+    </div>
+  )
+}
+
+// Publer — external connect happens in Publer's dashboard; the Sync pull +
+// mapping check live here so you don't have to go hunting.
+function PublerSyncAction({ tile, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+
+  const sync = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/publer/sync-accounts', { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Sync failed')
+      flash('Synced from Publer — map the account to her below if it just appeared')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <button onClick={sync} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Syncing…' : 'Sync from Publer'}
+      </button>
+      <button onClick={() => window.open('/admin/social?tab=publer', '_self')}
+        style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)' }}>
+        Mapping
+      </button>
+    </div>
   )
 }
 
