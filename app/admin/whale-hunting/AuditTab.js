@@ -479,10 +479,13 @@ export default function AuditTab() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={runPull} disabled={pulling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', pulling || !selected?.connected)}>
+        {/* Pull and Backfill write the SAME sheet tabs — running both at once
+            makes each dedupe against the pre-write tab and double every row
+            (Kiki got her whole history twice, 2026-07-17). Mutually exclusive. */}
+        <button onClick={runPull} disabled={pulling || backfilling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.12)', '#78B4E8', pulling || backfilling || !selected?.connected)}>
           {pulling ? 'Updating…' : 'Update Sales & Chargebacks'}
         </button>
-        <button onClick={runBackfill} disabled={backfilling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.08)', '#6B94B8', backfilling || !selected?.connected)}
+        <button onClick={runBackfill} disabled={backfilling || pulling || !selected?.connected} style={btn('rgba(120, 180, 232, 0.08)', '#6B94B8', backfilling || pulling || !selected?.connected)}
           title="One-time: pulls the older history the sheet is missing, back to 2 years. Costs credits only for missing rows.">
           {backfilling ? 'Backfilling…' : 'Backfill 2y History'}
         </button>

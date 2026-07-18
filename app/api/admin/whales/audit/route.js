@@ -253,7 +253,7 @@ export async function POST(request) {
     const trackerRows = await fetchAirtableRecords(FAN_TRACKER, {
       fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
     })
-    const mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
+    let mine = trackerRows.filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
 
     // ── Live enrichment (flagged fans only — ~1 credit each, bounded) ──────
     // One users/{username} call per flagged fan captures the signals the
@@ -384,6 +384,14 @@ export async function POST(request) {
       triggered = triggered.filter(keep)
       dormantWhales = dormantWhales.filter(keep)
     }
+
+    // Re-fetch the tracker RIGHT before writing: the first fetch above is
+    // minutes stale by now (live enrichment), and a second audit running in
+    // parallel used that stale view to create all 18 of Kiki's fans twice
+    // (2026-07-17). A fresh read shrinks the race window to seconds.
+    mine = (await fetchAirtableRecords(FAN_TRACKER, {
+      fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend', 'Cadence'],
+    })).filter((r) => (r.fields?.Creator || []).includes(creatorRecordId))
 
     let created = 0, updated = 0
     for (const t of [...triggered, ...dormantWhales]) {
