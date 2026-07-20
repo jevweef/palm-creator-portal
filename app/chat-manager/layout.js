@@ -29,6 +29,7 @@ export default function ChatManagerLayout({ children }) {
     ['/chat-manager/photo-library', 'Photo Library'],
     ['/chat-manager/whale-hunting', 'Whale Hunting'],
     ...(liveChatOn ? [['/chat-manager/live-chat', 'Live Chat']] : []),
+    ['/chat-manager/content-requests', 'Content Requests'],
     ['/chat-manager/chat-team-report', 'Chat Team Report'],
   ]
 

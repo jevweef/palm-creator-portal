@@ -363,17 +363,21 @@ export default function AdminLayout({ children }) {
       </aside>
       )}
 
-      {/* Main content. On chat-wall it takes the full viewport since there's
-          no sidebar; we add a max-width to keep line lengths readable. */}
+      {/* Main content. Every admin page renders inside ONE shared, centered
+          body column so the width is identical site-wide — set once here via
+          --admin-content-width (default 1400px), not per page. A page that
+          genuinely needs to be wider/narrower can override that CSS var on its
+          own root; otherwise it just inherits this. */}
       <main className="admin-main" style={{
         flex: 1,
         padding: '24px 32px',
         minWidth: 0,
         overflowX: 'hidden',
         overflowY: 'auto',
-        ...(isOnChatWall ? { maxWidth: '1400px', margin: '0 auto', width: '100%' } : {}),
       }}>
-        {children}
+        <div className="admin-page-body" style={{ maxWidth: 'var(--admin-content-width, 1400px)', margin: '0 auto', width: '100%' }}>
+          {children}
+        </div>
       </main>
     </div>
   )
