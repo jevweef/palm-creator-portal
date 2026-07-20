@@ -15,6 +15,7 @@ export default function ContentRequestPage() {
   const [error, setError] = useState(null)
   const [creators, setCreators] = useState([])
   const [loadingCreators, setLoadingCreators] = useState(false)
+  const [requestId, setRequestId] = useState(null) // selected account's request (null = server default)
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -37,7 +38,7 @@ export default function ContentRequestPage() {
     if (!isLoaded) return
     if (!opsId) { setLoading(false); return }
     try {
-      const res = await fetch(`/api/content-request?creatorOpsId=${opsId}`)
+      const res = await fetch(`/api/content-request?creatorOpsId=${opsId}${requestId ? `&requestId=${requestId}` : ''}`)
       if (!res.ok) throw new Error('Failed to fetch content request')
       setData(await res.json())
     } catch (err) {
@@ -45,7 +46,7 @@ export default function ContentRequestPage() {
     } finally {
       setLoading(false)
     }
-  }, [opsId, isLoaded])
+  }, [opsId, isLoaded, requestId])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -167,8 +168,42 @@ export default function ContentRequestPage() {
     return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   }
 
+  // Short account label ("Free OF" / "VIP OF") from the request's full
+  // account name — used for the tabs and the per-account Dropbox folder.
+  const shortAccount = (acct) => (acct ? acct.split(' - ').slice(1).join(' - ') || acct : '')
+  const handleOf = (url) => (url ? '@' + url.replace(/\/+$/, '').split('/').pop() : '')
+  const accountTabs = (data.requests || []).length > 1 ? data.requests : []
+
   return (
     <div style={{ maxWidth: 940, margin: '0 auto', padding: '24px 20px 80px' }}>
+      {/* Account tabs — one vault intake per OF page (Free / VIP) */}
+      {accountTabs.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {accountTabs.map(r => {
+            const active = r.id === data.request?.id
+            return (
+              <button
+                key={r.id}
+                onClick={() => { if (!active) { setLoading(true); setRequestId(r.id) } }}
+                style={{
+                  padding: '8px 18px', fontSize: 13, fontWeight: 700, borderRadius: 10,
+                  border: '1px solid ' + (active ? 'var(--palm-pink)' : 'transparent'),
+                  background: active ? 'rgba(232,160,160,0.12)' : 'var(--card-bg-solid)',
+                  color: active ? 'var(--palm-pink)' : 'var(--foreground-muted)', cursor: 'pointer',
+                }}
+              >
+                {shortAccount(r.account) || r.title}
+                {r.accountUrl && (
+                  <span style={{ display: 'block', fontSize: 10, fontWeight: 500, color: active ? 'var(--palm-pink)' : 'var(--foreground-subtle)', opacity: 0.85 }}>
+                    {handleOf(r.accountUrl)}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         background: 'var(--card-bg-solid)',
@@ -183,6 +218,11 @@ export default function ContentRequestPage() {
               {data.request?.title || 'Content Request'}
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--foreground-muted)' }}>
+              {data.request?.accountUrl && (
+                <span style={{ fontWeight: 700, color: 'var(--palm-pink)' }}>
+                  {handleOf(data.request.accountUrl)}
+                </span>
+              )}
               {data.request?.dueDate && <span>Due: {formatDate(data.request.dueDate)}</span>}
               <span style={{
                 fontSize: 11,
@@ -222,10 +262,11 @@ export default function ContentRequestPage() {
       {/* Section cards */}
       {data.sections.map(section => (
         <ContentRequestSectionCard
-          key={section.name}
+          key={`${data.request?.id || 'preview'}:${section.name}`}
           section={section}
           hqId={hqId}
           requestId={data.request?.id}
+          accountLabel={shortAccount(data.request?.account)}
           creatorOpsId={opsId}
           month={month}
           onFilesUploaded={handleFilesUploaded}

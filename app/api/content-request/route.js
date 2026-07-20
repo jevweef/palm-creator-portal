@@ -59,17 +59,41 @@ export async function GET(request) {
       sort: [{ field: 'Sort Order', direction: 'asc' }],
     })
 
-    // Try to find active content request for this creator
+    // All active requests for this creator — one per OF account since
+    // 2026-07-20 ('Account' field, e.g. "Kiki - Free OF"; blank = legacy
+    // whole-creator request). ?requestId= selects one; default = first
+    // (accounts sort Free before VIP, legacy blanks first).
+    let myRequests = []
     let contentRequest = null
     let uploadedFiles = []
+    const requestedId = searchParams.get('requestId')
     try {
       const allActive = await fetchRecords(CONTENT_REQUESTS, {
         filterByFormula: `{Status}="Active"`,
       })
-      contentRequest = allActive.find(r => {
-        const links = r.fields['Creator'] || []
-        return links.includes(creatorOpsId)
-      })
+      myRequests = allActive
+        .filter(r => (r.fields['Creator'] || []).includes(creatorOpsId))
+        .sort((a, b) => String(a.fields['Account'] || '').localeCompare(String(b.fields['Account'] || '')))
+      contentRequest = myRequests.find(r => r.id === requestedId) || myRequests[0] || null
+
+      // Page URLs live on the HQ Revenue Accounts records — show the creator
+      // WHICH OF page each request feeds (@handle), not just "Free OF".
+      try {
+        const hqRes = await fetch(
+          `https://api.airtable.com/v0/appL7c4Wtotpz07KS/tblQqPWlsjiyJA0ba?filterByFormula=${encodeURIComponent(`{Platform}='OnlyFans'`)}&fields%5B%5D=Account%20Name&fields%5B%5D=URL`,
+          { headers: airtableHeaders, cache: 'no-store' }
+        )
+        if (hqRes.ok) {
+          const urlByAccount = {}
+          for (const r of (await hqRes.json()).records || []) {
+            const n = r.fields['Account Name']
+            if (n) urlByAccount[n.toLowerCase()] = r.fields['URL'] || ''
+          }
+          for (const r of myRequests) {
+            r._accountUrl = urlByAccount[String(r.fields['Account'] || '').toLowerCase()] || ''
+          }
+        }
+      } catch { /* handle display is best-effort */ }
 
       // Fetch uploaded files for this request
       if (contentRequest) {
@@ -123,9 +147,17 @@ export async function GET(request) {
     const instructions = templates.find(t => t.fields['Item Type'] === 'info_only')
 
     return NextResponse.json({
+      requests: myRequests.map(r => ({
+        id: r.id,
+        title: r.fields['Title'] || 'Content Request',
+        account: r.fields['Account'] || '',
+        accountUrl: r._accountUrl || '',
+      })),
       request: contentRequest ? {
         id: contentRequest.id,
         title: contentRequest.fields['Title'] || 'Content Request',
+        account: contentRequest.fields['Account'] || '',
+        accountUrl: contentRequest._accountUrl || '',
         dueDate: contentRequest.fields['Due Date'] || '',
         status: contentRequest.fields['Status'] || 'Active',
         month: contentRequest.fields['Month'] || '',

@@ -32,6 +32,7 @@ export default function ContentRequestUploadModal({
   acceptedFileTypes,
   hqId,
   requestId,
+  accountLabel,
   creatorOpsId,
   month,
   initialFiles,
@@ -133,7 +134,10 @@ export default function ContentRequestUploadModal({
       // path 409'd with no_write_permission), but /Palm Ops/Creators/{AKA}
       // already exists and is writable — same place the editor writes.
       // Structure: .../Vault Content/{YYYY}/{MM Month}/{Section}/{file}
-      const uploadPath = `/Palm Ops/Creators/${creatorName}/Vault Content/${year}/${monthFolder}/${sectionName}/${safeName}`
+      // Per-account requests (2026-07-20) nest an account folder so Free and
+      // VIP vault content never mix: .../Vault Content/{YYYY}/{MM}/{Account}/{Section}/
+      const accountSeg = accountLabel ? `${accountLabel}/` : ''
+      const uploadPath = `/Palm Ops/Creators/${creatorName}/Vault Content/${year}/${monthFolder}/${accountSeg}${sectionName}/${safeName}`
 
       const meta = await uploadFileToDropbox({
         file,
@@ -230,7 +234,7 @@ export default function ContentRequestUploadModal({
         }).catch(() => {})
       }
     }
-  }, [getToken, month, sectionName, requestId, creatorOpsId, onUploaded, setItem, hqId])
+  }, [getToken, month, sectionName, requestId, accountLabel, creatorOpsId, onUploaded, setItem, hqId])
 
   // Process the queue. Small files upload up to 3 at once (a selfie dump
   // shouldn't crawl one-by-one); a big file gets the whole pipe to itself so

@@ -33,6 +33,7 @@ export default function ContentRequestSectionCard({
   section,
   hqId,
   requestId,
+  accountLabel,
   creatorOpsId,
   month,
   onFilesUploaded,
@@ -251,6 +252,7 @@ export default function ContentRequestSectionCard({
         acceptedFileTypes={acceptedFileTypes}
         hqId={hqId}
         requestId={requestId}
+        accountLabel={accountLabel}
         creatorOpsId={creatorOpsId}
         month={month}
         initialFiles={pendingFiles}
