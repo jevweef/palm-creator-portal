@@ -15,7 +15,7 @@ export async function GET() {
     const [requests, items, templates, creators, errors] = await Promise.all([
       fetchAirtableRecords('Content Requests', {
         filterByFormula: `{Status}='Active'`,
-        fields: ['Title', 'Creator', 'Due Date', 'Status', 'Month'],
+        fields: ['Title', 'Creator', 'Due Date', 'Status', 'Month', 'Account'],
       }),
       fetchAirtableRecords('Content Request Items', {
         fields: ['Section', 'Content Request', 'Creator', 'Status', 'Dropbox Path', 'Dropbox Link', 'File Name', 'File Size', 'Uploaded At'],
@@ -108,6 +108,7 @@ export async function GET() {
         requestId: r.id,
         creatorId: crId,
         creator: name,
+        account: f.Account || '',
         title: f.Title || '',
         month: f.Month || '',
         dueDate: f['Due Date'] || '',

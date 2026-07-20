@@ -86,10 +86,16 @@ export async function POST(request) {
       } catch (e) {
         return NextResponse.json({ error: `onlyfansapi.com doesn’t recognize that ID (${e.message}). Check it’s copied exactly and the account is authenticated there.` }, { status: 400 })
       }
-      await patchHqRecord(HQ_REVENUE_ACCOUNTS, revenueAccountId, {
-        'OF API Connect': 'Connect',
-        'OF API Account ID': id,
-      })
+      const patch = { 'OF API Connect': 'Connect', 'OF API Account ID': id }
+      // The verify gave us the page's real username — store the page URL too
+      // (only when blank; never overwrite a hand-set URL).
+      if (username) {
+        try {
+          const rec = await fetchHqRecord(HQ_REVENUE_ACCOUNTS, revenueAccountId)
+          if (!String(rec.fields?.['URL'] || '').trim()) patch['URL'] = `https://onlyfans.com/${username}`
+        } catch { /* URL fill is best-effort */ }
+      }
+      await patchHqRecord(HQ_REVENUE_ACCOUNTS, revenueAccountId, patch)
       const synced = await syncOpsAccountIds(hqId, cf, aka)
       return NextResponse.json({ ok: true, username, opsList: synced })
     }

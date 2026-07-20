@@ -32,7 +32,10 @@ export default function ContentRequestsAdminPage() {
   if (loading) return <div style={{ padding: '40px', color: 'var(--foreground-muted)' }}>Loading content requests…</div>
   if (error) return <div style={{ padding: '40px', color: '#E87878' }}>Error: {error}</div>
 
-  const shown = creatorFilter === 'all' ? data : data.filter(c => c.creatorId === creatorFilter)
+  // Filter by REQUEST (one row per account since 2026-07-20), not creator —
+  // a Free+VIP creator has two rows and you pick the exact one.
+  const shortAccount = (acct) => (acct ? acct.split(' - ').slice(1).join(' - ') || acct : '')
+  const shown = creatorFilter === 'all' ? data : data.filter(c => c.requestId === creatorFilter)
   const toggle = (key) => setExpanded(p => ({ ...p, [key]: !p[key] }))
 
   return (
@@ -45,7 +48,7 @@ export default function ContentRequestsAdminPage() {
         <select value={creatorFilter} onChange={e => setCreatorFilter(e.target.value)}
           style={{ padding: '8px 12px', fontSize: 13, background: 'var(--background)', color: 'var(--foreground)', border: '1px solid transparent', borderRadius: 8, cursor: 'pointer' }}>
           <option value="all">All creators ({data.length})</option>
-          {data.map(c => <option key={c.requestId} value={c.creatorId}>{c.creator}</option>)}
+          {data.map(c => <option key={c.requestId} value={c.requestId}>{c.creator}{c.account ? ` — ${shortAccount(c.account)}` : ` — ${c.title || 'legacy'}`}</option>)}
         </select>
       </div>
 
@@ -60,6 +63,11 @@ export default function ContentRequestsAdminPage() {
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>{c.creator}</span>
+                {c.account && (
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: /vip/i.test(c.account) ? '#C9A2E8' : '#7FB4E4', background: /vip/i.test(c.account) ? 'rgba(201,162,232,0.12)' : 'rgba(127,180,228,0.12)', padding: '2px 8px', borderRadius: 5 }}>
+                    {shortAccount(c.account)}
+                  </span>
+                )}
                 <span style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>{c.title || c.month}</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: met ? '#7DD3A4' : c.totalUploaded > 0 ? '#E8C878' : '#999' }}>
