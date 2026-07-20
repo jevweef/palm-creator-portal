@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 function fmtDateTime(s) {
   if (!s) return '—'
@@ -24,7 +25,11 @@ const barColor = (u, r) => (r > 0 && u >= r ? '#7DD3A4' : u > 0 ? 'var(--palm-pi
 
 // Shared oversight view (admin + team-scoped chat-manager mirror). `apiBase` is
 // the data endpoint; `viewAsUserId` lets an admin preview a chat manager's team.
-export default function ContentRequestOverview({ apiBase, viewAsUserId }) {
+export default function ContentRequestOverview({ apiBase, viewAsUserId, showTeamFilter }) {
+  const { user } = useUser()
+  const isAdmin = ['admin', 'super_admin'].includes(user?.publicMetadata?.role)
+  const teamFilterOn = showTeamFilter && isAdmin
+  const [team, setTeam] = useState('All')
   const [data, setData] = useState(null)
   const [month, setMonth] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -38,11 +43,12 @@ export default function ContentRequestOverview({ apiBase, viewAsUserId }) {
     const qs = new URLSearchParams()
     if (month) qs.set('month', month)
     if (viewAsUserId) qs.set('viewAsUserId', viewAsUserId)
+    if (teamFilterOn && team !== 'All') qs.set('team', team)
     fetch(`${apiBase}${qs.toString() ? `?${qs}` : ''}`)
       .then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Failed')))))
       .then((d) => { setData(d); if (!month) setMonth(d.month); setLoading(false) })
       .catch((e) => { setError(e.message); setLoading(false) })
-  }, [apiBase, month, viewAsUserId])
+  }, [apiBase, month, viewAsUserId, teamFilterOn, team])
 
   const openModal = (creator, req) => { setModalCreator(creator); setModalReq(req); setOpenSection({}) }
 
@@ -59,11 +65,21 @@ export default function ContentRequestOverview({ apiBase, viewAsUserId }) {
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Content Requests</h1>
           <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>One card per creator — click a request to see files, Dropbox links, and errors.</div>
         </div>
-        <select value={month || ''} onChange={(e) => setMonth(e.target.value)}
-          style={{ padding: '8px 12px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
-          {months.length === 0 && <option value="">No months</option>}
-          {months.map((m) => <option key={m} value={m}>{fmtMonth(m)}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {teamFilterOn && (
+            <select value={team} onChange={(e) => setTeam(e.target.value)}
+              style={{ padding: '8px 12px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
+              <option value="All">All teams</option>
+              <option value="A">A Team</option>
+              <option value="B">B Team</option>
+            </select>
+          )}
+          <select value={month || ''} onChange={(e) => setMonth(e.target.value)}
+            style={{ padding: '8px 12px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
+            {months.length === 0 && <option value="">No months</option>}
+            {months.map((m) => <option key={m} value={m}>{fmtMonth(m)}</option>)}
+          </select>
+        </div>
       </div>
 
       {creators.length === 0 && <div style={{ color: 'var(--foreground-muted)', padding: '40px 0', textAlign: 'center' }}>No content requests for {fmtMonth(month)}.</div>}

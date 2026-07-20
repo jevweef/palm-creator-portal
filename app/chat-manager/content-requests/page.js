@@ -7,5 +7,5 @@ import ContentRequestOverview from '@/components/content-request/ContentRequestO
 // manager's team via ?viewAsUserId=<clerkId>; the API enforces the scoping.
 export default function ChatManagerContentRequestsPage() {
   const viewAsUserId = useSearchParams().get('viewAsUserId') || undefined
-  return <ContentRequestOverview apiBase="/api/chat-manager/content-requests" viewAsUserId={viewAsUserId} />
+  return <ContentRequestOverview apiBase="/api/chat-manager/content-requests" viewAsUserId={viewAsUserId} showTeamFilter />
 }
