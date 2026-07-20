@@ -54,6 +54,35 @@ async function fetchHqManagementStartByAka() {
     const start = r.fields?.['Management Start Date']
     if (aka && start) map[aka] = String(start).split('T')[0]
   }
+
+  // Per-ACCOUNT starts override the per-creator date: each Revenue Account
+  // carries its own Management Start Date (the same one invoicing clamps by),
+  // so "when does her revenue start counting" has ONE answer everywhere. A
+  // creator's chart start = the EARLIEST of her active accounts' dates.
+  try {
+    const params = new URLSearchParams()
+    params.set('filterByFormula', `AND({Platform}='OnlyFans',{Status}='Active')`)
+    params.append('fields[]', 'Account Name')
+    params.append('fields[]', 'Management Start Date')
+    params.set('pageSize', '100')
+    const res = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/tblQqPWlsjiyJA0ba?${params}`,
+      { headers: hqHeaders(), cache: 'no-store' }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const byAka = {}
+      for (const r of data.records || []) {
+        const name = r.fields?.['Account Name'] || ''
+        const start = r.fields?.['Management Start Date']
+        const aka = name.split(' - ')[0]
+        if (!aka || !start) continue
+        const d = String(start).split('T')[0]
+        if (!byAka[aka] || d < byAka[aka]) byAka[aka] = d
+      }
+      Object.assign(map, byAka)
+    }
+  } catch { /* per-creator dates stand alone */ }
   return map
 }
 
@@ -324,11 +353,30 @@ export async function GET() {
       tasksByCreator[creatorId].push(task)
     }
 
+    // RUNWAY = banked, unposted posts ÷ posts/day. Scheduled Date is a FIFO
+    // token now (not a real future date), so the old "future Scheduled Date"
+    // count was always 0. Count by STATUS instead: anything prepped and sitting
+    // in the outbound pipeline that hasn't been posted yet (Posted At empty).
+    // Posts leave the buffer when marked posted (Posted At) — e.g. a ❤️ react in
+    // the Telegram topic, once that drawdown is wired.
+    const BANKED_STATUSES = ['Ready to Go', 'Staged', 'Queued for Telegram', 'Sending', 'Sent to Telegram']
+    const bankedByCreator = {}
+    try {
+      const banked = await fetchAirtableRecords('Posts', {
+        filterByFormula: `AND({Posted At}='', OR(${BANKED_STATUSES.map(s => `{Status}='${s}'`).join(',')}))`,
+        fields: ['Creator'],
+      })
+      for (const p of banked) {
+        const cid = (p.fields?.Creator || [])[0]
+        if (cid && creatorIdSet.has(cid)) bankedByCreator[cid] = (bankedByCreator[cid] || 0) + 1
+      }
+    } catch (e) { console.error('[dashboard] banked runway fetch failed:', e.message) }
+
     const editorRunway = creators.map(c => {
       const f = c.fields || {}
       const ctasks = tasksByCreator[c.id] || []
       const weeklyQuota = f['Weekly Reel Quota'] || 14
-      const approvedBuffer = futurePostsByCreator[c.id] || 0
+      const approvedBuffer = bankedByCreator[c.id] || 0
       const bufferDays = parseFloat((approvedBuffer / POSTS_PER_DAY).toFixed(1))
 
       const doneThisWeek = ctasks.filter(t =>

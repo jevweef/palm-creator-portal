@@ -183,11 +183,51 @@ function ToggleSwitch({ on, onChange, disabled }) {
   )
 }
 
+// Styled confirm for toggling a creator's Social Media Editing OFF (never a
+// native browser dialog). Spells out exactly what happens before it runs.
+function EditorOffConfirmModal({ creator, busy, onCancel, onConfirm }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onCancel() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
+  const li = { display: 'flex', gap: '8px', fontSize: '12.5px', color: 'var(--foreground)', lineHeight: 1.5 }
+  const dot = (color) => ({ flex: 'none', width: '6px', height: '6px', borderRadius: '50%', background: color, marginTop: '7px' })
+
+  return (
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', width: 'min(440px, 100%)', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '6px' }}>
+          Turn off social editing for {creator.name}?
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginBottom: '14px' }}>
+          Here&apos;s exactly what happens if you confirm:
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+          <div style={li}><span style={dot('#E87878')} /><span><strong>Her Telegram content topics are DELETED</strong> — the IG / FB / AI channels and every per-account topic in the SMM group, including their message history. This can&apos;t be undone.</span></div>
+          <div style={li}><span style={dot('#E8C878')} /><span>She disappears from the Editor Dashboard, Grid Planner, and Post Prep.</span></div>
+          <div style={li}><span style={dot('#E8C878')} /><span>Social-only steps hide on her onboarding board and stop counting toward go-live.</span></div>
+          <div style={li}><span style={dot('#7AC97A')} /><span>Toggling back ON later restores access, but topics must be re-provisioned (fresh, empty ones) from her onboarding board.</span></div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} disabled={busy} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: 'var(--foreground)' }}>Cancel</button>
+          <button onClick={onConfirm} disabled={busy} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: busy ? 'default' : 'pointer', background: '#C25450', color: '#fff', opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Working…' : 'Turn off + delete topics'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PipelineAccessPanel() {
   const [creators, setCreators] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState({})
+  const [confirmOff, setConfirmOff] = useState(null) // creator awaiting toggle-OFF confirm
+  const [notice, setNotice] = useState(null)         // styled result/error line (no native alerts)
 
   const fetchCreators = useCallback(async () => {
     try {
@@ -204,7 +244,7 @@ function PipelineAccessPanel() {
 
   useEffect(() => { fetchCreators() }, [fetchCreators])
 
-  const handleToggle = async (creator, nextValue) => {
+  const runToggle = async (creator, nextValue) => {
     setSaving(prev => ({ ...prev, [creator.id]: true }))
     // Optimistic update — flip immediately, revert on error
     setCreators(prev => prev.map(c =>
@@ -216,13 +256,22 @@ function PipelineAccessPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creatorId: creator.id, socialMediaEditing: nextValue }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Toggle failed')
+      if (nextValue === false) {
+        const n = (j.topicsDeleted || []).length
+        const failed = (j.topicsFailed || []).length
+        setNotice({
+          tone: failed ? 'warn' : 'ok',
+          text: `${creator.name}: editing off · ${n} Telegram topic${n === 1 ? '' : 's'} deleted${failed ? ` · ${failed} failed (check logs)` : ''}`,
+        })
+      }
     } catch (err) {
       // Revert
       setCreators(prev => prev.map(c =>
         c.id === creator.id ? { ...c, socialMediaEditing: !nextValue } : c
       ))
-      alert(`Failed to toggle: ${err.message}`)
+      setNotice({ tone: 'error', text: `Failed to toggle ${creator.name}: ${err.message}` })
     } finally {
       setSaving(prev => {
         const next = { ...prev }
@@ -230,6 +279,14 @@ function PipelineAccessPanel() {
         return next
       })
     }
+  }
+
+  // Toggling OFF is destructive (deletes her Telegram content topics) — route
+  // it through a styled confirm modal. Toggling ON stays instant.
+  const handleToggle = (creator, nextValue) => {
+    setNotice(null)
+    if (nextValue === false) setConfirmOff(creator)
+    else runToggle(creator, true)
   }
 
   if (loading) {
@@ -262,6 +319,24 @@ function PipelineAccessPanel() {
       <div style={{ fontSize: '11px', color: 'var(--foreground-subtle)', marginBottom: '10px' }}>
         Toggle ON to add a creator to the Editor Dashboard, Grid Planner, and Post Prep. Readiness badges show what's set up; missing ones are nice-to-have, not required.
       </div>
+      {notice && (
+        <div style={{
+          fontSize: '12px', fontWeight: 600, padding: '7px 10px', borderRadius: '7px', marginBottom: '10px',
+          color: notice.tone === 'error' ? '#E87878' : notice.tone === 'warn' ? '#E8C878' : '#7AC97A',
+          background: notice.tone === 'error' ? 'rgba(232,120,120,0.08)' : notice.tone === 'warn' ? 'rgba(232,200,120,0.08)' : 'rgba(122,201,122,0.08)',
+          border: `1px solid ${notice.tone === 'error' ? 'rgba(232,120,120,0.3)' : notice.tone === 'warn' ? 'rgba(232,200,120,0.3)' : 'rgba(122,201,122,0.3)'}`,
+        }}>
+          {notice.text}
+        </div>
+      )}
+      {confirmOff && (
+        <EditorOffConfirmModal
+          creator={confirmOff}
+          busy={!!saving[confirmOff.id]}
+          onCancel={() => setConfirmOff(null)}
+          onConfirm={async () => { const c = confirmOff; setConfirmOff(null); await runToggle(c, false) }}
+        />
+      )}
       <div style={{ display: 'grid', gap: '4px' }}>
         {creators.map(c => {
           const isSaving = !!saving[c.id]
@@ -1009,12 +1084,20 @@ export default function AdminDashboard() {
     return () => ro.disconnect()
   }, [data])
 
-  // Derive creator list dynamically from revenue data (all AKAs with invoices)
+  // Derive creator list from revenue data (AKAs with invoices) UNION creators
+  // with sheet earnings data — a newly connected creator has sales before her
+  // first invoice ever exists (Kiki/Bianca were invisible here, 2026-07-20).
+  // Sheet-only creators must carry a Management Start Date (the per-account
+  // "counting starts" switch): a stray legacy tab with no start never sneaks
+  // unbounded history into agency revenue.
   const creatorList = useMemo(() => {
-    if (!data?.revenue?.byCreator) return []
-    const names = Array.from(new Set(data.revenue.byCreator.map(c => c.name).filter(Boolean)))
-    return names.sort()
-  }, [data])
+    const names = new Set((data?.revenue?.byCreator || []).map(c => c.name).filter(Boolean))
+    const starts = data?.revenue?.managementStartByCreator || {}
+    for (const name of Object.keys(earningsData || {})) {
+      if (starts[name]) names.add(name)
+    }
+    return Array.from(names).sort()
+  }, [data, earningsData])
 
   // name → creator id (from editorRunway — used for deep-links to /admin/creators?creator=<id>)
   const creatorIdByName = useMemo(() => {
