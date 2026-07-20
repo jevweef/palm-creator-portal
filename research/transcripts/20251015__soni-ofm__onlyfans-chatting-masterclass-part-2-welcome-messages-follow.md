@@ -1,0 +1,59 @@
+---
+title: "OnlyFans Chatting Masterclass Part 2: Welcome Messages & Follow-Up Strategy for MAX Sales"
+channel: "Soni OFM"
+video_id: "rTNY942biJA"
+url: "https://www.youtube.com/watch?v=rTNY942biJA"
+upload_date: "20251015"
+duration: "10:14"
+transcript_source: "Apify (pintostudio youtube-transcript-scraper)"
+fetched_with: "scripts/yt_transcript.py"
+---
+
+# OnlyFans Chatting Masterclass Part 2: Welcome Messages & Follow-Up Strategy for MAX Sales
+
+**Channel:** Soni OFM
+**URL:** https://www.youtube.com/watch?v=rTNY942biJA
+**Uploaded:** 20251015 — **Duration:** 10:14
+**Source:** Apify (pintostudio youtube-transcript-scraper)
+
+---
+
+[0:00](https://www.youtube.com/watch?v=rTNY942biJA&t=0s) Hey guys, welcome to the full chatting course part two. In this video, I'm going to be telling you about the first touch and the start. Well, the next step will be the chatting in itself, building connection and all that. But that is how you a fan subscribed. He looked at your pictures and now what before we start chatting and how to get started that this is what this video is going to be about. Uh so you have to understand first the psychology of the fan. as a fan joins or subscribes to the only fans profile,
+
+[0:30](https://www.youtube.com/watch?v=rTNY942biJA&t=30s) what he does first is look to the profile, look through the pin post, read the captions, kind of like play with himself. Um, you know, basically go through the profile, go through the stories. Uh, if there's any live streams, go through that. Basically, just clicking around the profile and from the hundreds of DMs that he already have. If he likes the girl enough, he will check the DM because one, everybody's welcome messages are the same. Second, they're all asking for money and they're all just porn. So, very replaceable. You know, if he
+
+[1:01](https://www.youtube.com/watch?v=rTNY942biJA&t=61s) doesn't find her for two seconds, no problem. Moving on to the next because there's a new message, a hotter girl. Different reasons. Yeah. So, there's there's a lot of messages already and he's subscribing to 10 girls a day, mostly free. So, there's a lot of spammy messages. Spammy messages buy $10 PPVS, BBggg bundles, this and that. This is something we do not do. Yes, it might give you a small boost in the statistics, but over time when
+
+[1:33](https://www.youtube.com/watch?v=rTNY942biJA&t=93s) the find the fan finds no connection, uh the fan is like, okay, this is just a store, it's a website, Amazon, I go, I click, I buy, and I get it and then I can do whatever I want. he will find no connection and he will find no reason to come back. And another another thing, you're very replaceable. You're just like any other product or any any other creator on only fans uh selling their videos and pictures and bundles. So that is something we're not going to do. Uh that is something we
+
+[2:05](https://www.youtube.com/watch?v=rTNY942biJA&t=125s) don't do at all because that is not most of the that is not what most of the fans need and are looking for. And what they need is a genuine connection from a real girl. um a reason to come back, someone to be their therapist, someone to give them that kind of attention that they have not they have not received from a girl in the past few years. So you have to think like the fan and while chatting also a side tip while chatting also when if you're chatting or if your chatters are chatting you have to kind of imagine being the girl and kind of embody the
+
+[2:36](https://www.youtube.com/watch?v=rTNY942biJA&t=156s) emotions while you type. That's going to help you play around, be entertaining, which is very important in chatting first of all. So, so what is the first touch? The first touch is usually this, you know, initially it is the profile, but it is the welcome message always. Uh, and the welcome message is really important. And why is it important is because first it determines the start
+
+[3:07](https://www.youtube.com/watch?v=rTNY942biJA&t=187s) of the conversation and the frame in itself. Second it all it it is a tool that can be used to get out the information about what the fan likes, why did he subscribe, where is he, where where did he come from, where did he find the profile from. And over time you will kind of find out which traffic source brings what kind of fans, what do they like and on top of that and using that data you can sculpt your
+
+[3:37](https://www.youtube.com/watch?v=rTNY942biJA&t=217s) marketing content and you can sculpt your scripts. you may maybe if um you know a lot of fans are liking the girl's eyes, uh you can actually you know sculpt a script or a sequence that shows off her eyes in a way that can help you make more money and kind of give give the fan what he wants as well, which is pleasure. So yeah, that is why it's important. It can be used as a tool and uh it basically sets the frame of yeah, it's a real girl. I'm a real girl and you're talking to a real girl. I'm not I'm not
+
+[4:08](https://www.youtube.com/watch?v=rTNY942biJA&t=248s) a chatting team. I'm not an agency. I'm not just trying to get money and sell you [ __ ] 15 photos. Even though some fans might want it and it's free money, but we have to at least try and make sure that they don't want the GF and they know the game and you know they know what they're here for. Okay, whatever. Come get it. Right. So, suggestions on how you can do that. So, there are you have you have to understand the touch points. There are four things you can do in the only fans
+
+[4:38](https://www.youtube.com/watch?v=rTNY942biJA&t=278s) DMs. One is a text. Second is a photo. Third is a bundle. Oh, sorry. Third is a video which you can use in a bundle as well. You can mix it with text and send send a video and a photo. And then fourth is a voice note. So in my opinion, what's what are the two methods that that has worked the best? A voice note and B videos. These are the two best methods in my opinion. the two best uh touch points for uh for the welcome message. And what you want to do is you want to have a follow-up
+
+[5:09](https://www.youtube.com/watch?v=rTNY942biJA&t=309s) message as well. If you have a video, the best way is to do a video and then a followup voice message. It gives a lot of personality to the girl. Uh the guy can actually imagine the girl talking to her phone and that adds a lot of realism uh to the chat already. That means the fan will be willing to spend more, will value the girl more, and will think about the girl more because now she has a personality and she's a real human being. So what what you want to do in the
+
+[5:39](https://www.youtube.com/watch?v=rTNY942biJA&t=339s) initial video or the voice note for the or or even the text, you want to ask fan, hey, you want to tell fan, hey, thank you very much for subscribing. Always be jolly. Always um you know be positive, bubbly. Guys like that. Everybody likes that, not just guys. Yeah. Ask them, "Hey, where are you from? Thank you for subscribing so much. Welcome to my page. I'm I'm very new. Give me some suggestions." Ask Ask these questions that no one asks. Everybody is asking
+
+[6:10](https://www.youtube.com/watch?v=rTNY942biJA&t=370s) the same questions. What do you want? What are you looking for? Hey, baby. In 2025, man, we don't use baby, you know, and give it out for free. It need it needs to be authentic. It needs to look like an authentic girl. And if you just text a girl on Instagram, hey, or even if you say, hey baby, she's not going to reply. You're going to get blocked. And if she replies, she's not going to say baby right away unless she wants something you have. And that makes it very transactional.
+
+[6:40](https://www.youtube.com/watch?v=rTNY942biJA&t=400s) So yeah, don't use the word baby. Ask them uh where they're from, what they like about the girl, why did they sub why did they subscribe or um where did they find the profile from? How can how can you improve the page? This is actually very good because no agency wants to ask how can you improve the page. So the girl can be like, "Hey, thank you for subscribing. I'm very new. You know, I'm do I'm I'm pretty sure I'm not doing the best job, but you're here anyways. If if you look through my profile, you're going to find some
+
+[7:11](https://www.youtube.com/watch?v=rTNY942biJA&t=431s) photos and you know, if you have anything that I can somehow I can improve my Only Fans journey and my career in Only Fans, let me know. I would appreciate that a lot. Guys, we'll actually talk about how you can improve and what and that will tell you what they're looking for. Very good strategy. You can use it, but I'm not going to I'm not going to tell everything, okay? I've already told a lot. Lucky [ __ ] Anyways, uh follow-ups and BPVS are also very important. Uh there there will be fans that will reply initially, but there'll
+
+[7:42](https://www.youtube.com/watch?v=rTNY942biJA&t=462s) be small percentage of fans. Most of the fans you will get on the first followup, which will which should be a voice note or a text message. Uh that you need to train your chatters to give at least, you know, a few hours or the next day of the initial work welcome message. If they don't reply, you can kind of send another photo as a PPV be like, "Hey, you know, we haven't really talked. Uh let's get to know each other, blah blah blah blah. And what else? Stories can be used as well. I'm I'm going to, you know, do your own research. I'm not going to tell
+
+[8:13](https://www.youtube.com/watch?v=rTNY942biJA&t=493s) a lot, but stories is a very good tool to actually get more people in the DM. And why is it important to have a very good welcome message strategy? It is because let's say you have a 100 fans, right? You have 100 new fans today. Doesn't matter free, doesn't matter they're paid. You have 100 new fans. And then your shitty welcome message, the uh the flea market PPV uh9997 [ __ ] gets three people to reply and one person to buy. That's $10 to you. Good.
+
+[8:43](https://www.youtube.com/watch?v=rTNY942biJA&t=523s) You're now richer. But now what experts do what experts do is they have 100. They will they will have two welcome messages that they will try over the week. Okay, a video and a voice note or two different videos and they'll pull and they'll put both videos one week after another and they will track the numbers across 100 people. Let's say 100 people join on day one, 100 people join on, sorry, 100 people join on week one and 100 joins on week two. They'll see, okay, this one has 20 messages replies. This one has 30 messages and reply. Why is that? And then make a
+
+[9:13](https://www.youtube.com/watch?v=rTNY942biJA&t=553s) third one or maybe use the better one. So now you have 20 people that you're talking to that are potential buyers, potential relationship, potential whales. That is that that is just a numbers game. Data and numbers can give you so many solutions that logic sometimes cannot because if you have the data, you can make logic off of it. If you have numbers, you can make logic off off of it. Math is very logical. But if you're just trying to snoop around and, you know, just move your cursor around the screen and try and look for solutions, you're not going to get anywhere, my friend. So you have to
+
+[9:44](https://www.youtube.com/watch?v=rTNY942biJA&t=584s) always look at the numbers. Thank you very much. Also before I go before I go I want to I want to tell you guys I have a chatting agency as well infinite chatting.com. We are the best in the market. If you want to know more you can go on the website right here. If you want to sign up for a call you can book a call uh in the description or on the website itself. I also have a free telegram group for creators and agencies link in the bio uh for networking helping each other connecting all that good stuff. You can join there for

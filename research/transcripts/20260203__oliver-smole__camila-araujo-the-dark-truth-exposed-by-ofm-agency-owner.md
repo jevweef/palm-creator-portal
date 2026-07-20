@@ -1,0 +1,41 @@
+---
+title: "Camila Araujo: The Dark Truth Exposed (by OFM agency owner)"
+channel: "Oliver Smole"
+video_id: "45nFgcHh8hc"
+url: "https://www.youtube.com/watch?v=45nFgcHh8hc"
+upload_date: "20260203"
+duration: "5:33"
+transcript_source: "Apify (pintostudio youtube-transcript-scraper)"
+fetched_with: "scripts/yt_transcript.py"
+---
+
+# Camila Araujo: The Dark Truth Exposed (by OFM agency owner)
+
+**Channel:** Oliver Smole
+**URL:** https://www.youtube.com/watch?v=45nFgcHh8hc
+**Uploaded:** 20260203 — **Duration:** 5:33
+**Source:** Apify (pintostudio youtube-transcript-scraper)
+
+---
+
+[0:00](https://www.youtube.com/watch?v=45nFgcHh8hc&t=0s) So, a few weeks ago, one of the biggest Only Fans creators in the world drops this 50-minute documentary saying she's done. She's retiring, made over 20 million in three years, and now she's out. And within like 24 hours, 50,000 people applied to the new coaching problem for thousands of dollars to join. Everyone's calling her scammer. The internet's going crazy. But here's the thing, nobody's actually talking about her boyfriend has been her manager this entire time. And what they just pulled off, honestly, I think it might be one of the smartest moves I've ever seen in this OFM industry. So today I'm going to break down exactly what's
+
+[0:30](https://www.youtube.com/watch?v=45nFgcHh8hc&t=30s) happening here because whether you think it's genius or you think it's disgusting, you need to understand how this works if you're an only defense agency owner. All right, so let me give you some background on who we're even talking about. Camila is an offense model. She's 23, Brazilian American, and if you recognize her face, it's probably from Mr. Beast Squid Game video back in 2021. She was player 067 in the Thing. And that video galone got like 665 million views. Insane numbers. And she took that moment and basically built one of the biggest Only Fans careers ever. Like we're talking peak months of 1.5
+
+[1:03](https://www.youtube.com/watch?v=45nFgcHh8hc&t=63s) million, sometimes $2.5 million. Her total over 3 years was somewhere north of like 20 million in revenue. And she bought a $5 million house, retired her parents, got into real estate. The girl actually executed on the stuff, right? She didn't just waste the money. Kudos to that. But here's where it starts getting interesting. So there's this guy Owen Lynch, right? And on the surface, he looks like the typical supportive boyfriend you see with these type of creators, right? doing everything she says, allowing her to go to the club with her friends, driving her home after, kind of managing her, right? He's got his own TikTok, like 2.5 million followers, does these videos where he
+
+[1:33](https://www.youtube.com/watch?v=45nFgcHh8hc&t=93s) hides cash in random places, kind of whatever content. Now, January 1st this year, Camila drops this documentary on YouTube called Becoming Her. Very cinematic, very emotional, right? The whole narrative about how she's outgrown Only Fans and she wants to do something more meaningful with her life. And then at the end, she announces that she's launching a coaching business, same name, becoming her. first Niche claims, 50,000 applications came in. Now, here's where everyone started losing their minds and calling it a scam because the pricing on this thing is you've got like
+
+[2:04](https://www.youtube.com/watch?v=45nFgcHh8hc&t=124s) tears going from like 2 grand up to 8 grand for the main program. And if you can't afford that, there's this little downell like $67 mini course they redirect you to, right? And people were asking themselves on the internet like how being on a Mr. peace video and just blowing off from it is a universal strategy to teach inside a coaching program. Or in the boyfriend's case, how banging an OF star and being a sugar baby is a strategy the average agency owner can copy buying the program. Right? So obviously the internet kind of went off on this a lot of backlash, right? And there's another creator named
+
+[2:34](https://www.youtube.com/watch?v=45nFgcHh8hc&t=154s) Forest Smith who actually went through the whole process and posted a review and her tech was basically look the information is valuable but it's also stuff you can find for free if you spend 30 minutes on YouTube and Tik Tok. She called it a bad investment unless you already got an established brand and you just have five grand laying around that you literally don't care about. And the Instagram comments on Camila's posts were brutal. People saying stuff like, "I had more respect for you doing than this MLM thing calling her scam," which is hilarious. Saying it's a pyramid scheme, Tik Tok videos calling it a scam. We're getting millions of
+
+[3:05](https://www.youtube.com/watch?v=45nFgcHh8hc&t=185s) views. Reddit threads tearing the whole thing apart. And look, I'm not here to tell you if it's a scam or not. I generally can't be bothered to watch like 10 hours of Mindset videos to make an actual review. everyone makes their money. Hey, that's fair game, right? I'm not going to judge. But what I'm going to tell you is what's actually happening in here from a business perspective because that part I do understand. Okay? So now, let me put on my agency owner hat for a second. All right? Because whether you think this is ethical or scammy or whatever, what they've built here is actually really smart from a pure business structure standpoint.
+
+[3:35](https://www.youtube.com/watch?v=45nFgcHh8hc&t=215s) Right? Think about who follows Camila. It's aspiring creators, girls who look at her numbers, think, "Hey, that could be me." Right? Every single one of these female followers is essentially warm lead for the coaching product but more for the agency. So here's the part that nobody ever talked about on the internet is what happens after the course. Like if I'm Camila and people at least know us for living a certain lifestyle based on like her earnings, right? What's the next move? Because I've now got the pipeline of motivated creators who already paid to learn. Some of them are going to struggle. Some of them are going to want more help. And some of
+
+[4:06](https://www.youtube.com/watch?v=45nFgcHh8hc&t=246s) them are going to wish someone would just do it for them because that's just a [music] female brain in essence, right? And I've already proven I can do it, right? Camila did it with her own brand. So now I can just offer to do it for them too for a percentage. So this whole thing is basically agency lead generation disguises education. Every new person who joins Only Fans, every girl who sees Camila's 20 million and thinks ah I want that life too. That's a potential model for the agency. The scale on something like this is basically unlimited. [music] And again, I'm not saying this is right or wrong. That's really not for me to decide in all honesty and all objectiveness here
+
+[4:36](https://www.youtube.com/watch?v=45nFgcHh8hc&t=276s) because I'm known for being objective. But here's what I want you to actually understand from this. If you're in this industry and you're thinking about getting into it, you need to be able to recognize these plays when they happen. The whole retirement narrative was just purely for marketing. Documentary was content to drive traffic. The course is lead generation and the whole question of whether Camila's a scammer or a genius kind of misses the point cuz the creator is almost never the actual business. The creator is the face. She's the brand essentially if you want to call it that. And if you want to actually build something real in the space, you got to think more like her
+
+[5:06](https://www.youtube.com/watch?v=45nFgcHh8hc&t=306s) actual agency, not like the people spending 5 grand on the course. That's what me and 13,000 other agency owners actually teach inside Club 17. How to build and scale an agency, not how to spend thousands of dollars on stuff you could have probably Googled, right? So, if you want to learn more from people who are actually doing this every day and not just selling you on the ideas of doing it, the link in my bio is a free community in the description. Come hang out, ask questions, and see how we actually [music] operate. Don't be someone else's lead. I'll see you in the next one.
