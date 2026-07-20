@@ -14,6 +14,8 @@ export default function ProfilePhotosPage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [error, setError] = useState('')
+  const [progress, setProgress] = useState('')
 
   async function load() {
     setLoading(true)
@@ -27,24 +29,53 @@ export default function ProfilePhotosPage() {
 
   useEffect(() => { load() }, [creatorId])
 
+  // Upload straight to Dropbox from the browser: (1) ask our route for a
+  // short-lived Dropbox upload link per file, (2) POST each file's bytes
+  // directly to Dropbox (bypasses Vercel's ~4.5 MB body cap; handles HEIC/any
+  // size), (3) finalize so the route mirrors them to Airtable + returns the list.
   async function handleFiles(files) {
-    const list = Array.from(files || []).filter(f => f.type.startsWith('image/'))
-    if (list.length === 0) { alert('Please pick image files.'); return }
-    setUploading(true)
+    const list = Array.from(files || []).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name))
+    if (list.length === 0) { setError('Please pick image files (JPEG, PNG, HEIC).'); return }
+    setError(''); setUploading(true)
     try {
-      const fd = new FormData()
-      list.forEach(f => fd.append('file', f))
-      const r = await fetch(`/api/admin/onboarding/${creatorId}/photos`, { method: 'POST', body: fd })
-      if (!r.ok) { const d = await r.json(); alert(`Upload failed: ${d.error || 'unknown'}`); return }
-      await load()
-    } finally { setUploading(false) }
+      setProgress('Preparing…')
+      const prep = await fetch(`/api/admin/onboarding/${creatorId}/photos?step=prepare`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames: list.map(f => f.name) }),
+      })
+      const prepText = await prep.text()
+      let prepData; try { prepData = JSON.parse(prepText) } catch { throw new Error(prepText.slice(0, 160) || 'Could not start upload') }
+      if (!prep.ok) throw new Error(prepData.error || 'Could not start upload')
+      const targets = prepData.targets || []
+
+      const done = []
+      for (let i = 0; i < list.length; i++) {
+        const t = targets[i]; if (!t) continue
+        setProgress(`Uploading ${i + 1} of ${list.length}…`)
+        const up = await fetch(t.uploadUrl, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: list[i] })
+        if (!up.ok) throw new Error(`Dropbox rejected ${list[i].name} (${up.status})`)
+        done.push(t.path)
+      }
+
+      setProgress('Finishing…')
+      const fin = await fetch(`/api/admin/onboarding/${creatorId}/photos?step=finalize`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: done }),
+      })
+      const finData = await fin.json().catch(() => ({}))
+      if (!fin.ok) throw new Error(finData.error || 'Finalize failed')
+      setPhotos(finData.photos || [])
+    } catch (err) {
+      setError(`Upload failed: ${err.message}`)
+    } finally { setUploading(false); setProgress('') }
   }
 
-  async function deletePhoto(attachmentId) {
+  async function deletePhoto(path) {
     if (!confirm('Delete this photo?')) return
-    const r = await fetch(`/api/admin/onboarding/${creatorId}/photos?attachmentId=${attachmentId}`, { method: 'DELETE' })
-    if (r.ok) await load()
-    else alert('Delete failed')
+    const r = await fetch(`/api/admin/onboarding/${creatorId}/photos?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) setPhotos(d.photos || [])
+    else setError(`Delete failed: ${d.error || ''}`)
   }
 
   return (
@@ -82,18 +113,24 @@ export default function ProfilePhotosPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           multiple
           style={{ display: 'none' }}
           onChange={e => handleFiles(e.target.files)}
         />
         <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '4px' }}>
-          {uploading ? 'Uploading...' : 'Drop photos here or click to pick'}
+          {uploading ? (progress || 'Uploading…') : 'Drop photos here or click to pick'}
         </div>
         <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>
-          JPEG / PNG / HEIC · stored in Dropbox at /Palm Ops/Creators/{creator?.aka || '...'}/Profile Photos/
+          JPEG / PNG / HEIC · stored in Dropbox at /Palm Ops/Creators/{creator?.aka || '...'}/Profile Pictures/
         </div>
       </div>
+
+      {error && (
+        <div style={{ marginTop: '-12px', marginBottom: '20px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(220,80,80,0.1)', border: '1px solid rgba(220,80,80,0.35)', color: '#f0a0a0', fontSize: '13px' }}>
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ color: 'var(--foreground-muted)' }}>Loading...</div>
