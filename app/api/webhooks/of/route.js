@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, getLastFingerprints, txnFingerprint,
   insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, mapType, stripHtmlText,
-  fetchRevenueAccountNames,
+  fetchRevenueAccountNames, fetchRevenueAccountsApiState,
 } from '@/lib/transactionsSheet'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 import { writeLiveEvent } from '@/lib/ofLiveBuffer'
@@ -319,10 +319,20 @@ async function resolveAccount(accountId) {
   const hit = CACHE.accounts[accountId]
   if (!hit) return null
   if (!hit.accountName) {
-    const names = await fetchRevenueAccountNames(hit.aka)
-    hit.accountName = (hit.isVip
-      ? names.find((n) => /vip/i.test(n))
-      : names.find((n) => !/vip/i.test(n))) || names[0] || `${hit.aka} - ${hit.isVip ? 'VIP' : 'Free'} OF`
+    // Per-account records are authoritative — each Revenue Account carries its
+    // own acct id, so a lone connected VIP page can't get booked into the Free
+    // tab (the old Free-first positional guess did exactly that). Positional
+    // stays as the legacy fallback for unmigrated records.
+    const apiState = await fetchRevenueAccountsApiState(hit.aka)
+    const byId = apiState.find((a) => a.connect === 'Connect' && a.acctId === accountId)
+    if (byId) {
+      hit.accountName = byId.name
+    } else {
+      const names = await fetchRevenueAccountNames(hit.aka)
+      hit.accountName = (hit.isVip
+        ? names.find((n) => /vip/i.test(n))
+        : names.find((n) => !/vip/i.test(n))) || names[0] || `${hit.aka} - ${hit.isVip ? 'VIP' : 'Free'} OF`
+    }
   }
   return hit
 }

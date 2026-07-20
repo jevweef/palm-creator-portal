@@ -171,6 +171,7 @@ export default function ContentRequestPage() {
   // Short account label ("Free OF" / "VIP OF") from the request's full
   // account name — used for the tabs and the per-account Dropbox folder.
   const shortAccount = (acct) => (acct ? acct.split(' - ').slice(1).join(' - ') || acct : '')
+  const handleOf = (url) => (url ? '@' + url.replace(/\/+$/, '').split('/').pop() : '')
   const accountTabs = (data.requests || []).length > 1 ? data.requests : []
 
   return (
@@ -192,6 +193,11 @@ export default function ContentRequestPage() {
                 }}
               >
                 {shortAccount(r.account) || r.title}
+                {r.accountUrl && (
+                  <span style={{ display: 'block', fontSize: 10, fontWeight: 500, color: active ? 'var(--palm-pink)' : 'var(--foreground-subtle)', opacity: 0.85 }}>
+                    {handleOf(r.accountUrl)}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -212,6 +218,11 @@ export default function ContentRequestPage() {
               {data.request?.title || 'Content Request'}
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--foreground-muted)' }}>
+              {data.request?.accountUrl && (
+                <span style={{ fontWeight: 700, color: 'var(--palm-pink)' }}>
+                  {handleOf(data.request.accountUrl)}
+                </span>
+              )}
               {data.request?.dueDate && <span>Due: {formatDate(data.request.dueDate)}</span>}
               <span style={{
                 fontSize: 11,
