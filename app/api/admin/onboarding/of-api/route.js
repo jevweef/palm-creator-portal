@@ -54,7 +54,13 @@ export async function POST(request) {
         'Creator': [hqId],
         'Management Start Date': cf['Management Start Date'] || new Date().toISOString().slice(0, 10),
       })
-      return NextResponse.json({ ok: true, created: name })
+      // Every account gets a standing vault intake — auto, best-effort.
+      let vault = null
+      try {
+        const { ensureVaultRequests } = await import('@/lib/onboarding/vaultRequests')
+        vault = await ensureVaultRequests(hqId)
+      } catch (e) { console.warn('[onboarding/of-api] vault request ensure failed:', e.message) }
+      return NextResponse.json({ ok: true, created: name, vault })
     }
 
     if (action === 'set-decision') {

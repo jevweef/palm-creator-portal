@@ -223,7 +223,7 @@ export default function OnboardingWorkspace() {
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.45 }}>{nextTile.instructions}</div>
             )}
           </div>
-          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics', 'inline-number', 'doc-upload', 'photo-upload', 'comms-chat', 'music-dna', 'publer-sync'].includes(nextTile.action.type) && (
+          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics', 'vault-requests', 'inline-number', 'doc-upload', 'photo-upload', 'comms-chat', 'music-dna', 'publer-sync'].includes(nextTile.action.type) && (
             <button
               onClick={() => runAction(nextTile)}
               disabled={busy === `${nextTile.key}:${nextTile.action.type}`}
@@ -380,6 +380,8 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <OfApiAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'tg-topics' ? (
           <TgTopicsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'vault-requests' ? (
+          <VaultRequestsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'inline-number' ? (
           <InlineNumberAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'doc-upload' ? (
@@ -681,6 +683,37 @@ function TgTopicsAction({ tile, hqId, onRefresh, flash }) {
     <button onClick={create} disabled={busy}
       style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
       {busy ? 'Creating topics…' : 'Create missing topics'}
+    </button>
+  )
+}
+
+// Vault intake — ensure one standing Content Request per active OF account.
+function VaultRequestsAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const done = tile.status === 'done'
+
+  const create = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/onboarding/vault-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Failed')
+      const n = (j.created || []).length + (j.stamped || []).length
+      flash(n ? `${n} vault request${n === 1 ? '' : 's'} set up` : 'All accounts already covered')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) {
+    return <div style={{ fontSize: '11px', color: '#43A047', padding: '5px 0' }}>Vault intake live for every account</div>
+  }
+  return (
+    <button onClick={create} disabled={busy}
+      style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Setting up…' : 'Create vault request(s)'}
     </button>
   )
 }

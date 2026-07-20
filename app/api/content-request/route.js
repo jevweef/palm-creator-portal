@@ -59,17 +59,22 @@ export async function GET(request) {
       sort: [{ field: 'Sort Order', direction: 'asc' }],
     })
 
-    // Try to find active content request for this creator
+    // All active requests for this creator — one per OF account since
+    // 2026-07-20 ('Account' field, e.g. "Kiki - Free OF"; blank = legacy
+    // whole-creator request). ?requestId= selects one; default = first
+    // (accounts sort Free before VIP, legacy blanks first).
+    let myRequests = []
     let contentRequest = null
     let uploadedFiles = []
+    const requestedId = searchParams.get('requestId')
     try {
       const allActive = await fetchRecords(CONTENT_REQUESTS, {
         filterByFormula: `{Status}="Active"`,
       })
-      contentRequest = allActive.find(r => {
-        const links = r.fields['Creator'] || []
-        return links.includes(creatorOpsId)
-      })
+      myRequests = allActive
+        .filter(r => (r.fields['Creator'] || []).includes(creatorOpsId))
+        .sort((a, b) => String(a.fields['Account'] || '').localeCompare(String(b.fields['Account'] || '')))
+      contentRequest = myRequests.find(r => r.id === requestedId) || myRequests[0] || null
 
       // Fetch uploaded files for this request
       if (contentRequest) {
@@ -123,9 +128,15 @@ export async function GET(request) {
     const instructions = templates.find(t => t.fields['Item Type'] === 'info_only')
 
     return NextResponse.json({
+      requests: myRequests.map(r => ({
+        id: r.id,
+        title: r.fields['Title'] || 'Content Request',
+        account: r.fields['Account'] || '',
+      })),
       request: contentRequest ? {
         id: contentRequest.id,
         title: contentRequest.fields['Title'] || 'Content Request',
+        account: contentRequest.fields['Account'] || '',
         dueDate: contentRequest.fields['Due Date'] || '',
         status: contentRequest.fields['Status'] || 'Active',
         month: contentRequest.fields['Month'] || '',
