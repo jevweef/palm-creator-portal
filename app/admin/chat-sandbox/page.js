@@ -13,6 +13,12 @@ export default function ChatSandboxPage() {
   const [typing, setTyping] = useState(false)   // the "typing…" bubble (only after the read lag)
   const [realistic, setRealistic] = useState(true)
   const [loaded, setLoaded] = useState(false)
+  const [notes, setNotes] = useState([])           // saved coaching notes for this creator
+  const [showNotes, setShowNotes] = useState(false)
+  const [noteFor, setNoteFor] = useState(null)     // message index being annotated
+  const [noteText, setNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [notedIdx, setNotedIdx] = useState(() => new Set()) // message indices noted this session
   const scrollRef = useRef(null)
 
   useEffect(() => {
@@ -99,6 +105,36 @@ export default function ChatSandboxPage() {
 
   const onKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
 
+  // Coaching notes — general behavioral guidance you leave on her replies. They
+  // feed back into her persona for every future reply (this creator).
+  const loadNotes = (cid) => {
+    if (!cid) { setNotes([]); return }
+    fetch(`/api/admin/chat-sandbox/notes?creatorId=${cid}`).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {})
+  }
+  useEffect(() => { loadNotes(creatorId); setNotedIdx(new Set()) }, [creatorId])
+
+  const openNote = (i) => { setNoteFor(i); setNoteText('') }
+  const saveNote = async () => {
+    const text = noteText.trim()
+    if (!text || noteFor == null) return
+    setSavingNote(true)
+    const her = messages[noteFor]?.text || ''
+    let fanText = ''
+    for (let i = noteFor - 1; i >= 0; i--) { if (messages[i].role === 'fan') { fanText = messages[i].text; break } }
+    const context = `Fan: ${fanText}\n${creatorName}: ${her}`
+    try {
+      const r = await fetch('/api/admin/chat-sandbox/notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId, creator: creatorName, note: text, context }),
+      })
+      if (r.ok) { setNotedIdx((s) => new Set(s).add(noteFor)); setNoteFor(null); setNoteText(''); loadNotes(creatorId) }
+    } finally { setSavingNote(false) }
+  }
+  const deleteNote = async (id) => {
+    await fetch(`/api/admin/chat-sandbox/notes?id=${id}`, { method: 'DELETE' }).catch(() => {})
+    loadNotes(creatorId)
+  }
+
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -111,12 +147,29 @@ export default function ChatSandboxPage() {
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--foreground-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <input type="checkbox" checked={realistic} onChange={(e) => setRealistic(e.target.checked)} /> Realistic timing
           </label>
+          <button onClick={() => setShowNotes((v) => !v)} style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)', background: showNotes ? 'rgba(232,160,160,0.12)' : 'transparent', color: showNotes ? 'var(--palm-pink)' : 'var(--foreground)', cursor: 'pointer' }}>Coaching ({notes.length})</button>
           <button onClick={reset} style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid rgba(255,255,255,0.14)', background: 'transparent', color: 'var(--foreground)', cursor: 'pointer' }}>Reset</button>
         </div>
       </div>
       <div style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 14 }}>
-        You&apos;re the fan. <strong style={{ color: 'var(--foreground)' }}>{creatorName}</strong> replies as herself, in her voice. Nothing here touches real fans or gets sent anywhere.
+        You&apos;re the fan. <strong style={{ color: 'var(--foreground)' }}>{creatorName}</strong> replies as herself, in her voice. <strong style={{ color: 'var(--foreground)' }}>Click any of her messages to leave a coaching note</strong> — general guidance on her character/vibe (not scripted lines). It shapes how she chats from then on.
       </div>
+
+      {showNotes && (
+        <div style={{ marginBottom: 14, padding: 14, background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 8 }}>Coaching notes for {creatorName} ({notes.length})</div>
+          {notes.length === 0 && <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>No notes yet. Click one of her messages below and leave a note about how she should come across.</div>}
+          {notes.map((n) => (
+            <div key={n.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: 1, fontSize: 13, color: 'var(--foreground)' }}>
+                {n.note}
+                {n.context && <div style={{ fontSize: 11, color: 'var(--foreground-subtle)', marginTop: 3, whiteSpace: 'pre-wrap' }}>{n.context}</div>}
+              </div>
+              <button onClick={() => deleteNote(n.id)} style={{ flexShrink: 0, background: 'transparent', border: 'none', color: '#e88', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div ref={scrollRef} style={{ height: '58vh', minHeight: 340, overflowY: 'auto', background: 'var(--card-bg-solid)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {messages.length === 0 && !typing && (
@@ -124,19 +177,40 @@ export default function ChatSandboxPage() {
             Say something as the fan to start. Try different openers — a whale dropping a big compliment, a cheap fan haggling, someone going quiet, a weird request — and see how she handles it.
           </div>
         )}
-        {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === 'fan' ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
-            <div style={{ fontSize: 10, color: 'var(--foreground-subtle)', margin: m.role === 'fan' ? '0 4px 3px 0' : '0 0 3px 4px', textAlign: m.role === 'fan' ? 'right' : 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {m.role === 'fan' ? 'You (fan)' : creatorName}
+        {messages.map((m, i) => {
+          const her = m.role === 'model' && !m.error
+          const noted = notedIdx.has(i)
+          return (
+            <div key={i} style={{ alignSelf: m.role === 'fan' ? 'flex-end' : 'flex-start', maxWidth: '82%' }}>
+              <div style={{ fontSize: 10, color: 'var(--foreground-subtle)', margin: m.role === 'fan' ? '0 4px 3px 0' : '0 0 3px 4px', textAlign: m.role === 'fan' ? 'right' : 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {m.role === 'fan' ? 'You (fan)' : creatorName}{noted && <span style={{ color: 'var(--palm-pink)', marginLeft: 6 }}>• noted</span>}
+              </div>
+              <div onClick={her ? () => openNote(i) : undefined}
+                title={her ? 'Click to leave a coaching note' : undefined}
+                style={{
+                  padding: '9px 13px', borderRadius: 14, fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap',
+                  background: m.role === 'fan' ? 'var(--palm-pink, #E88FAC)' : (m.error ? 'rgba(232,120,120,0.12)' : 'rgba(255,255,255,0.06)'),
+                  color: m.role === 'fan' ? '#1a0e12' : (m.error ? '#e88' : 'var(--foreground)'),
+                  borderTopRightRadius: m.role === 'fan' ? 4 : 14, borderTopLeftRadius: m.role === 'fan' ? 14 : 4,
+                  cursor: her ? 'pointer' : 'default',
+                  boxShadow: noted ? 'inset 0 0 0 1px rgba(232,143,172,0.5)' : 'none',
+                }}>{m.text}</div>
+              {noteFor === i && (
+                <div style={{ marginTop: 6, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(232,143,172,0.35)', borderRadius: 10, padding: 8 }}>
+                  <textarea autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote(); if (e.key === 'Escape') setNoteFor(null) }}
+                    placeholder="How should she come across here? (e.g. 'less eager to please', 'more playful/teasing', 'don't offer discounts unprompted')"
+                    rows={2} style={{ width: '100%', resize: 'vertical', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: 'var(--foreground)', fontSize: 13, padding: '7px 9px', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <button onClick={saveNote} disabled={!noteText.trim() || savingNote}
+                      style={{ padding: '5px 14px', borderRadius: 7, border: 'none', background: 'var(--palm-pink, #E88FAC)', color: '#1a0e12', fontSize: 12, fontWeight: 700, cursor: noteText.trim() ? 'pointer' : 'default', opacity: noteText.trim() ? 1 : 0.5 }}>{savingNote ? 'Saving…' : 'Save note'}</button>
+                    <button onClick={() => setNoteFor(null)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.14)', background: 'transparent', color: 'var(--foreground-muted)', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{
-              padding: '9px 13px', borderRadius: 14, fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap',
-              background: m.role === 'fan' ? 'var(--palm-pink, #E88FAC)' : (m.error ? 'rgba(232,120,120,0.12)' : 'rgba(255,255,255,0.06)'),
-              color: m.role === 'fan' ? '#1a0e12' : (m.error ? '#e88' : 'var(--foreground)'),
-              borderTopRightRadius: m.role === 'fan' ? 4 : 14, borderTopLeftRadius: m.role === 'fan' ? 14 : 4,
-            }}>{m.text}</div>
-          </div>
-        ))}
+          )
+        })}
         {typing && (
           <div style={{ alignSelf: 'flex-start', maxWidth: '78%' }}>
             <div style={{ fontSize: 10, color: 'var(--foreground-subtle)', margin: '0 0 3px 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{creatorName}</div>

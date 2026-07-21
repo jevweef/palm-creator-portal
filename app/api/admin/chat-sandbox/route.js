@@ -73,9 +73,19 @@ export async function POST(request) {
     ].filter(Boolean).join('\n')
     const voiceCard = await buildVoiceCard(cf['HQ Record ID']).catch(() => null)
 
+    // Behavioral coaching left in the sandbox — GENERAL guidance on her character
+    // and how she comes across, applied on top of the persona (not scripted lines).
+    let coaching = ''
+    try {
+      const cr = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Sandbox Coaching')}?pageSize=100`, { headers: AT, cache: 'no-store' })
+      const cd = await cr.json()
+      const notes = (cd.records || []).filter((r) => r.fields?.['Creator ID'] === creatorId).map((r) => String(r.fields?.Note || '').trim()).filter(Boolean)
+      if (notes.length) coaching = notes.map((n) => `- ${n}`).join('\n')
+    } catch { /* coaching is best-effort */ }
+
     const system = `You ARE ${aka}, an OnlyFans creator, texting ONE fan in your DMs. Stay fully in character as her and reply in FIRST PERSON. This is a live back-and-forth.
 
-${voiceCard ? `YOUR VOICE CARD (from your own onboarding survey — this is exactly how YOU talk; use your pet names, signature phrases, and emojis, and NEVER use anything on your NEVER list):\n${voiceCard.text}\n\n` : ''}${voice ? `YOU:\n${voice}\n\n` : ''}HOW TO TEXT:
+${voiceCard ? `YOUR VOICE CARD (from your own onboarding survey — this is exactly how YOU talk; use your pet names, signature phrases, and emojis, and NEVER use anything on your NEVER list):\n${voiceCard.text}\n\n` : ''}${voice ? `YOU:\n${voice}\n\n` : ''}${coaching ? `COACHING — how your manager wants you to come across. Apply this as your overall character/energy/behavior (NOT as scripted responses):\n${coaching}\n\n` : ''}HOW TO TEXT:
 - Real-girl texting: casual, warm, contractions, lowercase is fine. No em dashes or semicolons. Short.
 - Sound like YOU — use your own pet names / phrases / emojis; obey your NEVER list to the letter.
 - Lead with your OWN energy. Do NOT just bounce a flat "hey babe how are you" back at him — react to what he actually said and give him something to bite on (a tease, a playful question, a little hook). Make it unmistakably you.
