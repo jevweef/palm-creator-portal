@@ -1367,7 +1367,7 @@ export default function RecreatePage() {
       </StepCard>
 
       {/* Step 7 — Animate in Kling V3.0 Pro (with original-audio mux) */}
-      <StepCard n={7} title="Animate in Kling V3.0 Pro" status={animateState.result ? null : 'auto'}>
+      <StepCard n={7} title="Animate — Kling / Grok" status={animateState.result ? null : 'auto'}>
         <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
           Sends Step 5&apos;s start swap as Kling&apos;s <code>image</code>{swapState.end.result?.url ? ', the end swap as ' : ''}{swapState.end.result?.url && <code>tail_image</code>}, plus the Step 6 motion prompt.
           Then muxes the inspo&apos;s original audio onto the silent Kling output (Kling&apos;s built-in sound is unreliable for trending music).
@@ -1376,6 +1376,7 @@ export default function RecreatePage() {
         {/* Quality toggle */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
+            { id: 'grok', label: 'Draft · Grok 1.5', cost: '~$0.85 / 6s', desc: '720p · 1 ref + prompt · ~80s fast · xAI (lax moderation)' },
             { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1080p · 1 ref + element + tail frame' },
             { id: 'multi_ref', label: 'Multi-Ref · O3 Std', cost: '~$1.26 / 10s', desc: '1080p · 4 refs + inspo as ref video + native audio (no tail)' },
             { id: '4k', label: 'HD+ · V3.0 4K', cost: '~$4.20 / 10s', desc: '4K · same as Standard, sharper skin/hair' },
@@ -1421,7 +1422,7 @@ export default function RecreatePage() {
               </span>
             )}
           </div>
-          {(animateState.quality === 'pro' || animateState.quality === '4k') && (
+          {(animateState.quality === 'pro' || animateState.quality === '4k' || animateState.quality === 'grok') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
               <label style={{ fontSize: '11px', color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>Audio offset</label>
               <input

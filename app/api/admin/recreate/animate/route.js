@@ -10,6 +10,7 @@ const KLING_PRO_MODEL = 'kwaivgi/kling-v3.0-pro/image-to-video'
 const KLING_V3_4K_MODEL = 'kwaivgi/kling-v3.0-4k/image-to-video'
 const KLING_O3_STD_REF_MODEL = 'kwaivgi/kling-video-o3-std/reference-to-video'
 const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
+const GROK_I2V_MODEL = 'x-ai/grok-imagine-video-v1.5/image-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
@@ -62,7 +63,19 @@ export async function POST(request) {
     const useRefVideo = isProduction || isMultiRef
 
     let model, body
-    if (useRefVideo) {
+    if (quality === 'grok') {
+      // xAI Grok Imagine 1.5 image-to-video — the cheap fast draft tier
+      // (~$0.14/s at 720p, ~80s generation). One image + prompt only: no
+      // negative prompt, no element, no tail frame. Output runs through the
+      // same inspo-audio mux as the Kling standard tiers.
+      model = GROK_I2V_MODEL
+      body = {
+        image: startUrl,
+        prompt: motionPrompt,
+        duration: dur,
+        resolution: '720p',
+      }
+    } else if (useRefVideo) {
       // O3 Reference-to-Video models. Cap: 4 images when reference video is
       // provided, 7 without. We always use the inspo video for motion guidance,
       // so cap is 4. Slot 1 = start swap (face anchor in correct pose), slots
