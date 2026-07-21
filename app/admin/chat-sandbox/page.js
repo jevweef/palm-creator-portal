@@ -61,6 +61,7 @@ export default function ChatSandboxPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ creatorId, messages: messagesRef.current }), signal: ctrl.signal,
     }).then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'failed'); return d })
+    apiP.catch(() => {}) // if we bail before awaiting (superseded during the read lag), don't leave an unhandled rejection
     try {
       await sleep(Math.max(0, readUntilRef.current - Date.now())); if (stale()) return
       setTyping(true)                                   // she's online + reading/typing now
@@ -77,7 +78,7 @@ export default function ChatSandboxPage() {
       herLastReplyRef.current = Date.now()
       batchStartRef.current = 0                          // batch answered
     } catch (e) {
-      if (e.name === 'AbortError' || stale()) return
+      if (stale() || e.name === 'AbortError' || /abort/i.test(e.message || '')) return
       setMessages((m) => [...m, { role: 'model', text: `(error: ${e.message})`, error: true }])
       setTyping(false); batchStartRef.current = 0
     }
