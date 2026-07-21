@@ -13,6 +13,7 @@ const DOMAIN_MAP = [
   ['spotify', 'Spotify'], ['patreon', 'Patreon'], ['twitch', 'Twitch'],
   ['kick.com', 'Kick'], ['snapchat', 'Snapchat'], ['discord', 'Discord'],
   ['t.me', 'Telegram'], ['telegram', 'Telegram'], ['amazon', 'Amazon'], ['amzn', 'Amazon'],
+  ['cash.app', 'Cash App'], ['cash.me', 'Cash App'],
 ]
 function classify(url, hint = '') {
   const d = `${url} ${hint}`.toLowerCase()

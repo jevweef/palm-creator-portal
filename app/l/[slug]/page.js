@@ -22,6 +22,8 @@ const BRAND = {
   kick:      { color: '#53FC18', letter: 'K' },
   discord:   { color: '#5865F2', letter: 'D' },
   telegram:  { color: '#26A5E4', letter: 'T' },
+  'cash app': { color: '#00D632', letter: '$' },
+  cashapp:   { color: '#00D632', letter: '$' },
   link:      { color: '#E88FAC', letter: '↗' },
 }
 const brandOf = (p) => BRAND[String(p || 'link').toLowerCase()] || BRAND.link

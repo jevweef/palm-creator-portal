@@ -21,7 +21,7 @@ const BLANK = () => ({
   links: [],
 })
 
-const PLATFORMS = ['OnlyFans', 'Instagram', 'TikTok', 'Twitter', 'Threads', 'Snapchat', 'YouTube', 'Patreon', 'Spotify', 'Twitch', 'Kick', 'Discord', 'Telegram', 'Fanvue', 'Amazon', 'link']
+const PLATFORMS = ['OnlyFans', 'Instagram', 'TikTok', 'Twitter', 'Threads', 'Snapchat', 'YouTube', 'Patreon', 'Spotify', 'Twitch', 'Kick', 'Discord', 'Telegram', 'Fanvue', 'Amazon', 'Cash App', 'link']
 
 export default function LinkPagesAdmin() {
   const [pages, setPages] = useState([])
@@ -33,6 +33,8 @@ export default function LinkPagesAdmin() {
   const [pulling, setPulling] = useState(false)
   const [importUrl, setImportUrl] = useState('')
   const [importing, setImporting] = useState(false)
+  const [trackName, setTrackName] = useState('')
+  const [creatingTrack, setCreatingTrack] = useState(false)
   const [domainState, setDomainState] = useState(null) // {checking, available, price, period, message}
   // Dropbox photo picker modal. pickerFor = 'cover' | 'avatar' | {link:i} | null
   const [pickerFor, setPickerFor] = useState(null)
@@ -66,7 +68,17 @@ export default function LinkPagesAdmin() {
 
   const addLink = () => setEditing((e) => ({ ...e, links: [...e.links, { id: null, label: '', url: '', platform: 'link', gated: false }] }))
   const setLink = (i, k, v) => setEditing((e) => {
-    const links = e.links.map((l, j) => (j === i ? { ...l, [k]: v } : l))
+    const links = e.links.map((l, j) => {
+      if (j !== i) return l
+      const next = { ...l, [k]: v }
+      // Pasting an OnlyFans/Fanvue URL (incl. tracking links) auto-gates it and
+      // sets the platform — the whole point is IG's scraper never sees the link.
+      if (k === 'url' && /onlyfans|fanvue/i.test(String(v))) {
+        next.gated = true
+        if (!next.platform || next.platform === 'link') next.platform = /fanvue/i.test(String(v)) ? 'Fanvue' : 'OnlyFans'
+      }
+      return next
+    })
     return { ...e, links }
   })
   const removeLink = (i) => setEditing((e) => ({ ...e, links: e.links.filter((_, j) => j !== i) }))
@@ -148,6 +160,31 @@ export default function LinkPagesAdmin() {
       setMsg('Could not read that page.')
     } finally {
       setImporting(false)
+    }
+  }
+
+  // Create a fresh OF tracking link on the creator's account and drop it in as
+  // a gated OnlyFans link — every multi-link click becomes attributable in OF.
+  const createTrackingLink = async () => {
+    if (!editing?.creatorId) { setMsg('Pick a creator first.'); return }
+    const name = trackName.trim() || `Multi-Link — ${editing.slug || 'page'}`
+    setCreatingTrack(true)
+    try {
+      const r = await fetch('/api/admin/link-pages/tracking-link', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: editing.creatorId, name }),
+      })
+      const d = await r.json()
+      if (!r.ok) { setMsg(d.error || 'Could not create the tracking link.'); return }
+      setEditing((e) => ({
+        ...e,
+        links: [...e.links, { id: null, label: 'OnlyFans', url: d.url, platform: 'OnlyFans', gated: true }],
+      }))
+      setMsg(`Tracking link "${d.name}" created — added as a gated OnlyFans link. Save the page to publish.`)
+    } catch {
+      setMsg('Could not create the tracking link.')
+    } finally {
+      setCreatingTrack(false)
     }
   }
 
@@ -310,6 +347,18 @@ export default function LinkPagesAdmin() {
                 />
                 <button onClick={importFromUrl} disabled={importing || !importUrl.trim()} style={btnGhost}>
                   {importing ? 'Importing…' : 'Import'}
+                </button>
+              </div>
+              {/* One-click OF tracking link: created on her account via the API, inserted gated */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input
+                  value={trackName}
+                  onChange={(e) => setTrackName(e.target.value)}
+                  placeholder={`Tracking link name (default: Multi-Link — ${editing.slug || 'page'})`}
+                  style={{ ...input, flex: 1, padding: '7px 9px' }}
+                />
+                <button onClick={createTrackingLink} disabled={creatingTrack} style={btnGhost} title="Creates a tracking link on her OnlyFans account and adds it here as a gated link">
+                  {creatingTrack ? 'Creating…' : 'New OF tracking link'}
                 </button>
               </div>
               {editing.links.length === 0 && (
