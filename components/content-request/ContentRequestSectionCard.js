@@ -40,9 +40,7 @@ export default function ContentRequestSectionCard({
   onFileDeleted,
 }) {
   const [dragOver, setDragOver] = useState(false)
-  // Instructions collapsed by default — the expanded wall of text buried the
-  // dropzone (Evan 2026-07-20). Long guides live behind "View instructions".
-  const [showDescription, setShowDescription] = useState(false)
+  const [showDescription, setShowDescription] = useState(true) // instructions visible by default (Evan 2026-07-20)
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [viewing, setViewing] = useState(null) // uploaded file being previewed in the lightbox
