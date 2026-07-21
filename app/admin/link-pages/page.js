@@ -167,7 +167,7 @@ export default function LinkPagesAdmin() {
   // a gated OnlyFans link — every multi-link click becomes attributable in OF.
   const createTrackingLink = async () => {
     if (!editing?.creatorId) { setMsg('Pick a creator first.'); return }
-    const name = trackName.trim() || `Multi-Link — ${editing.slug || 'page'}`
+    const name = trackName.trim() || `PALM ML ${(editing.slug || 'page').toUpperCase()}`
     setCreatingTrack(true)
     try {
       const r = await fetch('/api/admin/link-pages/tracking-link', {
@@ -354,7 +354,7 @@ export default function LinkPagesAdmin() {
                 <input
                   value={trackName}
                   onChange={(e) => setTrackName(e.target.value)}
-                  placeholder={`Tracking link name (default: Multi-Link — ${editing.slug || 'page'})`}
+                  placeholder={`PALM {SOURCE} @{handle} — e.g. PALM MAIN IG @${editing.slug || 'handle'} (blank = PALM ML)`}
                   style={{ ...input, flex: 1, padding: '7px 9px' }}
                 />
                 <button onClick={createTrackingLink} disabled={creatingTrack} style={btnGhost} title="Creates a tracking link on her OnlyFans account and adds it here as a gated link">
