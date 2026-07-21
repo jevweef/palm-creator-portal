@@ -14,9 +14,10 @@ const headers = () => ({
   'Content-Type': 'application/json',
 })
 
-export async function GET() {
+export async function GET(request) {
   try { await requireAdmin() } catch (e) { return e }
   try {
+    const origin = new URL(request.url).origin
     const res = await fetch(`${CLERK}/invitations?status=pending&limit=50`, { headers: headers(), cache: 'no-store' })
     const data = await res.json()
     const invites = (Array.isArray(data) ? data : data?.data || []).map((i) => ({
@@ -24,7 +25,8 @@ export async function GET() {
       email: i.email_address,
       role: i.public_metadata?.role || '',
       chatTeam: i.public_metadata?.chatTeam || '',
-      url: i.url || null,
+      // Short app-domain link instead of the giant Clerk ticket URL.
+      url: i.url ? `${origin}/join/${i.id}` : null,
       createdAt: i.created_at,
     }))
     return NextResponse.json({ invites })
@@ -58,7 +60,8 @@ export async function POST(request) {
       const msg = data?.errors?.[0]?.long_message || data?.errors?.[0]?.message || 'Clerk rejected the invitation'
       return NextResponse.json({ error: msg }, { status: 400 })
     }
-    return NextResponse.json({ ok: true, id: data.id, email: data.email_address, status: data.status, url: asLink ? (data.url || null) : null })
+    const origin = new URL(request.url).origin
+    return NextResponse.json({ ok: true, id: data.id, email: data.email_address, status: data.status, url: asLink && data.url ? `${origin}/join/${data.id}` : null })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

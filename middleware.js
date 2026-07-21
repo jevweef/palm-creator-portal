@@ -5,6 +5,8 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/onboarding',
+  // Short invite links → resolve to Clerk ticket + our sign-up (no session yet).
+  '/join/(.*)',
   // Public creator link-in-bio pages + their gate/resolve (no auth).
   '/l/(.*)',
   '/api/l/(.*)',
