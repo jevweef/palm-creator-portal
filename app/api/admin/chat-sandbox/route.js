@@ -60,9 +60,10 @@ export async function POST(request) {
     const turns = Array.isArray(messages) ? messages.filter((m) => m && m.text && String(m.text).trim()) : []
     if (!turns.length) return NextResponse.json({ error: 'messages required' }, { status: 400 })
 
-    const creators = await fetchCreators()
-    const crec = creators.find((c) => c.id === creatorId)
-    if (!crec) return NextResponse.json({ error: 'creator not found' }, { status: 404 })
+    // Fetch just this creator's record (fast) instead of scanning everyone.
+    const cr = await fetch(`https://api.airtable.com/v0/${OPS_BASE}/${encodeURIComponent('Palm Creators')}/${creatorId}`, { headers: AT, cache: 'no-store' })
+    if (!cr.ok) return NextResponse.json({ error: 'creator not found' }, { status: 404 })
+    const crec = await cr.json()
     const cf = crec.fields || {}
     const aka = cf.AKA || cf.Creator || 'the creator'
     const voice = [
@@ -72,35 +73,54 @@ export async function POST(request) {
     ].filter(Boolean).join('\n')
     const voiceCard = await buildVoiceCard(cf['HQ Record ID']).catch(() => null)
 
-    const system = `You ARE ${aka}, an OnlyFans creator, texting ONE fan in your DMs. Stay fully in character as her and reply in FIRST PERSON. This is a live back-and-forth — send only the NEXT message you'd text him, nothing else.
+    const system = `You ARE ${aka}, an OnlyFans creator, texting ONE fan in your DMs. Stay fully in character as her and reply in FIRST PERSON. This is a live back-and-forth.
 
 ${voiceCard ? `YOUR VOICE CARD (from your own onboarding survey — this is exactly how YOU talk; use your pet names, signature phrases, and emojis, and NEVER use anything on your NEVER list):\n${voiceCard.text}\n\n` : ''}${voice ? `YOU:\n${voice}\n\n` : ''}HOW TO TEXT:
-- Real-girl texting: casual, warm, contractions, lowercase is fine. No em dashes or semicolons. Usually one or two short sentences.
+- Real-girl texting: casual, warm, contractions, lowercase is fine. No em dashes or semicolons. Short.
 - Sound like YOU — use your own pet names / phrases / emojis; obey your NEVER list to the letter.
+- Lead with your OWN energy. Do NOT just bounce a flat "hey babe how are you" back at him — react to what he actually said and give him something to bite on (a tease, a playful question, a little hook). Make it unmistakably you.
 - Chat naturally and flirt; you can steer toward selling content/PPV when it feels natural, but never a hard sell or spammy. Match his energy.
-- Never break character, never mention you are an AI, never describe what you're doing — just send the message.
-- Do not invent real-life logistics (meetups, phone numbers, real location); keep it in the OF fantasy.`
+- The fan may have sent several texts in a row that you haven't answered yet — read them as a queue in order and respond to where things stand NOW; the latest one can change your answer.
+- Never break character, never mention you are an AI, never describe what you're doing.
+- Do not invent real-life logistics (meetups, phone numbers, real location); keep it in the OF fantasy.
 
-    const apiMessages = turns.map((m) => ({
-      role: m.role === 'model' ? 'assistant' : 'user',
-      content: String(m.text).trim(),
-    }))
-    // Anthropic requires the first message to be from the user. The sandbox
-    // always starts with the fan, so this holds.
+REPLY SHAPE — text like a real person: usually ONE message, but sometimes fire off a quick burst of 2 (occasionally 3) short back-to-back texts the way people actually do (e.g. a reaction, then the real reply, then a little tease). Only split when it feels natural — never pad.
+Return STRICT JSON only, no prose, no code fence:
+{"messages":["first text","second text"]}  (1 to 3 items, each a separate short text in your voice)`
+
+    // Combine consecutive same-role turns for the API (Anthropic needs
+    // alternating roles) but keep each on its own line — a fan double-text is a
+    // QUEUE of separate unanswered texts, read in order, not one merged message.
+    const apiMessages = []
+    for (const m of turns) {
+      const role = m.role === 'model' ? 'assistant' : 'user'
+      const content = String(m.text).trim()
+      const last = apiMessages[apiMessages.length - 1]
+      if (last && last.role === role) last.content += `\n${content}`
+      else apiMessages.push({ role, content })
+    }
     if (apiMessages[0]?.role !== 'user') apiMessages.unshift({ role: 'user', content: 'hey' })
 
     const resp = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 300,
+      max_tokens: 400,
       system,
       messages: apiMessages,
     })
-    const reply = (resp.content?.map((b) => b.text || '').join('') || '').trim()
-    // A realistic "typing" delay the client can honor: a short read pause + time
-    // scaled to reply length, lightly randomized, capped so it stays testable.
-    const typingMs = Math.min(14000, 1400 + reply.length * 45 + Math.floor((reply.length % 7) * 250))
+    const raw = (resp.content?.map((b) => b.text || '').join('') || '').trim()
+    let outMessages = []
+    try {
+      const j = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw)
+      if (Array.isArray(j.messages)) outMessages = j.messages.map((s) => String(s || '').trim()).filter(Boolean)
+    } catch { /* fall through */ }
+    if (!outMessages.length) outMessages = [raw.replace(/^\{.*"messages".*$/s, '').trim() || raw].filter(Boolean)
+    outMessages = outMessages.slice(0, 3)
 
-    return NextResponse.json({ reply, creator: aka, typingMs, usedVoiceCard: !!voiceCard })
+    // Per-text typing durations (client adds the read lag before the first).
+    // ~135 ms/char ≈ brisk texting, min ~700ms, capped 18s each.
+    const typing = outMessages.map((t) => Math.min(18000, Math.max(700, Math.round(t.length * 135))))
+
+    return NextResponse.json({ messages: outMessages, typing, creator: aka, usedVoiceCard: !!voiceCard })
   } catch (err) {
     console.error('[chat-sandbox]', err?.message || err)
     return NextResponse.json({ error: err?.message || 'sandbox failed' }, { status: 500 })

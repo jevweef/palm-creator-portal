@@ -10,7 +10,7 @@ export default function ChatSandboxPage() {
   const [creatorId, setCreatorId] = useState('')
   const [messages, setMessages] = useState([]) // {role:'fan'|'model', text, error?}
   const [input, setInput] = useState('')
-  const [typing, setTyping] = useState(false)
+  const [typing, setTyping] = useState(false)   // the "typing…" bubble (only after the read lag)
   const [realistic, setRealistic] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const scrollRef = useRef(null)
@@ -30,31 +30,71 @@ export default function ChatSandboxPage() {
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [messages, typing])
 
-  const creatorName = creators.find((c) => c.id === creatorId)?.name || 'the model'
-  const reset = () => { setMessages([]); setInput('') }
+  const messagesRef = useRef([])
+  const turnRef = useRef(0)          // supersede token — a new fan message invalidates the in-flight reply
+  const abortRef = useRef(null)
+  const herLastReplyRef = useRef(0)  // when she last texted back (0 = never)
+  const batchStartRef = useRef(0)    // when the current run of unanswered fan texts began (0 = none pending)
+  const readUntilRef = useRef(0)     // absolute time she'll come online + start typing (anchored, not reset by double-texts)
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-  const send = async () => {
+  const creatorName = creators.find((c) => c.id === creatorId)?.name || 'the model'
+  const reset = () => { turnRef.current += 1; abortRef.current?.abort(); messagesRef.current = []; herLastReplyRef.current = 0; batchStartRef.current = 0; setMessages([]); setInput(''); setTyping(false) }
+
+  // Generate (or re-generate) her reply against the LATEST conversation. Every
+  // fan message calls this. A double-text aborts the in-flight reply and restarts
+  // against the fuller convo (the newest text can change her answer), but the
+  // read lag is ANCHORED (readUntilRef) so double-texting doesn't reset it.
+  const generate = async () => {
+    const myTurn = ++turnRef.current
+    const stale = () => myTurn !== turnRef.current
+    abortRef.current?.abort()
+    const ctrl = new AbortController(); abortRef.current = ctrl
+    setTyping(false)
+    const apiP = fetch('/api/admin/chat-sandbox', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creatorId, messages: messagesRef.current }), signal: ctrl.signal,
+    }).then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'failed'); return d })
+    try {
+      await sleep(Math.max(0, readUntilRef.current - Date.now())); if (stale()) return
+      setTyping(true)                                   // she's online + reading/typing now
+      const d = await apiP;                             if (stale()) return
+      const msgs = (d.messages && d.messages.length) ? d.messages : ['(no reply)']
+      const typing = d.typing || []
+      for (let i = 0; i < msgs.length; i++) {
+        const tms = realistic ? Math.max(500, typing[i] || 1500) : 100
+        await sleep(tms);                               if (stale()) return
+        setTyping(false)
+        setMessages((m) => { const next = [...m, { role: 'model', text: msgs[i] }]; messagesRef.current = next; return next })
+        if (i < msgs.length - 1) { await sleep(realistic ? (700 + Math.random() * 1000) : 90); if (stale()) return; setTyping(true) }
+      }
+      herLastReplyRef.current = Date.now()
+      batchStartRef.current = 0                          // batch answered
+    } catch (e) {
+      if (e.name === 'AbortError' || stale()) return
+      setMessages((m) => [...m, { role: 'model', text: `(error: ${e.message})`, error: true }])
+      setTyping(false); batchStartRef.current = 0
+    }
+  }
+
+  const send = () => {
     const text = input.trim()
-    if (!text || typing || !creatorId) return
-    const next = [...messages, { role: 'fan', text }]
+    if (!text || !creatorId) return
+    // If no fan texts are currently waiting on her, THIS starts a new batch — pick
+    // her response speed by warmth: cold (never replied, or it's been quiet a
+    // while → she's off doing something and has to notice the notification) is
+    // slow; an active convo is quick. Double-texts keep the same anchored lag.
+    if (!batchStartRef.current) {
+      const cold = herLastReplyRef.current === 0 || (Date.now() - herLastReplyRef.current) > 90000
+      const lag = realistic ? (cold ? (30000 + Math.random() * 30000) : (2500 + Math.random() * 9000)) : 250
+      batchStartRef.current = Date.now()
+      readUntilRef.current = Date.now() + lag
+    }
+    const next = [...messagesRef.current, { role: 'fan', text }]
+    messagesRef.current = next
     setMessages(next)
     setInput('')
-    setTyping(true)
-    try {
-      const r = await fetch('/api/admin/chat-sandbox', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, messages: next }),
-      })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'failed')
-      const delay = realistic ? Math.max(600, d.typingMs || 3000) : 250
-      await new Promise((res) => setTimeout(res, delay))
-      setMessages((m) => [...m, { role: 'model', text: d.reply || '(no reply)' }])
-    } catch (e) {
-      setMessages((m) => [...m, { role: 'model', text: `(error: ${e.message})`, error: true }])
-    } finally {
-      setTyping(false)
-    }
+    generate()
   }
 
   const onKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
@@ -112,8 +152,8 @@ export default function ChatSandboxPage() {
           placeholder={loaded ? 'Message as the fan…  (Enter to send, Shift+Enter for newline)' : 'Loading…'}
           disabled={!loaded || !creatorId}
           style={{ flex: 1, resize: 'none', padding: '11px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)', color: 'var(--foreground)', fontSize: 14, fontFamily: 'inherit' }} />
-        <button onClick={send} disabled={!input.trim() || typing || !creatorId}
-          style={{ padding: '0 20px', borderRadius: 12, border: 'none', background: 'var(--palm-pink, #E88FAC)', color: '#1a0e12', fontSize: 14, fontWeight: 700, cursor: input.trim() && !typing ? 'pointer' : 'default', opacity: input.trim() && !typing ? 1 : 0.5 }}>Send</button>
+        <button onClick={send} disabled={!input.trim() || !creatorId}
+          style={{ padding: '0 20px', borderRadius: 12, border: 'none', background: 'var(--palm-pink, #E88FAC)', color: '#1a0e12', fontSize: 14, fontWeight: 700, cursor: input.trim() ? 'pointer' : 'default', opacity: input.trim() ? 1 : 0.5 }}>Send</button>
       </div>
       <style>{`@keyframes sbdot { 0%,60%,100%{opacity:0.25;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }`}</style>
     </div>
