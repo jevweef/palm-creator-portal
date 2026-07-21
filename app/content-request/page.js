@@ -16,6 +16,12 @@ export default function ContentRequestPage() {
   const [creators, setCreators] = useState([])
   const [loadingCreators, setLoadingCreators] = useState(false)
   const [requestId, setRequestId] = useState(null) // selected account's request (null = server default)
+  // One section shown at a time (Content Snare style) — the sidebar navigates.
+  // null = auto: first section that still needs files.
+  const [activeSection, setActiveSection] = useState(null)
+
+  // Switching accounts resets the section focus.
+  useEffect(() => { setActiveSection(null) }, [requestId])
 
   const role = user?.publicMetadata?.role
   const isAdmin = role === 'admin' || role === 'super_admin'
@@ -174,8 +180,17 @@ export default function ContentRequestPage() {
   const handleOf = (url) => (url ? '@' + url.replace(/\/+$/, '').split('/').pop() : '')
   const accountTabs = (data.requests || []).length > 1 ? data.requests : []
 
+  // Sidebar model: sections in template order, one active at a time.
+  const sections = [...data.sections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+  const activeName = (activeSection && sections.some(s => s.name === activeSection))
+    ? activeSection
+    : (sections.find(s => s.uploadedCount < s.minCount)?.name || sections[0]?.name)
+  const activeIdx = Math.max(0, sections.findIndex(s => s.name === activeName))
+  const active = sections[activeIdx]
+  const goTo = (name) => { setActiveSection(name); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+
   return (
-    <div style={{ maxWidth: 940, margin: '0 auto', padding: '24px 20px 80px' }}>
+    <div style={{ maxWidth: 1140, margin: '0 auto', padding: '24px 20px 80px' }}>
       {/* Account tabs — one vault intake per OF page (Free / VIP) */}
       {accountTabs.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -259,20 +274,92 @@ export default function ContentRequestPage() {
         </div>
       </div>
 
-      {/* Section cards */}
-      {data.sections.map(section => (
-        <ContentRequestSectionCard
-          key={`${data.request?.id || 'preview'}:${section.name}`}
-          section={section}
-          hqId={hqId}
-          requestId={data.request?.id}
-          accountLabel={shortAccount(data.request?.account)}
-          creatorOpsId={opsId}
-          month={month}
-          onFilesUploaded={handleFilesUploaded}
-          onFileDeleted={handleFileDeleted}
-        />
-      ))}
+      {/* Sidebar nav + one section at a time (Content Snare style) */}
+      <div className="cr-layout">
+        <aside className="cr-side">
+          {sections.map((s, i) => {
+            const done = s.minCount > 0 && s.uploadedCount >= s.minCount
+            const isActive = s.name === activeName
+            return (
+              <button
+                key={s.name}
+                className="cr-side-item"
+                onClick={() => goTo(s.name)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                  padding: '9px 11px', borderRadius: 9, cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
+                  border: '1px solid ' + (isActive ? 'var(--palm-pink)' : 'transparent'),
+                  background: isActive ? 'rgba(232,160,160,0.10)' : 'var(--card-bg-solid)',
+                  color: isActive ? 'var(--palm-pink)' : done ? 'var(--foreground-muted)' : 'var(--foreground)',
+                }}
+              >
+                <span style={{ flex: 'none', width: 18, fontSize: 11, fontWeight: 700, color: isActive ? 'var(--palm-pink)' : 'var(--foreground-subtle)' }}>{i + 1}.</span>
+                <span className="cr-side-name" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                {done ? (
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ flex: 'none' }}>
+                    <circle cx="10" cy="10" r="9" fill="#7DD3A4" opacity="0.2" />
+                    <path d="M6 10.5l2.5 2.5L14 7.5" stroke="#7DD3A4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <span style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--foreground-subtle)' }}>{s.uploadedCount}/{s.minCount}</span>
+                )}
+              </button>
+            )
+          })}
+        </aside>
+
+        <div style={{ minWidth: 0 }}>
+          {active && (
+            <ContentRequestSectionCard
+              key={`${data.request?.id || 'preview'}:${active.name}`}
+              section={active}
+              hqId={hqId}
+              requestId={data.request?.id}
+              accountLabel={shortAccount(data.request?.account)}
+              creatorOpsId={opsId}
+              month={month}
+              onFilesUploaded={handleFilesUploaded}
+              onFileDeleted={handleFileDeleted}
+            />
+          )}
+
+          {/* Prev / Next */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 14 }}>
+            {activeIdx > 0 ? (
+              <button onClick={() => goTo(sections[activeIdx - 1].name)} style={navBtnStyle(false)}>
+                ← {sections[activeIdx - 1].name}
+              </button>
+            ) : <span />}
+            {activeIdx < sections.length - 1 && (
+              <button onClick={() => goTo(sections[activeIdx + 1].name)} style={navBtnStyle(true)}>
+                {sections[activeIdx + 1].name} →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .cr-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+        .cr-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+        @media (max-width: 760px) {
+          .cr-layout { display: block; }
+          .cr-side { position: static; max-height: none; flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 10px; margin-bottom: 6px; -webkit-overflow-scrolling: touch; }
+          .cr-side-item { width: auto !important; flex: none; }
+          .cr-side-name { max-width: 120px; }
+        }
+      `}</style>
     </div>
   )
+}
+
+// Prev/Next section buttons under the active card.
+function navBtnStyle(primary) {
+  return {
+    padding: '10px 16px', fontSize: 13, fontWeight: 700, borderRadius: 10, cursor: 'pointer',
+    border: '1px solid ' + (primary ? 'var(--palm-pink)' : 'rgba(255,255,255,0.1)'),
+    background: primary ? 'rgba(232,160,160,0.12)' : 'var(--card-bg-solid)',
+    color: primary ? 'var(--palm-pink)' : 'var(--foreground-muted)',
+    maxWidth: '48%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  }
 }
