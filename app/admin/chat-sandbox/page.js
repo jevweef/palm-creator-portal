@@ -29,7 +29,9 @@ export default function ChatSandboxPage() {
         const list = d.creators || []
         setCreators(list)
         const caitie = list.find((c) => /caitie|katie/i.test(c.name))
-        setCreatorId(caitie?.id || list[0]?.id || '')
+        const id = caitie?.id || list[0]?.id || ''
+        setCreatorId(id)
+        if (id) loadConvo(id) // restore any saved session for this creator
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -44,9 +46,23 @@ export default function ChatSandboxPage() {
   const batchStartRef = useRef(0)    // when the current run of unanswered fan texts began (0 = none pending)
   const readUntilRef = useRef(0)     // absolute time she'll come online + start typing (anchored, not reset by double-texts)
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+  const creatorIdRef = useRef('')
+  useEffect(() => { creatorIdRef.current = creatorId }, [creatorId])
+  const KEY = (cid) => `sbx-convo-${cid}`
+  // Persist the running conversation to localStorage so a reload/hot-reload never
+  // wipes a training session again (per creator).
+  const persist = (next) => { messagesRef.current = next; setMessages(next); try { localStorage.setItem(KEY(creatorIdRef.current), JSON.stringify(next)) } catch { /* ignore */ } }
+  const loadConvo = (cid) => {
+    turnRef.current += 1; abortRef.current?.abort()
+    herLastReplyRef.current = 0; batchStartRef.current = 0; setTyping(false); setNotedIdx(new Set())
+    let saved = []
+    try { saved = JSON.parse(localStorage.getItem(KEY(cid)) || '[]') } catch { /* ignore */ }
+    messagesRef.current = Array.isArray(saved) ? saved : []
+    setMessages(messagesRef.current)
+  }
 
   const creatorName = creators.find((c) => c.id === creatorId)?.name || 'the model'
-  const reset = () => { turnRef.current += 1; abortRef.current?.abort(); messagesRef.current = []; herLastReplyRef.current = 0; batchStartRef.current = 0; setMessages([]); setInput(''); setTyping(false) }
+  const reset = () => { turnRef.current += 1; abortRef.current?.abort(); messagesRef.current = []; herLastReplyRef.current = 0; batchStartRef.current = 0; setMessages([]); setInput(''); setTyping(false); setNotedIdx(new Set()); try { localStorage.removeItem(KEY(creatorIdRef.current)) } catch { /* ignore */ } }
 
   // Generate (or re-generate) her reply against the LATEST conversation. Every
   // fan message calls this. A double-text aborts the in-flight reply and restarts
@@ -73,7 +89,7 @@ export default function ChatSandboxPage() {
         const tms = realistic ? Math.max(500, typing[i] || 1500) : 100
         await sleep(tms);                               if (stale()) return
         setTyping(false)
-        setMessages((m) => { const next = [...m, { role: 'model', text: msgs[i] }]; messagesRef.current = next; return next })
+        persist([...messagesRef.current, { role: 'model', text: msgs[i] }])
         if (i < msgs.length - 1) { await sleep(realistic ? (700 + Math.random() * 1000) : 90); if (stale()) return; setTyping(true) }
       }
       herLastReplyRef.current = Date.now()
@@ -98,9 +114,7 @@ export default function ChatSandboxPage() {
       batchStartRef.current = Date.now()
       readUntilRef.current = Date.now() + lag
     }
-    const next = [...messagesRef.current, { role: 'fan', text }]
-    messagesRef.current = next
-    setMessages(next)
+    persist([...messagesRef.current, { role: 'fan', text }])
     setInput('')
     generate()
   }
@@ -142,7 +156,7 @@ export default function ChatSandboxPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>Chat Sandbox</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); reset() }}
+          <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); loadConvo(e.target.value) }}
             style={{ padding: '7px 10px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
             {creators.map((c) => <option key={c.id} value={c.id}>{c.name}{c.rich ? '' : ' (thin persona)'}</option>)}
           </select>
