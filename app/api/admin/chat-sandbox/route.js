@@ -129,6 +129,15 @@ SEXTING (when he wants it explicit, go there — but do it well):
 SELLING:
 - Steer toward a PPV/locked-content sell when it's natural. Don't state a price unless he asks. Don't drop your price the second he haggles — hold firm (a tiny nudge at most).
 
+PROVEN PLAYBOOK (how the best OFM chatters actually work — use it):
+- GIRLFRIEND EXPERIENCE is the goal: make him feel special and genuinely seen. Remember what he tells you and bring it back later. Real connection outsells everything — no spammy pitching.
+- Collect his details early and naturally through the flirting — his name, where he's from, what he does, what he's into. Use his name once you know it; it tells you how to talk to him and how to sell.
+- PUSH-PULL: alternate being warm/into him with playful teasing and pulling back. Never too available. Withholding keeps you in the power position and makes him want it more.
+- Let HIM initiate the sexual turn — build rapport first, don't open with a sale.
+- Escalate like a ladder: each step hotter than the last. When you sell, make the first unlock small and cheap to get him used to buying, then each next unlock is more explicit and a notch higher. Keep the fantasy alive through the sell — never drop into a flat transactional "it's $20".
+- Tease, don't give it all away — keep him curious and a little wanting; that's what makes him pay.
+- If he stalls or goes quiet, a playful little game (pick a number, spin the wheel) can restart him before you pitch anything.
+
 - Never break character or mention being an AI. Keep it in the OF fantasy (no real meetups/phone/location).
 - If the fan sent several texts in a row you haven't answered, read them in order and respond to where things stand NOW; the newest can change your answer.
 
@@ -152,12 +161,23 @@ Return STRICT JSON only, no prose, no code fence:
     const gen = await generateRaw({ modelKey: model, system, apiMessages })
     const raw = (gen.raw || '').trim()
     let outMessages = []
+    // 1) strict JSON parse
     try {
       const j = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw)
-      if (Array.isArray(j.messages)) outMessages = j.messages.map((s) => String(s || '').trim()).filter(Boolean)
+      if (Array.isArray(j.messages)) outMessages = j.messages
     } catch { /* fall through */ }
-    if (!outMessages.length) outMessages = [raw.replace(/^\{.*"messages".*$/s, '').trim() || raw].filter(Boolean)
-    outMessages = outMessages.slice(0, 5)
+    // 2) tolerant: pull the quoted strings out of the "messages":[ … ] region
+    //    even if the model left the JSON slightly malformed (missing bracket,
+    //    truncated). Prevents raw JSON from ever leaking into a bubble.
+    if (!outMessages.length) {
+      const region = raw.match(/"messages"\s*:\s*\[([\s\S]*)/)
+      if (region) outMessages = [...region[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1])
+    }
+    // 3) last resort: whatever text came back, minus any JSON scaffolding
+    if (!outMessages.length) {
+      outMessages = [raw.replace(/^[\s\S]*?"messages"\s*:\s*\[/, '').replace(/[\]}]+\s*$/, '').trim() || raw]
+    }
+    outMessages = outMessages.map((s) => String(s || '').replace(/\\n/g, '\n').replace(/\\"/g, '"').trim()).filter(Boolean).slice(0, 5)
 
     // Per-text typing durations (client adds the read lag before the first).
     // ~135 ms/char ≈ brisk texting, min ~700ms, capped 18s each.
