@@ -42,6 +42,7 @@ const ADMIN_NAV = [
   ]},
   // Same view the chat managers see (analyses tab inside their photo-library login)
   { href: '/admin/live-chat', label: 'Live Chat', icon: '💬' },
+  { href: '/admin/chat-sandbox', label: 'Chat Sandbox', icon: '🧪' },
   // Research — OFM competitive-intelligence briefs (how other agencies operate,
   // synthesized from their YouTube content, compared to how Palm works). Fed by
   // the research pipeline (scripts/yt_discover.py → yt_transcript.py → synthesis)
