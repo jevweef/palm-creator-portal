@@ -15,6 +15,31 @@ const OPS_BASE = 'applLIT2t83plMqNx'
 const AT = { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` }
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// Selectable brain. Grok (xAI) is more permissive with explicit talk and cheaper;
+// Sonnet is the safe default. xAI's API is OpenAI-compatible (system goes in the
+// messages array). Keyed by the value the sandbox dropdown sends.
+const MODELS = {
+  sonnet: { provider: 'anthropic', id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  'grok-4.5': { provider: 'xai', id: 'grok-4.5', label: 'Grok 4.5' },
+  'grok-4.3': { provider: 'xai', id: 'grok-4.3', label: 'Grok 4.3' },
+}
+
+async function generateRaw({ modelKey, system, apiMessages }) {
+  const m = MODELS[modelKey] || MODELS.sonnet
+  if (m.provider === 'xai') {
+    const res = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.GROK_CHATTING_V1}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: m.id, max_tokens: 400, temperature: 0.9, messages: [{ role: 'system', content: system }, ...apiMessages] }),
+    })
+    if (!res.ok) throw new Error(`Grok API ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    const j = await res.json()
+    return { raw: j.choices?.[0]?.message?.content || '', model: m.label }
+  }
+  const resp = await anthropic.messages.create({ model: m.id, max_tokens: 400, system, messages: apiMessages })
+  return { raw: resp.content?.map((b) => b.text || '').join('') || '', model: m.label }
+}
+
 async function fetchCreators() {
   let out = []
   const p = new URLSearchParams({ pageSize: '100' })
@@ -55,7 +80,7 @@ export async function GET() {
 export async function POST(request) {
   try { await requireAdmin() } catch (e) { return e }
   try {
-    const { creatorId, messages } = await request.json()
+    const { creatorId, messages, model } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 })
     const turns = Array.isArray(messages) ? messages.filter((m) => m && m.text && String(m.text).trim()) : []
     if (!turns.length) return NextResponse.json({ error: 'messages required' }, { status: 400 })
@@ -111,13 +136,8 @@ Return STRICT JSON only, no prose, no code fence:
     }
     if (apiMessages[0]?.role !== 'user') apiMessages.unshift({ role: 'user', content: 'hey' })
 
-    const resp = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 400,
-      system,
-      messages: apiMessages,
-    })
-    const raw = (resp.content?.map((b) => b.text || '').join('') || '').trim()
+    const gen = await generateRaw({ modelKey: model, system, apiMessages })
+    const raw = (gen.raw || '').trim()
     let outMessages = []
     try {
       const j = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw)
@@ -130,7 +150,7 @@ Return STRICT JSON only, no prose, no code fence:
     // ~135 ms/char ≈ brisk texting, min ~700ms, capped 18s each.
     const typing = outMessages.map((t) => Math.min(18000, Math.max(700, Math.round(t.length * 135))))
 
-    return NextResponse.json({ messages: outMessages, typing, creator: aka, usedVoiceCard: !!voiceCard })
+    return NextResponse.json({ messages: outMessages, typing, creator: aka, usedVoiceCard: !!voiceCard, model: gen.model })
   } catch (err) {
     console.error('[chat-sandbox]', err?.message || err)
     return NextResponse.json({ error: err?.message || 'sandbox failed' }, { status: 500 })

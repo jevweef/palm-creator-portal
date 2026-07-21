@@ -12,6 +12,7 @@ export default function ChatSandboxPage() {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)   // the "typing…" bubble (only after the read lag)
   const [realistic, setRealistic] = useState(true)
+  const [model, setModel] = useState('sonnet')
   const [loaded, setLoaded] = useState(false)
   const [notes, setNotes] = useState([])           // saved coaching notes for this creator
   const [showNotes, setShowNotes] = useState(false)
@@ -59,7 +60,7 @@ export default function ChatSandboxPage() {
     setTyping(false)
     const apiP = fetch('/api/admin/chat-sandbox', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ creatorId, messages: messagesRef.current }), signal: ctrl.signal,
+      body: JSON.stringify({ creatorId, messages: messagesRef.current, model }), signal: ctrl.signal,
     }).then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.error || 'failed'); return d })
     apiP.catch(() => {}) // if we bail before awaiting (superseded during the read lag), don't leave an unhandled rejection
     try {
@@ -144,6 +145,12 @@ export default function ChatSandboxPage() {
           <select value={creatorId} onChange={(e) => { setCreatorId(e.target.value); reset() }}
             style={{ padding: '7px 10px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
             {creators.map((c) => <option key={c.id} value={c.id}>{c.name}{c.rich ? '' : ' (thin persona)'}</option>)}
+          </select>
+          <select value={model} onChange={(e) => setModel(e.target.value)} title="Which AI brain generates her replies"
+            style={{ padding: '7px 10px', fontSize: 13, background: 'var(--card-bg-solid, #1a1a1a)', color: 'var(--foreground)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
+            <option value="grok-4.5">Grok 4.5</option>
+            <option value="grok-4.3">Grok 4.3</option>
+            <option value="sonnet">Claude Sonnet</option>
           </select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--foreground-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <input type="checkbox" checked={realistic} onChange={(e) => setRealistic(e.target.checked)} /> Realistic timing
