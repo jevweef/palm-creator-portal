@@ -11,6 +11,7 @@ const KLING_V3_4K_MODEL = 'kwaivgi/kling-v3.0-4k/image-to-video'
 const KLING_O3_STD_REF_MODEL = 'kwaivgi/kling-video-o3-std/reference-to-video'
 const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const GROK_I2V_MODEL = 'x-ai/grok-imagine-video-v1.5/image-to-video'
+const GROK_REF_MODEL = 'x-ai/grok-imagine-video/reference-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
@@ -30,7 +31,9 @@ export async function POST(request) {
   try {
     const { creatorId, shortcode, startUrl, endUrl, motionPrompt, motionNegative, duration, quality, inspoVideoUrl, extraRefUrls } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
-    if (!startUrl) return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
+    // grok_ref is TEXT-to-video anchored to the creator's AI reference photos —
+    // the only tier with no start-frame requirement.
+    if (!startUrl && quality !== 'grok_ref') return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
     if (!motionPrompt) return NextResponse.json({ error: 'Missing motionPrompt (run Step 6 first)' }, { status: 400 })
 
     const parsedDur = Number(duration)
@@ -45,12 +48,15 @@ export async function POST(request) {
     try {
       const records = await fetchAirtableRecords(PALM_CREATORS, {
         filterByFormula: `RECORD_ID() = ${quoteAirtableString(creatorId)}`,
-        fields: ['Kling Element ID', 'AKA', 'AI Ref Inputs', 'AI Ref Face', 'AI Ref Front'],
+        fields: ['Kling Element ID', 'AKA', 'AI Ref Inputs', 'AI Ref Face', 'AI Ref Front', 'AI Ref Back'],
         maxRecords: 1,
       })
       elementId = records[0]?.fields?.['Kling Element ID'] || null
       aka = records[0]?.fields?.['AKA'] || ''
       aiRefInputs = records[0]?.fields?.['AI Ref Inputs'] || []
+      var approvedRefs = ['AI Ref Front', 'AI Ref Face', 'AI Ref Back']
+        .map((f) => records[0]?.fields?.[f]?.[0]?.url)
+        .filter(Boolean)
     } catch (e) {
       console.warn('[animate] could not look up creator metadata:', e.message)
     }
@@ -63,7 +69,29 @@ export async function POST(request) {
     const useRefVideo = isProduction || isMultiRef
 
     let model, body
-    if (quality === 'grok') {
+    if (quality === 'grok_ref') {
+      // TEXT-to-video with preserved identity: her approved AI refs (Front/
+      // Face/Back) + face close-ups anchor WHO she is; the prompt alone
+      // decides the scene. Up to 7 refs; duration is 6s or 10s only.
+      model = GROK_REF_MODEL
+      const images = []
+      if (startUrl) images.push(startUrl) // optional extra anchor when present
+      for (const url of (approvedRefs || [])) if (!images.includes(url) && images.length < 7) images.push(url)
+      const faceInputs = aiRefInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
+      for (const att of faceInputs) if (att.url && !images.includes(att.url) && images.length < 7) images.push(att.url)
+      if (Array.isArray(extraRefUrls)) {
+        for (const url of extraRefUrls) if (url && !images.includes(url) && images.length < 7) images.push(url)
+      }
+      if (!images.length) {
+        return NextResponse.json({ error: 'No AI reference images on this creator (AI Ref Front/Face/Back) — approve refs first' }, { status: 400 })
+      }
+      body = {
+        prompt: motionPrompt,
+        images,
+        duration: dur <= 7 ? 6 : 10,
+        resolution: '720p',
+      }
+    } else if (quality === 'grok') {
       // xAI Grok Imagine 1.5 image-to-video — the cheap fast draft tier
       // (~$0.14/s at 720p, ~80s generation). One image + prompt only: no
       // negative prompt, no element, no tail frame. Output runs through the
