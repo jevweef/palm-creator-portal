@@ -517,7 +517,7 @@ export default function RecreatePage() {
   const handleAnimate = async () => {
     const startSwap = swapState.start.result?.url
     const endSwap = swapState.end.result?.url
-    if (!startSwap && animateState.quality !== 'grok_ref') {
+    if (!startSwap) {
       setAnimateState(s => ({ ...s, error: 'No start-frame swap yet. Run Step 5 first.' })); return
     }
     if (!motionPrompt.positive) {
@@ -1376,7 +1376,6 @@ export default function RecreatePage() {
         {/* Quality toggle */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
-            { id: 'grok_ref', label: 'Text-to-Video · Grok Ref', cost: '~$0.30 / 6s', desc: '720p · her AI refs + prompt ONLY — no start frame needed · scene comes from text' },
             { id: 'grok', label: 'Draft · Grok 1.5', cost: '~$0.85 / 6s', desc: '720p · 1 ref + prompt · ~80s fast · xAI (lax moderation)' },
             { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1080p · 1 ref + element + tail frame' },
             { id: 'multi_ref', label: 'Multi-Ref · O3 Std', cost: '~$1.26 / 10s', desc: '1080p · 4 refs + inspo as ref video + native audio (no tail)' },
