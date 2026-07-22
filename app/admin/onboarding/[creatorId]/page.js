@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import OffboardModal from '@/app/admin/OffboardModal'
 
 // ── tiny inline icons (no emoji per house style) ──
 function CheckIcon({ size = 16 }) {
@@ -50,6 +51,7 @@ export default function OnboardingWorkspace() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null)        // action key in flight
   const [toast, setToast] = useState(null)
+  const [showOffboard, setShowOffboard] = useState(false)
   const [showAll, setShowAll] = useState(false) // default: only what's left to do
 
   const load = useCallback(async () => {
@@ -203,8 +205,24 @@ export default function OnboardingWorkspace() {
           <div style={{ height: '8px', width: '180px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden', marginLeft: 'auto' }}>
             <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#43A047' : 'var(--palm-pink)', transition: 'width 0.3s' }} />
           </div>
+          {/* A creator can bail mid-onboarding (Bianca, 2026-07-22) — offboard
+              works from ANY status; go-live items only gate activation. */}
+          <button
+            onClick={() => setShowOffboard(true)}
+            style={{ marginTop: '10px', padding: '5px 12px', fontSize: '11px', fontWeight: 600, borderRadius: '7px', border: '1px solid rgba(232,120,120,0.3)', background: 'transparent', color: '#E87878', cursor: 'pointer' }}
+          >
+            Offboard creator…
+          </button>
         </div>
       </div>
+
+      {showOffboard && (
+        <OffboardModal
+          creator={{ hqId, name: creator?.name, aka: creator?.aka }}
+          onClose={() => setShowOffboard(false)}
+          onDone={() => { setShowOffboard(false); router.push('/admin/onboarding') }}
+        />
+      )}
 
       {/* do this next */}
       {!isActive && nextTile && (
