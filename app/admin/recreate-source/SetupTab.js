@@ -113,20 +113,21 @@ export default function SetupTab({ containerMaxWidth = 1200 } = {}) {
   const [uploadInspoUrl, setUploadInspoUrl] = useState('')
   const [uploadInspoBusy, setUploadInspoBusy] = useState(false)
   const [uploadInspoError, setUploadInspoError] = useState('')
-  // Tab persists in the URL (?tab=rooms) so a refresh stays put.
+  // Tab persists in the URL under its OWN param (?setup=rooms). It used to
+  // ride ?tab=, which collides with host pages that key their sections off
+  // ?tab= — on /admin/social, clicking Rooms set tab=rooms, the hub didn't
+  // know that section and bounced to Overview (Evan, 2026-07-22). Legacy
+  // ?tab=rooms deep links still read correctly.
+  const INNER_TABS = ['rooms', 'stageb', 'avatar', 'photos', 'freeform', 'library']
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const tabParam = sp.get('tab')
-  const tab = tabParam === 'rooms' ? 'rooms'
-    : tabParam === 'stageb' ? 'stageb'
-    : tabParam === 'avatar' ? 'avatar'
-    : tabParam === 'photos' ? 'photos'
-    : tabParam === 'freeform' ? 'freeform'
-    : 'library'
+  const tabParam = sp.get('setup') || (INNER_TABS.includes(sp.get('tab')) ? sp.get('tab') : null)
+  const tab = INNER_TABS.includes(tabParam) ? tabParam : 'library'
   const setTab = (k) => {
     const params = new URLSearchParams(sp.toString())
-    if (k === 'library') params.delete('tab'); else params.set('tab', k)
+    if (k === 'library') params.delete('setup'); else params.set('setup', k)
+    if (INNER_TABS.includes(params.get('tab'))) params.delete('tab') // scrub legacy form
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
@@ -1702,7 +1703,7 @@ function RoomsPanel() {
   const creatorId = sp.get('creator') || ''
   const setCreatorId = (id) => {
     const params = new URLSearchParams(sp.toString())
-    params.set('tab', 'rooms')
+    params.set('setup', 'rooms') // own param — ?tab= belongs to host pages
     if (id) params.set('creator', id); else params.delete('creator')
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }

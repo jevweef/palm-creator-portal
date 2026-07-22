@@ -79,7 +79,7 @@ const SECTIONS = [
       { key: 'home', label: 'Overview', render: () => (
         <div>
           <ContentMovement />
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 32px 8px' }} />
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0 8px' }} />
           <MarketingContentPage />
         </div>
       ) },
@@ -158,21 +158,29 @@ function SocialHubInner() {
   const activeSub = availableSubtabs.find(t => t.key === urlSub) || availableSubtabs[0]
 
   // Keep the URL canonical so deep links + sidebar highlighting stay in sync.
+  // MERGE onto existing params — embedded tools keep their own state in the
+  // URL (e.g. SetupTab's ?setup=rooms) and a bare `?tab=&sub=` rewrite would
+  // strip it.
+  const navigate = (sectionKey, subKey) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', sectionKey)
+    params.set('sub', subKey || '')
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
   useEffect(() => {
     if (!activeSection || !activeSub) return
     if (rawSection !== activeSection.key || urlSub !== activeSub.key) {
-      router.replace(`${pathname}?tab=${activeSection.key}&sub=${activeSub.key}`, { scroll: false })
+      navigate(activeSection.key, activeSub.key)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection?.key, activeSub?.key])
 
   const goSection = (sectionKey) => {
     const sec = visibleSections.find(s => s.key === sectionKey)
-    const firstSub = sec?.subtabs[0]
-    router.replace(`${pathname}?tab=${sectionKey}&sub=${firstSub?.key || ''}`, { scroll: false })
+    navigate(sectionKey, sec?.subtabs[0]?.key || '')
   }
   const goSub = (subKey) => {
-    router.replace(`${pathname}?tab=${activeSection.key}&sub=${subKey}`, { scroll: false })
+    navigate(activeSection.key, subKey)
   }
 
   return (
