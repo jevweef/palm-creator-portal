@@ -16,6 +16,10 @@ export default function TextVideoPage() {
   const [creatorId, setCreatorId] = useState('')
   const [refs, setRefs] = useState(null)     // null = not loaded
   const [prompt, setPrompt] = useState('')
+  const [negative, setNegative] = useState('')     // ride-along negative (Wan only)
+  const [inspoUrl, setInspoUrl] = useState('')
+  const [inspoBusy, setInspoBusy] = useState(false)
+  const [inspoInfo, setInspoInfo] = useState(null) // { title, username, thumbnail, cached }
   const [engine, setEngine] = useState('grok_ref') // 'grok_ref' | 'wan26'
   const [duration, setDuration] = useState(6)
   const [running, setRunning] = useState(false)
@@ -45,7 +49,7 @@ export default function TextVideoPage() {
     try {
       const res = await fetch('/api/admin/recreate/animate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, quality: engine, motionPrompt: prompt.trim(), duration }),
+        body: JSON.stringify({ creatorId, quality: engine, motionPrompt: prompt.trim(), motionNegative: negative || undefined, duration }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
@@ -72,7 +76,41 @@ export default function TextVideoPage() {
     } catch (err) {
       setError(err.message); setRunning(false)
     }
-  }, [creatorId, prompt, duration, engine])
+  }, [creatorId, prompt, negative, duration, engine])
+
+  // Pull an inspo reel's DISSECTED prompts (the recreate pipeline's Sonnet
+  // analysis) straight into the scene box: cached Recreate Scene + Motion
+  // prompts when the reel has them, else run the motion analysis now (~20s,
+  // saves back to the reel so it's cached for next time).
+  const pullInspo = useCallback(async () => {
+    const q = inspoUrl.trim()
+    if (!q) return
+    setInspoBusy(true); setError(''); setInspoInfo(null)
+    try {
+      const lr = await fetch(`/api/admin/recreate/lookup?url=${encodeURIComponent(q)}`)
+      const reel = await lr.json()
+      if (!lr.ok) throw new Error(reel.error || 'Reel not found on the inspo board')
+      let scene = reel.recreateScenePrompt || ''
+      let motion = reel.recreateMotionPrompt || ''
+      let cached = !!motion
+      if (!motion) {
+        if (!reel.dbRawLink) throw new Error('Reel has no stored video file — scrape it first')
+        const mr = await fetch('/api/admin/recreate/extract-motion-prompt', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: reel.dbRawLink, inspoRecordId: reel.id }),
+        })
+        const mj = await mr.json()
+        if (!mr.ok) throw new Error(mj.error || 'Motion analysis failed')
+        motion = mj.positivePrompt || mj.motionPrompt || ''
+        if (mj.negativePrompt) setNegative(mj.negativePrompt)
+      }
+      if (reel.recreateMotionNegative) setNegative(reel.recreateMotionNegative)
+      // Text-to-video has no start frame, so the SCENE must live in the text:
+      // scene prompt (setting) + motion prompt (action) when both exist.
+      setPrompt([scene, motion].filter(Boolean).join(' '))
+      setInspoInfo({ title: reel.title || reel.username || q, username: reel.username, thumbnail: reel.thumbnail, cached })
+    } catch (err) { setError(err.message) } finally { setInspoBusy(false) }
+  }, [inspoUrl])
 
   return (
     <div style={{ maxWidth: '860px' }}>
@@ -113,6 +151,29 @@ export default function TextVideoPage() {
 
       <div style={card}>
         <div style={label}>2 · Scene</div>
+        {/* Inspo bridge — dissect a board reel into the prompt */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            value={inspoUrl}
+            onChange={e => setInspoUrl(e.target.value)}
+            disabled={inspoBusy || running}
+            placeholder="Optional: paste an inspo reel URL / shortcode to use ITS scene + motion"
+            style={{ flex: 1, minWidth: '260px', padding: '7px 10px', fontSize: '12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'var(--foreground)', outline: 'none' }}
+          />
+          <button onClick={pullInspo} disabled={inspoBusy || running || !inspoUrl.trim()}
+            style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', border: 'none', cursor: inspoBusy ? 'wait' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: inspoBusy || !inspoUrl.trim() ? 0.6 : 1 }}>
+            {inspoBusy ? 'Dissecting…' : 'Use reel'}
+          </button>
+          {inspoInfo && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--foreground-muted)' }}>
+              {inspoInfo.thumbnail && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={inspoInfo.thumbnail} alt="" style={{ width: '22px', height: '30px', objectFit: 'cover', borderRadius: '4px' }} />
+              )}
+              @{inspoInfo.username || '?'} · {inspoInfo.cached ? 'saved analysis' : 'freshly analyzed'} — edit below, then Generate
+            </span>
+          )}
+        </div>
         <textarea
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
