@@ -12,6 +12,7 @@ const KLING_O3_STD_REF_MODEL = 'kwaivgi/kling-video-o3-std/reference-to-video'
 const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const GROK_I2V_MODEL = 'x-ai/grok-imagine-video-v1.5/image-to-video'
 const GROK_REF_MODEL = 'x-ai/grok-imagine-video/reference-to-video'
+const WAN_26_I2V_MODEL = 'alibaba/wan-2.6/image-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
@@ -31,9 +32,9 @@ export async function POST(request) {
   try {
     const { creatorId, shortcode, startUrl, endUrl, motionPrompt, motionNegative, duration, quality, inspoVideoUrl, extraRefUrls } = await request.json()
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
-    // grok_ref is TEXT-to-video anchored to the creator's AI reference photos —
-    // the only tier with no start-frame requirement.
-    if (!startUrl && quality !== 'grok_ref') return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
+    // grok_ref / wan26 are TEXT-to-video anchored to the creator's AI
+    // reference photos — the tiers with no start-frame requirement.
+    if (!startUrl && quality !== 'grok_ref' && quality !== 'wan26') return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
     if (!motionPrompt) return NextResponse.json({ error: 'Missing motionPrompt (run Step 6 first)' }, { status: 400 })
 
     const parsedDur = Number(duration)
@@ -69,7 +70,24 @@ export async function POST(request) {
     const useRefVideo = isProduction || isMultiRef
 
     let model, body
-    if (quality === 'grok_ref') {
+    if (quality === 'wan26') {
+      // Wan 2.6 image-to-video as a text-driven engine: her primary AI ref is
+      // the identity anchor, the prompt writes the scene. Wan is the loosest-
+      // moderated hosted family (open-source lineage) — the engine to reach
+      // for when Grok refuses. 5/10/15s, 720p/1080p, native audio.
+      model = WAN_26_I2V_MODEL
+      const anchor = startUrl || (approvedRefs || [])[0]
+      if (!anchor) {
+        return NextResponse.json({ error: 'No AI reference image on this creator (AI Ref Front/Face/Back) — approve refs first' }, { status: 400 })
+      }
+      body = {
+        prompt: motionPrompt,
+        image: anchor,
+        duration: dur >= 13 ? 15 : dur >= 8 ? 10 : 5,
+        resolution: '1080p',
+      }
+      if (motionNegative) body.negative_prompt = motionNegative
+    } else if (quality === 'grok_ref') {
       // TEXT-to-video with preserved identity: her approved AI refs (Front/
       // Face/Back) + face close-ups anchor WHO she is; the prompt alone
       // decides the scene. Up to 7 refs; duration is 6s or 10s only.

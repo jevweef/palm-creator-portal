@@ -16,6 +16,7 @@ export default function TextVideoPage() {
   const [creatorId, setCreatorId] = useState('')
   const [refs, setRefs] = useState(null)     // null = not loaded
   const [prompt, setPrompt] = useState('')
+  const [engine, setEngine] = useState('grok_ref') // 'grok_ref' | 'wan26'
   const [duration, setDuration] = useState(6)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
@@ -44,7 +45,7 @@ export default function TextVideoPage() {
     try {
       const res = await fetch('/api/admin/recreate/animate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creatorId, quality: 'grok_ref', motionPrompt: prompt.trim(), duration }),
+        body: JSON.stringify({ creatorId, quality: engine, motionPrompt: prompt.trim(), duration }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Submit failed')
@@ -54,7 +55,7 @@ export default function TextVideoPage() {
         try {
           const sr = await fetch('/api/admin/recreate/animate-status', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId, quality: 'grok_ref' }),
+            body: JSON.stringify({ taskId, quality: engine }),
           })
           const sj = await sr.json()
           if (sj.status === 'completed' && sj.outputUrl) {
@@ -71,13 +72,13 @@ export default function TextVideoPage() {
     } catch (err) {
       setError(err.message); setRunning(false)
     }
-  }, [creatorId, prompt, duration])
+  }, [creatorId, prompt, duration, engine])
 
   return (
     <div style={{ maxWidth: '860px' }}>
       <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 18px', lineHeight: 1.5 }}>
         Describe a scene; her approved AI reference photos keep it <i>her</i>. No reel, no frame swaps — text in, video out.
-        720p, {duration}s, ~$0.{duration === 6 ? '30' : '50'} per run, about a minute to generate. Keeps Grok&apos;s native audio.
+        {engine === 'wan26' ? `1080p, ${duration}s, ~$${(duration * 0.15).toFixed(2)} per run — Wan is the loosest-moderated hosted engine (try it when Grok refuses).` : `720p, ${duration}s, ~$${duration === 6 ? '0.30' : '0.50'} per run.`} About a minute or two to generate; keeps the model&apos;s native audio.
       </div>
 
       <div style={card}>
@@ -122,7 +123,19 @@ export default function TextVideoPage() {
         />
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '6px' }}>
-            {[6, 10].map(s => (
+            {[
+              { id: 'grok_ref', name: 'Grok', hint: '720p · all refs anchor her' },
+              { id: 'wan26', name: 'Wan 2.6', hint: '1080p · loosest moderation' },
+            ].map(e => (
+              <button key={e.id} title={e.hint} disabled={running}
+                onClick={() => { setEngine(e.id); setDuration(e.id === 'wan26' ? 5 : 6) }}
+                style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', border: '1px solid ' + (engine === e.id ? 'var(--palm-pink)' : 'rgba(255,255,255,0.1)'), cursor: 'pointer', background: engine === e.id ? 'rgba(232,160,160,0.14)' : 'transparent', color: engine === e.id ? 'var(--palm-pink)' : 'var(--foreground-muted)' }}>
+                {e.name}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {(engine === 'wan26' ? [5, 10, 15] : [6, 10]).map(s => (
               <button key={s} onClick={() => setDuration(s)} disabled={running}
                 style={{ padding: '7px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '7px', border: 'none', cursor: 'pointer', background: duration === s ? 'var(--palm-pink)' : 'rgba(255,255,255,0.05)', color: duration === s ? '#060606' : 'var(--foreground-muted)' }}>
                 {s}s
