@@ -90,24 +90,24 @@ export default function TextVideoPage() {
       const lr = await fetch(`/api/admin/recreate/lookup?url=${encodeURIComponent(q)}`)
       const reel = await lr.json()
       if (!lr.ok) throw new Error(reel.error || 'Reel not found on the inspo board')
-      let scene = reel.recreateScenePrompt || ''
-      let motion = reel.recreateMotionPrompt || ''
-      let cached = !!motion
-      if (!motion) {
+      // Dedicated T2V dissection: paints the WHOLE scene in words (setting,
+      // wardrobe, light, camera, beats) — the recreate motion prompts are
+      // filming instructions that assume an image carries the scene, so they
+      // read wrong here (Evan, 2026-07-22). Cached per reel in 'T2V Prompt'.
+      let t2v = reel.t2vPrompt || ''
+      const cached = !!t2v
+      if (!t2v) {
         if (!reel.dbRawLink) throw new Error('Reel has no stored video file — scrape it first')
-        const mr = await fetch('/api/admin/recreate/extract-motion-prompt', {
+        const mr = await fetch('/api/admin/recreate/extract-t2v-prompt', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ videoUrl: reel.dbRawLink, inspoRecordId: reel.id }),
         })
         const mj = await mr.json()
-        if (!mr.ok) throw new Error(mj.error || 'Motion analysis failed')
-        motion = mj.positivePrompt || mj.motionPrompt || ''
-        if (mj.negativePrompt) setNegative(mj.negativePrompt)
+        if (!mr.ok) throw new Error(mj.error || 'T2V dissection failed')
+        t2v = mj.t2vPrompt || ''
       }
       if (reel.recreateMotionNegative) setNegative(reel.recreateMotionNegative)
-      // Text-to-video has no start frame, so the SCENE must live in the text:
-      // scene prompt (setting) + motion prompt (action) when both exist.
-      setPrompt([scene, motion].filter(Boolean).join(' '))
+      setPrompt(t2v)
       setInspoInfo({ title: reel.title || reel.username || q, username: reel.username, thumbnail: reel.thumbnail, cached })
     } catch (err) { setError(err.message) } finally { setInspoBusy(false) }
   }, [inspoUrl])
