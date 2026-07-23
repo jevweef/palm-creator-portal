@@ -477,11 +477,11 @@ export default function AuditTab() {
           <span style={{ fontSize: '12px', color: '#E8C878' }}>
             Not connected —{' '}
             {selected.hqId ? (
-              <a href={`/admin/onboarding/${selected.hqId}`} style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>
-                connect her on the Onboarding workspace →
+              <a href={`/admin/onboarding/${selected.hqId}?focus=of-api`} style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>
+                open her OnlyFans API card →
               </a>
             ) : (
-              'connect her OF account on the Onboarding workspace (OnlyFans & Earnings card).'
+              'connect her on the Onboarding workspace — the "OF API — connect accounts?" card.'
             )}
           </span>
         )}
