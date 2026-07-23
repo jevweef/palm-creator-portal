@@ -1377,6 +1377,7 @@ export default function RecreatePage() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', width: 'fit-content' }}>
           {[
             { id: 'grok', label: 'Draft · Grok 1.5', cost: '~$0.85 / 6s', desc: '720p · 1 ref + prompt · ~80s fast · xAI (lax moderation)' },
+            { id: 'seedance2', label: 'Seedance 2.0', cost: '~$3.00 / 5s', desc: '1080p · native lip-synced audio · strictest moderation (may reject real faces)' },
             { id: 'pro', label: 'Standard · V3.0 Pro', cost: '~$1.12 / 10s', desc: '1080p · 1 ref + element + tail frame' },
             { id: 'multi_ref', label: 'Multi-Ref · O3 Std', cost: '~$1.26 / 10s', desc: '1080p · 4 refs + inspo as ref video + native audio (no tail)' },
             { id: '4k', label: 'HD+ · V3.0 4K', cost: '~$4.20 / 10s', desc: '4K · same as Standard, sharper skin/hair' },
