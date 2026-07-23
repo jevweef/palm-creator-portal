@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import OffboardModal from '@/app/admin/OffboardModal'
 
 // ── tiny inline icons (no emoji per house style) ──
@@ -53,6 +53,7 @@ export default function OnboardingWorkspace() {
   const [toast, setToast] = useState(null)
   const [showOffboard, setShowOffboard] = useState(false)
   const [showAll, setShowAll] = useState(false) // default: only what's left to do
+  const [focusKey, setFocusKey] = useState(null) // ?focus=<tileKey> deep link — scroll + highlight
 
   const load = useCallback(async () => {
     if (!hqId) return
@@ -70,6 +71,19 @@ export default function OnboardingWorkspace() {
   }, [hqId])
 
   useEffect(() => { load() }, [load])
+
+  // ?focus=of-api etc: other surfaces deep-link to ONE SPECIFIC card — force
+  // it visible (even if done/filtered), scroll to it, ring it.
+  const focusParam = useSearchParams().get('focus')
+  useEffect(() => {
+    if (!focusParam || !data) return
+    setShowAll(true)
+    setFocusKey(focusParam)
+    const timer = setTimeout(() => {
+      document.getElementById(`tile-${focusParam}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [focusParam, data])
 
   const flash = useCallback((msg) => {
     setToast(msg)
@@ -290,8 +304,8 @@ export default function OnboardingWorkspace() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
               {vis.map((t) => (
+                <div key={t.key} id={`tile-${t.key}`} style={focusKey === t.key ? { outline: '2px solid var(--palm-pink)', outlineOffset: '3px', borderRadius: '14px', scrollMarginTop: '90px' } : undefined}>
                 <Tile
-                  key={t.key}
                   tile={t}
                   busy={busy}
                   onAction={() => runAction(t)}
@@ -304,6 +318,7 @@ export default function OnboardingWorkspace() {
                   onRefresh={load}
                   flash={flash}
                 />
+                </div>
               ))}
               {showGoLive && (
                 <GoLiveTile isActive={isActive} readiness={readiness} busy={busy === 'golive:go-live'} onGo={() => runAction({ key: 'golive', action: { type: 'go-live' } })} startDate={creator?.managementStartDate} />
