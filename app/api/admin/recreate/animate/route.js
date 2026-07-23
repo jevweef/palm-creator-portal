@@ -13,6 +13,7 @@ const KLING_O3_4K_MODEL = 'kwaivgi/kling-video-o3-4k/reference-to-video'
 const GROK_I2V_MODEL = 'x-ai/grok-imagine-video-v1.5/image-to-video'
 const GROK_REF_MODEL = 'x-ai/grok-imagine-video/reference-to-video'
 const WAN_26_I2V_MODEL = 'alibaba/wan-2.6/image-to-video'
+const SEEDANCE_2_I2V_MODEL = 'bytedance/seedance-2.0/image-to-video'
 const PALM_CREATORS = 'Palm Creators'
 
 // POST — body: {
@@ -34,7 +35,7 @@ export async function POST(request) {
     if (!creatorId) return NextResponse.json({ error: 'Missing creatorId' }, { status: 400 })
     // grok_ref / wan26 are TEXT-to-video anchored to the creator's AI
     // reference photos — the tiers with no start-frame requirement.
-    if (!startUrl && quality !== 'grok_ref' && quality !== 'wan26') return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
+    if (!startUrl && quality !== 'grok_ref' && quality !== 'wan26' && quality !== 'seedance2') return NextResponse.json({ error: 'Missing startUrl (start frame swap output)' }, { status: 400 })
     if (!motionPrompt) return NextResponse.json({ error: 'Missing motionPrompt (run Step 6 first)' }, { status: 400 })
 
     const parsedDur = Number(duration)
@@ -83,7 +84,24 @@ export async function POST(request) {
     const useRefVideo = isProduction || isMultiRef
 
     let model, body
-    if (quality === 'wan26') {
+    if (quality === 'seedance2') {
+      // Seedance 2.0 — premium tier: 1080p, native lip-synced audio, 9:16.
+      // Anchors on a REAL front-view photo. NOTE: ByteDance runs a real-face
+      // detector; if it blocks her photo the error surfaces in the UI.
+      model = SEEDANCE_2_I2V_MODEL
+      const anchor = startUrl || (realRefs || []).find((u) => aiRefInputs.some((a) => a.url === u && (a.filename || '').startsWith('Front View'))) || (realRefs || [])[0]
+      if (!anchor) {
+        return NextResponse.json({ error: 'No REAL reference photos on this creator (AI Ref Inputs) — upload her photos in AI Recreate first' }, { status: 400 })
+      }
+      body = {
+        prompt: motionPrompt,
+        image: anchor,
+        aspect_ratio: '9:16',
+        resolution: '1080p',
+        duration: Math.min(15, Math.max(4, dur)),
+        generate_audio: true,
+      }
+    } else if (quality === 'wan26') {
       // Wan 2.6 image-to-video as a text-driven engine: her primary AI ref is
       // the identity anchor, the prompt writes the scene. Wan is the loosest-
       // moderated hosted family (open-source lineage) — the engine to reach
