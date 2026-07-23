@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { fetchAirtableRecords } from '@/lib/adminAuth'
 import { quoteAirtableString } from '@/lib/airtableFormula'
-import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate } from '@/lib/onlyfansApi'
+import { resolveFanId, fetchChatHistory, toParsedChat, createDataExport, waitForDataExport, downloadExportCsv, getDataExport, startDataExport, cancelDataExport, waitForExportEstimate, chatAccountFor } from '@/lib/onlyfansApi'
 import { loadChatArchive, saveChatArchive, mergeMessages, saveChunkShard, finalizeChunks, oldestShardTip } from '@/lib/chatArchive'
 
 export const dynamic = 'force-dynamic'
@@ -155,12 +155,17 @@ export async function POST(request) {
     }
 
     let fan
-    if (archive?.fanId) {
+    if (archive?.fanId && archive?.messages?.length > 0) {
+      // Trust the archive's fanId only when it has actually produced messages.
+      // Empty archives carry SCARS: Taby's rows stored audit fanIds like
+      // 9681347580 for @u312732074 (real id 312732074) — chat-list entry ids,
+      // not user ids — and every fetch/export/probe on them returns empty.
       fan = { id: archive.fanId, username: archive.fanUsername || fanUsername, name: archive.fanName || fanName }
-    } else if (fanId) {
-      // Known OF fan id (from the sheet / audit) — no lookup needed. Covers
-      // dormant fans with no username (deleted accounts, pre-lookup rows).
-      fan = { id: String(fanId), username: fanUsername || '', name: fanName || '' }
+    } else if (fanId && !fanUsername) {
+      // A passed fanId is a LAST RESORT for fans with no username (deleted
+      // accounts, nickname-only rows) — never an override when the username
+      // can resolve the real id.
+      fan = { id: String(fanId), username: '', name: fanName || '' }
     } else {
       for (const acc of accountIds) {
         fan = await resolveFanId(acc, { username: fanUsername, name: fanName }).catch(() => null)
@@ -172,14 +177,15 @@ export async function POST(request) {
       }
     }
 
-    // Fan known but account not yet pinned (archive/audit fanId path) on a
-    // multi-account creator: pin the page he actually lives on once, so chat
-    // fetches don't quietly hit the wrong account.
-    if (accountIds.length > 1 && !accountIds.includes(bodyAccountId) && (fan?.username || fanUsername || fanName)) {
-      for (const acc of accountIds) {
-        const hit = await resolveFanId(acc, { username: fan?.username || fanUsername, name: fan?.name || fanName }).catch(() => null)
-        if (hit?.id) { accountId = acc; if (!fan?.id) fan = hit; break }
-      }
+    // Fan known but account not yet pinned on a multi-account creator: pin the
+    // page his CHAT actually lives on. Pinning by resolveFanId is a trap —
+    // /users/<username> resolves on ANY account, so it pins the first page even
+    // when he only ever bought on the other one (every Taby backfill pull came
+    // back "No messages found" that way). A 1-message chat probe per account
+    // finds the real page for ~1 credit.
+    if (accountIds.length > 1 && !accountIds.includes(bodyAccountId) && fan?.id) {
+      const pinned = await chatAccountFor(accountIds, fan.id).catch(() => null)
+      if (pinned) accountId = pinned
     }
 
     // Overlap the boundary by a minute — dedup by id makes it harmless.
@@ -223,37 +229,62 @@ export async function POST(request) {
       // skipMassMessages, chatIds-scoped — only his REAL conversation, only
       // the months that matter. Runs async at OF; each chunk call polls status
       // (free) so the client loop stays timeout-proof.
-      if (exportWindow?.start) {
+      if (exportWindow?.start && !(await loadChatArchive(creatorName, fanName, fanUsername))?.exportBroken) {
         const arcX = await loadChatArchive(creatorName, fanName, fanUsername)
         const pendingId = arcX?.pendingExportId || null
+        let fallToPagination = false
         if (pendingId) {
           const st = await getDataExport(pendingId).catch(() => null)
-          if (st?.status === 'completed') {
-            // Cost gate on the FINAL count only. total_rows grows while OF
-            // builds the export — a mid-build quote (Pedro: "1,123 ≈ 57cr")
-            // ballooned to 4,707/236cr after approval. Nothing is charged
-            // until download, so the finished export can safely sit pending
-            // while the admin decides; approval attaches to this exact file.
+          if (st?.status === 'completed' && !(st.total_rows > 0) && arcX?.exportNoMass) {
+            // BOTH exports (era+skip, then full-history+mass) came back empty
+            // even though the chat endpoint returns messages for this fan —
+            // OF's chatIds-scoped exports are unreliable on some accounts
+            // (every Taby fan: Kasey's probe shows messages, export says 0).
+            // Mark exports broken for this fan and walk the chat page-by-page.
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, exportBroken: true, updatedAt: new Date().toISOString() })
+            fallToPagination = true
+          } else if (st?.status === 'completed' && !(st.total_rows > 0) && !arcX?.exportNoMass) {
+            // 0 rows with skipMassMessages on = the window/skip combo missed
+            // the chat entirely (Taby's dormant fans: Ron had 2,009 messages,
+            // the spending-era + skip-mass export found 0 — bad cadence dates
+            // put the window in the wrong era, and her chats are blast-heavy).
+            // Retry once with FULL history and mass included; the credit-cap
+            // gate below still protects the price. One retry only.
+            const exp2 = await createDataExport({
+              type: 'chat_messages',
+              accountIds: [accountId],
+              startDate: '2020-01-01T00:00:00Z',
+              endDate: new Date(Date.now() + 86400000).toISOString().slice(0, 19) + 'Z',
+              options: { chatIds: [Number(fan.id)], maxMessages: 1000000, skipMassMessages: false },
+            })
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: exp2?.id || null, exportNoMass: true, updatedAt: new Date().toISOString() })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: 0, retryingWithMass: true })
+          }
+          if (!fallToPagination && st?.status === 'completed') {
+            // PROVEN 2026-07-10: exports bill at COMPLETION, not download (a
+            // completed export's download moved the real balance by 0). By the
+            // time the final count is visible the credits are already spent,
+            // so parking a "too expensive" completed export just throws away
+            // paid data. Always download; report the overage honestly in
+            // `credits`/`overCap` so callers count what was really charged.
             const finalCredits = st.credit_cost ?? (st.total_rows != null ? Math.ceil(st.total_rows / 20) : null)
-            if (finalCredits != null && finalCredits > AUTO_SPEND_LIMIT && !confirmBig) {
-              return NextResponse.json({
-                needsConfirm: true, estimatedCredits: finalCredits, estimatedMessages: st.total_rows ?? null,
-                error: `His spending-era export finished: ${st.total_rows?.toLocaleString?.() || '?'} messages = ${finalCredits} credits (your cap is ${AUTO_SPEND_LIMIT}). Nothing charged yet — approve below to download it at exactly that price.`,
-              }, { status: 402 })
-            }
+            const overCap = finalCredits != null && finalCredits > AUTO_SPEND_LIMIT
             const csv = await downloadExportCsv(st)
             const got = csvToMessages(csv)
             if (got.length) await saveChunkShard(creatorName, fanName, fanUsername, got)
             await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
-            return NextResponse.json({ fan, accountId, pages: 0, credits: finalCredits ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
+            return NextResponse.json({ fan, accountId, pages: 0, credits: finalCredits ?? Math.ceil(got.length / 20), capCredits: AUTO_SPEND_LIMIT, overCap, fetchedCount: got.length, storedCount: arcX?.messages?.length || 0, oldestAt: got[0]?.createdAt || null, morePages: false, historyComplete: true })
           }
-          if (st && !['failed', 'cancelled'].includes(st.status)) {
+          if (!fallToPagination && st && !['failed', 'cancelled'].includes(st.status)) {
             // still building — always free, never quote a moving number
             return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: arcX?.messages?.length || 0, oldestAt: null, morePages: true, waiting: true, progress: st.progress_percentage ?? 0, rowsFound: st.total_rows ?? null })
           }
           // failed/cancelled — clear and start fresh below
-          await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
+          if (!fallToPagination && st && ['failed', 'cancelled'].includes(st.status)) {
+            await saveChatArchive(creatorName, fanName, fanUsername, { ...arcX, pendingExportId: null, updatedAt: new Date().toISOString() })
+          }
         }
+        if (!fallToPagination) {
         const exp = await createDataExport({
           type: 'chat_messages',
           accountIds: [accountId],
@@ -264,6 +295,7 @@ export async function POST(request) {
         const stub = arcX || { fanId: String(fan.id), fanUsername: fan.username || '', fanName: fan.name || '', messages: [], lastMessageAt: null, lastMessageId: null, historyComplete: false }
         await saveChatArchive(creatorName, fanName, fanUsername, { ...stub, pendingExportId: exp?.id || null, updatedAt: new Date().toISOString() })
         return NextResponse.json({ fan, accountId, pages: 0, credits: 0, capCredits: AUTO_SPEND_LIMIT, fetchedCount: 0, storedCount: stub.messages.length, oldestAt: null, morePages: true, waiting: true, progress: 0 })
+        }
       }
 
       const deadline = Date.now() + 45000
@@ -275,18 +307,27 @@ export async function POST(request) {
         // FIRST chunk: one archive read to find where to resume + what's new.
         const arc0 = await loadChatArchive(creatorName, fanName, fanUsername)
         storedCount = arc0?.messages?.length || 0
-        // An EXPLICIT "pull back to" date OLDER than the oldest stored message
-        // overrides a (possibly stale) historyComplete stamp — the admin is
+        // an EMPTY archive marked complete is a scar from a 0-row export
+        // (Taby's broken exports stamped historyComplete with no messages) —
+        // never let it block a real walk of the chat.
+        // Likewise, an EXPLICIT "pull back to" date OLDER than the oldest stored
+        // message overrides a (possibly stale) complete stamp — the admin is
         // telling us there's more history (Kai: stamped complete at May 26 while
         // earnings ran back to Feb, so a dated pull topped up 1 credit and quit).
         const oldestStored = arc0?.messages?.[0]?.createdAt || null
         const datedDeepen = !!(sinceDate && (!oldestStored || sinceDate < oldestStored))
-        if (arc0?.historyComplete && !acceptPartial && !datedDeepen) reachedStart = true
+        if (arc0?.historyComplete && arc0?.messages?.length > 0 && !acceptPartial && !datedDeepen) reachedStart = true
         if (arc0?.pendingExportId) { try { await cancelDataExport(arc0.pendingExportId) } catch {} }
         if (arc0?.lastMessageAt) {
+          // RECENT TAIL: always walk forward from the last stored message to
+          // now, even on a "complete" archive. The transaction-window walk
+          // anchors on his BUYING era and can miss later chatter outreach that
+          // never turned into a purchase (John: bought through May '25, but
+          // chatters kept poking him into Apr '26 — invisible until we top up).
+          // skipMass keeps his real replies + 1:1 pokes, drops promo blasts.
           const fwd = await fetchChatHistory(accountId, fan.id, {
             sinceDate: new Date(new Date(arc0.lastMessageAt).getTime() - 60000).toISOString(),
-            maxPages: 10, deadline,
+            maxPages: 10, deadline, skipMass: true,
           })
           fresh = fresh.concat(fwd.messages); pages += fwd.pages; credits += fwd.credits
         }
@@ -360,9 +401,9 @@ export async function POST(request) {
     // back a partial chunk; the client loop simply continues.
     const deadline = Date.now() + 60000
 
-    // 1) newer messages since the last pull
+    // 1) newer messages since the last pull (recent tail; drop promo blasts)
     if (archive?.lastMessageAt) {
-      const fwd = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: 10, deadline })
+      const fwd = await fetchChatHistory(accountId, fan.id, { sinceDate: since, maxPages: 10, deadline, skipMass: true })
       fresh = fresh.concat(fwd.messages); pages += fwd.pages; credits += fwd.credits
     }
 

@@ -15,6 +15,7 @@ function loadWhalePlaybook(maxChars = 2200) {
   } catch { return null }
 }
 import { quoteAirtableString } from '@/lib/airtableFormula'
+import { loadChatArchive } from '@/lib/chatArchive'
 
 export const maxDuration = 300
 
@@ -318,6 +319,59 @@ function parseChatHtml(html) {
   }
 }
 
+// ── Render the canonical messages.json archive → transcript shape ──────────
+// messages.json is the ONE source of truth: webhook appends + whale pulls +
+// the Grab button all merge into it, deduped by message id (lib/chatArchive).
+// The old transcript.txt is a per-run rendering that goes stale (a fan can be
+// current-to-today in messages.json but months behind in transcript.txt). We
+// render the archive into the exact shape parseChatHtml produces so the
+// analyzer + engagement spine always read the merged, up-to-date chat.
+function renderArchiveToTranscript(archive) {
+  const raw = (archive?.messages || [])
+    .filter((m) => m && m.createdAt)
+    .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+  const strip = (t) => String(t || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ').trim()
+  const messages = []
+  for (const m of raw) {
+    const d = new Date(m.createdAt)
+    if (isNaN(d.getTime())) continue
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) // "Jun 20, 26"
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
+    const sender = m.isSentByMe ? 'CREATOR' : 'FAN'
+    const text = strip(m.text)
+    const price = parseFloat(m.price || 0) || 0
+    const mediaCount = m.mediaCount || (Array.isArray(m.media) ? m.media.length : 0)
+    let line = `[${sender}]`
+    if (text) line += ` ${text}`
+    if (mediaCount) line += ` [media x${mediaCount}]`
+    if (price > 0) {
+      if (m.isTip) line += ` [TIP $${price}]`
+      else line += ` [PPV $${price}${m.isOpened && !m.isSentByMe ? ' paid' : ''}]`
+    }
+    if (text || mediaCount || price > 0) messages.push({ date, time, sender, line })
+  }
+  let currentDate = ''
+  const lines = []
+  for (const msg of messages) {
+    if (msg.date && msg.date !== currentDate) { currentDate = msg.date; lines.push(`\n--- ${msg.date} ---`) }
+    lines.push(msg.line)
+  }
+  const first = messages[0], last = messages[messages.length - 1]
+  return {
+    conversation: lines.join('\n'),
+    messages,
+    messageCount: messages.length,
+    fanMessages: messages.filter((m) => m.sender === 'FAN').length,
+    creatorMessages: messages.filter((m) => m.sender === 'CREATOR').length,
+    firstMessageDate: first ? (first.time ? `${first.date}, ${first.time}` : first.date) : '',
+    lastMessageDate: last ? (last.time ? `${last.date}, ${last.time}` : last.date) : '',
+  }
+}
+
 // ── Free deterministic QA pass ─────────────────────────────────────────────
 // No API cost — pure string/date math. Catches the mechanical errors the model
 // keeps making regardless of prompt wording:
@@ -344,7 +398,7 @@ function parseLooseDate(str, defaultYear) {
 // with no DST/hour drift.
 const _dayIndex = (d) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000)
 
-function validateAndFixAnalysis(analysis, { now, messages = [], fanUsername = '' }) {
+function validateAndFixAnalysis(analysis, { now, messages = [], fanUsername = '', lifetime = null }) {
   const issues = []
   let text = analysis
   const fallbackYear = now.getFullYear()
@@ -382,7 +436,54 @@ function validateAndFixAnalysis(analysis, { now, messages = [], fanUsername = ''
     })
   }
 
+  // Money reconciliation: force the lifetime figure in the FAN: and CARD: lines
+  // to the ONE authoritative number. The audit found up to three different
+  // lifetime totals coexisting in a single brief.
+  if (lifetime != null && lifetime > 0) {
+    const lifeStr = '$' + Math.round(lifetime).toLocaleString()
+    text = text.replace(/^(FAN:.*?[•·]\s*)\$[\d,]+(?:\.\d+)?(\s*total)/im, (m0, pre, post) => {
+      const fixed = pre + lifeStr + post
+      if (fixed !== m0) issues.push(`fan-lifetime -> ${lifeStr}`)
+      return fixed
+    })
+    text = text.replace(/^(CARD:[^\n]*?[—-]\s*)\$[\d,]+(?:\.\d+)?/im, (m0, pre) => {
+      const fixed = pre + lifeStr
+      if (fixed !== m0) issues.push(`card-lifetime -> ${lifeStr}`)
+      return fixed
+    })
+  }
+
   return { text, issues }
+}
+
+// ── Engagement spine ───────────────────────────────────────────────────────
+// TWO clocks (reply-gap + purchase-gap) + a silence-age tier, computed in code
+// so the model writes on correct facts instead of its own (chronically wrong)
+// day-math. The 9-fan audit (2026-07-13) found stale "N days ago" on EVERY fan
+// (the model anchors to the transcript's last line, not the real clock) and
+// analyses that read a fan's own OUTBOUND as engagement. Feeding these numbers
+// in — and overwriting the output — is the fix.
+function computeEngagementSpine(messages, now, purchaseGapDays) {
+  const fy = now.getFullYear()
+  let lastFan = null, lastAny = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]; if (!m?.date) continue
+    const d = parseLooseDate(m.date, fy); if (!d) continue
+    if (!lastAny) lastAny = { d, sender: m.sender }
+    if (m.sender === 'FAN') { lastFan = d; break }
+  }
+  const gap = (d) => d ? (_dayIndex(now) - _dayIndex(d)) : null
+  const replyGap = gap(lastFan)
+  const purchaseGap = (purchaseGapDays != null && purchaseGapDays >= 0) ? purchaseGapDays : null
+  const g = replyGap != null ? replyGap : purchaseGap
+  let tier = 'UNKNOWN'
+  if (g != null) tier = g <= 7 ? 'ACTIVE' : g <= 30 ? 'COOLING' : g <= 120 ? 'DORMANT' : 'COLD-CASE'
+  // Replying recently but not buying → engaged, monetization problem (not gone).
+  const talkingNotBuying = replyGap != null && purchaseGap != null && replyGap <= 14 && purchaseGap >= 21
+  // The fan's message is the LAST in the thread → he's waiting on a reply now.
+  const isLive = !!(lastAny && lastAny.sender === 'FAN')
+  const fmt = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '?'
+  return { lastFan, replyGap, purchaseGap, tier, talkingNotBuying, isLive, fmt }
 }
 
 // ── GET (load existing analysis from Airtable) ────────────────────────────
@@ -460,31 +561,37 @@ export async function POST(request) {
 
     let parsed
     if (useTranscript) {
-      // Re-analyze from saved Dropbox transcript (no HTML upload needed)
+      // Re-analyze without an HTML upload. Source of truth = the messages.json
+      // archive (webhook + pull + Grab, id-deduped, current). Only fall back to
+      // the legacy transcript.txt if there's no archive yet.
       const fanUsername = formData.get('fanUsername') || ''
-      // Re-analyze path: no accountKey → loads combined multi-account transcript when present
-      const transcript = await loadChatHistory(creatorName, fanName, fanUsername)
-      if (!transcript) return Response.json({ error: 'No saved transcript found in Dropbox. Upload a chat HTML first.' }, { status: 400 })
-      // Build a minimal parsed object from the transcript text
-      const lines = transcript.split('\n')
-      const messages = []
-      let currentDate = ''
-      for (const line of lines) {
-        const dateMatch = line.match(/^--- (.+?) ---$/)
-        if (dateMatch) { currentDate = dateMatch[1]; continue }
-        const senderMatch = line.match(/^\[(CREATOR|FAN)\]/)
-        if (senderMatch) {
-          messages.push({ date: currentDate, time: '', sender: senderMatch[1], line })
+      const archive = await loadChatArchive(creatorName, fanName, fanUsername).catch(() => null)
+      if (archive?.messages?.length) {
+        parsed = renderArchiveToTranscript(archive)
+      } else {
+        // Legacy fallback: parse the saved transcript.txt (may be stale).
+        const transcript = await loadChatHistory(creatorName, fanName, fanUsername)
+        if (!transcript) return Response.json({ error: 'No saved chat found in Dropbox (no messages.json archive or transcript). Pull the chat first.' }, { status: 400 })
+        const lines = transcript.split('\n')
+        const messages = []
+        let currentDate = ''
+        for (const line of lines) {
+          const dateMatch = line.match(/^--- (.+?) ---$/)
+          if (dateMatch) { currentDate = dateMatch[1]; continue }
+          const senderMatch = line.match(/^\[(CREATOR|FAN)\]/)
+          if (senderMatch) {
+            messages.push({ date: currentDate, time: '', sender: senderMatch[1], line })
+          }
         }
-      }
-      parsed = {
-        conversation: transcript,
-        messages,
-        messageCount: messages.length,
-        fanMessages: messages.filter(m => m.sender === 'FAN').length,
-        creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
-        firstMessageDate: messages[0]?.date || '',
-        lastMessageDate: messages[messages.length - 1]?.date || '',
+        parsed = {
+          conversation: transcript,
+          messages,
+          messageCount: messages.length,
+          fanMessages: messages.filter(m => m.sender === 'FAN').length,
+          creatorMessages: messages.filter(m => m.sender === 'CREATOR').length,
+          firstMessageDate: messages[0]?.date || '',
+          lastMessageDate: messages[messages.length - 1]?.date || '',
+        }
       }
     } else {
       // Prefer client-side parsed payload (keeps us under the 4.5MB body limit)
@@ -556,7 +663,7 @@ export async function POST(request) {
     }
 
     // Scale analysis depth based on lifetime spend
-    const isHighValue = lifetime >= 1000
+    const isHighValue = lifetime >= 1000 || formData.get('forceDeep') === 'true'
     const analysisType = isHighValue ? 'deep' : 'quick'
 
     // Spending timeline (passed from frontend) — filter to chat date range
@@ -669,7 +776,21 @@ export async function POST(request) {
     const nowDate = new Date()
     const todayLong = nowDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-    const spendingContext = `TODAY'S DATE: ${todayLong}. This is "today" for ALL recency math — "N days ago", days-since-last-reply, staleness. Do NOT infer today from the last line of the transcript: the chat may have been pulled days or weeks ago, so its final message is NOT today. Anchor every day-count to ${todayLong}.
+    // Deterministic engagement spine — the model writes the relationship read on
+    // top of THESE facts; it must not compute its own dates or gaps.
+    const spine = computeEngagementSpine(parsed.messages || [], nowDate, cappedCurrentGap)
+    const spineLastPurchase = new Date(nowDate)
+    if (spine.purchaseGap != null) spineLastPurchase.setDate(spineLastPurchase.getDate() - spine.purchaseGap)
+    const _fmtLP = spineLastPurchase.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const statusBlock = `
+
+CURRENT STATUS (AUTHORITATIVE — computed from the log + the real clock. Use these EXACT dates and day-counts everywhere in your output; NEVER compute your own "N days ago"):
+- Last FAN reply: ${spine.fmt(spine.lastFan)}${spine.replyGap != null ? ` — ${spine.replyGap} day${spine.replyGap === 1 ? '' : 's'} ago` : ' — unknown'} (HIS messages only — ignore ours; our own outbound is NOT engagement)
+- Last purchase: ${spine.purchaseGap != null ? `${_fmtLP} — ${spine.purchaseGap} days ago` : 'unknown'}
+- TWO CLOCKS: reply-gap ${spine.replyGap ?? '?'}d vs purchase-gap ${spine.purchaseGap ?? '?'}d → SILENCE-AGE: ${spine.tier}${spine.talkingNotBuying ? '  · TALKING-NOT-BUYING: he is replying but not buying — he is ENGAGED; the problem is monetization/pacing, NOT re-engagement. Do NOT write him off as gone or "cooled".' : ''}${spine.isLive ? '  · LIVE: HIS message is the LAST in the thread — he is waiting on a reply RIGHT NOW. This outranks everything; lead the brief with answering him.' : ''}
+- SILENCE-AGE RULE: ACTIVE/COOLING → continuity is fine. DORMANT/COLD-CASE → the opener MUST acknowledge the long absence and must NOT reference any life event as if it is still upcoming/current (after this long it has almost certainly already happened — ask "how was X", never "go enjoy X").`
+
+    const spendingContext = `TODAY'S DATE: ${todayLong}. This is "today" for ALL recency math — "N days ago", days-since-last-reply, staleness. Do NOT infer today from the last line of the transcript: the chat may have been pulled days or weeks ago, so its final message is NOT today. Anchor every day-count to ${todayLong}.${statusBlock}
 
 SPENDING DATA FOR THIS FAN:
 - Lifetime spend (through chat window): $${cappedLifetime.toLocaleString()}
@@ -804,6 +925,10 @@ HARD RULES:
   3. Every claim needs evidence — a quote or a date. No vibes.
   3a. NO INVENTED DETAILS. Every personal fact — name, nickname, age, location, job, family, backstory, kink — must come from something the FAN actually said in the transcript (or an operator note baked into his display name). If he never stated it, LEAVE IT OUT. Never invent a nickname, never shorten his handle into a pet name, never infer a backstory from his username, his content choices, or vibes. If you can't point to a line for a detail, it does not go in the brief. A thin dossier is correct and expected — 3 real facts beat 7 with 4 guessed. WHO HE IS and the CHATTER CARD may contain ONLY transcript-grounded facts.
   3b. ONE INCIDENT, ONE SECTION. Each concrete dated moment or quote belongs to exactly one section — do not re-narrate it. WHAT HAPPENED owns the cause; PEAK FORMULA owns peak-era mechanics; CHATTER PERFORMANCE owns graded failures; SLEEPING THREADS owns open loops; NEXT MOVE owns the prescription. If a later section needs an earlier moment, name it in a few words ("the Feb 20 song-lyrics break") — never repeat the full story. No sentence should restate what another section already said.
+  3c. FAN-TYPE FORK — decide this FIRST, it changes everything. Is he TRANSACTIONAL (here for content, fast; would see through and dislike fake intimacy) or RELATIONAL (buying the feeling of being known and chosen; the content is the vehicle; money is how he expresses the bond)? Or a BLEND. A relational fan gets the full relationship read (stance, threads, trust, love language). A transactional fan gets a LEAN content-and-price card — do NOT manufacture emotional depth he doesn't have. Running a hard-sell content script on a relational fan, OR relationship talk on a transactional fan, is the "that's not her" break that loses them. State the call in the CARD's TYPE line.
+  3d. DON'T WRITE OFF A TALKING-NOT-BUYING FAN. If CURRENT STATUS flags TALKING-NOT-BUYING or LIVE, he is ENGAGED — the job is monetization/pacing (or answering him now), NOT re-engagement. Never frame him as "gone", "cooled", or "lost". Conversely, honor the SILENCE-AGE: a COLD-CASE fan (silent many months) must NOT be written as a fresh cool-off, and his opener must acknowledge the long gap and never reference a past life event as if it's still upcoming.
+  3e. BURNED/EXPOSED. If the fan explicitly caught the operation (accused us of running a script, "was it just the money?", called out being on a mass-blast list, said a conscious goodbye), flag him BURNED in the STANCE line — ordinary re-warm backfires; the only move is honest acknowledgment.
+  3f. MONEY = ONLY WHAT'S GIVEN. Every dollar figure and every specific past purchase (amount + date) must come from the SPENDING DATA / MONTHLY ARC / SPENDING HISTORY / CURRENT STATUS blocks. Do NOT invent a lifetime total, a peak-month figure, or a "$X on [date]" purchase that isn't in those blocks. The lifetime in the FAN: line and in the CARD must be IDENTICAL and must equal the SPENDING DATA lifetime. Inline chat "$X paid" markers are qualitative buy-trigger evidence only — name the content/hook, never a total.
   4. Sample messages must be copy-paste ready. Do not write "reference his past messages" — pull the actual phrase.
   5. No jargon in the OUTPUT. Translate internal concepts:
      - "quote-back pattern" → "pasting his own messages back at him"
@@ -828,8 +953,9 @@ HARD LENGTH CEILING: 1000 words for the most complex patron-tier fan. 400-600 wo
 FAN: [Display name] ([username])  •  [creator]  •  $[lifetime] total
 
 LAST TOUCH
-Last fan reply: [EXACT date of the FAN's most recent message — look at the chat transcript and find the last line tagged [FAN]. Ignore creator-side re-engagement pings that came after. Format: "Feb 27, 2026" or "Feb 27" — whichever is in the transcript. Then calculate days ago relative to today.] — [N] days ago
-Last purchase: [EXACT date from the SPENDING DATA block above — specifically the "Last purchase:" line. Format "Feb 14, 2026"] — $[EXACT amount from the SPENDING DATA block] [for content type if known from chat: "for the pool PPV", "tip after voice note", etc. Omit this phrase if you don't have chat evidence — do NOT guess.]
+Last fan reply: [COPY the "Last FAN reply" date and days-ago from the CURRENT STATUS block above VERBATIM — do not recompute, do not use the transcript's last line.]
+Last purchase: [COPY the "Last purchase" date and days-ago from CURRENT STATUS. Then optionally add content type if known from chat: "for the pool PPV", "tip after voice note" — omit if no chat evidence, do NOT guess an amount.]
+Two clocks: [COPY the reply-gap / purchase-gap / SILENCE-AGE line from CURRENT STATUS. If it flags TALKING-NOT-BUYING or LIVE, restate that here — it changes the whole play.]
 Last topic: [1-2 sentences on what the fan was last actually responding to or talking about — the subject, not the vibe. Example: "He was asking about her trip to Asheville and mentioned he's visiting his mom for Easter. She sent a teaser photo, he didn't bite." If the fan just stopped replying with no clear conversation thread, say so: "He went silent mid-conversation after a price pitch — no final topic."]
 
 CRITICAL DATE RULES:
@@ -880,13 +1006,17 @@ SUGGESTED-MESSAGE RULES (apply to EVERY sample message, opener, and quoted line 
 [1-2 sentences for what to do if he replies. 1 sentence for what to do if he doesn't. Never "give up" — low odds means prescribe patience, not abandonment.]
 
 CHATTER CARD
-[The spoon-feed — the ONLY part most chatters will read. Max 6 lines, telegraphic (no paragraphs), every line load-bearing. Format EXACTLY:
-CARD: [EXACT display name and @username from the FAN: line at the top — never invent or shorten the handle] — $[lifetime] · [state + likely cause, e.g. "decayed — trust broken Oct 25" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26: save THIS WEEK"]
+[The spoon-feed — the ONLY part most chatters will read. Telegraphic (no paragraphs), every line load-bearing. The TOP THREE lines (CARD/TYPE/STANCE) are the anti-"that's not her" guardrail — they tell the chatter what voice to walk in with before they type. Format EXACTLY:
+CARD: [EXACT display name and @username from the FAN: line — never invent or shorten the handle] — $[lifetime, EXACTLY the figure from the FAN: line] · [SILENCE-AGE from CURRENT STATUS: active / cooling / dormant / cold-case] · [state + likely cause, e.g. "trust cracked — over-sold Apr 30" or "faded naturally, no fault"] · [deadline if any, e.g. "rebill off — sub dies Jul 17, 26"]
+TYPE: [Transactional — here for content, fast; sees through fake intimacy | Relational — buying the feeling of being known/chosen, content is the vehicle, money is his love language | Blend] + one clause why
+STANCE: [his emotional posture RIGHT NOW in a few words, then the ONE landmine that breaks him. e.g. "consciously pulling back on his therapist's advice, still cares — any ask now proves the therapist right and he's gone." If CURRENT STATUS shows LIVE, lead with "waiting on a reply NOW — answer him first." If TALKING-NOT-BUYING, say "engaged, replying — fix pacing not re-engagement, don't treat as lost."]
 FORMULA: [his buying recipe in one sentence, distilled from PEAK FORMULA]
-WANTS: [content/themes he buys + any waiting sale from SLEEPING THREADS]
+WANTS: [content/themes he buys + any waiting sale from THREADS]
 PRICE: [his band + how he negotiates]
-NEVER: [the 2-4 things that kill him]
-OPENER: "[the ready-to-send message from NEXT MOVE]"]`
+NEVER: [the 2-4 things that kill him — mass blasts, recycled scripts, grief-then-pitch, pushing past his ceiling, etc.]
+THREADS: [1-3 dated open threads with follow-through status + whose move it is. e.g. "mom in hospice (we last asked May 28, he updated Jun 11 — HANGING, check in); cruise Jun 11 → it's OVER now, ask 'how was it' never 'go enjoy it'". Write "none open" if none.]
+OPENER: "[the ready-to-send message from NEXT MOVE]"
+FOR A TRANSACTIONAL FAN: keep it lean — CARD, TYPE, FORMULA, WANTS, PRICE, OPENER. STANCE = "here for content, skip the relationship talk"; THREADS = "n/a". Do not manufacture emotional depth he doesn't have.]`
 
       : `You are a whale-hunting analyst for an OnlyFans agency. Your output is a short brief a chat manager will hand to a chatter. Write plainly, no jargon.
 
@@ -1058,7 +1188,9 @@ HARD RULES:
     // for patron-tier fans + a LAST TOUCH section + section headings. 3000 gives enough
     // buffer so Claude can finish the sample message even when it hits the upper bound of
     // the 1000-word target. Was 2000 — kept cutting mid-sentence in NEXT MOVE.
-    const claudeMaxTokens = isHighValue ? 3000 : 1200
+    // 3600 for patron-tier: the new CHATTER CARD adds TYPE/STANCE/THREADS lines,
+    // and at 3000 the card was truncating mid-OPENER (the "…O" bug).
+    const claudeMaxTokens = isHighValue ? 3600 : 1400
     let fullAnalysis = 'Analysis failed'
     let claudeUsage = null
     let claudeStopReason = null
@@ -1105,7 +1237,7 @@ HARD RULES:
     // handle drift before the CHATTER CARD is sliced out for the manager brief,
     // so corrections propagate to both. No API cost.
     if (fullAnalysis && !fullAnalysis.startsWith('Analysis failed')) {
-      const qa = validateAndFixAnalysis(fullAnalysis, { now: nowDate, messages: parsed.messages, fanUsername })
+      const qa = validateAndFixAnalysis(fullAnalysis, { now: nowDate, messages: parsed.messages, fanUsername, lifetime: cappedLifetime })
       if (qa.issues.length) console.log(`[Whale Analysis QA] ${fanName} • ${creatorAka} | ${qa.issues.join(' | ')}`)
       fullAnalysis = qa.text
     }
