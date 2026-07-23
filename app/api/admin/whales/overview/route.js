@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const [creators, tracker] = await Promise.all([
       fetchAirtableRecords('Palm Creators', {
-        fields: ['Creator', 'AKA', 'Status', 'OF API Account ID', 'Whale Runs'],
+        fields: ['Creator', 'AKA', 'Status', 'OF API Account ID', 'Whale Runs', 'HQ Record ID'],
       }),
       fetchAirtableRecords('Fan Tracker', {
         fields: ['Fan Name', 'OF Username', 'Creator', 'Status', 'Lifetime Spend',
@@ -19,19 +19,20 @@ export async function GET() {
       }),
     ])
 
-    // Only ACTIVE managed creators (leads/paused/offboarded have no whale work).
-    // Connected accounts always show — keeps the test account visible even if
-    // its status ever changes.
+    // ACTIVE + ONBOARDING managed creators (leads/paused/offboarded have no
+    // whale work). Onboarding creators show so newly-signed ones auto-appear as
+    // they're connected. Connected accounts always show regardless of status.
     const creatorList = creators
       .filter((c) => {
         const status = typeof c.fields?.Status === 'string' ? c.fields.Status : c.fields?.Status?.name
-        return status === 'Active' || !!c.fields?.['OF API Account ID']
+        return status === 'Active' || status === 'Onboarding' || !!c.fields?.['OF API Account ID']
       })
       .map((c) => ({
         id: c.id,
         name: c.fields?.Creator || '',
         aka: c.fields?.AKA || c.fields?.Creator || '',
         connected: !!c.fields?.['OF API Account ID'],
+        hqId: c.fields?.['HQ Record ID'] || null,
         runs: (() => { try { return JSON.parse(c.fields?.['Whale Runs'] || '{}') } catch { return {} } })(),
       }))
       .sort((a, b) => (b.connected - a.connected) || a.aka.localeCompare(b.aka))
@@ -52,6 +53,7 @@ export async function GET() {
           lifetime: f['Lifetime Spend'] || 0,
           firstFlagged: f['First Flagged'] || null,
           lastAlert: f['Last Alert Sent'] || null,
+          lastChatUpload: f['Last Chat Upload'] || null,
           alertCount: f['Alert Count'] || 0,
           effectiveness: typeof f.Effectiveness === 'string' ? f.Effectiveness : f.Effectiveness?.name || '',
           notes: f.Notes || '',

@@ -475,7 +475,14 @@ export default function AuditTab() {
         </select>
         {selected && !selected.connected && (
           <span style={{ fontSize: '12px', color: '#E8C878' }}>
-            Not connected — add her OF account at app.onlyfansapi.com, then set “OF API Account ID” on her creator record.
+            Not connected —{' '}
+            {selected.hqId ? (
+              <a href={`/admin/onboarding/${selected.hqId}`} style={{ color: 'var(--palm-pink)', fontWeight: 600 }}>
+                connect her on the Onboarding workspace →
+              </a>
+            ) : (
+              'connect her OF account on the Onboarding workspace (OnlyFans & Earnings card).'
+            )}
           </span>
         )}
         <div style={{ flex: 1 }} />
