@@ -129,7 +129,7 @@ export default function TextVideoPage() {
     <div style={{ maxWidth: '860px' }}>
       <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 18px', lineHeight: 1.5 }}>
         Describe a scene; her REAL reference photos (never AI-generated ones) keep it <i>her</i>. No reel, no frame swaps — text in, video out.
-        {engine === 'wan26' ? `1080p, ${duration}s, ~$${(duration * 0.15).toFixed(2)} per run — Wan is the loosest-moderated hosted engine (try it when Grok refuses).` : engine === 'seedance2' ? `1080p, ${duration}s, ~$${(duration * 0.60).toFixed(2)} per run — best quality + lip-synced audio, strictest moderation (may reject real faces).` : `720p, ${duration}s, ~$${duration === 6 ? '0.30' : '0.50'} per run.`} About a minute or two to generate; keeps the model&apos;s native audio.
+        {engine === 'wan26' ? `1080p, ${duration}s, ~$${(duration * 0.15).toFixed(2)} per run — loosest moderation. NOTE: her photo becomes the video's first frame, so the scene stays close to that photo; only Grok invents a fully new scene from text.` : engine === 'seedance2' ? `1080p, ${duration}s, ~$${(duration * 0.60).toFixed(2)} per run — best quality + lip-synced audio. NOTE: her photo becomes the video's first frame, so the scene stays close to that photo; only Grok invents a fully new scene from text.` : `720p, ${duration}s, ~$${duration === 6 ? '0.30' : '0.50'} per run.`} About a minute or two to generate; keeps the model&apos;s native audio.
       </div>
 
       <div style={card}>
@@ -198,9 +198,9 @@ export default function TextVideoPage() {
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '6px' }}>
             {[
-              { id: 'grok_ref', name: 'Grok', hint: '720p · all refs anchor her' },
-              { id: 'wan26', name: 'Wan 2.6', hint: '1080p · loosest moderation' },
-              { id: 'seedance2', name: 'Seedance 2', hint: '1080p · lip-synced audio · strictest' },
+              { id: 'grok_ref', name: 'Grok', hint: '720p · TRUE new scene from text — 7 identity photos' },
+              { id: 'wan26', name: 'Wan 2.6', hint: '1080p · ANIMATES her photo (scene stays near it) · loosest moderation' },
+              { id: 'seedance2', name: 'Seedance 2', hint: '1080p · ANIMATES her photo (scene stays near it) · lip-synced audio' },
             ].map(e => (
               <button key={e.id} title={e.hint} disabled={running}
                 onClick={() => { setEngine(e.id); setDuration(e.id === 'grok_ref' ? 6 : 5) }}
