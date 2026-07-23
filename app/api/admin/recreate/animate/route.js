@@ -58,6 +58,19 @@ export async function POST(request) {
       var approvedRefs = ['AI Ref Front', 'AI Ref Face', 'AI Ref Back']
         .map((f) => records[0]?.fields?.[f]?.[0]?.url)
         .filter(Boolean)
+      // REAL photos only for identity (Evan, 2026-07-23): AI Ref Inputs are her
+      // actual photos (pose-prefixed); the AI Ref Front/Face/Back OUTPUTS are
+      // AI-generated and feeding those back compounds artifacts. Balanced mix
+      // up to Grok's 7-image cap: faces carry identity, front/back carry body.
+      var realRefs = (() => {
+        const by = (p) => aiRefInputs.filter((a) => (a.filename || '').startsWith(p)).map((a) => a.url).filter(Boolean)
+        const face = by('Close Up Face input_'), front = by('Front View input_'), back = by('Back View input_')
+        const picks = [...face.slice(0, 3), ...front.slice(0, 3), ...back.slice(0, 1)]
+        for (const pool of [face.slice(3), front.slice(3), back.slice(1)]) {
+          for (const u of pool) { if (picks.length >= 7) break; picks.push(u) }
+        }
+        return [...new Set(picks)].slice(0, 7)
+      })()
     } catch (e) {
       console.warn('[animate] could not look up creator metadata:', e.message)
     }
@@ -76,9 +89,10 @@ export async function POST(request) {
       // moderated hosted family (open-source lineage) — the engine to reach
       // for when Grok refuses. 5/10/15s, 720p/1080p, native audio.
       model = WAN_26_I2V_MODEL
-      const anchor = startUrl || (approvedRefs || [])[0]
+      // Anchor on a REAL photo (front view best for i2v), never an AI output.
+      const anchor = startUrl || (realRefs || []).find((u) => aiRefInputs.some((a) => a.url === u && (a.filename || '').startsWith('Front View'))) || (realRefs || [])[0]
       if (!anchor) {
-        return NextResponse.json({ error: 'No AI reference image on this creator (AI Ref Front/Face/Back) — approve refs first' }, { status: 400 })
+        return NextResponse.json({ error: 'No REAL reference photos on this creator (AI Ref Inputs) — upload her photos in AI Recreate first' }, { status: 400 })
       }
       body = {
         prompt: motionPrompt,
@@ -94,14 +108,12 @@ export async function POST(request) {
       model = GROK_REF_MODEL
       const images = []
       if (startUrl) images.push(startUrl) // optional extra anchor when present
-      for (const url of (approvedRefs || [])) if (!images.includes(url) && images.length < 7) images.push(url)
-      const faceInputs = aiRefInputs.filter(att => /^Close Up Face input_/i.test(att.filename || ''))
-      for (const att of faceInputs) if (att.url && !images.includes(att.url) && images.length < 7) images.push(att.url)
+      for (const url of (realRefs || [])) if (!images.includes(url) && images.length < 7) images.push(url)
       if (Array.isArray(extraRefUrls)) {
         for (const url of extraRefUrls) if (url && !images.includes(url) && images.length < 7) images.push(url)
       }
       if (!images.length) {
-        return NextResponse.json({ error: 'No AI reference images on this creator (AI Ref Front/Face/Back) — approve refs first' }, { status: 400 })
+        return NextResponse.json({ error: 'No REAL reference photos on this creator (AI Ref Inputs) — upload her photos in AI Recreate first' }, { status: 400 })
       }
       body = {
         prompt: motionPrompt,

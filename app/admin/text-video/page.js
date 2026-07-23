@@ -115,7 +115,7 @@ export default function TextVideoPage() {
   return (
     <div style={{ maxWidth: '860px' }}>
       <div style={{ fontSize: '13px', color: 'var(--foreground-muted)', margin: '4px 0 18px', lineHeight: 1.5 }}>
-        Describe a scene; her approved AI reference photos keep it <i>her</i>. No reel, no frame swaps — text in, video out.
+        Describe a scene; her REAL reference photos (never AI-generated ones) keep it <i>her</i>. No reel, no frame swaps — text in, video out.
         {engine === 'wan26' ? `1080p, ${duration}s, ~$${(duration * 0.15).toFixed(2)} per run — Wan is the loosest-moderated hosted engine (try it when Grok refuses).` : `720p, ${duration}s, ~$${duration === 6 ? '0.30' : '0.50'} per run.`} About a minute or two to generate; keeps the model&apos;s native audio.
       </div>
 
@@ -129,11 +129,11 @@ export default function TextVideoPage() {
 
         {creatorId && (
           <div style={{ marginTop: '14px' }}>
-            <div style={label}>Identity anchors (her approved AI refs)</div>
+            <div style={label}>Identity anchors — her real photos (what the model receives)</div>
             {refs === null ? (
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)' }}>Loading refs…</div>
             ) : refs.length === 0 ? (
-              <div style={{ fontSize: '12px', color: '#E87878' }}>No approved AI refs on this creator — approve refs in AI Recreate first; generation will refuse without them.</div>
+              <div style={{ fontSize: '12px', color: '#E87878' }}>No real reference photos on this creator — upload her photos in AI Recreate (Creator Avatar) first; generation refuses without them.</div>
             ) : (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {refs.map((r, i) => (
