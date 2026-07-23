@@ -17,17 +17,19 @@ export async function GET(request) {
       maxRecords: 1,
     })
     const f = records[0]?.fields || {}
-    const refs = []
-    for (const [field, label] of [['AI Ref Front', 'Front'], ['AI Ref Face', 'Face'], ['AI Ref Back', 'Back']]) {
-      const att = f[field]?.[0]
-      if (att?.url) refs.push({ label, url: att.url, thumb: att.thumbnails?.large?.url || att.url })
+    // REAL photos only (AI Ref Inputs) — never the AI-generated outputs
+    // (Evan, 2026-07-23). Mirrors the animate route's selection exactly:
+    // 3 face + 3 front + 1 back, topped up to Grok's 7-image cap.
+    const inputs = f['AI Ref Inputs'] || []
+    const by = (p, label) => inputs
+      .filter((a) => (a.filename || '').startsWith(p))
+      .map((a) => ({ label, url: a.url, thumb: a.thumbnails?.large?.url || a.url }))
+    const face = by('Close Up Face input_', 'Face'), front = by('Front View input_', 'Front'), back = by('Back View input_', 'Back')
+    const refs = [...face.slice(0, 3), ...front.slice(0, 3), ...back.slice(0, 1)]
+    for (const pool of [face.slice(3), front.slice(3), back.slice(1)]) {
+      for (const r of pool) { if (refs.length >= 7) break; refs.push(r) }
     }
-    const faceInputs = (f['AI Ref Inputs'] || []).filter((att) => /^Close Up Face input_/i.test(att.filename || ''))
-    for (const att of faceInputs) {
-      if (refs.length >= 7) break
-      if (att.url) refs.push({ label: 'Face input', url: att.url, thumb: att.thumbnails?.large?.url || att.url })
-    }
-    return NextResponse.json({ aka: f['AKA'] || f['Creator'] || '', refs })
+    return NextResponse.json({ aka: f['AKA'] || f['Creator'] || '', refs: refs.slice(0, 7) })
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
