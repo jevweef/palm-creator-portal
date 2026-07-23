@@ -87,28 +87,41 @@ export default function TextVideoPage() {
     if (!q) return
     setInspoBusy(true); setError(''); setInspoInfo(null)
     try {
+      // Works for ANY public IG reel: library reels use their stored video
+      // (and cached dissection); everything else is fetched live from
+      // Instagram on the spot (Evan, 2026-07-23 — the field says "reel URL",
+      // so any reel URL must work).
       const lr = await fetch(`/api/admin/recreate/lookup?url=${encodeURIComponent(q)}`)
-      const reel = await lr.json()
-      if (!lr.ok) throw new Error(reel.error || 'Reel not found on the inspo board')
-      // Dedicated T2V dissection: paints the WHOLE scene in words (setting,
-      // wardrobe, light, camera, beats) — the recreate motion prompts are
-      // filming instructions that assume an image carries the scene, so they
-      // read wrong here (Evan, 2026-07-22). Cached per reel in 'T2V Prompt'.
-      let t2v = reel.t2vPrompt || ''
+      const reel = lr.ok ? await lr.json() : null
+      let t2v = reel?.t2vPrompt || ''
       const cached = !!t2v
+      let username = reel?.username || ''
+      let thumbnail = reel?.thumbnail || null
       if (!t2v) {
-        if (!reel.dbRawLink) throw new Error('Reel has no stored video file — scrape it first')
+        let videoUrl = reel?.dbRawLink || ''
+        if (!videoUrl) {
+          setInspoInfo({ title: 'Fetching reel from Instagram…', username: '', thumbnail: null, cached: false, fetching: true })
+          const fr = await fetch('/api/admin/recreate/fetch-reel', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: q }),
+          })
+          const fj = await fr.json()
+          if (!fr.ok) throw new Error(fj.error || 'Could not fetch the reel from Instagram')
+          videoUrl = fj.videoUrl
+          username = username || fj.username
+          thumbnail = thumbnail || fj.thumbnail
+        }
         const mr = await fetch('/api/admin/recreate/extract-t2v-prompt', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoUrl: reel.dbRawLink, inspoRecordId: reel.id }),
+          body: JSON.stringify({ videoUrl, inspoRecordId: reel?.id || undefined }),
         })
         const mj = await mr.json()
         if (!mr.ok) throw new Error(mj.error || 'T2V dissection failed')
         t2v = mj.t2vPrompt || ''
       }
-      if (reel.recreateMotionNegative) setNegative(reel.recreateMotionNegative)
+      if (reel?.recreateMotionNegative) setNegative(reel.recreateMotionNegative)
       setPrompt(t2v)
-      setInspoInfo({ title: reel.title || reel.username || q, username: reel.username, thumbnail: reel.thumbnail, cached })
+      setInspoInfo({ title: reel?.title || username || q, username, thumbnail, cached })
     } catch (err) { setError(err.message) } finally { setInspoBusy(false) }
   }, [inspoUrl])
 
