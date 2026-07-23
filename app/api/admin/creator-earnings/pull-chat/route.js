@@ -275,7 +275,13 @@ export async function POST(request) {
         // FIRST chunk: one archive read to find where to resume + what's new.
         const arc0 = await loadChatArchive(creatorName, fanName, fanUsername)
         storedCount = arc0?.messages?.length || 0
-        if (arc0?.historyComplete && !acceptPartial) reachedStart = true
+        // An EXPLICIT "pull back to" date OLDER than the oldest stored message
+        // overrides a (possibly stale) historyComplete stamp — the admin is
+        // telling us there's more history (Kai: stamped complete at May 26 while
+        // earnings ran back to Feb, so a dated pull topped up 1 credit and quit).
+        const oldestStored = arc0?.messages?.[0]?.createdAt || null
+        const datedDeepen = !!(sinceDate && (!oldestStored || sinceDate < oldestStored))
+        if (arc0?.historyComplete && !acceptPartial && !datedDeepen) reachedStart = true
         if (arc0?.pendingExportId) { try { await cancelDataExport(arc0.pendingExportId) } catch {} }
         if (arc0?.lastMessageAt) {
           const fwd = await fetchChatHistory(accountId, fan.id, {
