@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import OffboardModal from '@/app/admin/OffboardModal'
 
 // ── tiny inline icons (no emoji per house style) ──
 function CheckIcon({ size = 16 }) {
@@ -50,6 +51,7 @@ export default function OnboardingWorkspace() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(null)        // action key in flight
   const [toast, setToast] = useState(null)
+  const [showOffboard, setShowOffboard] = useState(false)
   const [showAll, setShowAll] = useState(false) // default: only what's left to do
 
   const load = useCallback(async () => {
@@ -203,8 +205,24 @@ export default function OnboardingWorkspace() {
           <div style={{ height: '8px', width: '180px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden', marginLeft: 'auto' }}>
             <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#43A047' : 'var(--palm-pink)', transition: 'width 0.3s' }} />
           </div>
+          {/* A creator can bail mid-onboarding (Bianca, 2026-07-22) — offboard
+              works from ANY status; go-live items only gate activation. */}
+          <button
+            onClick={() => setShowOffboard(true)}
+            style={{ marginTop: '10px', padding: '5px 12px', fontSize: '11px', fontWeight: 600, borderRadius: '7px', border: '1px solid rgba(232,120,120,0.3)', background: 'transparent', color: '#E87878', cursor: 'pointer' }}
+          >
+            Offboard creator…
+          </button>
         </div>
       </div>
+
+      {showOffboard && (
+        <OffboardModal
+          creator={{ hqId, name: creator?.name, aka: creator?.aka }}
+          onClose={() => setShowOffboard(false)}
+          onDone={() => { setShowOffboard(false); router.push('/admin/onboarding') }}
+        />
+      )}
 
       {/* do this next */}
       {!isActive && nextTile && (
@@ -223,7 +241,7 @@ export default function OnboardingWorkspace() {
               <div style={{ fontSize: '12px', color: 'var(--foreground-muted)', marginTop: '2px', lineHeight: 1.45 }}>{nextTile.instructions}</div>
             )}
           </div>
-          {nextTile.action && nextTile.action.type !== 'set-chat-team' && (
+          {nextTile.action && !['set-chat-team', 'of-login', 'survey-send', 'toggle-social', 'contract-amend', 'telegram-assign', 'revenue-accounts', 'of-api', 'tg-topics', 'vault-requests', 'inline-number', 'doc-upload', 'photo-upload', 'comms-chat', 'music-dna', 'publer-sync'].includes(nextTile.action.type) && (
             <button
               onClick={() => runAction(nextTile)}
               disabled={busy === `${nextTile.key}:${nextTile.action.type}`}
@@ -374,8 +392,28 @@ function Tile({ tile, busy, onAction, chatTeam, onChatTeam, hqId, onboardingId, 
           <OfLoginAction tile={tile} hqId={hqId} onboardingId={onboardingId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'survey-send' ? (
           <SurveySendAction tile={tile} hqId={hqId} onboardingId={onboardingId} sentToTeam={a.sentToTeam} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'revenue-accounts' ? (
+          <RevenueAccountsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'of-api' ? (
+          <OfApiAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'tg-topics' ? (
+          <TgTopicsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'vault-requests' ? (
+          <VaultRequestsAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'inline-number' ? (
+          <InlineNumberAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'doc-upload' ? (
+          <DocUploadAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'photo-upload' ? (
+          <PhotoUploadAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'comms-chat' ? (
+          <CommsChatAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'music-dna' ? (
+          <MusicDnaAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+        ) : a?.type === 'publer-sync' ? (
+          <PublerSyncAction tile={tile} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'toggle-social' ? (
-          <SocialToggleAction tile={tile} opsId={opsId} onRefresh={onRefresh} flash={flash} />
+          <SocialToggleAction tile={tile} opsId={opsId} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'contract-amend' ? (
           <ContractAmendAction tile={tile} hqId={hqId} onRefresh={onRefresh} flash={flash} />
         ) : a?.type === 'telegram-assign' ? (
@@ -410,6 +448,18 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
     freeEmail: a.freeEmail || '', freePass: a.freePass || '',
     paidEmail: a.paidEmail || '', paidPass: a.paidPass || '',
   })
+  // Resync from the server after every board refresh (unless mid-edit) —
+  // otherwise creds the creator submits AFTER the board loaded never appear
+  // and the admin concludes "no login yet" (reviewer finding, 2026-07-17).
+  useEffect(() => {
+    if (!editing && !busy) {
+      setV({
+        freeEmail: a.freeEmail || '', freePass: a.freePass || '',
+        paidEmail: a.paidEmail || '', paidPass: a.paidPass || '',
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a.freeEmail, a.freePass, a.paidEmail, a.paidPass])
   const confirmed = tile.status === 'done'
 
   const inputStyle = {
@@ -480,6 +530,459 @@ function OfLoginAction({ tile, hqId, onboardingId, onRefresh, flash }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// Revenue-accounts card: one row per OF page. Existing accounts show their
+// status; missing ones get a one-click Create (name derived from AKA, so the
+// prefix convention every reader depends on can't be typo'd).
+function RevenueAccountsAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(null) // accountType being created
+  const a = tile.action || {}
+  const accounts = a.accounts || []
+  const expected = a.expected || []
+  const has = (t) => accounts.find((acc) => acc.name.toLowerCase().endsWith(`- ${t.toLowerCase()}`))
+
+  const create = async (accountType) => {
+    setBusy(accountType)
+    try {
+      const res = await fetch('/api/admin/onboarding/of-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, action: 'create-account', accountType }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Create failed')
+      flash(`${j.created} created`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {['Free OF', 'VIP OF'].map((t) => {
+        const acc = has(t)
+        const wanted = expected.includes(t)
+        if (acc) {
+          return (
+            <div key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: acc.status === 'Active' ? '#43A047' : 'var(--foreground-muted)' }}>
+              <span style={{ fontWeight: 600 }}>{t}</span>
+              <span>{acc.status === 'Active' ? '✓ record exists' : `(${acc.status})`}</span>
+            </div>
+          )
+        }
+        if (!wanted) return null // she didn't select this page type — don't nag
+        return (
+          <button key={t} onClick={() => create(t)} disabled={!!busy}
+            style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+            {busy === t ? 'Creating…' : `Create ${t} record`}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// OF-API card: the per-ACCOUNT connect decision. Each active OF page is either
+// Connected (verified acct_… id), Skipped (deliberate no), or undecided (the
+// only state the tile nags about). Connect verifies the id against the live
+// API before saving and the route re-syncs the ops comma list.
+function OfApiAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(null) // `${accountId}:connect|skip|undo`
+  const [ids, setIds] = useState({})     // revenueAccountId -> typed acct id
+  const accounts = tile.action?.accounts || []
+
+  const post = async (body, busyKey, okMsg) => {
+    setBusy(busyKey)
+    try {
+      const res = await fetch('/api/admin/onboarding/of-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, ...body }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Failed')
+      flash(okMsg(j))
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(null) }
+  }
+
+  if (!accounts.length) {
+    return <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '4px 0' }}>No active OF accounts yet — create them on the Revenue accounts card.</div>
+  }
+
+  const smallBtn = (bg, color, disabled) => ({ padding: '5px 10px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', border: 'none', cursor: disabled ? 'default' : 'pointer', background: bg, color, opacity: disabled ? 0.6 : 1, flexShrink: 0 })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {accounts.map((acc) => {
+        const short = acc.name.split(' - ').slice(1).join(' - ') || acc.name
+        if (acc.connect === 'Connect' && acc.acctId) {
+          return (
+            <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{short}</span>
+              <span style={{ color: '#43A047' }}>Connected</span>
+              <span style={{ color: 'var(--foreground-subtle)', fontFamily: 'monospace', fontSize: '10px' }}>…{acc.acctId.slice(-6)}</span>
+            </div>
+          )
+        }
+        if (acc.connect === 'Skip') {
+          return (
+            <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{short}</span>
+              <span style={{ color: 'var(--foreground-muted)' }}>Skipped — not connecting</span>
+              <button onClick={() => post({ action: 'set-decision', revenueAccountId: acc.id, decision: '' }, `${acc.id}:undo`, () => 'Back to undecided')}
+                disabled={!!busy} style={smallBtn('rgba(255,255,255,0.05)', 'var(--foreground-muted)', !!busy)}>
+                {busy === `${acc.id}:undo` ? '…' : 'Undo'}
+              </button>
+            </div>
+          )
+        }
+        return (
+          <div key={acc.id} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)' }}>{short}</div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <input
+                value={ids[acc.id] || ''}
+                placeholder="acct_…"
+                disabled={!!busy}
+                onChange={(e) => setIds((s) => ({ ...s, [acc.id]: e.target.value }))}
+                style={{ flex: 1, minWidth: 0, padding: '5px 8px', fontSize: '11px', fontFamily: 'monospace', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', outline: 'none' }}
+              />
+              <button
+                onClick={() => post({ action: 'connect', revenueAccountId: acc.id, acctId: (ids[acc.id] || '').trim() }, `${acc.id}:connect`, (j) => `Connected${j.username ? ` — verified @${j.username}` : ''}`)}
+                disabled={!!busy || !(ids[acc.id] || '').trim()}
+                style={smallBtn('#43A047', '#fff', !!busy || !(ids[acc.id] || '').trim())}>
+                {busy === `${acc.id}:connect` ? 'Verifying…' : 'Connect'}
+              </button>
+              <button
+                onClick={() => post({ action: 'set-decision', revenueAccountId: acc.id, decision: 'Skip' }, `${acc.id}:skip`, () => `${short} marked as skipped`)}
+                disabled={!!busy}
+                style={smallBtn('rgba(255,255,255,0.05)', 'var(--foreground-muted)', !!busy)}>
+                {busy === `${acc.id}:skip` ? '…' : 'Skip'}
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      <a href="https://app.onlyfansapi.com" target="_blank" rel="noopener noreferrer"
+        style={{ fontSize: '10px', color: 'var(--foreground-subtle)', textDecoration: 'underline' }}>
+        Get the ID at app.onlyfansapi.com →
+      </a>
+    </div>
+  )
+}
+
+// Delivery-topics card: one click creates the creator's missing IG / FB / AI
+// forum topics in the SMM master group and writes the thread ids to ops Palm
+// Creators — the fields ALL Post Prep / Penny / Grid Planner delivery keys on.
+function TgTopicsAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const done = tile.status === 'done'
+
+  const create = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/onboarding/telegram-topics', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Topic creation failed')
+      const made = Object.keys(j.created || {}).length
+      flash(made ? `${made} topic${made === 1 ? '' : 's'} created and wired` : 'Nothing to create — all topics already set')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) {
+    return <div style={{ fontSize: '11px', color: '#43A047', padding: '5px 0' }}>All delivery topics wired</div>
+  }
+  return (
+    <button onClick={create} disabled={busy}
+      style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Creating topics…' : 'Create missing topics'}
+    </button>
+  )
+}
+
+// Vault intake — ensure one standing Content Request per active OF account.
+function VaultRequestsAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const done = tile.status === 'done'
+
+  const create = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/onboarding/vault-requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Failed')
+      const n = (j.created || []).length + (j.stamped || []).length
+      flash(n ? `${n} vault request${n === 1 ? '' : 's'} set up` : 'All accounts already covered')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (done) {
+    return <div style={{ fontSize: '11px', color: '#43A047', padding: '5px 0' }}>Vault intake live for every account</div>
+  }
+  return (
+    <button onClick={create} disabled={busy}
+      style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Setting up…' : 'Create vault request(s)'}
+    </button>
+  )
+}
+
+// Inline number editor (commission %, weekly reel quota) — type, Save, done.
+// mode 'percent' shows whole percents but stores the decimal (0.45).
+function InlineNumberAction({ tile, hqId, onRefresh, flash }) {
+  const a = tile.action || {}
+  const initial = a.mode === 'percent' ? Math.round((a.value || 0) * 100) : (a.value || 0)
+  const [v, setV] = useState(String(initial || ''))
+  const [busy, setBusy] = useState(false)
+  // Track the server value across refreshes (visible in Show-all mode).
+  useEffect(() => { setV(String(initial || '')) }, [initial])
+
+  const save = async () => {
+    const num = Number(v)
+    if (!Number.isFinite(num) || num < 0) { flash('Enter a number'); return }
+    setBusy(true)
+    try {
+      const value = a.mode === 'percent' ? num / 100 : num
+      const res = await fetch('/api/admin/onboarding/field', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hqId, target: a.target, field: a.field, value }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(`${a.field} saved`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+      <input value={v} onChange={(e) => setV(e.target.value)} disabled={busy} inputMode="numeric"
+        style={{ width: '70px', padding: '5px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', outline: 'none' }} />
+      <span style={{ fontSize: '11px', color: 'var(--foreground-muted)' }}>{a.mode === 'percent' ? '%' : (a.suffix || '')}</span>
+      <button onClick={save} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+// Voice memo / DNA docs — drop a file right on the card. Same 3-step flow as
+// the DNA→Documents uploader: short-lived Dropbox token → direct browser
+// upload (bypasses the Vercel body limit) → register the Airtable doc record.
+function DocUploadAction({ tile, opsId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef(null)
+  const creatorName = tile.action?.creatorName || ''
+
+  const upload = async (file) => {
+    if (!file) return
+    if (!opsId) { flash('No Ops creator record yet — run Start Onboarding first'); return }
+    setBusy(true)
+    try {
+      const tokenRes = await fetch(`/api/admin/creator-profile/upload-token?creatorName=${encodeURIComponent(creatorName)}`)
+      const tokenData = await tokenRes.json().catch(() => ({}))
+      if (!tokenRes.ok) throw new Error(tokenData.error || 'Failed to get upload token')
+      const { accessToken, namespaceId, uploadPathPrefix } = tokenData
+      const dropboxPath = `${uploadPathPrefix}/${file.name}`
+      const uploadRes = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath, mode: 'add', autorename: true, mute: true }),
+          'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'root', root: namespaceId }),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: file,
+      })
+      const uploadData = await uploadRes.json().catch(() => ({}))
+      if (!uploadRes.ok) throw new Error(uploadData.error_summary || 'Dropbox upload failed')
+      const isAudio = /\.(mp3|m4a|wav|ogg|flac|webm)$/i.test(file.name)
+      const res = await fetch('/api/admin/creator-profile/upload', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: opsId, fileType: isAudio ? 'Audio' : 'Document', notes: 'Uploaded from onboarding board',
+          fileName: file.name, dropboxPath: uploadData.path_display || dropboxPath,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to register document')
+      flash(`${file.name} uploaded${isAudio ? ' — counts as her voice memo' : ''}`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  return (
+    <div>
+      <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
+      <button onClick={() => fileRef.current?.click()} disabled={busy}
+        style={{ width: '100%', padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Uploading…' : 'Upload voice memo / doc'}
+      </button>
+    </div>
+  )
+}
+
+// Profile photos — multi-file drop straight to Dropbox + her profile.
+function PhotoUploadAction({ tile, hqId, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef(null)
+  const href = tile.action?.href
+
+  const upload = async (files) => {
+    if (!files?.length) return
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      for (const f of files) fd.append('file', f)
+      const res = await fetch(`/api/admin/onboarding/${hqId}/photos`, { method: 'POST', body: fd })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Upload failed')
+      flash(`${files.length} photo${files.length === 1 ? '' : 's'} uploaded`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false); if (fileRef.current) fileRef.current.value = '' }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => upload([...(e.target.files || [])])} />
+      <button onClick={() => fileRef.current?.click()} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Uploading…' : 'Upload photos'}
+      </button>
+      {href && (
+        <button onClick={() => window.open(href, '_self')} disabled={busy}
+          style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)' }}>
+          View
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Comms chat — pick the master communication chat inline (same route the
+// Creators→Communication tab uses).
+function CommsChatAction({ tile, opsId, onRefresh, flash }) {
+  const [chats, setChats] = useState(null) // null = loading
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!opsId) { setChats([]); return }
+    let alive = true
+    fetch(`/api/admin/creators/${opsId}/communication-chat`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setChats(d?.chats || []) })
+      .catch(() => { if (alive) setChats([]) })
+    return () => { alive = false }
+  }, [opsId])
+
+  const pick = async (chatRecordId) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/creators/${opsId}/communication-chat`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatRecordId: chatRecordId || null }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Save failed')
+      flash(chatRecordId ? 'Master chat set' : 'Master chat cleared')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  if (chats === null) return <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '5px 0' }}>Loading chats…</div>
+  if (!chats.length) return <div style={{ fontSize: '11px', color: 'var(--foreground-muted)', padding: '5px 0' }}>No chats linked yet — add the bot to her group first.</div>
+
+  const current = chats.find((c) => c.isCurrentMaster)
+  return (
+    <select value={current?.recordId || ''} disabled={busy} onChange={(e) => pick(e.target.value)}
+      style={{ width: '100%', padding: '5px 8px', fontSize: '12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'var(--foreground)' }}>
+      <option value="">— pick her master chat —</option>
+      {chats.map((c) => (
+        <option key={c.recordId} value={c.recordId}>
+          {c.title || c.chatId} ({c.source}{c.messageCount ? ` · ${c.messageCount} msgs` : ''})
+        </option>
+      ))}
+    </select>
+  )
+}
+
+// Music DNA — paste her playlist link (or a plain song list) and process, in
+// one card. process-dna saves the input AND writes the processed DNA.
+function MusicDnaAction({ tile, opsId, onRefresh, flash }) {
+  const a = tile.action || {}
+  const [v, setV] = useState(a.input || '')
+  const [busy, setBusy] = useState(false)
+  // Track the server value across refreshes (visible in Show-all mode).
+  useEffect(() => { setV(a.input || '') }, [a.input])
+
+  const detectType = (s) => (/spotify\.com/i.test(s) ? 'spotify_playlist' : /music\.apple\.com/i.test(s) ? 'apple_music' : 'text_list')
+
+  const process = async () => {
+    const raw = v.trim()
+    if (!raw) { flash('Paste a playlist link or song list first'); return }
+    if (!opsId) { flash('No Ops creator record yet'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/music/process-dna', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creatorId: opsId, inputType: detectType(raw), rawInput: raw }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Processing failed')
+      flash(`Music DNA processed${j.tracks?.length ? ` — ${j.tracks.length} tracks` : ''}`)
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <input value={v} placeholder="Spotify / Apple Music link or song list" disabled={busy}
+        onChange={(e) => setV(e.target.value)}
+        style={{ flex: 1, minWidth: 0, padding: '5px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--foreground)', outline: 'none' }} />
+      <button onClick={process} disabled={busy || !v.trim()}
+        style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy || !v.trim() ? 0.6 : 1, flexShrink: 0 }}>
+        {busy ? 'Processing…' : (tile.status === 'done' ? 'Re-process' : 'Process')}
+      </button>
+    </div>
+  )
+}
+
+// Publer — external connect happens in Publer's dashboard; the Sync pull +
+// mapping check live here so you don't have to go hunting.
+function PublerSyncAction({ tile, onRefresh, flash }) {
+  const [busy, setBusy] = useState(false)
+
+  const sync = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/publer/sync-accounts', { method: 'POST' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Sync failed')
+      flash('Synced from Publer — map the account to her below if it just appeared')
+      await onRefresh()
+    } catch (err) { flash(err.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '6px' }}>
+      <button onClick={sync} disabled={busy}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: busy ? 'default' : 'pointer', background: 'rgba(232,160,160,0.12)', color: 'var(--palm-pink)', opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Syncing…' : 'Sync from Publer'}
+      </button>
+      <button onClick={() => window.open('/admin/social?tab=publer', '_self')}
+        style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '7px', border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-muted)' }}>
+        Mapping
+      </button>
     </div>
   )
 }
@@ -779,7 +1282,7 @@ function ContractCompareModal({ oldHtml, newHtml, onClose, onSave, saving, accep
 // Editing` flag the dashboard "Editor" toggle writes (via the pipeline PATCH),
 // so you can decide it right on the onboarding card instead of leaving to the
 // profile. The board re-renders after, collapsing/expanding social-only steps.
-function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
+function SocialToggleAction({ tile, opsId, hqId, onRefresh, flash }) {
   const [busy, setBusy] = useState(false)
   const on = tile.status === 'done' // done ⟺ Social Media Editing = true
 
@@ -793,7 +1296,26 @@ function SocialToggleAction({ tile, opsId, onRefresh, flash }) {
         body: JSON.stringify({ creatorId: opsId, socialMediaEditing: value }),
       })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Update failed')
-      flash(value ? 'Palm runs their socials — social steps enabled' : 'Socials not managed — social steps hidden')
+      // Flipping social ON auto-provisions her Telegram delivery topics
+      // (IG/FB, +AI when TJP) — the fields all Post Prep delivery keys on.
+      // Best-effort: a Telegram hiccup shouldn't block the toggle itself.
+      let topicsNote = ''
+      if (value && hqId) {
+        try {
+          const tr = await fetch('/api/admin/onboarding/telegram-topics', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hqId }),
+          })
+          const tj = await tr.json().catch(() => ({}))
+          if (tr.ok) {
+            const made = Object.keys(tj.created || {}).length
+            topicsNote = made ? ` — ${made} delivery topic${made === 1 ? '' : 's'} created` : ''
+          } else {
+            topicsNote = ` — delivery topics NOT created (${tj.error || 'error'}); use the Delivery topics card`
+          }
+        } catch { topicsNote = ' — delivery topics not created; use the Delivery topics card' }
+      }
+      flash(value ? `Palm runs their socials — social steps enabled${topicsNote}` : 'Socials not managed — social steps hidden')
       await onRefresh()
     } catch (err) { flash(err.message) } finally { setBusy(false) }
   }

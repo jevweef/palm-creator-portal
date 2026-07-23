@@ -119,16 +119,20 @@ async function connectedAccounts() {
     { headers: { Authorization: `Bearer ${process.env.AIRTABLE_PAT}` } },
   )
   if (!res.ok) throw new Error(`Airtable creators ${res.status}`)
-  const { fetchRevenueAccountNames } = await import('@/lib/transactionsSheet')
+  const { fetchRevenueAccountNames, fetchRevenueAccountsApiState } = await import('@/lib/transactionsSheet')
   const out = []
   for (const rec of (await res.json()).records || []) {
     const ids = String(rec.fields?.['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
     if (!ids.length) continue
     const aka = rec.fields?.AKA || rec.fields?.Creator
-    const names = await fetchRevenueAccountNames(aka)
+    // Per-account records are authoritative (each carries its own acct id);
+    // positional Free-first/VIP-second is the legacy fallback.
+    const apiState = await fetchRevenueAccountsApiState(aka)
+    const nameByAcctId = new Map(apiState.filter((a) => a.connect === 'Connect' && a.acctId).map((a) => [a.acctId, a.name]))
+    const names = nameByAcctId.size ? [] : await fetchRevenueAccountNames(aka)
     ids.forEach((id, i) => {
       const isVip = ids.length > 1 && i > 0
-      const accountName = (isVip
+      const accountName = nameByAcctId.get(id) || (isVip
         ? names.find((n) => /vip/i.test(n))
         : names.find((n) => !/vip/i.test(n))) || names[0] || `${aka} - ${isVip ? 'VIP' : 'Free'} OF`
       out.push({ id, accountName, creatorRecordId: rec.id })

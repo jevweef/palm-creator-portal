@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, getLastFingerprints, txnFingerprint,
   insertRowsAtTop, updateCutoffBanner, utcToEtDateTime, mapType, stripHtmlText,
-  fetchRevenueAccountNames,
+  fetchRevenueAccountNames, fetchRevenueAccountsApiState,
 } from '@/lib/transactionsSheet'
 import { getDropboxAccessToken, getDropboxRootNamespaceId, uploadToDropbox, downloadFromDropbox, createDropboxFolder } from '@/lib/dropbox'
 import { writeLiveEvent } from '@/lib/ofLiveBuffer'
@@ -285,13 +285,22 @@ async function opsAlert(accountId, event) {
     'accounts.face_otp_required': 'OF is asking for FACE verification',
   }[event] || event
   console.warn(`[of-webhook] ACCOUNT ALERT: ${who} — ${label}`)
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  const chatId = process.env.TELEGRAM_OPS_CHAT_ID || process.env.TELEGRAM_SMM_GROUP_CHAT_ID
+  // Ops alerts belong with the AI team in Palm Team → "OF API Alerts" topic
+  // (thread 211), via the heartbeat bot (a Palm Team member — the Send Posts
+  // bot is NOT). The old SMM-group fallback dumped these in Palm Social
+  // Media's General (Evan, 2026-07-22).
+  const token = process.env.TELEGRAM_HEARTBEAT_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
+  const chatId = process.env.TELEGRAM_OPS_CHAT_ID || '-1004293138854' // Palm Team
+  const topicId = process.env.TELEGRAM_OPS_TOPIC_ID || '211'          // OF API Alerts
   if (!token || !chatId) return
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: `⚠️ ${who}: ${label}\nFix at app.onlyfansapi.com → Accounts.` }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      ...(topicId ? { message_thread_id: Number(topicId) } : {}),
+      text: `⚠️ ${who}: ${label}\nFix at app.onlyfansapi.com → Accounts.`,
+    }),
   })
 }
 
@@ -319,10 +328,20 @@ async function resolveAccount(accountId) {
   const hit = CACHE.accounts[accountId]
   if (!hit) return null
   if (!hit.accountName) {
-    const names = await fetchRevenueAccountNames(hit.aka)
-    hit.accountName = (hit.isVip
-      ? names.find((n) => /vip/i.test(n))
-      : names.find((n) => !/vip/i.test(n))) || names[0] || `${hit.aka} - ${hit.isVip ? 'VIP' : 'Free'} OF`
+    // Per-account records are authoritative — each Revenue Account carries its
+    // own acct id, so a lone connected VIP page can't get booked into the Free
+    // tab (the old Free-first positional guess did exactly that). Positional
+    // stays as the legacy fallback for unmigrated records.
+    const apiState = await fetchRevenueAccountsApiState(hit.aka)
+    const byId = apiState.find((a) => a.connect === 'Connect' && a.acctId === accountId)
+    if (byId) {
+      hit.accountName = byId.name
+    } else {
+      const names = await fetchRevenueAccountNames(hit.aka)
+      hit.accountName = (hit.isVip
+        ? names.find((n) => /vip/i.test(n))
+        : names.find((n) => !/vip/i.test(n))) || names[0] || `${hit.aka} - ${hit.isVip ? 'VIP' : 'Free'} OF`
+    }
   }
   return hit
 }

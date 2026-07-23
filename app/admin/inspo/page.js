@@ -10,6 +10,7 @@ import AdminCandidates from '@/app/admin/candidates/page'
 import TextTrainingPage from '@/app/admin/training/page'
 import SuggestTestPage from '@/app/admin/suggest-test/page'
 import RecreatePage from '@/app/admin/recreate/page'
+import TextVideoPage from '@/app/admin/text-video/page'
 
 const TABS = [
   { key: 'pipeline', label: 'Pipeline', icon: '⚡' },
@@ -20,6 +21,7 @@ const TABS = [
   { key: 'training', label: 'Training', icon: '🧠' },
   { key: 'suggest', label: 'Suggest', icon: '✨' },
   { key: 'recreate', label: 'AI Recreate', icon: '🎨' },
+  { key: 'text-video', label: 'Text to Video', icon: '🎬' },
 ]
 
 export default function InspoBoard() {
@@ -67,6 +69,7 @@ export default function InspoBoard() {
       {activeTab === 'training' && <TextTrainingPage />}
       {activeTab === 'suggest' && <SuggestTestPage />}
       {activeTab === 'recreate' && <RecreatePage />}
+      {activeTab === 'text-video' && <TextVideoPage />}
     </div>
   )
 }

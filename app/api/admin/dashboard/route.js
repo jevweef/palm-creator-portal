@@ -54,6 +54,35 @@ async function fetchHqManagementStartByAka() {
     const start = r.fields?.['Management Start Date']
     if (aka && start) map[aka] = String(start).split('T')[0]
   }
+
+  // Per-ACCOUNT starts override the per-creator date: each Revenue Account
+  // carries its own Management Start Date (the same one invoicing clamps by),
+  // so "when does her revenue start counting" has ONE answer everywhere. A
+  // creator's chart start = the EARLIEST of her active accounts' dates.
+  try {
+    const params = new URLSearchParams()
+    params.set('filterByFormula', `AND({Platform}='OnlyFans',{Status}='Active')`)
+    params.append('fields[]', 'Account Name')
+    params.append('fields[]', 'Management Start Date')
+    params.set('pageSize', '100')
+    const res = await fetch(
+      `https://api.airtable.com/v0/${HQ_BASE}/tblQqPWlsjiyJA0ba?${params}`,
+      { headers: hqHeaders(), cache: 'no-store' }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const byAka = {}
+      for (const r of data.records || []) {
+        const name = r.fields?.['Account Name'] || ''
+        const start = r.fields?.['Management Start Date']
+        const aka = name.split(' - ')[0]
+        if (!aka || !start) continue
+        const d = String(start).split('T')[0]
+        if (!byAka[aka] || d < byAka[aka]) byAka[aka] = d
+      }
+      Object.assign(map, byAka)
+    }
+  } catch { /* per-creator dates stand alone */ }
   return map
 }
 

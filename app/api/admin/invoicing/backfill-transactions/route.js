@@ -6,6 +6,7 @@ import { ofApi, createDataExport, waitForDataExport, downloadExportCsv, findData
 import {
   sheetsClient, ensureTab, ensureExtraHeaders, readTabRows, txnFingerprint,
   appendRowsAtBottom, utcToEtDateTime, utcToEtDate, mapType, stripHtmlText,
+  fetchRevenueAccountsApiState,
 } from '@/lib/transactionsSheet'
 
 export const dynamic = 'force-dynamic'
@@ -34,10 +35,22 @@ export async function POST(request) {
       fields: ['Creator', 'AKA', 'OF API Account ID'],
     })
     const cf = creators[0]?.fields || {}
-    const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
-    const ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
+    // Per-account id first (see pull-transactions — the legacy VIP→2nd-id
+    // fallback could backfill the FREE account's history into a VIP tab).
+    const apiState = await fetchRevenueAccountsApiState(cf.AKA || cf.Creator)
+    const acct = apiState.find((a) => a.name.toLowerCase() === String(accountName).toLowerCase())
+    let ofAccountId
+    if (acct && (acct.connect || acct.acctId)) {
+      if (acct.connect === 'Skip') {
+        return NextResponse.json({ error: `${accountName} is marked Skip for the OF API — connect it on the onboarding board first` }, { status: 400 })
+      }
+      ofAccountId = acct.acctId
+    } else {
+      const idList = String(cf['OF API Account ID'] || '').split(',').map((x) => x.trim()).filter(Boolean)
+      ofAccountId = /vip/i.test(String(accountName)) ? (idList[1] || idList[0]) : idList[0]
+    }
     if (!ofAccountId) {
-      return NextResponse.json({ error: `${cf.AKA || 'This creator'} isn't connected to the OnlyFans API yet` }, { status: 400 })
+      return NextResponse.json({ error: `${accountName} isn't connected to the OnlyFans API yet — connect it on the onboarding board` }, { status: 400 })
     }
 
     const sheets = sheetsClient()

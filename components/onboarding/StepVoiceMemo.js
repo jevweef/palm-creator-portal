@@ -30,9 +30,13 @@ export default function StepVoiceMemo({ hqId, onComplete }) {
   // Upload a file (drag/drop or browse)
   const handleFileUpload = async (file) => {
     if (!file || !hqId) return
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav']
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav)$/i)) {
-      setError('Please upload an MP3 or WAV file')
+    // Accept what the server (voice-memo route) already supports — crucially
+    // .m4a, which is what iPhone Voice Memos export. Some browsers report an
+    // empty/odd MIME type for m4a, so we also accept by file extension.
+    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4',
+                        'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/ogg', 'audio/webm', 'video/mp4']
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|m4a|wav|ogg|webm|aac|mp4)$/i)) {
+      setError('Please upload an audio file (m4a, mp3, wav, ogg…).')
       return
     }
 

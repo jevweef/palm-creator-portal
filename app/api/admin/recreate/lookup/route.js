@@ -33,7 +33,7 @@ export async function GET(request) {
     // SEARCH is case-insensitive and tolerates URL format differences (/reel/ vs /reels/).
     const inspoRecords = await fetchAirtableRecords(INSPIRATION_TABLE, {
       filterByFormula: `SEARCH("${shortcode}", {Content link})`,
-      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Duration', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate End Scene Prompt', 'Recreate End Scene Negative', 'Recreate End Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate End Notes', 'Recreate Video Context', 'Recreate Source Frame URL', 'Recreate End Frame URL'],
+      fields: ['Content link', 'Username', 'Title', 'Thumbnail', 'DB Share Link', 'DB Raw = 1', 'DB Embed Code', 'On-Screen Text', 'Notes', 'Tags', 'Film Format', 'Kling Prompt', 'Status', 'Duration', 'Recreate Scene Prompt', 'Recreate Scene Negative', 'Recreate Shot Type', 'Recreate End Scene Prompt', 'Recreate End Scene Negative', 'Recreate End Shot Type', 'Recreate Motion Prompt', 'Recreate Motion Negative', 'Recreate Notes', 'Recreate End Notes', 'Recreate Video Context', 'Recreate Source Frame URL', 'Recreate End Frame URL', 'T2V Prompt'],
       maxRecords: 1,
     })
 
@@ -66,6 +66,7 @@ export async function GET(request) {
         recreateEndSceneNegative: r.fields['Recreate End Scene Negative'] || '',
         recreateEndShotType: r.fields['Recreate End Shot Type']?.name || r.fields['Recreate End Shot Type'] || '',
         recreateMotionPrompt: r.fields['Recreate Motion Prompt'] || '',
+        t2vPrompt: r.fields['T2V Prompt'] || '',
         recreateMotionNegative: r.fields['Recreate Motion Negative'] || '',
         recreateNotes: r.fields['Recreate Notes'] || '',
         recreateEndNotes: r.fields['Recreate End Notes'] || '',

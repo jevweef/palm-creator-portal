@@ -31,6 +31,13 @@ function fmt(n) {
   if (!n && n !== 0) return '—'
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+// Palm's true net = commission − chat team fee − forecasted Infloww fee.
+// Computed from parts (not the Airtable rollup) so inline earnings edits stay
+// consistent: editing a period's earnings moves commission/chat but not the
+// month-based Infloww forecast.
+function netAfterInfloww(r) {
+  return (r.netProfit || 0) - (r.inflowwFee || 0)
+}
 function pct(n) { return Math.round(n * 100) + '%' }
 function fmtDate(iso) {
   if (!iso) return ''
@@ -262,8 +269,9 @@ function SummaryBar({ records }) {
     tr: s.tr + (r.earnings || 0),
     commission: s.commission + (r.totalCommission || 0),
     chat: s.chat + (r.chatTeamCost || 0),
-    net: s.net + (r.netProfit || 0),
-  }), { tr: 0, commission: 0, chat: 0, net: 0 })
+    infloww: s.infloww + (r.inflowwFee || 0),
+    net: s.net + netAfterInfloww(r),
+  }), { tr: 0, commission: 0, chat: 0, infloww: 0, net: 0 })
 
   const byStatus = records.reduce((s, r) => { s[r.status] = (s[r.status] || 0) + 1; return s }, {})
 
@@ -273,6 +281,7 @@ function SummaryBar({ records }) {
         { label: 'Total Revenue', value: fmt(total.tr), color: 'var(--foreground)' },
         { label: 'Total Commission', value: fmt(total.commission), color: 'var(--palm-pink)' },
         { label: 'Chat Team Cost', value: fmt(total.chat), color: '#E8C878' },
+        { label: 'Infloww Fee', value: fmt(total.infloww), color: '#C99BD9' },
         { label: 'Net Profit', value: fmt(total.net), color: '#7DD3A4' },
       ].map(s => (
         <div key={s.label} style={{
@@ -314,7 +323,8 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
   const totalTr = rows.reduce((s, r) => s + (r.earnings || 0), 0)
   const totalFee = rows.reduce((s, r) => s + (r.totalCommission || 0), 0)
   const totalChat = rows.reduce((s, r) => s + (r.chatTeamCost || 0), 0)
-  const totalNet = rows.reduce((s, r) => s + (r.netProfit || 0), 0)
+  const totalInfloww = rows.reduce((s, r) => s + (r.inflowwFee || 0), 0)
+  const totalNet = rows.reduce((s, r) => s + netAfterInfloww(r), 0)
   const dueDate = rows[0]?.dueDate
   const periodStart = rows[0]?.periodStart
   const periodEnd = rows[0]?.periodEnd
@@ -425,7 +435,7 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
           </div>
           {sorted.map(record => (
             <div key={record.id} style={{
-              display: 'grid', gridTemplateColumns: '140px 1fr 120px 120px 120px 160px',
+              display: 'grid', gridTemplateColumns: '140px 1fr 110px 110px 110px 110px 150px',
               alignItems: 'center', gap: '12px', padding: '8px 0',
               borderBottom: '1px solid transparent',
             }}>
@@ -439,8 +449,11 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               <div style={{ fontSize: '12px', color: record.chatTeamCost > 0 ? '#E8C878' : '#bbb', textAlign: 'right' }}>
                 {record.chatTeamCost > 0 ? '− ' + fmt(record.chatTeamCost) : '—'}
               </div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: record.netProfit > 0 ? '#7DD3A4' : '#bbb', textAlign: 'right' }}>
-                {fmt(record.netProfit)}
+              <div style={{ fontSize: '12px', color: record.inflowwFee > 0 ? '#C99BD9' : '#bbb', textAlign: 'right' }} title="Forecasted Infloww platform fee (full-month, billed on the 15th–EOM invoice)">
+                {record.inflowwFee > 0 ? '− ' + fmt(record.inflowwFee) : '—'}
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: netAfterInfloww(record) > 0 ? '#7DD3A4' : '#bbb', textAlign: 'right' }}>
+                {fmt(netAfterInfloww(record))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
                 {(() => { const d = derivedStatus(record); return (
@@ -473,6 +486,9 @@ function CreatorGroup({ aka, rows, onSave, onBulkStatus, onOpenWorkflow, savingI
               <EarningsCell record={record} onSave={onSave} disabled={savingId === record.id} />
               {record.chatTeamCost > 0 && (
                 <span>Chat fee: <span style={{ color: '#E8C878' }}>−{fmt(record.chatTeamCost)}</span></span>
+              )}
+              {record.inflowwFee > 0 && (
+                <span title="Forecasted Infloww platform fee (full-month, billed on the 15th–EOM invoice)">Infloww: <span style={{ color: '#C99BD9' }}>−{fmt(record.inflowwFee)}</span></span>
               )}
               {record.status !== 'Draft' && (
                 <PaymentCell record={record} onSave={onSave} disabled={savingId === record.id} />
@@ -662,8 +678,13 @@ export default function InvoicingPage() {
         const u = { ...r }
         if (fields.earnings !== undefined) {
           u.earnings = fields.earnings
+          // Mirror the Airtable formulas: Commission = earnings × commission%,
+          // Chat Team Cost = earnings × chatFee% (a direct % of net revenue, NOT
+          // a cut of commission). Net Profit = commission − chat. The Infloww
+          // forecast is month-based and unaffected by a single period's edit, so
+          // it carries through unchanged (display nets it out via netAfterInfloww).
           u.totalCommission = fields.earnings * r.commissionPct
-          u.chatTeamCost = fields.earnings * r.commissionPct * r.chatFeePct
+          u.chatTeamCost = fields.earnings * r.chatFeePct
           u.netProfit = u.totalCommission - u.chatTeamCost
         }
         if (fields.status !== undefined) u.status = fields.status

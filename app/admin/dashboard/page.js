@@ -1084,12 +1084,20 @@ export default function AdminDashboard() {
     return () => ro.disconnect()
   }, [data])
 
-  // Derive creator list dynamically from revenue data (all AKAs with invoices)
+  // Derive creator list from revenue data (AKAs with invoices) UNION creators
+  // with sheet earnings data — a newly connected creator has sales before her
+  // first invoice ever exists (Kiki/Bianca were invisible here, 2026-07-20).
+  // Sheet-only creators must carry a Management Start Date (the per-account
+  // "counting starts" switch): a stray legacy tab with no start never sneaks
+  // unbounded history into agency revenue.
   const creatorList = useMemo(() => {
-    if (!data?.revenue?.byCreator) return []
-    const names = Array.from(new Set(data.revenue.byCreator.map(c => c.name).filter(Boolean)))
-    return names.sort()
-  }, [data])
+    const names = new Set((data?.revenue?.byCreator || []).map(c => c.name).filter(Boolean))
+    const starts = data?.revenue?.managementStartByCreator || {}
+    for (const name of Object.keys(earningsData || {})) {
+      if (starts[name]) names.add(name)
+    }
+    return Array.from(names).sort()
+  }, [data, earningsData])
 
   // name → creator id (from editorRunway — used for deep-links to /admin/creators?creator=<id>)
   const creatorIdByName = useMemo(() => {

@@ -36,7 +36,7 @@ When 1–4 pass on a test creator, onboarding is code-owned. ✅
 | # | Automation (source) | What it does | Replacement in code | Status |
 |---|---|---|---|---|
 | 1 | **"Create Default Accounts"** (Make scenario) | Webhook (HQ Creator Record ID + AKA) → create default social accounts; stamp `Defaults Created At`; error-handler row | `createDefaultSocialAccounts()` in `lib/creatorSetup.js` (now idempotent) | 🟡 code does it, **but Make scenario may still be armed** via trigger field |
-| 2 | **"Provision Dropbox Folders for Creator"** (Make scenario, registry = Complete) | **Copy Dropbox template folder → `/Creators/{AKA}/`**; create `01_Incoming` file request; write File Request URL back to HQ | `createCreatorFolders()` + `createCreatorFileRequests()` | 🟡 code does it, **but builds a hand-rolled tree, not a template copy** (structures may differ); Make may still be armed |
+| 2 | **"Provision Dropbox Folders for Creator"** (Make scenario, registry = Complete) | **Copy Dropbox template folder → `/Creators/{AKA}/`**; create `01_Incoming` file request; write File Request URL back to HQ | `createCreatorFolders()` + `createCreatorFileRequests()` | 🟡 **code now does a template copy when `DROPBOX_CREATOR_TEMPLATE_PATH` is set** (falls back to hand-rolled tree when unset — zero behavior change until configured). Pending: the template path + confirming its subfolders match `buildFolderPaths()`. Make may still be armed |
 | 3 | Trigger field writes (`Trigger Social Accounts Records`, `Create Dropbox Folders`) | Single-selects on HQ Onboarding that Make/Airtable automations watch | `runFullCreatorSetup()` still **writes** these (`creatorSetup.js` ~line 345-346) | ⛔ **liability** — remove the writes once #1/#2 Make scenarios are off |
 | 4 | `'Create Defaults'` button/trigger on HQ Creators (registry: Pending — never finished) | Was meant to kick off provisioning | Drawer **Run Setup** button → `POST /run-setup` | ✅ superseded by UI |
 | 5 | Auto-trigger provisioning after "Defaults Created" (registry: Pending) | Chain accounts→folders automatically | `runFullCreatorSetup()` orchestrates both in sequence | ✅ superseded by orchestration |
@@ -59,7 +59,7 @@ Likely candidates, all ❓ until confirmed from each base's **Automations** pane
 ## B. Decommission sequence (safe order)
 
 1. **See the truth.** Enumerate live Make scenarios (connect Make connector or paste list) + list Airtable automations on HQ Onboarding/Creators.
-2. **Match the template.** Get the canonical Dropbox template path + structure, then switch `createCreatorFolders()` to a single `copy_v2` of the template (so code output == what you do today). [resolves onboarding gap Q6]
+2. **Match the template.** ~~switch `createCreatorFolders()` to a single `copy_v2`~~ — **DONE in code** (`copyDropboxFolder()` in `lib/dropbox.js`; `createCreatorFolders()` copies the template when `DROPBOX_CREATOR_TEMPLATE_PATH` is set, else hand-rolled tree). Remaining: set `DROPBOX_CREATOR_TEMPLATE_PATH` env var in Vercel (+ `.env.local`) to the canonical template path, and confirm the template contains `Social Media/00_INCOMING_FILE_REQUEST` + `Long Form/10_UNREVIEWED_LIBRARY` so file-request destinations line up. [resolves onboarding gap Q6]
 3. **Turn OFF** Make "Create Default Accounts" + "Provision Dropbox Folders for Creator", and any Airtable automation watching the trigger fields.
 4. **Remove the trigger-field writes** (`creatorSetup.js` ~line 345-346) — they're dead weight once #3 is done.
 5. **Verify** against the Definition of Done on a fresh test creator.
@@ -67,10 +67,10 @@ Likely candidates, all ❓ until confirmed from each base's **Automations** pane
 ---
 
 ## C. Open inputs needed from Evan
-- [ ] Make.com scenario list + on/off state (connector auth, or paste).
-- [ ] Airtable automations list on HQ Onboarding + HQ Creators (Automations panel).
-- [ ] Canonical Dropbox **template folder path** + its full subfolder structure.
-- [ ] Confirm default platform set (is X/Twitter supposed to be auto-created?).
+- [ ] **Make.com connector auth** — run `/mcp` in Claude Code and authorize "claude.ai Make" (the connector tool can't complete OAuth headlessly). Then I can enumerate every scenario + on/off + webhook triggers.
+- [ ] Airtable automations list on HQ Onboarding + HQ Creators (Automations panel — the API can't read these).
+- [ ] Canonical Dropbox **template folder path** + its full subfolder structure → set as `DROPBOX_CREATOR_TEMPLATE_PATH`. (Code path is built and waiting; see A#2 / B#2.)
+- [ ] Confirm default platform set (is X/Twitter supposed to be auto-created? current code: TikTok/YouTube/OFTV + IG Main-if-handle; Palm IG ×3 → SM Setup Request).
 
 ## D. Out of onboarding scope (separate offload, Make-heavy — track elsewhere)
 Daily Dropbox Ingestion, Duplicate Ready File / platform routing, Historical
